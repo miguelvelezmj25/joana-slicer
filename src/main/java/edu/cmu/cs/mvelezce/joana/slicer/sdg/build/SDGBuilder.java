@@ -26,8 +26,6 @@ public class SDGBuilder {
   private final String programName;
   private final SDGConfig sdgConfig;
 
-  private SDG sdgCache = null;
-
   public SDGBuilder(String programName, String classPath, String entryMethod) {
     this.programName = programName;
     this.sdgConfig = new SDGConfig(classPath, entryMethod, Stubs.JRE_16);
@@ -73,20 +71,18 @@ public class SDGBuilder {
   public SDG build()
       throws GraphIntegrity.UnsoundGraphException, CancelException, ClassHierarchyException,
           IOException {
+    long start = System.currentTimeMillis();
     SDGProgram sdgProgram = SDGProgram.createSDGProgram(this.sdgConfig);
-    this.sdgCache = sdgProgram.getSDG();
-    return this.sdgCache;
+    long end = System.currentTimeMillis();
+    System.out.println("Built SDG in: " + ((end - start) / 1E3) + " seconds");
+    return sdgProgram.getSDG();
   }
 
-  public void save() throws FileNotFoundException {
-    if (this.sdgCache == null) {
-      throw new RuntimeException("You need to build a SDG before trying to save it");
-    }
-
+  public void save(SDG sdg) throws FileNotFoundException {
     File outputFile = new File("./sdgs/" + programName + DOT_PDG);
     if (!outputFile.getParentFile().exists() && !outputFile.getParentFile().mkdirs()) {
       throw new RuntimeException("Could not create parent directories for " + outputFile);
     }
-    SDGSerializer.toPDGFormat(this.sdgCache, new PrintWriter(outputFile));
+    SDGSerializer.toPDGFormat(sdg, new PrintWriter(outputFile));
   }
 }
