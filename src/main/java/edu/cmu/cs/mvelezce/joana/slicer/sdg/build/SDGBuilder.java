@@ -21,7 +21,7 @@ import java.io.PrintWriter;
 
 public class SDGBuilder {
 
-  private static final String DOT_PDG = ".pdg";
+  public static final String DOT_PDG = ".pdg";
 
   private final String programName;
   private final SDGConfig sdgConfig;
