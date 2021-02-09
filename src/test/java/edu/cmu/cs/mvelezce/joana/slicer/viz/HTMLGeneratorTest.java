@@ -20,5 +20,6 @@ class HTMLGeneratorTest {
             + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/";
     HTMLGenerator generator = new HTMLGenerator(programName, srcDir, filesToLines.keySet());
     generator.readFiles();
+    generator.generateHTML();
   }
 }
