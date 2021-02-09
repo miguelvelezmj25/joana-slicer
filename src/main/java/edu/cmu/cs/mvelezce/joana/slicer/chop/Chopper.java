@@ -17,6 +17,7 @@ import java.util.*;
 
 public class Chopper {
 
+  public static final String HOME_DIR = System.getProperty("user.home");
   public static final String ROOT_DIR = "./src/main/resources/chops/";
   public static final String DOT_JSON = ".json";
 
