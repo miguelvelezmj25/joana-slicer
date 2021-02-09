@@ -7,6 +7,12 @@ public class Lines {
   private final int startLineNumber;
   private final int endLineNumber;
 
+  // Dummy constructor for fasterxml
+  private Lines() {
+    this.startLineNumber = -1;
+    this.endLineNumber = -1;
+  }
+
   public Lines(int startLineNumber, int endLineNumber) {
     this.startLineNumber = startLineNumber;
     this.endLineNumber = endLineNumber;

@@ -1,5 +1,6 @@
 package edu.cmu.cs.mvelezce.joana.slicer.chop;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import edu.cmu.cs.mvelezce.joana.slicer.data.ChopData;
@@ -8,6 +9,7 @@ import edu.kit.joana.ifc.sdg.graph.SDG;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
 import edu.kit.joana.ifc.sdg.graph.chopper.conc.ContextSensitiveThreadChopper;
 import edu.kit.joana.util.SourceLocation;
+import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,10 +20,17 @@ public class Chopper {
   public static final String ROOT_DIR = "./src/main/resources/chops/";
   public static final String DOT_JSON = ".json";
 
+  private static final Comparator<Lines> LINES_COMPARATOR =
+      Comparator.comparingInt(Lines::getStartLineNumber).thenComparing(Lines::getEndLineNumber);
+
   private final String programName;
   private final SDG sdg;
   private final int sourceNode;
   private final int targetNode;
+
+  public Chopper(String programName) {
+    this(programName, null, -1, -1);
+  }
 
   public Chopper(String programName, SDG sdg, int sourceNode, int targetNode) {
     this.programName = programName;
@@ -47,11 +56,7 @@ public class Chopper {
   public static Map<String, SortedSet<Lines>> parseFilesToLines(Set<ChopData> chopDataSet) {
     Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
     for (ChopData chopData : chopDataSet) {
-      filesToLines.put(
-          chopData.getFileName(),
-          new TreeSet<>(
-              Comparator.comparingInt(Lines::getStartLineNumber)
-                  .thenComparing(Lines::getEndLineNumber)));
+      filesToLines.put(chopData.getFileName(), new TreeSet<>(LINES_COMPARATOR));
     }
     for (ChopData chopData : chopDataSet) {
       Lines lines = new Lines(chopData.getStartLineNumber(), chopData.getEndLineNumber());
@@ -86,5 +91,27 @@ public class Chopper {
     ObjectMapper mapper = new ObjectMapper();
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
     mapper.writeValue(file, filesToLines);
+  }
+
+  public Map<String, SortedSet<Lines>> readFilesToLines() throws IOException {
+    File dir = new File(ROOT_DIR + this.programName + "/");
+    Collection<File> files = FileUtils.listFiles(dir, new String[] {"json"}, false);
+    if (files.size() != 1) {
+      throw new RuntimeException("Expected to get a single file at " + dir);
+    }
+
+    File filesToLinesFile = files.iterator().next();
+    ObjectMapper mapper = new ObjectMapper();
+    Map<String, Set<Lines>> filesToUnsortedLines =
+        mapper.readValue(filesToLinesFile, new TypeReference<Map<String, Set<Lines>>>() {});
+
+    Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
+    for (String file : filesToUnsortedLines.keySet()) {
+      filesToLines.put(file, new TreeSet<>(LINES_COMPARATOR));
+    }
+    for (Map.Entry<String, Set<Lines>> entry : filesToUnsortedLines.entrySet()) {
+      filesToLines.get(entry.getKey()).addAll(entry.getValue());
+    }
+    return filesToLines;
   }
 }
