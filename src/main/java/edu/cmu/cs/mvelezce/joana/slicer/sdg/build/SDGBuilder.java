@@ -21,6 +21,7 @@ import java.io.PrintWriter;
 
 public class SDGBuilder {
 
+  public static final String ROOT_DIR = "./src/main/resources/sdgs/";
   public static final String DOT_PDG = ".pdg";
 
   private final String programName;
@@ -79,7 +80,7 @@ public class SDGBuilder {
   }
 
   public void save(SDG sdg) throws FileNotFoundException {
-    File outputFile = new File("./sdgs/" + programName + DOT_PDG);
+    File outputFile = new File(ROOT_DIR + this.programName + "/" + this.programName + DOT_PDG);
     if (!outputFile.getParentFile().exists() && !outputFile.getParentFile().mkdirs()) {
       throw new RuntimeException("Could not create parent directories for " + outputFile);
     }
