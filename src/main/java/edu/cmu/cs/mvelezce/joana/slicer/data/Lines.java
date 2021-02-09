@@ -2,20 +2,14 @@ package edu.cmu.cs.mvelezce.joana.slicer.data;
 
 import com.google.common.base.Objects;
 
-public class ChopData {
+public class Lines {
 
-  private final String fileName;
   private final int startLineNumber;
   private final int endLineNumber;
 
-  public ChopData(String fileName, int startLineNumber, int endLineNumber) {
-    this.fileName = fileName;
+  public Lines(int startLineNumber, int endLineNumber) {
     this.startLineNumber = startLineNumber;
     this.endLineNumber = endLineNumber;
-  }
-
-  public String getFileName() {
-    return fileName;
   }
 
   public int getStartLineNumber() {
@@ -30,14 +24,12 @@ public class ChopData {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    ChopData chopData = (ChopData) o;
-    return startLineNumber == chopData.startLineNumber
-        && endLineNumber == chopData.endLineNumber
-        && Objects.equal(fileName, chopData.fileName);
+    Lines lines = (Lines) o;
+    return startLineNumber == lines.startLineNumber && endLineNumber == lines.endLineNumber;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(fileName, startLineNumber, endLineNumber);
+    return Objects.hashCode(startLineNumber, endLineNumber);
   }
 }

@@ -1,6 +1,7 @@
 package edu.cmu.cs.mvelezce.joana.slicer.chop;
 
 import edu.cmu.cs.mvelezce.joana.slicer.data.ChopData;
+import edu.cmu.cs.mvelezce.joana.slicer.data.Lines;
 import edu.cmu.cs.mvelezce.joana.slicer.sdg.read.SDGReader;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
@@ -8,6 +9,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
 
 class ChopperTest {
 
@@ -18,7 +22,8 @@ class ChopperTest {
     int targetNode = 21;
     Chopper chopper = getChopper(programName, sourceNode, targetNode);
     Collection<SDGNode> chop = chopper.chop();
-    Collection<ChopData> chopDataSet = Chopper.parseChopData(chop);
+    Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
+    Map<String, SortedSet<Lines>> filesToLines = Chopper.parseFilesToLines(chopDataSet);
   }
 
   private Chopper getChopper(String programName, int sourceNode, int targetNode)
