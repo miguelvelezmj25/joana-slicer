@@ -3,6 +3,7 @@ package edu.cmu.cs.mvelezce.joana.slicer.sdg.build;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.graph.GraphIntegrity;
+import edu.kit.joana.ifc.sdg.graph.SDG;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -21,7 +22,7 @@ class SDGBuilderTest {
             + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/target/classes";
     String entryMethod = "edu.cmu.cs.mvelezce.features.Main.main([Ljava/lang/String;)V";
     SDGBuilder builder = new SDGBuilder(programName, classPath, entryMethod);
-    builder.build();
-    builder.save();
+    SDG sdg = builder.build();
+    builder.save(sdg);
   }
 }
