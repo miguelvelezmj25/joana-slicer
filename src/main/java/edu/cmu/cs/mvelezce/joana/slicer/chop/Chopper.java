@@ -60,6 +60,12 @@ public class Chopper {
     return filesToLines;
   }
 
+  public Map<String, SortedSet<Lines>> chopAndProcess() {
+    Collection<SDGNode> chop = this.chop();
+    Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
+    return Chopper.parseFilesToLines(chopDataSet);
+  }
+
   public Collection<SDGNode> chop() {
     long start = System.currentTimeMillis();
     edu.kit.joana.ifc.sdg.graph.chopper.Chopper chopper =
