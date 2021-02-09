@@ -1,5 +1,7 @@
 package edu.cmu.cs.mvelezce.joana.slicer.chop;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import edu.cmu.cs.mvelezce.joana.slicer.data.ChopData;
 import edu.cmu.cs.mvelezce.joana.slicer.data.Lines;
 import edu.kit.joana.ifc.sdg.graph.SDG;
@@ -7,9 +9,14 @@ import edu.kit.joana.ifc.sdg.graph.SDGNode;
 import edu.kit.joana.ifc.sdg.graph.chopper.conc.ContextSensitiveThreadChopper;
 import edu.kit.joana.util.SourceLocation;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 public class Chopper {
+
+  public static final String ROOT_DIR = "./src/main/resources/chops/";
+  public static final String DOT_JSON = ".json";
 
   private final String programName;
   private final SDG sdg;
@@ -62,5 +69,16 @@ public class Chopper {
     long end = System.currentTimeMillis();
     System.out.println("Chopper in: " + ((end - start) / 1E3) + " seconds");
     return chop;
+  }
+
+  public void saveFilesToLines(Map<String, SortedSet<Lines>> filesToLines) throws IOException {
+    String outputFile = ROOT_DIR + this.programName + "/" + this.programName + DOT_JSON;
+    File file = new File(outputFile);
+    if (!file.getParentFile().exists() && !file.getParentFile().mkdirs()) {
+      throw new RuntimeException("Could not create parent dirs for " + outputFile);
+    }
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.enable(SerializationFeature.INDENT_OUTPUT);
+    mapper.writeValue(file, filesToLines);
   }
 }

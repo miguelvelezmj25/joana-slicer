@@ -24,6 +24,7 @@ class ChopperTest {
     Collection<SDGNode> chop = chopper.chop();
     Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
     Map<String, SortedSet<Lines>> filesToLines = Chopper.parseFilesToLines(chopDataSet);
+    chopper.saveFilesToLines(filesToLines);
   }
 
   private Chopper getChopper(String programName, int sourceNode, int targetNode)
