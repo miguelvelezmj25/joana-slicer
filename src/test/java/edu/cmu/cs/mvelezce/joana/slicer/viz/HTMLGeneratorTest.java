@@ -18,7 +18,7 @@ class HTMLGeneratorTest {
     String srcDir =
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/";
-    HTMLGenerator generator = new HTMLGenerator(programName, srcDir, filesToLines.keySet());
+    HTMLGenerator generator = new HTMLGenerator(programName, srcDir, filesToLines);
     generator.readFiles();
     generator.generateHTML();
   }

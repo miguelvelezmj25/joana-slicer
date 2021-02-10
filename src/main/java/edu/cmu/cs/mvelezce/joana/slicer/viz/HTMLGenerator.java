@@ -1,9 +1,9 @@
 package edu.cmu.cs.mvelezce.joana.slicer.viz;
 
+import edu.cmu.cs.mvelezce.joana.slicer.data.Lines;
 import j2html.TagCreator;
 import j2html.tags.DomContent;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,48 +15,66 @@ public class HTMLGenerator {
 
   private final String programName;
   private final String srcDir;
-  private final Map<File, List<String>> filesToContents = new HashMap<>();
+  private final Map<String, SortedSet<Lines>> filesToLines;
+  private final Map<String, List<String>> filesToContents = new HashMap<>();
 
-  public HTMLGenerator(String programName, String srcDir, Set<String> filesToRead) {
+  public HTMLGenerator(
+      String programName, String srcDir, Map<String, SortedSet<Lines>> filesToLines) {
     this.programName = programName;
     this.srcDir = srcDir;
-    for (String file : filesToRead) {
-      this.filesToContents.put(new File(file), new ArrayList<>());
+    this.filesToLines = filesToLines;
+    for (String file : filesToLines.keySet()) {
+      this.filesToContents.put(file, new ArrayList<>());
     }
   }
 
   public void readFiles() throws IOException {
-    for (Map.Entry<File, List<String>> entry : this.filesToContents.entrySet()) {
-      File file = entry.getKey();
+    for (Map.Entry<String, List<String>> entry : this.filesToContents.entrySet()) {
+      String file = entry.getKey();
       List<String> contents = entry.getValue();
-      try (Stream<String> stream =
-          Files.lines(Paths.get(srcDir + file.getPath()), StandardCharsets.UTF_8)) {
+      try (Stream<String> stream = Files.lines(Paths.get(srcDir + file), StandardCharsets.UTF_8)) {
         stream.forEach(contents::add);
       }
       this.filesToContents.put(file, contents);
     }
   }
 
-  public Map<File, String> generateHTML() {
-    Map<File, String> filesToHTML = new HashMap<>();
-    for (File file : this.filesToContents.keySet()) {
+  public Map<String, String> generateHTML() {
+    Map<String, String> filesToHTML = new HashMap<>();
+    for (String file : this.filesToContents.keySet()) {
       filesToHTML.put(file, "");
     }
 
-    for (Map.Entry<File, List<String>> entry : this.filesToContents.entrySet()) {
-      List<DomContent> body = new ArrayList<>();
-      for (String line : entry.getValue()) {
-        if (line.isEmpty()) {
-          line = " ";
-        }
-        body.add(TagCreator.div(line));
-      }
+    for (String file : filesToHTML.keySet()) {
       String html =
-          TagCreator.html(
-                  TagCreator.body(TagCreator.pre(TagCreator.code(body.toArray(new DomContent[0])))))
-              .render();
-      filesToHTML.put(entry.getKey(), html);
+          this.generateHTMLForFile(this.filesToContents.get(file), this.filesToLines.get(file));
+      filesToHTML.put(file, html);
     }
     return filesToHTML;
+  }
+
+  private String generateHTMLForFile(List<String> contents, SortedSet<Lines> sliceLines) {
+    List<DomContent> body = new ArrayList<>();
+    for (int i = 0; i < contents.size(); i++) {
+      String line = contents.get(i);
+      if (this.isLineSlice(i + 1, sliceLines)) {
+        line = "* " + line;
+      } else {
+        line = "  " + line;
+      }
+      body.add(TagCreator.div(line));
+    }
+    return TagCreator.html(
+            TagCreator.body(TagCreator.pre(TagCreator.code(body.toArray(new DomContent[0])))))
+        .render();
+  }
+
+  private boolean isLineSlice(int lineNumber, SortedSet<Lines> sliceLines) {
+    for (Lines lines : sliceLines) {
+      if (lines.getStartLineNumber() == lineNumber) {
+        return true;
+      }
+    }
+    return false;
   }
 }
