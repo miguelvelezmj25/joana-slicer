@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.SortedSet;
 
-class HTMLGeneratorTest {
+class SliceVizGeneratorTest {
 
   @Test
   void main() throws IOException {
@@ -18,8 +18,7 @@ class HTMLGeneratorTest {
     String srcDir =
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/";
-    HTMLGenerator generator = new HTMLGenerator(programName, srcDir, filesToLines);
-    generator.readFiles();
-    generator.generateHTML();
+    SliceVizGenerator generator = new SliceVizGenerator(programName, srcDir, filesToLines);
+    generator.generateHTMLViz();
   }
 }
