@@ -39,7 +39,14 @@ class SliceVizGeneratorTest {
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/perf-debug-systems/density-converter/src/main/java/";
     SliceVizGenerator generator =
-        new SliceVizGenerator(programName, srcDir, filesToLines, "", -1, "", -1);
+        new SliceVizGenerator(
+            programName,
+            srcDir,
+            filesToLines,
+            "at/favre/tools/dconvert/Convert.java",
+            54,
+            "com/mortennobel/imagescaling/ResampleOp.java",
+            284);
     generator.generateHTMLViz();
   }
 }
