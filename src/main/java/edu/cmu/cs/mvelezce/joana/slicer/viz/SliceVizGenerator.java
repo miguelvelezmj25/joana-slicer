@@ -29,6 +29,11 @@ public class SliceVizGenerator {
     this.srcDir = srcDir;
     this.filesToLines = filesToLines;
     for (String file : filesToLines.keySet()) {
+      if (file.startsWith("java/")
+          || file.startsWith("javax/")
+          || file.startsWith("com/ibm/wala")) {
+        continue;
+      }
       this.filesToContents.put(file, new ArrayList<>());
     }
   }
@@ -90,12 +95,12 @@ public class SliceVizGenerator {
   }
 
   public void saveViz(Map<String, String> filesToHTMLs) throws IOException {
-    File rootDir = new File(ROOT_DIR + this.programName + "/");
+    File rootDir = new File(ROOT_DIR + this.programName);
     if (rootDir.exists()) {
       FileUtils.forceDelete(rootDir);
     }
     for (Map.Entry<String, String> entry : filesToHTMLs.entrySet()) {
-      File file = new File(rootDir + entry.getKey().replace(".java", ".html"));
+      File file = new File(rootDir + "/" + entry.getKey().replace(".java", ".html"));
       if (!file.getParentFile().exists() && !file.getParentFile().mkdirs()) {
         throw new RuntimeException("Could not create parent dirs for " + file);
       }

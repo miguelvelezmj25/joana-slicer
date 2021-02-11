@@ -21,4 +21,16 @@ class SliceVizGeneratorTest {
     SliceVizGenerator generator = new SliceVizGenerator(programName, srcDir, filesToLines);
     generator.generateHTMLViz();
   }
+
+  @Test
+  void density() throws IOException {
+    String programName = "density";
+    Chopper chopper = new Chopper(programName);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.readFilesToLines();
+    String srcDir =
+        Chopper.HOME_DIR
+            + "/Documents/programming/java/projects/perf-debug-systems/density-converter/src/main/java/";
+    SliceVizGenerator generator = new SliceVizGenerator(programName, srcDir, filesToLines);
+    generator.generateHTMLViz();
+  }
 }
