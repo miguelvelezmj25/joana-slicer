@@ -18,7 +18,15 @@ class SliceVizGeneratorTest {
     String srcDir =
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/";
-    SliceVizGenerator generator = new SliceVizGenerator(programName, srcDir, filesToLines);
+    SliceVizGenerator generator =
+        new SliceVizGenerator(
+            programName,
+            srcDir,
+            filesToLines,
+            "edu/cmu/cs/mvelezce/features/Main.java",
+            6,
+            "edu/cmu/cs/mvelezce/features/Main.java",
+            9);
     generator.generateHTMLViz();
   }
 
@@ -30,7 +38,8 @@ class SliceVizGeneratorTest {
     String srcDir =
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/perf-debug-systems/density-converter/src/main/java/";
-    SliceVizGenerator generator = new SliceVizGenerator(programName, srcDir, filesToLines);
+    SliceVizGenerator generator =
+        new SliceVizGenerator(programName, srcDir, filesToLines, "", -1, "", -1);
     generator.generateHTMLViz();
   }
 }
