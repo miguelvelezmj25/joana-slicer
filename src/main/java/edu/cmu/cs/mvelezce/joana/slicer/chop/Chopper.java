@@ -51,11 +51,14 @@ public class Chopper {
     Set<ChopData> chopDataSet = new HashSet<>();
     for (SDGNode node : nodes) {
       SourceLocation sourceLocation = node.getSourceLocation();
+      String file = sourceLocation.getSourceFile();
+      if (file.startsWith("java/")
+          || file.startsWith("javax/")
+          || file.startsWith("com/ibm/wala")) {
+        continue;
+      }
       ChopData chopData =
-          new ChopData(
-              sourceLocation.getSourceFile(),
-              sourceLocation.getStartRow(),
-              sourceLocation.getEndRow());
+          new ChopData(file, sourceLocation.getStartRow(), sourceLocation.getEndRow());
       chopDataSet.add(chopData);
     }
     return chopDataSet;
