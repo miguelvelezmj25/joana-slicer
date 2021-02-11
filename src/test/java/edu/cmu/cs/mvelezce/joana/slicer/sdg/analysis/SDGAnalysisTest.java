@@ -17,9 +17,9 @@ class SDGAnalysisTest {
 
     String method = "edu.cmu.cs.mvelezce.features.Main.main([Ljava/lang/String;)V";
     Set<SDGNode> methodNodes = analysis.getMethodNodes(method);
-    //
-    //    int line = 9;
-    //    Set<SDGNode> lineNodes = analysis.getLineNodes(line);
+
+    int line = 9;
+    Set<SDGNode> lineNodes = analysis.getLineNodes(line);
 
     analysis.getUnresolvedCallTargets();
     System.out.println();

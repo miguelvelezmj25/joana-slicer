@@ -15,7 +15,7 @@ class ChopperTest {
   void main() throws IOException {
     String programName = "main";
     int sourceNode = 5;
-    int targetNode = 21;
+    int targetNode = 22;
     String algo = Chopper.SIMPLE_THREAD_BARRIER_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
