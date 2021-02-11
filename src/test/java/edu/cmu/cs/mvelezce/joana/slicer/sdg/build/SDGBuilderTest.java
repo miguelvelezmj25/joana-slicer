@@ -31,7 +31,9 @@ class SDGBuilderTest {
       throws IOException, CancelException, ClassHierarchyException,
           GraphIntegrity.UnsoundGraphException {
     String programName = "density";
-    String classPath = USER_HOME + "/Downloads/density-converter-1.6/target/classes";
+    String classPath =
+        USER_HOME
+            + "/Documents/programming/java/projects/perf-debug-systems/density-converter/target/classes";
     String entryMethod = "at.favre.tools.dconvert.Convert.main([Ljava/lang/String;)V";
     SDGBuilder builder = new SDGBuilder(programName, classPath, entryMethod);
     SDG sdg = builder.build();
