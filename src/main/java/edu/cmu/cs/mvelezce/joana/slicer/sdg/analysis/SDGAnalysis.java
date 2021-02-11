@@ -5,6 +5,7 @@ import edu.kit.joana.ifc.sdg.graph.SDGNode;
 
 import java.util.Comparator;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeSet;
 
 public class SDGAnalysis {
@@ -36,5 +37,36 @@ public class SDGAnalysis {
       }
     }
     return lineNodes;
+  }
+
+  public SortedSet<String> getUnresolvedCallTargets() {
+    SortedSet<String> unresolvedCallTargets = new TreeSet<>(String::compareTo);
+    Set<SDGNode> nodes = this.sdg.vertexSet();
+    for (SDGNode node : nodes) {
+      String unresolvedCallTarget = node.getUnresolvedCallTarget();
+      if (unresolvedCallTarget == null
+          || unresolvedCallTarget.startsWith("java")
+          || unresolvedCallTarget.startsWith("sun")
+          || unresolvedCallTarget.startsWith("com.sun")
+          || unresolvedCallTarget.startsWith("com.twelvemonkeys")
+          || unresolvedCallTarget.startsWith("com.ibm.wala")) {
+        continue;
+      }
+      unresolvedCallTargets.add(unresolvedCallTarget);
+    }
+    return unresolvedCallTargets;
+  }
+
+  public Set<String> getAnalyzedMethods() {
+    Set<SDGNode> nodes = this.sdg.vertexSet();
+    Set<String> methods = new TreeSet<>(String::compareTo);
+    for (SDGNode node : nodes) {
+      if (!node.getBytecodeMethod().startsWith("at.")
+          && !node.getBytecodeMethod().startsWith("com.mortennobel.")) {
+        continue;
+      }
+      methods.add(node.getBytecodeMethod());
+    }
+    return methods;
   }
 }

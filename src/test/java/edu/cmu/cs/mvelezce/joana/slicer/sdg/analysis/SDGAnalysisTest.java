@@ -17,9 +17,37 @@ class SDGAnalysisTest {
 
     String method = "edu.cmu.cs.mvelezce.features.Main.main([Ljava/lang/String;)V";
     Set<SDGNode> methodNodes = analysis.getMethodNodes(method);
+    //
+    //    int line = 9;
+    //    Set<SDGNode> lineNodes = analysis.getLineNodes(line);
 
-    int line = 9;
-    Set<SDGNode> lineNodes = analysis.getLineNodes(line);
+    analysis.getUnresolvedCallTargets();
+    System.out.println();
+  }
+
+  @Test
+  void density() throws IOException {
+    String programName = "density";
+    SDGAnalysis analysis = getSDGAnalysis(programName);
+
+    String method = "at.favre.tools.dconvert.Convert.main([Ljava/lang/String;)V";
+    Set<SDGNode> srcMethodNodes = analysis.getMethodNodes(method);
+
+    method = "com.mortennobel.imagescaling.ResampleOp.verticalFromWorkToDst([[B[BII)V";
+    Set<SDGNode> tgtMethodNodes = analysis.getMethodNodes(method);
+
+    Set<String> analyzedMethods = analysis.getAnalyzedMethods();
+    System.out.println("analyzed methods");
+    for (String analyzedMethod : analyzedMethods) {
+      System.out.println(analyzedMethod);
+    }
+    System.out.println();
+
+    Set<String> unresolvedCallTargets = analysis.getUnresolvedCallTargets();
+    System.out.println("Unresolved targets");
+    for (String unresolvedTarget : unresolvedCallTargets) {
+      System.out.println(unresolvedTarget);
+    }
     System.out.println();
   }
 
