@@ -27,6 +27,7 @@ public class SliceVizGenerator {
   private final int srcLine;
   private final String tgtFile;
   private final int tgtLine;
+  private final String algo;
 
   public SliceVizGenerator(
       String programName,
@@ -35,7 +36,8 @@ public class SliceVizGenerator {
       String srcFile,
       int srcLine,
       String tgtFile,
-      int tgtLine) {
+      int tgtLine,
+      String algo) {
     this.programName = programName;
     this.srcDir = srcDir;
     this.filesToLines = filesToLines;
@@ -46,6 +48,7 @@ public class SliceVizGenerator {
     this.srcLine = srcLine;
     this.tgtFile = tgtFile;
     this.tgtLine = tgtLine;
+    this.algo = algo;
   }
 
   public void generateHTMLViz() throws IOException {
@@ -122,7 +125,7 @@ public class SliceVizGenerator {
   }
 
   public void saveViz(Map<String, String> filesToHTMLs) throws IOException {
-    File rootDir = new File(ROOT_DIR + this.programName);
+    File rootDir = new File(ROOT_DIR + this.programName + "/" + this.algo);
     if (rootDir.exists()) {
       FileUtils.forceDelete(rootDir);
     }

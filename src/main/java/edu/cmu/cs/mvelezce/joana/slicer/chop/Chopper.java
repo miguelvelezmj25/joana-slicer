@@ -96,8 +96,8 @@ public class Chopper {
   private final String algo;
   private final Set<SDGNode> barrierNodes = new HashSet<>();
 
-  public Chopper(String programName) {
-    this(programName, new SDG(), -1, -1, "");
+  public Chopper(String programName, String algo) {
+    this(programName, new SDG(), -1, -1, algo);
   }
 
   public Chopper(String programName, SDG sdg, int sourceNode, int targetNode, String algo) {
@@ -301,7 +301,7 @@ public class Chopper {
   }
 
   public Map<String, SortedSet<Lines>> readFilesToLines() throws IOException {
-    File dir = new File(ROOT_DIR + this.programName + "/");
+    File dir = new File(ROOT_DIR + this.programName + "/" + this.algo);
     Collection<File> files = FileUtils.listFiles(dir, new String[] {"json"}, false);
     if (files.size() != 1) {
       throw new RuntimeException("Expected to get a single file at " + dir);

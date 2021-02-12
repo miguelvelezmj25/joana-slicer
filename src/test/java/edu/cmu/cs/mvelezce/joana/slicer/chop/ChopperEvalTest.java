@@ -34,7 +34,7 @@ class ChopperEvalTest {
       builder.command(command);
 
       Process process = builder.start();
-      if (process.waitFor(2, TimeUnit.SECONDS)) {
+      if (process.waitFor(10, TimeUnit.MINUTES)) {
         System.out.println("Algo: " + algo + " finished");
         Executor.processOutput(process);
         try {
@@ -56,7 +56,7 @@ class ChopperEvalTest {
       System.out.println();
       System.out.println();
       System.gc();
-      Thread.sleep(2000);
+      Thread.sleep(20000);
     }
   }
 

@@ -13,7 +13,8 @@ class SliceVizGeneratorTest {
   @Test
   void main() throws IOException {
     String programName = "main";
-    Chopper chopper = new Chopper(programName);
+    String algo = Chopper.SIMPLE_THREAD_CHOPPER_ALGO;
+    Chopper chopper = new Chopper(programName, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.readFilesToLines();
     String srcDir =
         Chopper.HOME_DIR
@@ -26,14 +27,50 @@ class SliceVizGeneratorTest {
             "edu/cmu/cs/mvelezce/features/Main.java",
             6,
             "edu/cmu/cs/mvelezce/features/Main.java",
-            9);
+            9,
+            algo);
     generator.generateHTMLViz();
+  }
+
+  @Test
+  void mainAll() throws IOException {
+    String programName = "main";
+    for (String algo : Chopper.ALGOS) {
+      System.out.println("Viz for algo: " + algo);
+      try {
+        Chopper chopper = new Chopper(programName, algo);
+        Map<String, SortedSet<Lines>> filesToLines = chopper.readFilesToLines();
+        String srcDir =
+            Chopper.HOME_DIR
+                + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/";
+        SliceVizGenerator generator =
+            new SliceVizGenerator(
+                programName,
+                srcDir,
+                filesToLines,
+                "edu/cmu/cs/mvelezce/features/Main.java",
+                6,
+                "edu/cmu/cs/mvelezce/features/Main.java",
+                9,
+                algo);
+        generator.generateHTMLViz();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+
+      System.out.println();
+      System.out.println();
+      System.out.println("===============================================");
+      System.out.println();
+      System.out.println();
+    }
   }
 
   @Test
   void density() throws IOException {
     String programName = "density";
-    Chopper chopper = new Chopper(programName);
+    String algo = Chopper.SIMPLE_THREAD_CHOPPER_ALGO;
+    Chopper chopper = new Chopper(programName, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.readFilesToLines();
     String srcDir =
         Chopper.HOME_DIR
@@ -46,7 +83,8 @@ class SliceVizGeneratorTest {
             "at/favre/tools/dconvert/Convert.java",
             54,
             "com/mortennobel/imagescaling/ResampleOp.java",
-            284);
+            284,
+            algo);
     generator.generateHTMLViz();
   }
 }
