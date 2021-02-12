@@ -94,17 +94,29 @@ public class Chopper {
   private final int sourceNode;
   private final int targetNode;
   private final String algo;
+  private final Set<SDGNode> barrierNodes = new HashSet<>();
 
   public Chopper(String programName) {
-    this(programName, null, -1, -1, "");
+    this(programName, new SDG(), -1, -1, "");
   }
 
   public Chopper(String programName, SDG sdg, int sourceNode, int targetNode, String algo) {
+    this(programName, sdg, sourceNode, targetNode, algo, Collections.emptySet());
+  }
+
+  public Chopper(
+      String programName,
+      SDG sdg,
+      int sourceNode,
+      int targetNode,
+      String algo,
+      Set<SDGNode> barrierNodes) {
     this.programName = programName;
     this.sdg = sdg;
     this.sourceNode = sourceNode;
     this.targetNode = targetNode;
     this.algo = algo;
+    this.barrierNodes.addAll(barrierNodes);
   }
 
   public static Set<ChopData> parseChopData(Collection<SDGNode> nodes) {
@@ -122,6 +134,33 @@ public class Chopper {
       chopDataSet.add(chopData);
     }
     return chopDataSet;
+  }
+
+  public static Set<SDGNode> getNodes(SDG sdg, Set<Integer> nodeIds) {
+    Set<SDGNode> nodes = new HashSet<>();
+    for (int i : nodeIds) {
+      nodes.add(sdg.getNode(i));
+    }
+    return nodes;
+  }
+
+  public static Set<SDGNode> getMethodNodes(SDG sdg, Set<String> methods) {
+    Set<SDGNode> nodes = new HashSet<>();
+    for (String method : methods) {
+      nodes.addAll(getMethodNodes(sdg, method));
+    }
+    return nodes;
+  }
+
+  public static Set<SDGNode> getMethodNodes(SDG sdg, String method) {
+    Set<SDGNode> nodes = sdg.vertexSet();
+    Set<SDGNode> methodNodes = new HashSet<>();
+    for (SDGNode node : nodes) {
+      if (node.getBytecodeMethod().equals(method)) {
+        methodNodes.add(node);
+      }
+    }
+    return methodNodes;
   }
 
   public static Map<String, SortedSet<Lines>> parseFilesToLines(Set<ChopData> chopDataSet) {
@@ -166,7 +205,10 @@ public class Chopper {
       return new ContextSensitiveChopper(this.sdg);
     }
     if (CONTEXT_SENSITIVE_THREAD_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
-      return new ContextSensitiveThreadBarrierChopper(this.sdg);
+      ContextSensitiveThreadBarrierChopper chopper =
+          new ContextSensitiveThreadBarrierChopper(this.sdg);
+      chopper.setBarrier(this.barrierNodes);
+      return chopper;
     }
     if (CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO.equals(this.algo)) {
       return new ContextSensitiveThreadChopper(this.sdg);
@@ -184,7 +226,9 @@ public class Chopper {
       return new IntersectionChopper(this.sdg);
     }
     if (INTRAPROCEDURAL_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
-      return new IntraproceduralBarrierChopper(this.sdg);
+      IntraproceduralBarrierChopper chopper = new IntraproceduralBarrierChopper(this.sdg);
+      chopper.setBarrier(this.barrierNodes);
+      return chopper;
     }
     if (INTRAPROCEDURAL_CHOPPER_ALGO.equals(this.algo)) {
       return new IntraproceduralChopper(this.sdg);
@@ -193,7 +237,9 @@ public class Chopper {
       return new MixedContextSensitivityChopper(this.sdg);
     }
     if (NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
-      return new NonSameLevelBarrierChopper(this.sdg);
+      NonSameLevelBarrierChopper chopper = new NonSameLevelBarrierChopper(this.sdg);
+      chopper.setBarrier(this.barrierNodes);
+      return chopper;
     }
     if (NON_SAME_LEVEL_CHOPPER_ALGO.equals(this.algo)) {
       return new NonSameLevelChopper(this.sdg);
@@ -208,13 +254,17 @@ public class Chopper {
       return new RepsRosayChopperUnopt(this.sdg);
     }
     if (SIMPLE_THREAD_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
-      return new SimpleThreadBarrierChopper(this.sdg);
+      SimpleThreadBarrierChopper chopper = new SimpleThreadBarrierChopper(this.sdg);
+      chopper.setBarrier(this.barrierNodes);
+      return chopper;
     }
     if (SIMPLE_THREAD_CHOPPER_ALGO.equals(this.algo)) {
       return new SimpleThreadChopper(this.sdg);
     }
     if (SUMMARY_MERGED_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
-      return new SummaryMergedBarrierChopper(this.sdg);
+      SummaryMergedBarrierChopper chopper = new SummaryMergedBarrierChopper(this.sdg);
+      chopper.setBarrier(this.barrierNodes);
+      return chopper;
     }
     if (SUMMARY_MERGED_CHOPPER_ALGO.equals(this.algo)) {
       return new SummaryMergedChopper(this.sdg);
@@ -223,7 +273,10 @@ public class Chopper {
       return new ThreadChopper(this.sdg);
     }
     if (TRUNCATED_NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
-      return new TruncatedNonSameLevelBarrierChopper(this.sdg);
+      TruncatedNonSameLevelBarrierChopper chopper =
+          new TruncatedNonSameLevelBarrierChopper(this.sdg);
+      chopper.setBarrier(this.barrierNodes);
+      return chopper;
     }
     if (TRUNCATED_NON_SAME_LEVEL_CHOPPER_ALGO.equals(this.algo)) {
       return new TruncatedNonSameLevelChopper(this.sdg);
