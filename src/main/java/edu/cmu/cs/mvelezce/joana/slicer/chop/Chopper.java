@@ -7,8 +7,9 @@ import edu.cmu.cs.mvelezce.joana.slicer.data.ChopData;
 import edu.cmu.cs.mvelezce.joana.slicer.data.Lines;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
-import edu.kit.joana.ifc.sdg.graph.chopper.barrier.SimpleThreadBarrierChopper;
-import edu.kit.joana.ifc.sdg.graph.chopper.conc.ContextSensitiveThreadChopper;
+import edu.kit.joana.ifc.sdg.graph.chopper.*;
+import edu.kit.joana.ifc.sdg.graph.chopper.barrier.*;
+import edu.kit.joana.ifc.sdg.graph.chopper.conc.*;
 import edu.kit.joana.util.SourceLocation;
 import org.apache.commons.io.FileUtils;
 
@@ -22,9 +23,68 @@ public class Chopper {
   public static final String ROOT_DIR = "./src/main/resources/chops/";
   public static final String DOT_JSON = ".json";
 
+  public static final String ALMOST_TIME_SENSITIVE_THREAD_CHOPPER_ALGO =
+      "AlmostTimeSensitiveThreadChopper";
+  public static final String CONTEXT_BASED_CHOPPER_ALGO = "ContextBasedChopper";
+  public static final String CONTEXT_INSENSITIVE_CHOPPER_ALGO = "ContextInsensitiveChopper";
+  public static final String CONTEXT_SENSITIVE_CHOPPER_ALGO = "ContextSensitiveChopper";
+  public static final String CONTEXT_SENSITIVE_THREAD_BARRIER_CHOPPER_ALGO =
+      "ContextSensitiveThreadBarrierChopper";
   public static final String CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO =
       "ContextSensitiveThreadChopper";
+  public static final String FIXED_POINT_CHOPPER_ALGO = "FixedPointChopper";
+  public static final String FIXED_POINT_CHOPPER_CONC_ALGO = "FixedPointChopperConc";
+  public static final String INSENSITIVE_INTERSECTION_CHOPPER_ALGO =
+      "InsensitiveIntersectionChopper";
+  public static final String INTERSECTION_CHOPPER_ALGO = "IntersectionChopper";
+  public static final String INTRAPROCEDURAL_BARRIER_CHOPPER_ALGO = "IntraproceduralBarrierChopper";
+  public static final String INTRAPROCEDURAL_CHOPPER_ALGO = "IntraproceduralChopper";
+  public static final String MIXED_CONTEXT_SENSITIVITY_CHOPPER_ALGO =
+      "MixedContextSensitivityChopper";
+  public static final String NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO = "NonSameLevelBarrierChopper";
+  public static final String NON_SAME_LEVEL_CHOPPER_ALGO = "NonSameLevelChopper";
+  public static final String OPT_1_CHOPPER_ALGO = "Opt1Chopper";
+  public static final String REPS_ROSAY_CHOPPER_ALGO = "RepsRosayChopper";
+  public static final String REPS_ROSAY_CHOPPER_UNOPT_ALGO = "RepsRosayChopperUnopt";
   public static final String SIMPLE_THREAD_BARRIER_CHOPPER_ALGO = "SimpleThreadBarrierChopper";
+  public static final String SIMPLE_THREAD_CHOPPER_ALGO = "SimpleThreadChopper";
+  public static final String SUMMARY_MERGED_BARRIER_CHOPPER_ALGO = "SummaryMergedBarrierChopper";
+  public static final String SUMMARY_MERGED_CHOPPER_ALGO = "SummaryMergedChopper";
+  public static final String THREAD_CHOPPER_ALGO = "ThreadChopper";
+  public static final String TRUNCATED_NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO =
+      "TruncatedNonSameLevelBarrierChopper";
+  public static final String TRUNCATED_NON_SAME_LEVEL_CHOPPER_ALGO = "TruncatedNonSameLevelChopper";
+  public static final String VERY_SIMPLE_THREAD_CHOPPER_ALGO = "VerySimpleThreadChopper";
+
+  public static final List<String> ALGOS =
+      new ArrayList<>(
+          Arrays.asList(
+              ALMOST_TIME_SENSITIVE_THREAD_CHOPPER_ALGO,
+              CONTEXT_BASED_CHOPPER_ALGO,
+              CONTEXT_INSENSITIVE_CHOPPER_ALGO,
+              CONTEXT_SENSITIVE_CHOPPER_ALGO,
+              CONTEXT_SENSITIVE_THREAD_BARRIER_CHOPPER_ALGO,
+              CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO,
+              FIXED_POINT_CHOPPER_ALGO,
+              FIXED_POINT_CHOPPER_CONC_ALGO,
+              INSENSITIVE_INTERSECTION_CHOPPER_ALGO,
+              INTERSECTION_CHOPPER_ALGO,
+              INTRAPROCEDURAL_BARRIER_CHOPPER_ALGO,
+              INTRAPROCEDURAL_CHOPPER_ALGO,
+              MIXED_CONTEXT_SENSITIVITY_CHOPPER_ALGO,
+              NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO,
+              NON_SAME_LEVEL_CHOPPER_ALGO,
+              OPT_1_CHOPPER_ALGO,
+              REPS_ROSAY_CHOPPER_ALGO,
+              REPS_ROSAY_CHOPPER_UNOPT_ALGO,
+              SIMPLE_THREAD_BARRIER_CHOPPER_ALGO,
+              SIMPLE_THREAD_CHOPPER_ALGO,
+              SUMMARY_MERGED_BARRIER_CHOPPER_ALGO,
+              SUMMARY_MERGED_CHOPPER_ALGO,
+              THREAD_CHOPPER_ALGO,
+              TRUNCATED_NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO,
+              TRUNCATED_NON_SAME_LEVEL_CHOPPER_ALGO,
+              VERY_SIMPLE_THREAD_CHOPPER_ALGO));
 
   private static final Comparator<Lines> LINES_COMPARATOR =
       Comparator.comparingInt(Lines::getStartLineNumber).thenComparing(Lines::getEndLineNumber);
@@ -93,17 +153,91 @@ public class Chopper {
   }
 
   private edu.kit.joana.ifc.sdg.graph.chopper.Chopper getAlgo() {
-    if (this.algo.equals(CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO)) {
+    if (ALMOST_TIME_SENSITIVE_THREAD_CHOPPER_ALGO.equals(this.algo)) {
+      return new AlmostTimeSensitiveThreadChopper(this.sdg);
+    }
+    if (CONTEXT_BASED_CHOPPER_ALGO.equals(this.algo)) {
+      return new ContextBasedChopper(this.sdg);
+    }
+    if (CONTEXT_INSENSITIVE_CHOPPER_ALGO.equals(this.algo)) {
+      return new ContextInsensitiveChopper(this.sdg);
+    }
+    if (CONTEXT_SENSITIVE_CHOPPER_ALGO.equals(this.algo)) {
+      return new ContextSensitiveChopper(this.sdg);
+    }
+    if (CONTEXT_SENSITIVE_THREAD_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
+      return new ContextSensitiveThreadBarrierChopper(this.sdg);
+    }
+    if (CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO.equals(this.algo)) {
       return new ContextSensitiveThreadChopper(this.sdg);
     }
-    if (this.algo.equals(SIMPLE_THREAD_BARRIER_CHOPPER_ALGO)) {
+    if (FIXED_POINT_CHOPPER_ALGO.equals(this.algo)) {
+      return new edu.kit.joana.ifc.sdg.graph.chopper.FixedPointChopper(this.sdg);
+    }
+    if (FIXED_POINT_CHOPPER_CONC_ALGO.equals(this.algo)) {
+      return new edu.kit.joana.ifc.sdg.graph.chopper.conc.FixedPointChopper(this.sdg);
+    }
+    if (INSENSITIVE_INTERSECTION_CHOPPER_ALGO.equals(this.algo)) {
+      return new InsensitiveIntersectionChopper(this.sdg);
+    }
+    if (INTERSECTION_CHOPPER_ALGO.equals(this.algo)) {
+      return new IntersectionChopper(this.sdg);
+    }
+    if (INTRAPROCEDURAL_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
+      return new IntraproceduralBarrierChopper(this.sdg);
+    }
+    if (INTRAPROCEDURAL_CHOPPER_ALGO.equals(this.algo)) {
+      return new IntraproceduralChopper(this.sdg);
+    }
+    if (MIXED_CONTEXT_SENSITIVITY_CHOPPER_ALGO.equals(this.algo)) {
+      return new MixedContextSensitivityChopper(this.sdg);
+    }
+    if (NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
+      return new NonSameLevelBarrierChopper(this.sdg);
+    }
+    if (NON_SAME_LEVEL_CHOPPER_ALGO.equals(this.algo)) {
+      return new NonSameLevelChopper(this.sdg);
+    }
+    if (OPT_1_CHOPPER_ALGO.equals(this.algo)) {
+      return new Opt1Chopper(this.sdg);
+    }
+    if (REPS_ROSAY_CHOPPER_ALGO.equals(this.algo)) {
+      return new RepsRosayChopper(this.sdg);
+    }
+    if (REPS_ROSAY_CHOPPER_UNOPT_ALGO.equals(this.algo)) {
+      return new RepsRosayChopperUnopt(this.sdg);
+    }
+    if (SIMPLE_THREAD_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
       return new SimpleThreadBarrierChopper(this.sdg);
     }
+    if (SIMPLE_THREAD_CHOPPER_ALGO.equals(this.algo)) {
+      return new SimpleThreadChopper(this.sdg);
+    }
+    if (SUMMARY_MERGED_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
+      return new SummaryMergedBarrierChopper(this.sdg);
+    }
+    if (SUMMARY_MERGED_CHOPPER_ALGO.equals(this.algo)) {
+      return new SummaryMergedChopper(this.sdg);
+    }
+    if (THREAD_CHOPPER_ALGO.equals(this.algo)) {
+      return new ThreadChopper(this.sdg);
+    }
+    if (TRUNCATED_NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO.equals(this.algo)) {
+      return new TruncatedNonSameLevelBarrierChopper(this.sdg);
+    }
+    if (TRUNCATED_NON_SAME_LEVEL_CHOPPER_ALGO.equals(this.algo)) {
+      return new TruncatedNonSameLevelChopper(this.sdg);
+    }
+    if (VERY_SIMPLE_THREAD_CHOPPER_ALGO.equals(this.algo)) {
+      return new VerySimpleThreadChopper(this.sdg);
+    }
+
     throw new RuntimeException("Do not know chopping algorithm " + this.algo);
   }
 
   public void saveFilesToLines(Map<String, SortedSet<Lines>> filesToLines) throws IOException {
-    String outputFile = ROOT_DIR + this.programName + "/" + this.programName + DOT_JSON;
+    String outputFile =
+        ROOT_DIR + this.programName + "/" + this.algo + "/" + this.programName + DOT_JSON;
     File file = new File(outputFile);
     if (!file.getParentFile().exists() && !file.getParentFile().mkdirs()) {
       throw new RuntimeException("Could not create parent dirs for " + outputFile);
