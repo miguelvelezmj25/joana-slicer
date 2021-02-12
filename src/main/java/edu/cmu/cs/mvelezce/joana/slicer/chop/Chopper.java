@@ -59,32 +59,33 @@ public class Chopper {
   public static final List<String> ALGOS =
       new ArrayList<>(
           Arrays.asList(
-              ALMOST_TIME_SENSITIVE_THREAD_CHOPPER_ALGO,
-              CONTEXT_BASED_CHOPPER_ALGO,
-              CONTEXT_INSENSITIVE_CHOPPER_ALGO,
-              CONTEXT_SENSITIVE_CHOPPER_ALGO,
-              CONTEXT_SENSITIVE_THREAD_BARRIER_CHOPPER_ALGO,
-              CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO,
-              FIXED_POINT_CHOPPER_ALGO,
-              FIXED_POINT_CHOPPER_CONC_ALGO,
-              INSENSITIVE_INTERSECTION_CHOPPER_ALGO,
-              INTERSECTION_CHOPPER_ALGO,
-              INTRAPROCEDURAL_BARRIER_CHOPPER_ALGO,
-              INTRAPROCEDURAL_CHOPPER_ALGO,
-              MIXED_CONTEXT_SENSITIVITY_CHOPPER_ALGO,
-              NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO,
-              NON_SAME_LEVEL_CHOPPER_ALGO,
-              OPT_1_CHOPPER_ALGO,
-              REPS_ROSAY_CHOPPER_ALGO,
-              REPS_ROSAY_CHOPPER_UNOPT_ALGO,
-              SIMPLE_THREAD_BARRIER_CHOPPER_ALGO,
-              SIMPLE_THREAD_CHOPPER_ALGO,
-              SUMMARY_MERGED_BARRIER_CHOPPER_ALGO,
-              SUMMARY_MERGED_CHOPPER_ALGO,
-              THREAD_CHOPPER_ALGO,
-              TRUNCATED_NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO,
-              TRUNCATED_NON_SAME_LEVEL_CHOPPER_ALGO,
-              VERY_SIMPLE_THREAD_CHOPPER_ALGO));
+              //              ALMOST_TIME_SENSITIVE_THREAD_CHOPPER_ALGO,
+              CONTEXT_BASED_CHOPPER_ALGO, // 0.621 seconds
+              //              CONTEXT_INSENSITIVE_CHOPPER_ALGO, // same level
+              //              CONTEXT_SENSITIVE_CHOPPER_ALGO, // same level
+              CONTEXT_SENSITIVE_THREAD_BARRIER_CHOPPER_ALGO, // timeout
+              CONTEXT_SENSITIVE_THREAD_CHOPPER_ALGO, // timeout
+              FIXED_POINT_CHOPPER_ALGO, // 16.964 seconds
+              FIXED_POINT_CHOPPER_CONC_ALGO, // 15.074 seconds
+              INSENSITIVE_INTERSECTION_CHOPPER_ALGO, // 5.331 seconds
+              INTERSECTION_CHOPPER_ALGO, // 5.699 seconds
+              INTRAPROCEDURAL_BARRIER_CHOPPER_ALGO, // timeout
+              //              INTRAPROCEDURAL_CHOPPER_ALGO, // same level
+              //              MIXED_CONTEXT_SENSITIVITY_CHOPPER_ALGO, // same level
+              NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO, // timeout
+              NON_SAME_LEVEL_CHOPPER_ALGO, // timeout
+              OPT_1_CHOPPER_ALGO, // 12.547 seconds
+              REPS_ROSAY_CHOPPER_ALGO, // timeout
+              REPS_ROSAY_CHOPPER_UNOPT_ALGO, // UnsupportedOperationException
+              SIMPLE_THREAD_BARRIER_CHOPPER_ALGO, // timeout
+              SIMPLE_THREAD_CHOPPER_ALGO, // 5.381 seconds
+              SUMMARY_MERGED_BARRIER_CHOPPER_ALGO, // timeout
+              //              SUMMARY_MERGED_CHOPPER_ALGO, // same level
+              //              THREAD_CHOPPER_ALGO,
+              TRUNCATED_NON_SAME_LEVEL_BARRIER_CHOPPER_ALGO, // timeout
+              TRUNCATED_NON_SAME_LEVEL_CHOPPER_ALGO, // 5.291 seconds
+              VERY_SIMPLE_THREAD_CHOPPER_ALGO // 4.82 seconds
+              ));
 
   private static final Comparator<Lines> LINES_COMPARATOR =
       Comparator.comparingInt(Lines::getStartLineNumber).thenComparing(Lines::getEndLineNumber);
