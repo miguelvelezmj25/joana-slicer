@@ -26,6 +26,18 @@ class SDGAnalysisTest {
   }
 
   @Test
+  void loop() throws IOException {
+    String programName = "loop";
+    SDGAnalysis analysis = getSDGAnalysis(programName);
+
+    int line = 26;
+    Set<SDGNode> lineNodes = analysis.getLineNodes(line);
+
+    analysis.getUnresolvedCallTargets();
+    System.out.println();
+  }
+
+  @Test
   void density() throws IOException {
     String programName = "density";
     SDGAnalysis analysis = getSDGAnalysis(programName);
@@ -33,7 +45,7 @@ class SDGAnalysisTest {
     String method = "at.favre.tools.dconvert.Convert.main([Ljava/lang/String;)V";
     Set<SDGNode> srcMethodNodes = analysis.getMethodNodes(method);
 
-    method = "com.mortennobel.imagescaling.ResampleOp.verticalFromWorkToDst([[B[BII)V";
+    method = "at.favre.tools.dconvert.DConvert.execute(Lat/favre/tools/dconvert/arg/Arguments;ZLat/favre/tools/dconvert/DConvert$HandlerCallback;)V";
     Set<SDGNode> tgtMethodNodes = analysis.getMethodNodes(method);
 
     Set<String> analyzedMethods = analysis.getAnalyzedMethods();

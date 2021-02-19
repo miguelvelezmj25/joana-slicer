@@ -27,46 +27,46 @@ public class SDGBuilder {
   private final String programName;
   private final SDGConfig sdgConfig;
 
-  public SDGBuilder(String programName, String classPath, String entryMethod) {
+  public SDGBuilder(String programName, String classPath, String entryMethod, String exclusions) {
     this.programName = programName;
-    this.sdgConfig = new SDGConfig(classPath, entryMethod, Stubs.JRE_16);
+    this.sdgConfig = new SDGConfig(classPath, entryMethod, Stubs.JRE_17);
 
-    this.sdgConfig.setPruningPolicy(PruningPolicy.APPLICATION);
     this.sdgConfig.setComputeInterferences(false);
-    this.sdgConfig.setMhpType(MHPType.NONE);
     this.sdgConfig.setExceptionAnalysis(ExceptionAnalysis.IGNORE_ALL);
-    this.sdgConfig.setPointsToPrecision(PointsToPrecision.INSTANCE_BASED);
+    this.sdgConfig.setExclusions(
+        edu.kit.joana.wala.core.SDGBuilder.STD_EXCLUSION_REG_EXP + exclusions);
     this.sdgConfig.setFieldPropagation(FieldPropagation.OBJ_GRAPH);
+    this.sdgConfig.setMhpType(MHPType.NONE);
+    this.sdgConfig.setPointsToPrecision(PointsToPrecision.INSTANCE_BASED);
+    this.sdgConfig.setPruningPolicy(PruningPolicy.APPLICATION);
 
-    //    System.out.println("getCGConsumer: " + this.sdgConfig.getCGConsumer());
-    //    System.out.println("getClassPath: " + this.sdgConfig.getClassPath());
-    //    System.out.println(
-    //        "getClasspathAddEntriesFromMANIFEST: "
-    //            + this.sdgConfig.getClasspathAddEntriesFromMANIFEST());
-    //    System.out.println("getContextSelector: " + this.sdgConfig.getContextSelector());
-    //    System.out.println(
-    //        "getControlDependenceVariant: " + this.sdgConfig.getControlDependenceVariant());
-    //    System.out.println(
-    //        "getDefaultExceptionMethodState: " + this.sdgConfig.getDefaultExceptionMethodState());
-    //    System.out.println(
-    //        "getDynamicDispatchHandling: " + this.sdgConfig.getDynamicDispatchHandling());
-    //    System.out.println("getEntryMethod: " + this.sdgConfig.getEntryMethod());
-    //    System.out.println("getExceptionAnalysis: " + this.sdgConfig.getExceptionAnalysis());
-    //    System.out.println("getExclusions: " + this.sdgConfig.getExclusions());
-    //    System.out.println("getFieldHelperOptions: " + this.sdgConfig.getFieldHelperOptions());
-    //    System.out.println("getFieldPropagation: " + this.sdgConfig.getFieldPropagation());
-    //    System.out.println("getIgnoreIndirectFlows: " + this.sdgConfig.getIgnoreIndirectFlows());
-    //    System.out.println("getMethodFilter: " + this.sdgConfig.getMethodFilter());
-    //    System.out.println("getMhpType: " + this.sdgConfig.getMhpType());
-    //    System.out.println("getNotifier: " + this.sdgConfig.getNotifier());
-    //    System.out.println("getPointsToPrecision: " + this.sdgConfig.getPointsToPrecision());
-    //    System.out.println("getPruningPolicy: " + this.sdgConfig.getPruningPolicy());
-    //    System.out.println(
-    //        "getSideEffectDetectorConfig: " + this.sdgConfig.getSideEffectDetectorConfig());
-    //    System.out.println("getStubs: " + this.sdgConfig.getStubs());
-    //    System.out.println("getSummaryComputationType: " +
-    // this.sdgConfig.getSummaryComputationType());
-    //    System.out.println("getThirdPartyLibsPath: " + this.sdgConfig.getThirdPartyLibsPath());
+    //        this.sdgConfig.setControlDependenceVariant(ControlDependenceVariant.CLASSIC);
+    //        this.sdgConfig.setIgnoreIndirectFlows(true);
+
+    System.out.println("CGConsumer: " + this.sdgConfig.getCGConsumer());
+    System.out.println("ClassPath: " + this.sdgConfig.getClassPath());
+    System.out.println(
+        "ClasspathAddEntriesFromMANIFEST: " + this.sdgConfig.getClasspathAddEntriesFromMANIFEST());
+    System.out.println("ContextSelector: " + this.sdgConfig.getContextSelector());
+    System.out.println("ControlDependenceVariant: " + this.sdgConfig.getControlDependenceVariant());
+    System.out.println(
+        "DefaultExceptionMethodState: " + this.sdgConfig.getDefaultExceptionMethodState());
+    System.out.println("DynamicDispatchHandling: " + this.sdgConfig.getDynamicDispatchHandling());
+    System.out.println("EntryMethod: " + this.sdgConfig.getEntryMethod());
+    System.out.println("ExceptionAnalysis: " + this.sdgConfig.getExceptionAnalysis());
+    System.out.println("Exclusions: " + this.sdgConfig.getExclusions());
+    System.out.println("FieldHelperOptions: " + this.sdgConfig.getFieldHelperOptions().getName());
+    System.out.println("FieldPropagation: " + this.sdgConfig.getFieldPropagation());
+    System.out.println("IgnoreIndirectFlows: " + this.sdgConfig.getIgnoreIndirectFlows());
+    System.out.println("MethodFilter: " + this.sdgConfig.getMethodFilter());
+    System.out.println("MhpType: " + this.sdgConfig.getMhpType());
+    System.out.println("Notifier: " + this.sdgConfig.getNotifier());
+    System.out.println("PointsToPrecision: " + this.sdgConfig.getPointsToPrecision());
+    System.out.println("PruningPolicy: " + this.sdgConfig.getPruningPolicy());
+    System.out.println("SideEffectDetectorConfig: " + this.sdgConfig.getSideEffectDetectorConfig());
+    System.out.println("Stubs: " + this.sdgConfig.getStubs());
+    System.out.println("SummaryComputationType: " + this.sdgConfig.getSummaryComputationType());
+    System.out.println("ThirdPartyLibsPath: " + this.sdgConfig.getThirdPartyLibsPath());
   }
 
   public SDG build()

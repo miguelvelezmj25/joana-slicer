@@ -13,13 +13,69 @@ import java.util.Set;
 import java.util.SortedSet;
 
 class ChopperTest {
+  // -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
+
+  @Test
+  void loop() throws IOException {
+    String programName = "loop";
+    int sourceNode = 5;
+    int targetNode = 104;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
+  void implicit() throws IOException {
+    String programName = "implicit";
+    int sourceNode = 6;
+    int targetNode = 94;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
+  void logger() throws IOException {
+    String programName = "logger";
+    int sourceNode = 6;
+    int targetNode = 168;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
+  void dimension() throws IOException {
+    String programName = "dimension";
+    int sourceNode = 6;
+    int targetNode = 89;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
 
   @Test
   void main() throws IOException {
     String programName = "main";
     int sourceNode = 5;
     int targetNode = 22;
-    String algo = Chopper.SIMPLE_THREAD_BARRIER_CHOPPER_ALGO;
+    String algo = Chopper.SIMPLE_THREAD_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
+  void ignoreImplementations() throws IOException {
+    String programName = "ignoreImplementations";
+    int sourceNode = 89;
+    int targetNode = 26;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
     chopper.saveFilesToLines(filesToLines);
@@ -69,10 +125,25 @@ class ChopperTest {
   @Test
   void density() throws IOException {
     String programName = "density";
+    int sourceNode = 12;
+    //    int targetNode = 8755;
+    int targetNode = 14894;
+    //    int targetNode = 11035;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
+  void densityBarrierMethods() throws IOException {
+    String programName = "density";
     int sourceNode = 7;
     int targetNode = 33698;
     String algo = Chopper.SIMPLE_THREAD_BARRIER_CHOPPER_ALGO;
-    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Set<String> methods = new HashSet<>();
+    methods.add("at.favre.tools.dconvert.Convert.getPlatform(Ljava/lang/String;)Ljava/util/Set");
+    Chopper chopper = getChopperMethodsBarrier(programName, sourceNode, targetNode, algo, methods);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
     chopper.saveFilesToLines(filesToLines);
   }

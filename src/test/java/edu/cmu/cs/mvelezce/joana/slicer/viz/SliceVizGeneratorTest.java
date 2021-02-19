@@ -26,6 +26,21 @@ class SliceVizGeneratorTest {
   }
 
   @Test
+  void logger() throws IOException {
+    String programName = "logger";
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    this.visualize(
+        programName,
+        algo,
+        Chopper.HOME_DIR
+            + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/",
+        "edu/cmu/cs/mvelezce/features/Logger.java",
+        8,
+        "edu/cmu/cs/mvelezce/features/DConvert.java",
+        13);
+  }
+
+  @Test
   void mainAll() {
     String programName = "main";
     for (String algo : Chopper.ALGOS) {
@@ -55,14 +70,14 @@ class SliceVizGeneratorTest {
   @Test
   void density() throws IOException {
     String programName = "density";
-    String algo = Chopper.SIMPLE_THREAD_CHOPPER_ALGO;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     this.visualize(
         programName,
         algo,
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/perf-debug-systems/density-converter/src/main/java/",
         "at/favre/tools/dconvert/Convert.java",
-        54,
+        1,
         "com/mortennobel/imagescaling/ResampleOp.java",
         284);
   }

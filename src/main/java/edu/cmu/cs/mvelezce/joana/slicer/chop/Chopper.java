@@ -122,7 +122,23 @@ public class Chopper {
 
   public static Set<ChopData> parseChopData(Collection<SDGNode> nodes) {
     Set<ChopData> chopDataSet = new HashSet<>();
+    Set<String> files = new TreeSet<>();
     for (SDGNode node : nodes) {
+      if(node == null) {
+        continue;
+      }
+      SourceLocation sourceLocation = node.getSourceLocation();
+      files.add(sourceLocation.getSourceFile());
+    }
+
+    for(String file : files) {
+      System.out.println(file);
+    }
+
+    for (SDGNode node : nodes) {
+      if(node == null) {
+        continue;
+      }
       SourceLocation sourceLocation = node.getSourceLocation();
       String file = sourceLocation.getSourceFile();
       if (file.startsWith("java/")
@@ -314,11 +330,17 @@ public class Chopper {
         mapper.readValue(filesToLinesFile, new TypeReference<Map<String, Set<Lines>>>() {});
 
     Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
-    for (String file : filesToUnsortedLines.keySet()) {
-      filesToLines.put(file, new TreeSet<>(LINES_COMPARATOR));
-    }
     for (Map.Entry<String, Set<Lines>> entry : filesToUnsortedLines.entrySet()) {
-      filesToLines.get(entry.getKey()).addAll(entry.getValue());
+      if(entry.getValue().size() == 1) {
+        Lines lines = entry.getValue().iterator().next();
+        if(lines.getStartLineNumber() == 0) {
+          continue;
+        }
+      }
+      filesToLines.put(entry.getKey(), new TreeSet<>(LINES_COMPARATOR));
+    }
+    for (Map.Entry<String, SortedSet<Lines>> entry : filesToLines.entrySet()) {
+      entry.getValue().addAll(filesToUnsortedLines.get(entry.getKey()));
     }
     return filesToLines;
   }
