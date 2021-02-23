@@ -44,6 +44,21 @@ class SDGBuilderTest {
   }
 
   @Test
+  void ignoreMethods()
+      throws IOException, CancelException, ClassHierarchyException,
+          GraphIntegrity.UnsoundGraphException {
+    String programName = "ignoreMethods";
+    String classPath =
+        USER_HOME
+            + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/target/classes";
+    String entryMethod = "edu.cmu.cs.mvelezce.features.IgnoreMethods.main([Ljava/lang/String;)V";
+    String exclusions = "";
+    SDGBuilder builder = new SDGBuilder(programName, classPath, entryMethod, exclusions);
+    SDG sdg = builder.build();
+    builder.save(sdg);
+  }
+
+  @Test
   void loop()
       throws IOException, CancelException, ClassHierarchyException,
           GraphIntegrity.UnsoundGraphException {

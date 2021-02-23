@@ -26,6 +26,21 @@ class SliceVizGeneratorTest {
   }
 
   @Test
+  void ignoreMethods() throws IOException {
+    String programName = "ignoreMethods";
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    this.visualize(
+        programName,
+        algo,
+        Chopper.HOME_DIR
+            + "/Documents/programming/java/projects/performance-mapper-evaluation/phosphor/tracing/src/main/java/",
+        "edu/cmu/cs/mvelezce/features/IgnoreMethods.java",
+        6,
+        "edu/cmu/cs/mvelezce/features/IgnoreMethods.java",
+        15);
+  }
+
+  @Test
   void logger() throws IOException {
     String programName = "logger";
     String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
@@ -77,9 +92,9 @@ class SliceVizGeneratorTest {
         Chopper.HOME_DIR
             + "/Documents/programming/java/projects/perf-debug-systems/density-converter/src/main/java/",
         "at/favre/tools/dconvert/Convert.java",
-        1,
+        58,
         "com/mortennobel/imagescaling/ResampleOp.java",
-        284);
+        321);
   }
 
   @Test

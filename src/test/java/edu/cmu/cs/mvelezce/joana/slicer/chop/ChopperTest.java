@@ -73,8 +73,19 @@ class ChopperTest {
   @Test
   void ignoreImplementations() throws IOException {
     String programName = "ignoreImplementations";
-    int sourceNode = 89;
-    int targetNode = 26;
+    int sourceNode = 6;
+    int targetNode = 29;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
+  void ignoreMethods() throws IOException {
+    String programName = "ignoreMethods";
+    int sourceNode = 7;
+    int targetNode = 32;
     String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
@@ -126,9 +137,9 @@ class ChopperTest {
   void density() throws IOException {
     String programName = "density";
     int sourceNode = 12;
-    //    int targetNode = 8755;
-    int targetNode = 14894;
-    //    int targetNode = 11035;
+    //    int targetNode = 8809;
+    //        int targetNode = 13393;
+    int targetNode = 10689;
     String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();

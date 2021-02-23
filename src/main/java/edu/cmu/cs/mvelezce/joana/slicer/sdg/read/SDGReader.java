@@ -16,7 +16,8 @@ public class SDGReader {
   public SDG readSDG() throws IOException {
     long start = System.currentTimeMillis();
     SDG sdg =
-        SDG.readFromAndUseLessHeap(
+        SDG.readFrom(
+            //        SDG.readFromAndUseLessHeap(
             SDGBuilder.ROOT_DIR + this.programName + "/" + this.programName + SDGBuilder.DOT_PDG);
     long end = System.currentTimeMillis();
     System.out.println("Read SDG in: " + ((end - start) / 1E3) + " seconds");
