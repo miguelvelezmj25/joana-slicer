@@ -1,5 +1,6 @@
 package edu.cmu.cs.mvelezce.joana.slicer.coverage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.commons.io.FileUtils;
@@ -165,5 +166,12 @@ public class CoverageReportParser {
       return matcher.group(1);
     }
     throw new RuntimeException("Could not find the package in the title tag");
+  }
+
+  public Map<String, Integer> read() throws IOException {
+    File file =
+        new File(PARSED_COVERAGE_ROOT + this.programName + "/" + this.programName + DOT_JSON);
+    ObjectMapper mapper = new ObjectMapper();
+    return mapper.readValue(file, new TypeReference<Map<String, Integer>>() {});
   }
 }

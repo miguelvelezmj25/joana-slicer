@@ -7,9 +7,16 @@ import java.io.IOException;
 class CoverageReportParserTest {
 
   @Test
-  void density() throws IOException {
+  void densityParse() throws IOException {
     String programName = "density";
     CoverageReportParser parser = new CoverageReportParser(programName);
     parser.parse();
+  }
+
+  @Test
+  void densityRead() throws IOException {
+    String programName = "density";
+    CoverageReportParser parser = new CoverageReportParser(programName);
+    parser.read();
   }
 }
