@@ -1,0 +1,379 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: FBMFilter</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.jhlabs.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: FBMFilter (com.jhlabs.image)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FBMFilter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 31)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 86)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp;Copyright 2006 Jerry Huxtable
+<i>3</i>&nbsp;
+<i>4</i>&nbsp;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp;you may not use this file except in compliance with the License.
+<i>6</i>&nbsp;You may obtain a copy of the License at
+<i>7</i>&nbsp;
+<i>8</i>&nbsp;   http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp;
+<i>10</i>&nbsp;Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp;See the License for the specific language governing permissions and
+<i>14</i>&nbsp;limitations under the License.
+<i>15</i>&nbsp;*/
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package com.jhlabs.image;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import com.jhlabs.math.*;
+<i>20</i>&nbsp;
+<i>21</i>&nbsp;import java.awt.image.BufferedImage;
+<i>22</i>&nbsp;import java.util.Random;
+<i>23</i>&nbsp;
+<i>24</i>&nbsp;/** A filter which produces textures from fractal Brownian motion. */
+<i>25</i>&nbsp;public class FBMFilter extends PointFilter implements Cloneable {
+<i>26</i>&nbsp;
+<i>27</i>&nbsp;  public static final int NOISE = 0;
+<i>28</i>&nbsp;  public static final int RIDGED = 1;
+<i>29</i>&nbsp;  public static final int VLNOISE = 2;
+<i>30</i>&nbsp;  public static final int SCNOISE = 3;
+<i>31</i>&nbsp;  public static final int CELLULAR = 4;
+<i>32</i>&nbsp;
+<b class="nc"><i>33</i>&nbsp;  private float scale = 32;</b>
+<b class="nc"><i>34</i>&nbsp;  private float stretch = 1.0f;</b>
+<b class="nc"><i>35</i>&nbsp;  private float angle = 0.0f;</b>
+<b class="nc"><i>36</i>&nbsp;  private float amount = 1.0f;</b>
+<b class="nc"><i>37</i>&nbsp;  private float H = 1.0f;</b>
+<b class="nc"><i>38</i>&nbsp;  private float octaves = 4.0f;</b>
+<b class="nc"><i>39</i>&nbsp;  private float lacunarity = 2.0f;</b>
+<b class="nc"><i>40</i>&nbsp;  private float gain = 0.5f;</b>
+<b class="nc"><i>41</i>&nbsp;  private float bias = 0.5f;</b>
+<i>42</i>&nbsp;  private int operation;
+<b class="nc"><i>43</i>&nbsp;  private float m00 = 1.0f;</b>
+<b class="nc"><i>44</i>&nbsp;  private float m01 = 0.0f;</b>
+<b class="nc"><i>45</i>&nbsp;  private float m10 = 0.0f;</b>
+<b class="nc"><i>46</i>&nbsp;  private float m11 = 1.0f;</b>
+<i>47</i>&nbsp;  private float min;
+<i>48</i>&nbsp;  private float max;
+<b class="nc"><i>49</i>&nbsp;  private Colormap colormap = new Gradient();</b>
+<i>50</i>&nbsp;  private boolean ridged;
+<i>51</i>&nbsp;  private FBM fBm;
+<b class="nc"><i>52</i>&nbsp;  protected Random random = new Random();</b>
+<b class="nc"><i>53</i>&nbsp;  private int basisType = NOISE;</b>
+<i>54</i>&nbsp;  private Function2D basis;
+<i>55</i>&nbsp;
+<b class="nc"><i>56</i>&nbsp;  public FBMFilter() {</b>
+<b class="nc"><i>57</i>&nbsp;    setBasisType(NOISE);</b>
+<i>58</i>&nbsp;  }
+<i>59</i>&nbsp;
+<i>60</i>&nbsp;  /**
+<i>61</i>&nbsp;   * Set the amount of effect.
+<i>62</i>&nbsp;   *
+<i>63</i>&nbsp;   * @param amount the amount
+<i>64</i>&nbsp;   * @min-value 0
+<i>65</i>&nbsp;   * @max-value 1
+<i>66</i>&nbsp;   * @see #getAmount
+<i>67</i>&nbsp;   */
+<i>68</i>&nbsp;  public void setAmount(float amount) {
+<b class="nc"><i>69</i>&nbsp;    this.amount = amount;</b>
+<i>70</i>&nbsp;  }
+<i>71</i>&nbsp;
+<i>72</i>&nbsp;  /**
+<i>73</i>&nbsp;   * Get the amount of texture.
+<i>74</i>&nbsp;   *
+<i>75</i>&nbsp;   * @return the amount
+<i>76</i>&nbsp;   * @see #setAmount
+<i>77</i>&nbsp;   */
+<i>78</i>&nbsp;  public float getAmount() {
+<b class="nc"><i>79</i>&nbsp;    return amount;</b>
+<i>80</i>&nbsp;  }
+<i>81</i>&nbsp;
+<i>82</i>&nbsp;  public void setOperation(int operation) {
+<b class="nc"><i>83</i>&nbsp;    this.operation = operation;</b>
+<i>84</i>&nbsp;  }
+<i>85</i>&nbsp;
+<i>86</i>&nbsp;  public int getOperation() {
+<b class="nc"><i>87</i>&nbsp;    return operation;</b>
+<i>88</i>&nbsp;  }
+<i>89</i>&nbsp;
+<i>90</i>&nbsp;  /**
+<i>91</i>&nbsp;   * Specifies the scale of the texture.
+<i>92</i>&nbsp;   *
+<i>93</i>&nbsp;   * @param scale the scale of the texture.
+<i>94</i>&nbsp;   * @min-value 1
+<i>95</i>&nbsp;   * @max-value 300+
+<i>96</i>&nbsp;   * @see #getScale
+<i>97</i>&nbsp;   */
+<i>98</i>&nbsp;  public void setScale(float scale) {
+<b class="nc"><i>99</i>&nbsp;    this.scale = scale;</b>
+<i>100</i>&nbsp;  }
+<i>101</i>&nbsp;
+<i>102</i>&nbsp;  /**
+<i>103</i>&nbsp;   * Returns the scale of the texture.
+<i>104</i>&nbsp;   *
+<i>105</i>&nbsp;   * @return the scale of the texture.
+<i>106</i>&nbsp;   * @see #setScale
+<i>107</i>&nbsp;   */
+<i>108</i>&nbsp;  public float getScale() {
+<b class="nc"><i>109</i>&nbsp;    return scale;</b>
+<i>110</i>&nbsp;  }
+<i>111</i>&nbsp;
+<i>112</i>&nbsp;  /**
+<i>113</i>&nbsp;   * Specifies the stretch factor of the texture.
+<i>114</i>&nbsp;   *
+<i>115</i>&nbsp;   * @param stretch the stretch factor of the texture.
+<i>116</i>&nbsp;   * @min-value 1
+<i>117</i>&nbsp;   * @max-value 50+
+<i>118</i>&nbsp;   * @see #getStretch
+<i>119</i>&nbsp;   */
+<i>120</i>&nbsp;  public void setStretch(float stretch) {
+<b class="nc"><i>121</i>&nbsp;    this.stretch = stretch;</b>
+<i>122</i>&nbsp;  }
+<i>123</i>&nbsp;
+<i>124</i>&nbsp;  /**
+<i>125</i>&nbsp;   * Returns the stretch factor of the texture.
+<i>126</i>&nbsp;   *
+<i>127</i>&nbsp;   * @return the stretch factor of the texture.
+<i>128</i>&nbsp;   * @see #setStretch
+<i>129</i>&nbsp;   */
+<i>130</i>&nbsp;  public float getStretch() {
+<b class="nc"><i>131</i>&nbsp;    return stretch;</b>
+<i>132</i>&nbsp;  }
+<i>133</i>&nbsp;
+<i>134</i>&nbsp;  /**
+<i>135</i>&nbsp;   * Specifies the angle of the texture.
+<i>136</i>&nbsp;   *
+<i>137</i>&nbsp;   * @param angle the angle of the texture.
+<i>138</i>&nbsp;   * @angle
+<i>139</i>&nbsp;   * @see #getAngle
+<i>140</i>&nbsp;   */
+<i>141</i>&nbsp;  public void setAngle(float angle) {
+<b class="nc"><i>142</i>&nbsp;    this.angle = angle;</b>
+<b class="nc"><i>143</i>&nbsp;    float cos = (float) Math.cos(this.angle);</b>
+<b class="nc"><i>144</i>&nbsp;    float sin = (float) Math.sin(this.angle);</b>
+<b class="nc"><i>145</i>&nbsp;    m00 = cos;</b>
+<b class="nc"><i>146</i>&nbsp;    m01 = sin;</b>
+<b class="nc"><i>147</i>&nbsp;    m10 = -sin;</b>
+<b class="nc"><i>148</i>&nbsp;    m11 = cos;</b>
+<i>149</i>&nbsp;  }
+<i>150</i>&nbsp;
+<i>151</i>&nbsp;  /**
+<i>152</i>&nbsp;   * Returns the angle of the texture.
+<i>153</i>&nbsp;   *
+<i>154</i>&nbsp;   * @return the angle of the texture.
+<i>155</i>&nbsp;   * @see #setAngle
+<i>156</i>&nbsp;   */
+<i>157</i>&nbsp;  public float getAngle() {
+<b class="nc"><i>158</i>&nbsp;    return angle;</b>
+<i>159</i>&nbsp;  }
+<i>160</i>&nbsp;
+<i>161</i>&nbsp;  public void setOctaves(float octaves) {
+<b class="nc"><i>162</i>&nbsp;    this.octaves = octaves;</b>
+<i>163</i>&nbsp;  }
+<i>164</i>&nbsp;
+<i>165</i>&nbsp;  public float getOctaves() {
+<b class="nc"><i>166</i>&nbsp;    return octaves;</b>
+<i>167</i>&nbsp;  }
+<i>168</i>&nbsp;
+<i>169</i>&nbsp;  public void setH(float H) {
+<b class="nc"><i>170</i>&nbsp;    this.H = H;</b>
+<i>171</i>&nbsp;  }
+<i>172</i>&nbsp;
+<i>173</i>&nbsp;  public float getH() {
+<b class="nc"><i>174</i>&nbsp;    return H;</b>
+<i>175</i>&nbsp;  }
+<i>176</i>&nbsp;
+<i>177</i>&nbsp;  public void setLacunarity(float lacunarity) {
+<b class="nc"><i>178</i>&nbsp;    this.lacunarity = lacunarity;</b>
+<i>179</i>&nbsp;  }
+<i>180</i>&nbsp;
+<i>181</i>&nbsp;  public float getLacunarity() {
+<b class="nc"><i>182</i>&nbsp;    return lacunarity;</b>
+<i>183</i>&nbsp;  }
+<i>184</i>&nbsp;
+<i>185</i>&nbsp;  public void setGain(float gain) {
+<b class="nc"><i>186</i>&nbsp;    this.gain = gain;</b>
+<i>187</i>&nbsp;  }
+<i>188</i>&nbsp;
+<i>189</i>&nbsp;  public float getGain() {
+<b class="nc"><i>190</i>&nbsp;    return gain;</b>
+<i>191</i>&nbsp;  }
+<i>192</i>&nbsp;
+<i>193</i>&nbsp;  public void setBias(float bias) {
+<b class="nc"><i>194</i>&nbsp;    this.bias = bias;</b>
+<i>195</i>&nbsp;  }
+<i>196</i>&nbsp;
+<i>197</i>&nbsp;  public float getBias() {
+<b class="nc"><i>198</i>&nbsp;    return bias;</b>
+<i>199</i>&nbsp;  }
+<i>200</i>&nbsp;
+<i>201</i>&nbsp;  /**
+<i>202</i>&nbsp;   * Set the colormap to be used for the filter.
+<i>203</i>&nbsp;   *
+<i>204</i>&nbsp;   * @param colormap the colormap
+<i>205</i>&nbsp;   * @see #getColormap
+<i>206</i>&nbsp;   */
+<i>207</i>&nbsp;  public void setColormap(Colormap colormap) {
+<b class="nc"><i>208</i>&nbsp;    this.colormap = colormap;</b>
+<i>209</i>&nbsp;  }
+<i>210</i>&nbsp;
+<i>211</i>&nbsp;  /**
+<i>212</i>&nbsp;   * Get the colormap to be used for the filter.
+<i>213</i>&nbsp;   *
+<i>214</i>&nbsp;   * @return the colormap
+<i>215</i>&nbsp;   * @see #setColormap
+<i>216</i>&nbsp;   */
+<i>217</i>&nbsp;  public Colormap getColormap() {
+<b class="nc"><i>218</i>&nbsp;    return colormap;</b>
+<i>219</i>&nbsp;  }
+<i>220</i>&nbsp;
+<i>221</i>&nbsp;  public void setBasisType(int basisType) {
+<b class="nc"><i>222</i>&nbsp;    this.basisType = basisType;</b>
+<b class="nc"><i>223</i>&nbsp;    switch (basisType) {</b>
+<i>224</i>&nbsp;      default:
+<i>225</i>&nbsp;      case NOISE:
+<b class="nc"><i>226</i>&nbsp;        basis = new Noise();</b>
+<b class="nc"><i>227</i>&nbsp;        break;</b>
+<i>228</i>&nbsp;      case RIDGED:
+<b class="nc"><i>229</i>&nbsp;        basis = new RidgedFBM();</b>
+<b class="nc"><i>230</i>&nbsp;        break;</b>
+<i>231</i>&nbsp;      case VLNOISE:
+<b class="nc"><i>232</i>&nbsp;        basis = new VLNoise();</b>
+<b class="nc"><i>233</i>&nbsp;        break;</b>
+<i>234</i>&nbsp;      case SCNOISE:
+<b class="nc"><i>235</i>&nbsp;        basis = new SCNoise();</b>
+<b class="nc"><i>236</i>&nbsp;        break;</b>
+<i>237</i>&nbsp;      case CELLULAR:
+<b class="nc"><i>238</i>&nbsp;        basis = new CellularFunction2D();</b>
+<i>239</i>&nbsp;        break;
+<i>240</i>&nbsp;    }
+<i>241</i>&nbsp;  }
+<i>242</i>&nbsp;
+<i>243</i>&nbsp;  public int getBasisType() {
+<b class="nc"><i>244</i>&nbsp;    return basisType;</b>
+<i>245</i>&nbsp;  }
+<i>246</i>&nbsp;
+<i>247</i>&nbsp;  public void setBasis(Function2D basis) {
+<b class="nc"><i>248</i>&nbsp;    this.basis = basis;</b>
+<i>249</i>&nbsp;  }
+<i>250</i>&nbsp;
+<i>251</i>&nbsp;  public Function2D getBasis() {
+<b class="nc"><i>252</i>&nbsp;    return basis;</b>
+<i>253</i>&nbsp;  }
+<i>254</i>&nbsp;
+<i>255</i>&nbsp;  protected FBM makeFBM(float H, float lacunarity, float octaves) {
+<b class="nc"><i>256</i>&nbsp;    FBM fbm = new FBM(H, lacunarity, octaves, basis);</b>
+<b class="nc"><i>257</i>&nbsp;    float[] minmax = Noise.findRange(fbm, null);</b>
+<b class="nc"><i>258</i>&nbsp;    min = minmax[0];</b>
+<b class="nc"><i>259</i>&nbsp;    max = minmax[1];</b>
+<b class="nc"><i>260</i>&nbsp;    return fbm;</b>
+<i>261</i>&nbsp;  }
+<i>262</i>&nbsp;
+<i>263</i>&nbsp;  public BufferedImage filter(BufferedImage src, BufferedImage dst) {
+<b class="nc"><i>264</i>&nbsp;    fBm = makeFBM(H, lacunarity, octaves);</b>
+<b class="nc"><i>265</i>&nbsp;    return super.filter(src, dst);</b>
+<i>266</i>&nbsp;  }
+<i>267</i>&nbsp;
+<i>268</i>&nbsp;  public int filterRGB(int x, int y, int rgb) {
+<b class="nc"><i>269</i>&nbsp;    float nx = m00 * x + m01 * y;</b>
+<b class="nc"><i>270</i>&nbsp;    float ny = m10 * x + m11 * y;</b>
+<b class="nc"><i>271</i>&nbsp;    nx /= scale;</b>
+<b class="nc"><i>272</i>&nbsp;    ny /= scale * stretch;</b>
+<b class="nc"><i>273</i>&nbsp;    float f = fBm.evaluate(nx, ny);</b>
+<i>274</i>&nbsp;    // Normalize to 0..1
+<b class="nc"><i>275</i>&nbsp;    f = (f - min) / (max - min);</b>
+<b class="nc"><i>276</i>&nbsp;    f = ImageMath.gain(f, gain);</b>
+<b class="nc"><i>277</i>&nbsp;    f = ImageMath.bias(f, bias);</b>
+<b class="nc"><i>278</i>&nbsp;    f *= amount;</b>
+<b class="nc"><i>279</i>&nbsp;    int a = rgb &amp; 0xff000000;</b>
+<i>280</i>&nbsp;    int v;
+<b class="nc"><i>281</i>&nbsp;    if (colormap != null) v = colormap.getColor(f);</b>
+<i>282</i>&nbsp;    else {
+<b class="nc"><i>283</i>&nbsp;      v = PixelUtils.clamp((int) (f * 255));</b>
+<b class="nc"><i>284</i>&nbsp;      int r = v &lt;&lt; 16;</b>
+<b class="nc"><i>285</i>&nbsp;      int g = v &lt;&lt; 8;</b>
+<b class="nc"><i>286</i>&nbsp;      int b = v;</b>
+<b class="nc"><i>287</i>&nbsp;      v = a | r | g | b;</b>
+<i>288</i>&nbsp;    }
+<b class="nc"><i>289</i>&nbsp;    if (operation != PixelUtils.REPLACE) v = PixelUtils.combinePixels(rgb, v, operation);</b>
+<b class="nc"><i>290</i>&nbsp;    return v;</b>
+<i>291</i>&nbsp;  }
+<i>292</i>&nbsp;
+<i>293</i>&nbsp;  public String toString() {
+<b class="nc"><i>294</i>&nbsp;    return &quot;Texture/Fractal Brownian Motion...&quot;;</b>
+<i>295</i>&nbsp;  }
+<i>296</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

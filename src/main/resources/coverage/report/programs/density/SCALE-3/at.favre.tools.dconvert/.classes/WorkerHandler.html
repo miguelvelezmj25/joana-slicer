@@ -1,0 +1,287 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: WorkerHandler</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">at.favre.tools.dconvert</a> ]
+</div>
+
+<h1>Coverage Summary for Class: WorkerHandler (at.favre.tools.dconvert)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">WorkerHandler</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (3/ 3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (18/ 18)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">WorkerHandler$Callback</td>
+  </tr>
+  <tr>
+    <td class="name">WorkerHandler$InternalCallback</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/ 2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    76.9%
+  </span>
+  <span class="absValue">
+    (20/ 26)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">WorkerHandler$Worker</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/ 2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    85.7%
+  </span>
+  <span class="absValue">
+    (12/ 14)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (7/ 7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    86.2%
+  </span>
+  <span class="absValue">
+    (50/ 58)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; *  Copyright 2016 Patrick Favre-Bulle
+<i>3</i>&nbsp; *
+<i>4</i>&nbsp; *  Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp; *  you may not use this file except in compliance with the License.
+<i>6</i>&nbsp; *  You may obtain a copy of the License at
+<i>7</i>&nbsp; *
+<i>8</i>&nbsp; *      http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp; *
+<i>10</i>&nbsp; * Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp; * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp; * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp; * See the License for the specific language governing permissions and
+<i>14</i>&nbsp; * limitations under the License.
+<i>15</i>&nbsp; */
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package at.favre.tools.dconvert;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import at.favre.tools.dconvert.arg.Arguments;
+<i>20</i>&nbsp;import at.favre.tools.dconvert.converters.IPlatformConverter;
+<i>21</i>&nbsp;import at.favre.tools.dconvert.converters.Result;
+<i>22</i>&nbsp;import at.favre.tools.dconvert.converters.postprocessing.IPostProcessor;
+<i>23</i>&nbsp;
+<i>24</i>&nbsp;import java.io.File;
+<i>25</i>&nbsp;import java.util.ArrayList;
+<i>26</i>&nbsp;import java.util.List;
+<i>27</i>&nbsp;import java.util.concurrent.ArrayBlockingQueue;
+<i>28</i>&nbsp;import java.util.concurrent.ExecutorService;
+<i>29</i>&nbsp;import java.util.concurrent.ThreadPoolExecutor;
+<i>30</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i>31</i>&nbsp;
+<i>32</i>&nbsp;/** Handles post processing tasks */
+<b class="fc"><i>33</i>&nbsp;public class WorkerHandler&lt;T&gt; {</b>
+<i>34</i>&nbsp;
+<i>35</i>&nbsp;  private final List&lt;T&gt; processors;
+<i>36</i>&nbsp;  private final ExecutorService threadPool;
+<i>37</i>&nbsp;  private final Arguments arguments;
+<i>38</i>&nbsp;  private final Callback callback;
+<i>39</i>&nbsp;  private int jobCount;
+<i>40</i>&nbsp;
+<b class="fc"><i>41</i>&nbsp;  public WorkerHandler(List&lt;T&gt; processors, Arguments arguments, Callback callback) {</b>
+<b class="fc"><i>42</i>&nbsp;    this.processors = processors;</b>
+<b class="fc"><i>43</i>&nbsp;    this.threadPool =</b>
+<i>44</i>&nbsp;        new ThreadPoolExecutor(
+<i>45</i>&nbsp;            arguments.threadCount,
+<i>46</i>&nbsp;            arguments.threadCount,
+<i>47</i>&nbsp;            5,
+<i>48</i>&nbsp;            TimeUnit.SECONDS,
+<i>49</i>&nbsp;            new ArrayBlockingQueue&lt;Runnable&gt;(1024 * 10));
+<b class="fc"><i>50</i>&nbsp;    this.callback = callback;</b>
+<b class="fc"><i>51</i>&nbsp;    this.arguments = arguments;</b>
+<b class="fc"><i>52</i>&nbsp;  }</b>
+<i>53</i>&nbsp;
+<i>54</i>&nbsp;  public void start(List&lt;File&gt; allFiles) {
+<b class="fc"><i>55</i>&nbsp;    this.jobCount = allFiles.size() * processors.size();</b>
+<i>56</i>&nbsp;
+<b class="fc"><i>57</i>&nbsp;    InternalCallback internalCallback = new InternalCallback(callback);</b>
+<i>58</i>&nbsp;
+<b class="fc"><i>59</i>&nbsp;    for (T processor : processors) {</b>
+<b class="fc"><i>60</i>&nbsp;      for (File fileToProcess : allFiles) {</b>
+<b class="fc"><i>61</i>&nbsp;        threadPool.execute(new Worker(fileToProcess, processor, arguments, internalCallback));</b>
+<b class="fc"><i>62</i>&nbsp;      }</b>
+<b class="fc"><i>63</i>&nbsp;    }</b>
+<i>64</i>&nbsp;
+<b class="fc"><i>65</i>&nbsp;    threadPool.shutdown();</b>
+<i>66</i>&nbsp;
+<b class="fc"><i>67</i>&nbsp;    if (jobCount == 0) {</b>
+<b class="fc"><i>68</i>&nbsp;      callback.onFinished(</b>
+<i>69</i>&nbsp;          0, new ArrayList&lt;File&gt;(), new StringBuilder(), new ArrayList&lt;Exception&gt;(), false);
+<i>70</i>&nbsp;    }
+<b class="fc"><i>71</i>&nbsp;  }</b>
+<i>72</i>&nbsp;
+<i>73</i>&nbsp;  public interface Callback {
+<i>74</i>&nbsp;    void onProgress(float percent);
+<i>75</i>&nbsp;
+<i>76</i>&nbsp;    void onFinished(
+<i>77</i>&nbsp;        int finishedJobs,
+<i>78</i>&nbsp;        List&lt;File&gt; outFiles,
+<i>79</i>&nbsp;        StringBuilder log,
+<i>80</i>&nbsp;        List&lt;Exception&gt; exceptions,
+<i>81</i>&nbsp;        boolean haltedDuringProcess);
+<i>82</i>&nbsp;  }
+<i>83</i>&nbsp;
+<i>84</i>&nbsp;  private class Worker implements Runnable {
+<i>85</i>&nbsp;    private final Arguments arguments;
+<i>86</i>&nbsp;    private final File unprocessedFile;
+<i>87</i>&nbsp;    private final T processor;
+<i>88</i>&nbsp;    private final InternalCallback callback;
+<i>89</i>&nbsp;
+<i>90</i>&nbsp;    public Worker(
+<b class="fc"><i>91</i>&nbsp;        File unprocessedFile, T processors, Arguments arguments, InternalCallback callback) {</b>
+<b class="fc"><i>92</i>&nbsp;      this.unprocessedFile = unprocessedFile;</b>
+<b class="fc"><i>93</i>&nbsp;      this.arguments = arguments;</b>
+<b class="fc"><i>94</i>&nbsp;      this.processor = processors;</b>
+<b class="fc"><i>95</i>&nbsp;      this.callback = callback;</b>
+<b class="fc"><i>96</i>&nbsp;    }</b>
+<i>97</i>&nbsp;
+<i>98</i>&nbsp;    @Override
+<i>99</i>&nbsp;    public void run() {
+<b class="fc"><i>100</i>&nbsp;      Result result = null;</b>
+<b class="fc"><i>101</i>&nbsp;      if (processor instanceof IPostProcessor) {</b>
+<b class="nc"><i>102</i>&nbsp;        result =</b>
+<i>103</i>&nbsp;            ((IPostProcessor) processor)
+<b class="nc"><i>104</i>&nbsp;                .process(unprocessedFile, arguments.keepUnoptimizedFilesPostProcessor);</b>
+<b class="fc"><i>105</i>&nbsp;      } else if (processor instanceof IPlatformConverter) {</b>
+<b class="fc"><i>106</i>&nbsp;        result = ((IPlatformConverter) processor).convert(unprocessedFile, arguments);</b>
+<i>107</i>&nbsp;      }
+<b class="fc"><i>108</i>&nbsp;      callback.onJobFinished(result);</b>
+<b class="fc"><i>109</i>&nbsp;    }</b>
+<i>110</i>&nbsp;  }
+<i>111</i>&nbsp;
+<i>112</i>&nbsp;  private class InternalCallback {
+<b class="fc"><i>113</i>&nbsp;    private final List&lt;Exception&gt; exceptionList = new ArrayList&lt;Exception&gt;();</b>
+<i>114</i>&nbsp;    private final Callback callback;
+<b class="fc"><i>115</i>&nbsp;    private final StringBuilder logBuilder = new StringBuilder();</b>
+<b class="fc"><i>116</i>&nbsp;    private final List&lt;File&gt; files = new ArrayList&lt;File&gt;();</b>
+<b class="fc"><i>117</i>&nbsp;    private int currentJobCount = 0;</b>
+<b class="fc"><i>118</i>&nbsp;    private boolean canceled = false;</b>
+<i>119</i>&nbsp;
+<b class="fc"><i>120</i>&nbsp;    public InternalCallback(Callback callback) {</b>
+<b class="fc"><i>121</i>&nbsp;      this.callback = callback;</b>
+<b class="fc"><i>122</i>&nbsp;    }</b>
+<i>123</i>&nbsp;
+<i>124</i>&nbsp;    synchronized void onJobFinished(Result result) {
+<b class="fc"><i>125</i>&nbsp;      if (!canceled) {</b>
+<b class="fc"><i>126</i>&nbsp;        currentJobCount++;</b>
+<i>127</i>&nbsp;
+<b class="fc"><i>128</i>&nbsp;        if (result != null) {</b>
+<b class="fc"><i>129</i>&nbsp;          if (result.log != null &amp;&amp; result.log.length() &gt; 0) {</b>
+<b class="fc"><i>130</i>&nbsp;            logBuilder.append(result.log).append(&quot;\n&quot;);</b>
+<i>131</i>&nbsp;          }
+<b class="fc"><i>132</i>&nbsp;          if (result.processedFiles != null) {</b>
+<b class="fc"><i>133</i>&nbsp;            files.addAll(result.processedFiles);</b>
+<i>134</i>&nbsp;          }
+<b class="fc"><i>135</i>&nbsp;          if (result.exception != null) {</b>
+<b class="nc"><i>136</i>&nbsp;            exceptionList.add(result.exception);</b>
+<i>137</i>&nbsp;
+<b class="nc"><i>138</i>&nbsp;            if (arguments.haltOnError) {</b>
+<b class="nc"><i>139</i>&nbsp;              canceled = true;</b>
+<b class="nc"><i>140</i>&nbsp;              threadPool.shutdownNow();</b>
+<b class="nc"><i>141</i>&nbsp;              callback.onFinished(currentJobCount, files, logBuilder, exceptionList, true);</b>
+<i>142</i>&nbsp;            }
+<i>143</i>&nbsp;          }
+<i>144</i>&nbsp;        }
+<i>145</i>&nbsp;
+<b class="fc"><i>146</i>&nbsp;        if (!canceled) {</b>
+<b class="fc"><i>147</i>&nbsp;          if (currentJobCount == jobCount) {</b>
+<b class="fc"><i>148</i>&nbsp;            callback.onFinished(currentJobCount, files, logBuilder, exceptionList, false);</b>
+<i>149</i>&nbsp;          } else {
+<b class="nc"><i>150</i>&nbsp;            callback.onProgress((float) currentJobCount / (float) jobCount);</b>
+<i>151</i>&nbsp;          }
+<i>152</i>&nbsp;        }
+<i>153</i>&nbsp;      }
+<b class="fc"><i>154</i>&nbsp;    }</b>
+<i>155</i>&nbsp;  }
+<i>156</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:49</div>
+</div>
+</body>
+</html>

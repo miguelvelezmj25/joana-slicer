@@ -1,0 +1,655 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: CellularFilter</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.jhlabs.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: CellularFilter (com.jhlabs.image)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">CellularFilter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 40)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 229)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">CellularFilter$Point</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 41)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 230)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp;Copyright 2006 Jerry Huxtable
+<i>3</i>&nbsp;
+<i>4</i>&nbsp;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp;you may not use this file except in compliance with the License.
+<i>6</i>&nbsp;You may obtain a copy of the License at
+<i>7</i>&nbsp;
+<i>8</i>&nbsp;   http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp;
+<i>10</i>&nbsp;Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp;See the License for the specific language governing permissions and
+<i>14</i>&nbsp;limitations under the License.
+<i>15</i>&nbsp;*/
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package com.jhlabs.image;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import com.jhlabs.math.Function2D;
+<i>20</i>&nbsp;import com.jhlabs.math.Noise;
+<i>21</i>&nbsp;
+<i>22</i>&nbsp;import java.awt.*;
+<i>23</i>&nbsp;import java.util.Random;
+<i>24</i>&nbsp;
+<i>25</i>&nbsp;/** A filter which produces an image with a cellular texture. */
+<i>26</i>&nbsp;public class CellularFilter extends WholeImageFilter implements Function2D, Cloneable {
+<i>27</i>&nbsp;
+<b class="nc"><i>28</i>&nbsp;  protected float scale = 32;</b>
+<b class="nc"><i>29</i>&nbsp;  protected float stretch = 1.0f;</b>
+<b class="nc"><i>30</i>&nbsp;  protected float angle = 0.0f;</b>
+<b class="nc"><i>31</i>&nbsp;  public float amount = 1.0f;</b>
+<b class="nc"><i>32</i>&nbsp;  public float turbulence = 1.0f;</b>
+<b class="nc"><i>33</i>&nbsp;  public float gain = 0.5f;</b>
+<b class="nc"><i>34</i>&nbsp;  public float bias = 0.5f;</b>
+<b class="nc"><i>35</i>&nbsp;  public float distancePower = 2;</b>
+<b class="nc"><i>36</i>&nbsp;  public boolean useColor = false;</b>
+<b class="nc"><i>37</i>&nbsp;  protected Colormap colormap = new Gradient();</b>
+<b class="nc"><i>38</i>&nbsp;  protected float[] coefficients = {1, 0, 0, 0};</b>
+<i>39</i>&nbsp;  protected float angleCoefficient;
+<b class="nc"><i>40</i>&nbsp;  protected Random random = new Random();</b>
+<b class="nc"><i>41</i>&nbsp;  protected float m00 = 1.0f;</b>
+<b class="nc"><i>42</i>&nbsp;  protected float m01 = 0.0f;</b>
+<b class="nc"><i>43</i>&nbsp;  protected float m10 = 0.0f;</b>
+<b class="nc"><i>44</i>&nbsp;  protected float m11 = 1.0f;</b>
+<b class="nc"><i>45</i>&nbsp;  protected Point[] results = null;</b>
+<b class="nc"><i>46</i>&nbsp;  protected float randomness = 0;</b>
+<b class="nc"><i>47</i>&nbsp;  protected int gridType = HEXAGONAL;</b>
+<i>48</i>&nbsp;  private float min;
+<i>49</i>&nbsp;  private float max;
+<i>50</i>&nbsp;  private static byte[] probabilities;
+<i>51</i>&nbsp;  private float gradientCoefficient;
+<i>52</i>&nbsp;
+<i>53</i>&nbsp;  public static final int RANDOM = 0;
+<i>54</i>&nbsp;  public static final int SQUARE = 1;
+<i>55</i>&nbsp;  public static final int HEXAGONAL = 2;
+<i>56</i>&nbsp;  public static final int OCTAGONAL = 3;
+<i>57</i>&nbsp;  public static final int TRIANGULAR = 4;
+<i>58</i>&nbsp;
+<b class="nc"><i>59</i>&nbsp;  public CellularFilter() {</b>
+<b class="nc"><i>60</i>&nbsp;    results = new Point[3];</b>
+<b class="nc"><i>61</i>&nbsp;    for (int j = 0; j &lt; results.length; j++) results[j] = new Point();</b>
+<b class="nc"><i>62</i>&nbsp;    if (probabilities == null) {</b>
+<b class="nc"><i>63</i>&nbsp;      probabilities = new byte[8192];</b>
+<b class="nc"><i>64</i>&nbsp;      float factorial = 1;</b>
+<b class="nc"><i>65</i>&nbsp;      float total = 0;</b>
+<b class="nc"><i>66</i>&nbsp;      float mean = 2.5f;</b>
+<b class="nc"><i>67</i>&nbsp;      for (int i = 0; i &lt; 10; i++) {</b>
+<b class="nc"><i>68</i>&nbsp;        if (i &gt; 1) factorial *= i;</b>
+<b class="nc"><i>69</i>&nbsp;        float probability = (float) Math.pow(mean, i) * (float) Math.exp(-mean) / factorial;</b>
+<b class="nc"><i>70</i>&nbsp;        int start = (int) (total * 8192);</b>
+<b class="nc"><i>71</i>&nbsp;        total += probability;</b>
+<b class="nc"><i>72</i>&nbsp;        int end = (int) (total * 8192);</b>
+<b class="nc"><i>73</i>&nbsp;        for (int j = start; j &lt; end; j++) probabilities[j] = (byte) i;</b>
+<i>74</i>&nbsp;      }
+<i>75</i>&nbsp;    }
+<i>76</i>&nbsp;  }
+<i>77</i>&nbsp;
+<i>78</i>&nbsp;  /**
+<i>79</i>&nbsp;   * Specifies the scale of the texture.
+<i>80</i>&nbsp;   *
+<i>81</i>&nbsp;   * @param scale the scale of the texture.
+<i>82</i>&nbsp;   * @min-value 1
+<i>83</i>&nbsp;   * @max-value 300+
+<i>84</i>&nbsp;   * @see #getScale
+<i>85</i>&nbsp;   */
+<i>86</i>&nbsp;  public void setScale(float scale) {
+<b class="nc"><i>87</i>&nbsp;    this.scale = scale;</b>
+<i>88</i>&nbsp;  }
+<i>89</i>&nbsp;
+<i>90</i>&nbsp;  /**
+<i>91</i>&nbsp;   * Returns the scale of the texture.
+<i>92</i>&nbsp;   *
+<i>93</i>&nbsp;   * @return the scale of the texture.
+<i>94</i>&nbsp;   * @see #setScale
+<i>95</i>&nbsp;   */
+<i>96</i>&nbsp;  public float getScale() {
+<b class="nc"><i>97</i>&nbsp;    return scale;</b>
+<i>98</i>&nbsp;  }
+<i>99</i>&nbsp;
+<i>100</i>&nbsp;  /**
+<i>101</i>&nbsp;   * Specifies the stretch factor of the texture.
+<i>102</i>&nbsp;   *
+<i>103</i>&nbsp;   * @param stretch the stretch factor of the texture.
+<i>104</i>&nbsp;   * @min-value 1
+<i>105</i>&nbsp;   * @max-value 50+
+<i>106</i>&nbsp;   * @see #getStretch
+<i>107</i>&nbsp;   */
+<i>108</i>&nbsp;  public void setStretch(float stretch) {
+<b class="nc"><i>109</i>&nbsp;    this.stretch = stretch;</b>
+<i>110</i>&nbsp;  }
+<i>111</i>&nbsp;
+<i>112</i>&nbsp;  /**
+<i>113</i>&nbsp;   * Returns the stretch factor of the texture.
+<i>114</i>&nbsp;   *
+<i>115</i>&nbsp;   * @return the stretch factor of the texture.
+<i>116</i>&nbsp;   * @see #setStretch
+<i>117</i>&nbsp;   */
+<i>118</i>&nbsp;  public float getStretch() {
+<b class="nc"><i>119</i>&nbsp;    return stretch;</b>
+<i>120</i>&nbsp;  }
+<i>121</i>&nbsp;
+<i>122</i>&nbsp;  /**
+<i>123</i>&nbsp;   * Specifies the angle of the texture.
+<i>124</i>&nbsp;   *
+<i>125</i>&nbsp;   * @param angle the angle of the texture.
+<i>126</i>&nbsp;   * @angle
+<i>127</i>&nbsp;   * @see #getAngle
+<i>128</i>&nbsp;   */
+<i>129</i>&nbsp;  public void setAngle(float angle) {
+<b class="nc"><i>130</i>&nbsp;    this.angle = angle;</b>
+<b class="nc"><i>131</i>&nbsp;    float cos = (float) Math.cos(angle);</b>
+<b class="nc"><i>132</i>&nbsp;    float sin = (float) Math.sin(angle);</b>
+<b class="nc"><i>133</i>&nbsp;    m00 = cos;</b>
+<b class="nc"><i>134</i>&nbsp;    m01 = sin;</b>
+<b class="nc"><i>135</i>&nbsp;    m10 = -sin;</b>
+<b class="nc"><i>136</i>&nbsp;    m11 = cos;</b>
+<i>137</i>&nbsp;  }
+<i>138</i>&nbsp;
+<i>139</i>&nbsp;  /**
+<i>140</i>&nbsp;   * Returns the angle of the texture.
+<i>141</i>&nbsp;   *
+<i>142</i>&nbsp;   * @return the angle of the texture.
+<i>143</i>&nbsp;   * @see #setAngle
+<i>144</i>&nbsp;   */
+<i>145</i>&nbsp;  public float getAngle() {
+<b class="nc"><i>146</i>&nbsp;    return angle;</b>
+<i>147</i>&nbsp;  }
+<i>148</i>&nbsp;
+<i>149</i>&nbsp;  public void setCoefficient(int i, float v) {
+<b class="nc"><i>150</i>&nbsp;    coefficients[i] = v;</b>
+<i>151</i>&nbsp;  }
+<i>152</i>&nbsp;
+<i>153</i>&nbsp;  public float getCoefficient(int i) {
+<b class="nc"><i>154</i>&nbsp;    return coefficients[i];</b>
+<i>155</i>&nbsp;  }
+<i>156</i>&nbsp;
+<i>157</i>&nbsp;  public void setAngleCoefficient(float angleCoefficient) {
+<b class="nc"><i>158</i>&nbsp;    this.angleCoefficient = angleCoefficient;</b>
+<i>159</i>&nbsp;  }
+<i>160</i>&nbsp;
+<i>161</i>&nbsp;  public float getAngleCoefficient() {
+<b class="nc"><i>162</i>&nbsp;    return angleCoefficient;</b>
+<i>163</i>&nbsp;  }
+<i>164</i>&nbsp;
+<i>165</i>&nbsp;  public void setGradientCoefficient(float gradientCoefficient) {
+<b class="nc"><i>166</i>&nbsp;    this.gradientCoefficient = gradientCoefficient;</b>
+<i>167</i>&nbsp;  }
+<i>168</i>&nbsp;
+<i>169</i>&nbsp;  public float getGradientCoefficient() {
+<b class="nc"><i>170</i>&nbsp;    return gradientCoefficient;</b>
+<i>171</i>&nbsp;  }
+<i>172</i>&nbsp;
+<i>173</i>&nbsp;  public void setF1(float v) {
+<b class="nc"><i>174</i>&nbsp;    coefficients[0] = v;</b>
+<i>175</i>&nbsp;  }
+<i>176</i>&nbsp;
+<i>177</i>&nbsp;  public float getF1() {
+<b class="nc"><i>178</i>&nbsp;    return coefficients[0];</b>
+<i>179</i>&nbsp;  }
+<i>180</i>&nbsp;
+<i>181</i>&nbsp;  public void setF2(float v) {
+<b class="nc"><i>182</i>&nbsp;    coefficients[1] = v;</b>
+<i>183</i>&nbsp;  }
+<i>184</i>&nbsp;
+<i>185</i>&nbsp;  public float getF2() {
+<b class="nc"><i>186</i>&nbsp;    return coefficients[1];</b>
+<i>187</i>&nbsp;  }
+<i>188</i>&nbsp;
+<i>189</i>&nbsp;  public void setF3(float v) {
+<b class="nc"><i>190</i>&nbsp;    coefficients[2] = v;</b>
+<i>191</i>&nbsp;  }
+<i>192</i>&nbsp;
+<i>193</i>&nbsp;  public float getF3() {
+<b class="nc"><i>194</i>&nbsp;    return coefficients[2];</b>
+<i>195</i>&nbsp;  }
+<i>196</i>&nbsp;
+<i>197</i>&nbsp;  public void setF4(float v) {
+<b class="nc"><i>198</i>&nbsp;    coefficients[3] = v;</b>
+<i>199</i>&nbsp;  }
+<i>200</i>&nbsp;
+<i>201</i>&nbsp;  public float getF4() {
+<b class="nc"><i>202</i>&nbsp;    return coefficients[3];</b>
+<i>203</i>&nbsp;  }
+<i>204</i>&nbsp;
+<i>205</i>&nbsp;  /**
+<i>206</i>&nbsp;   * Set the colormap to be used for the filter.
+<i>207</i>&nbsp;   *
+<i>208</i>&nbsp;   * @param colormap the colormap
+<i>209</i>&nbsp;   * @see #getColormap
+<i>210</i>&nbsp;   */
+<i>211</i>&nbsp;  public void setColormap(Colormap colormap) {
+<b class="nc"><i>212</i>&nbsp;    this.colormap = colormap;</b>
+<i>213</i>&nbsp;  }
+<i>214</i>&nbsp;
+<i>215</i>&nbsp;  /**
+<i>216</i>&nbsp;   * Get the colormap to be used for the filter.
+<i>217</i>&nbsp;   *
+<i>218</i>&nbsp;   * @return the colormap
+<i>219</i>&nbsp;   * @see #setColormap
+<i>220</i>&nbsp;   */
+<i>221</i>&nbsp;  public Colormap getColormap() {
+<b class="nc"><i>222</i>&nbsp;    return colormap;</b>
+<i>223</i>&nbsp;  }
+<i>224</i>&nbsp;
+<i>225</i>&nbsp;  public void setRandomness(float randomness) {
+<b class="nc"><i>226</i>&nbsp;    this.randomness = randomness;</b>
+<i>227</i>&nbsp;  }
+<i>228</i>&nbsp;
+<i>229</i>&nbsp;  public float getRandomness() {
+<b class="nc"><i>230</i>&nbsp;    return randomness;</b>
+<i>231</i>&nbsp;  }
+<i>232</i>&nbsp;
+<i>233</i>&nbsp;  public void setGridType(int gridType) {
+<b class="nc"><i>234</i>&nbsp;    this.gridType = gridType;</b>
+<i>235</i>&nbsp;  }
+<i>236</i>&nbsp;
+<i>237</i>&nbsp;  public int getGridType() {
+<b class="nc"><i>238</i>&nbsp;    return gridType;</b>
+<i>239</i>&nbsp;  }
+<i>240</i>&nbsp;
+<i>241</i>&nbsp;  public void setDistancePower(float distancePower) {
+<b class="nc"><i>242</i>&nbsp;    this.distancePower = distancePower;</b>
+<i>243</i>&nbsp;  }
+<i>244</i>&nbsp;
+<i>245</i>&nbsp;  public float getDistancePower() {
+<b class="nc"><i>246</i>&nbsp;    return distancePower;</b>
+<i>247</i>&nbsp;  }
+<i>248</i>&nbsp;
+<i>249</i>&nbsp;  /**
+<i>250</i>&nbsp;   * Specifies the turbulence of the texture.
+<i>251</i>&nbsp;   *
+<i>252</i>&nbsp;   * @param turbulence the turbulence of the texture.
+<i>253</i>&nbsp;   * @min-value 0
+<i>254</i>&nbsp;   * @max-value 1
+<i>255</i>&nbsp;   * @see #getTurbulence
+<i>256</i>&nbsp;   */
+<i>257</i>&nbsp;  public void setTurbulence(float turbulence) {
+<b class="nc"><i>258</i>&nbsp;    this.turbulence = turbulence;</b>
+<i>259</i>&nbsp;  }
+<i>260</i>&nbsp;
+<i>261</i>&nbsp;  /**
+<i>262</i>&nbsp;   * Returns the turbulence of the effect.
+<i>263</i>&nbsp;   *
+<i>264</i>&nbsp;   * @return the turbulence of the effect.
+<i>265</i>&nbsp;   * @see #setTurbulence
+<i>266</i>&nbsp;   */
+<i>267</i>&nbsp;  public float getTurbulence() {
+<b class="nc"><i>268</i>&nbsp;    return turbulence;</b>
+<i>269</i>&nbsp;  }
+<i>270</i>&nbsp;
+<i>271</i>&nbsp;  /**
+<i>272</i>&nbsp;   * Set the amount of effect.
+<i>273</i>&nbsp;   *
+<i>274</i>&nbsp;   * @param amount the amount
+<i>275</i>&nbsp;   * @min-value 0
+<i>276</i>&nbsp;   * @max-value 1
+<i>277</i>&nbsp;   * @see #getAmount
+<i>278</i>&nbsp;   */
+<i>279</i>&nbsp;  public void setAmount(float amount) {
+<b class="nc"><i>280</i>&nbsp;    this.amount = amount;</b>
+<i>281</i>&nbsp;  }
+<i>282</i>&nbsp;
+<i>283</i>&nbsp;  /**
+<i>284</i>&nbsp;   * Get the amount of texture.
+<i>285</i>&nbsp;   *
+<i>286</i>&nbsp;   * @return the amount
+<i>287</i>&nbsp;   * @see #setAmount
+<i>288</i>&nbsp;   */
+<i>289</i>&nbsp;  public float getAmount() {
+<b class="nc"><i>290</i>&nbsp;    return amount;</b>
+<i>291</i>&nbsp;  }
+<i>292</i>&nbsp;
+<b class="nc"><i>293</i>&nbsp;  public class Point {</b>
+<i>294</i>&nbsp;    public int index;
+<i>295</i>&nbsp;    public float x, y;
+<i>296</i>&nbsp;    public float dx, dy;
+<i>297</i>&nbsp;    public float cubeX, cubeY;
+<i>298</i>&nbsp;    public float distance;
+<i>299</i>&nbsp;  }
+<i>300</i>&nbsp;
+<i>301</i>&nbsp;  private float checkCube(float x, float y, int cubeX, int cubeY, Point[] results) {
+<i>302</i>&nbsp;    int numPoints;
+<b class="nc"><i>303</i>&nbsp;    random.setSeed(571 * cubeX + 23 * cubeY);</b>
+<b class="nc"><i>304</i>&nbsp;    switch (gridType) {</b>
+<i>305</i>&nbsp;      case RANDOM:
+<i>306</i>&nbsp;      default:
+<b class="nc"><i>307</i>&nbsp;        numPoints = probabilities[random.nextInt() &amp; 0x1fff];</b>
+<b class="nc"><i>308</i>&nbsp;        break;</b>
+<i>309</i>&nbsp;      case SQUARE:
+<b class="nc"><i>310</i>&nbsp;        numPoints = 1;</b>
+<b class="nc"><i>311</i>&nbsp;        break;</b>
+<i>312</i>&nbsp;      case HEXAGONAL:
+<b class="nc"><i>313</i>&nbsp;        numPoints = 1;</b>
+<b class="nc"><i>314</i>&nbsp;        break;</b>
+<i>315</i>&nbsp;      case OCTAGONAL:
+<b class="nc"><i>316</i>&nbsp;        numPoints = 2;</b>
+<b class="nc"><i>317</i>&nbsp;        break;</b>
+<i>318</i>&nbsp;      case TRIANGULAR:
+<b class="nc"><i>319</i>&nbsp;        numPoints = 2;</b>
+<i>320</i>&nbsp;        break;
+<i>321</i>&nbsp;    }
+<b class="nc"><i>322</i>&nbsp;    for (int i = 0; i &lt; numPoints; i++) {</b>
+<b class="nc"><i>323</i>&nbsp;      float px = 0, py = 0;</b>
+<b class="nc"><i>324</i>&nbsp;      float weight = 1.0f;</b>
+<b class="nc"><i>325</i>&nbsp;      switch (gridType) {</b>
+<i>326</i>&nbsp;        case RANDOM:
+<b class="nc"><i>327</i>&nbsp;          px = random.nextFloat();</b>
+<b class="nc"><i>328</i>&nbsp;          py = random.nextFloat();</b>
+<b class="nc"><i>329</i>&nbsp;          break;</b>
+<i>330</i>&nbsp;        case SQUARE:
+<b class="nc"><i>331</i>&nbsp;          px = py = 0.5f;</b>
+<b class="nc"><i>332</i>&nbsp;          if (randomness != 0) {</b>
+<b class="nc"><i>333</i>&nbsp;            px += randomness * (random.nextFloat() - 0.5);</b>
+<b class="nc"><i>334</i>&nbsp;            py += randomness * (random.nextFloat() - 0.5);</b>
+<i>335</i>&nbsp;          }
+<i>336</i>&nbsp;          break;
+<i>337</i>&nbsp;        case HEXAGONAL:
+<b class="nc"><i>338</i>&nbsp;          if ((cubeX &amp; 1) == 0) {</b>
+<b class="nc"><i>339</i>&nbsp;            px = 0.75f;</b>
+<b class="nc"><i>340</i>&nbsp;            py = 0;</b>
+<i>341</i>&nbsp;          } else {
+<b class="nc"><i>342</i>&nbsp;            px = 0.75f;</b>
+<b class="nc"><i>343</i>&nbsp;            py = 0.5f;</b>
+<i>344</i>&nbsp;          }
+<b class="nc"><i>345</i>&nbsp;          if (randomness != 0) {</b>
+<b class="nc"><i>346</i>&nbsp;            px += randomness * Noise.noise2(271 * (cubeX + px), 271 * (cubeY + py));</b>
+<b class="nc"><i>347</i>&nbsp;            py += randomness * Noise.noise2(271 * (cubeX + px) + 89, 271 * (cubeY + py) + 137);</b>
+<i>348</i>&nbsp;          }
+<i>349</i>&nbsp;          break;
+<i>350</i>&nbsp;        case OCTAGONAL:
+<b class="nc"><i>351</i>&nbsp;          switch (i) {</b>
+<i>352</i>&nbsp;            case 0:
+<b class="nc"><i>353</i>&nbsp;              px = 0.207f;</b>
+<b class="nc"><i>354</i>&nbsp;              py = 0.207f;</b>
+<b class="nc"><i>355</i>&nbsp;              break;</b>
+<i>356</i>&nbsp;            case 1:
+<b class="nc"><i>357</i>&nbsp;              px = 0.707f;</b>
+<b class="nc"><i>358</i>&nbsp;              py = 0.707f;</b>
+<b class="nc"><i>359</i>&nbsp;              weight = 1.6f;</b>
+<i>360</i>&nbsp;              break;
+<i>361</i>&nbsp;          }
+<b class="nc"><i>362</i>&nbsp;          if (randomness != 0) {</b>
+<b class="nc"><i>363</i>&nbsp;            px += randomness * Noise.noise2(271 * (cubeX + px), 271 * (cubeY + py));</b>
+<b class="nc"><i>364</i>&nbsp;            py += randomness * Noise.noise2(271 * (cubeX + px) + 89, 271 * (cubeY + py) + 137);</b>
+<i>365</i>&nbsp;          }
+<i>366</i>&nbsp;          break;
+<i>367</i>&nbsp;        case TRIANGULAR:
+<b class="nc"><i>368</i>&nbsp;          if ((cubeY &amp; 1) == 0) {</b>
+<b class="nc"><i>369</i>&nbsp;            if (i == 0) {</b>
+<b class="nc"><i>370</i>&nbsp;              px = 0.25f;</b>
+<b class="nc"><i>371</i>&nbsp;              py = 0.35f;</b>
+<i>372</i>&nbsp;            } else {
+<b class="nc"><i>373</i>&nbsp;              px = 0.75f;</b>
+<b class="nc"><i>374</i>&nbsp;              py = 0.65f;</b>
+<i>375</i>&nbsp;            }
+<i>376</i>&nbsp;          } else {
+<b class="nc"><i>377</i>&nbsp;            if (i == 0) {</b>
+<b class="nc"><i>378</i>&nbsp;              px = 0.75f;</b>
+<b class="nc"><i>379</i>&nbsp;              py = 0.35f;</b>
+<i>380</i>&nbsp;            } else {
+<b class="nc"><i>381</i>&nbsp;              px = 0.25f;</b>
+<b class="nc"><i>382</i>&nbsp;              py = 0.65f;</b>
+<i>383</i>&nbsp;            }
+<i>384</i>&nbsp;          }
+<b class="nc"><i>385</i>&nbsp;          if (randomness != 0) {</b>
+<b class="nc"><i>386</i>&nbsp;            px += randomness * Noise.noise2(271 * (cubeX + px), 271 * (cubeY + py));</b>
+<b class="nc"><i>387</i>&nbsp;            py += randomness * Noise.noise2(271 * (cubeX + px) + 89, 271 * (cubeY + py) + 137);</b>
+<i>388</i>&nbsp;          }
+<i>389</i>&nbsp;          break;
+<i>390</i>&nbsp;      }
+<b class="nc"><i>391</i>&nbsp;      float dx = (float) Math.abs(x - px);</b>
+<b class="nc"><i>392</i>&nbsp;      float dy = (float) Math.abs(y - py);</b>
+<i>393</i>&nbsp;      float d;
+<b class="nc"><i>394</i>&nbsp;      dx *= weight;</b>
+<b class="nc"><i>395</i>&nbsp;      dy *= weight;</b>
+<b class="nc"><i>396</i>&nbsp;      if (distancePower == 1.0f) d = dx + dy;</b>
+<b class="nc"><i>397</i>&nbsp;      else if (distancePower == 2.0f) d = (float) Math.sqrt(dx * dx + dy * dy);</b>
+<i>398</i>&nbsp;      else
+<b class="nc"><i>399</i>&nbsp;        d =</b>
+<i>400</i>&nbsp;            (float)
+<b class="nc"><i>401</i>&nbsp;                Math.pow(</b>
+<b class="nc"><i>402</i>&nbsp;                    (float) Math.pow(dx, distancePower) + (float) Math.pow(dy, distancePower),</b>
+<i>403</i>&nbsp;                    1 / distancePower);
+<i>404</i>&nbsp;
+<i>405</i>&nbsp;      // Insertion sort the long way round to speed it up a bit
+<b class="nc"><i>406</i>&nbsp;      if (d &lt; results[0].distance) {</b>
+<b class="nc"><i>407</i>&nbsp;        Point p = results[2];</b>
+<b class="nc"><i>408</i>&nbsp;        results[2] = results[1];</b>
+<b class="nc"><i>409</i>&nbsp;        results[1] = results[0];</b>
+<b class="nc"><i>410</i>&nbsp;        results[0] = p;</b>
+<b class="nc"><i>411</i>&nbsp;        p.distance = d;</b>
+<b class="nc"><i>412</i>&nbsp;        p.dx = dx;</b>
+<b class="nc"><i>413</i>&nbsp;        p.dy = dy;</b>
+<b class="nc"><i>414</i>&nbsp;        p.x = cubeX + px;</b>
+<b class="nc"><i>415</i>&nbsp;        p.y = cubeY + py;</b>
+<b class="nc"><i>416</i>&nbsp;      } else if (d &lt; results[1].distance) {</b>
+<b class="nc"><i>417</i>&nbsp;        Point p = results[2];</b>
+<b class="nc"><i>418</i>&nbsp;        results[2] = results[1];</b>
+<b class="nc"><i>419</i>&nbsp;        results[1] = p;</b>
+<b class="nc"><i>420</i>&nbsp;        p.distance = d;</b>
+<b class="nc"><i>421</i>&nbsp;        p.dx = dx;</b>
+<b class="nc"><i>422</i>&nbsp;        p.dy = dy;</b>
+<b class="nc"><i>423</i>&nbsp;        p.x = cubeX + px;</b>
+<b class="nc"><i>424</i>&nbsp;        p.y = cubeY + py;</b>
+<b class="nc"><i>425</i>&nbsp;      } else if (d &lt; results[2].distance) {</b>
+<b class="nc"><i>426</i>&nbsp;        Point p = results[2];</b>
+<b class="nc"><i>427</i>&nbsp;        p.distance = d;</b>
+<b class="nc"><i>428</i>&nbsp;        p.dx = dx;</b>
+<b class="nc"><i>429</i>&nbsp;        p.dy = dy;</b>
+<b class="nc"><i>430</i>&nbsp;        p.x = cubeX + px;</b>
+<b class="nc"><i>431</i>&nbsp;        p.y = cubeY + py;</b>
+<i>432</i>&nbsp;      }
+<i>433</i>&nbsp;    }
+<b class="nc"><i>434</i>&nbsp;    return results[2].distance;</b>
+<i>435</i>&nbsp;  }
+<i>436</i>&nbsp;
+<i>437</i>&nbsp;  public float evaluate(float x, float y) {
+<b class="nc"><i>438</i>&nbsp;    for (int j = 0; j &lt; results.length; j++) results[j].distance = Float.POSITIVE_INFINITY;</b>
+<i>439</i>&nbsp;
+<b class="nc"><i>440</i>&nbsp;    int ix = (int) x;</b>
+<b class="nc"><i>441</i>&nbsp;    int iy = (int) y;</b>
+<b class="nc"><i>442</i>&nbsp;    float fx = x - ix;</b>
+<b class="nc"><i>443</i>&nbsp;    float fy = y - iy;</b>
+<i>444</i>&nbsp;
+<b class="nc"><i>445</i>&nbsp;    float d = checkCube(fx, fy, ix, iy, results);</b>
+<b class="nc"><i>446</i>&nbsp;    if (d &gt; fy) d = checkCube(fx, fy + 1, ix, iy - 1, results);</b>
+<b class="nc"><i>447</i>&nbsp;    if (d &gt; 1 - fy) d = checkCube(fx, fy - 1, ix, iy + 1, results);</b>
+<b class="nc"><i>448</i>&nbsp;    if (d &gt; fx) {</b>
+<b class="nc"><i>449</i>&nbsp;      checkCube(fx + 1, fy, ix - 1, iy, results);</b>
+<b class="nc"><i>450</i>&nbsp;      if (d &gt; fy) d = checkCube(fx + 1, fy + 1, ix - 1, iy - 1, results);</b>
+<b class="nc"><i>451</i>&nbsp;      if (d &gt; 1 - fy) d = checkCube(fx + 1, fy - 1, ix - 1, iy + 1, results);</b>
+<i>452</i>&nbsp;    }
+<b class="nc"><i>453</i>&nbsp;    if (d &gt; 1 - fx) {</b>
+<b class="nc"><i>454</i>&nbsp;      d = checkCube(fx - 1, fy, ix + 1, iy, results);</b>
+<b class="nc"><i>455</i>&nbsp;      if (d &gt; fy) d = checkCube(fx - 1, fy + 1, ix + 1, iy - 1, results);</b>
+<b class="nc"><i>456</i>&nbsp;      if (d &gt; 1 - fy) d = checkCube(fx - 1, fy - 1, ix + 1, iy + 1, results);</b>
+<i>457</i>&nbsp;    }
+<i>458</i>&nbsp;
+<b class="nc"><i>459</i>&nbsp;    float t = 0;</b>
+<b class="nc"><i>460</i>&nbsp;    for (int i = 0; i &lt; 3; i++) t += coefficients[i] * results[i].distance;</b>
+<b class="nc"><i>461</i>&nbsp;    if (angleCoefficient != 0) {</b>
+<b class="nc"><i>462</i>&nbsp;      float angle = (float) Math.atan2(y - results[0].y, x - results[0].x);</b>
+<b class="nc"><i>463</i>&nbsp;      if (angle &lt; 0) angle += 2 * (float) Math.PI;</b>
+<b class="nc"><i>464</i>&nbsp;      angle /= 4 * (float) Math.PI;</b>
+<b class="nc"><i>465</i>&nbsp;      t += angleCoefficient * angle;</b>
+<i>466</i>&nbsp;    }
+<b class="nc"><i>467</i>&nbsp;    if (gradientCoefficient != 0) {</b>
+<b class="nc"><i>468</i>&nbsp;      float a = 1 / (results[0].dy + results[0].dx);</b>
+<b class="nc"><i>469</i>&nbsp;      t += gradientCoefficient * a;</b>
+<i>470</i>&nbsp;    }
+<b class="nc"><i>471</i>&nbsp;    return t;</b>
+<i>472</i>&nbsp;  }
+<i>473</i>&nbsp;
+<i>474</i>&nbsp;  public float turbulence2(float x, float y, float freq) {
+<b class="nc"><i>475</i>&nbsp;    float t = 0.0f;</b>
+<i>476</i>&nbsp;
+<b class="nc"><i>477</i>&nbsp;    for (float f = 1.0f; f &lt;= freq; f *= 2) t += evaluate(f * x, f * y) / f;</b>
+<b class="nc"><i>478</i>&nbsp;    return t;</b>
+<i>479</i>&nbsp;  }
+<i>480</i>&nbsp;
+<i>481</i>&nbsp;  public int getPixel(int x, int y, int[] inPixels, int width, int height) {
+<b class="nc"><i>482</i>&nbsp;    float nx = m00 * x + m01 * y;</b>
+<b class="nc"><i>483</i>&nbsp;    float ny = m10 * x + m11 * y;</b>
+<b class="nc"><i>484</i>&nbsp;    nx /= scale;</b>
+<b class="nc"><i>485</i>&nbsp;    ny /= scale * stretch;</b>
+<b class="nc"><i>486</i>&nbsp;    nx += 1000;</b>
+<b class="nc"><i>487</i>&nbsp;    ny += 1000; // Reduce artifacts around 0,0</b>
+<b class="nc"><i>488</i>&nbsp;    float f = turbulence == 1.0f ? evaluate(nx, ny) : turbulence2(nx, ny, turbulence);</b>
+<i>489</i>&nbsp;    // Normalize to 0..1
+<i>490</i>&nbsp;    //		f = (f-min)/(max-min);
+<b class="nc"><i>491</i>&nbsp;    f *= 2;</b>
+<b class="nc"><i>492</i>&nbsp;    f *= amount;</b>
+<b class="nc"><i>493</i>&nbsp;    int a = 0xff000000;</b>
+<i>494</i>&nbsp;    int v;
+<b class="nc"><i>495</i>&nbsp;    if (colormap != null) {</b>
+<b class="nc"><i>496</i>&nbsp;      v = colormap.getColor(f);</b>
+<b class="nc"><i>497</i>&nbsp;      if (useColor) {</b>
+<b class="nc"><i>498</i>&nbsp;        int srcx = ImageMath.clamp((int) ((results[0].x - 1000) * scale), 0, width - 1);</b>
+<b class="nc"><i>499</i>&nbsp;        int srcy = ImageMath.clamp((int) ((results[0].y - 1000) * scale), 0, height - 1);</b>
+<b class="nc"><i>500</i>&nbsp;        v = inPixels[srcy * width + srcx];</b>
+<b class="nc"><i>501</i>&nbsp;        f =</b>
+<i>502</i>&nbsp;            (results[1].distance - results[0].distance)
+<i>503</i>&nbsp;                / (results[1].distance + results[0].distance);
+<b class="nc"><i>504</i>&nbsp;        f = ImageMath.smoothStep(coefficients[1], coefficients[0], f);</b>
+<b class="nc"><i>505</i>&nbsp;        v = ImageMath.mixColors(f, 0xff000000, v);</b>
+<i>506</i>&nbsp;      }
+<b class="nc"><i>507</i>&nbsp;      return v;</b>
+<i>508</i>&nbsp;    } else {
+<b class="nc"><i>509</i>&nbsp;      v = PixelUtils.clamp((int) (f * 255));</b>
+<b class="nc"><i>510</i>&nbsp;      int r = v &lt;&lt; 16;</b>
+<b class="nc"><i>511</i>&nbsp;      int g = v &lt;&lt; 8;</b>
+<b class="nc"><i>512</i>&nbsp;      int b = v;</b>
+<b class="nc"><i>513</i>&nbsp;      return a | r | g | b;</b>
+<i>514</i>&nbsp;    }
+<i>515</i>&nbsp;  }
+<i>516</i>&nbsp;
+<i>517</i>&nbsp;  protected int[] filterPixels(int width, int height, int[] inPixels, Rectangle transformedSpace) {
+<i>518</i>&nbsp;    //		float[] minmax = Noise.findRange(this, null);
+<i>519</i>&nbsp;    //		min = minmax[0];
+<i>520</i>&nbsp;    //		max = minmax[1];
+<i>521</i>&nbsp;
+<b class="nc"><i>522</i>&nbsp;    int index = 0;</b>
+<b class="nc"><i>523</i>&nbsp;    int[] outPixels = new int[width * height];</b>
+<i>524</i>&nbsp;
+<b class="nc"><i>525</i>&nbsp;    for (int y = 0; y &lt; height; y++) {</b>
+<b class="nc"><i>526</i>&nbsp;      for (int x = 0; x &lt; width; x++) {</b>
+<b class="nc"><i>527</i>&nbsp;        outPixels[index++] = getPixel(x, y, inPixels, width, height);</b>
+<i>528</i>&nbsp;      }
+<i>529</i>&nbsp;    }
+<b class="nc"><i>530</i>&nbsp;    return outPixels;</b>
+<i>531</i>&nbsp;  }
+<i>532</i>&nbsp;
+<i>533</i>&nbsp;  public Object clone() {
+<b class="nc"><i>534</i>&nbsp;    CellularFilter f = (CellularFilter) super.clone();</b>
+<b class="nc"><i>535</i>&nbsp;    f.coefficients = (float[]) coefficients.clone();</b>
+<b class="nc"><i>536</i>&nbsp;    f.results = (Point[]) results.clone();</b>
+<b class="nc"><i>537</i>&nbsp;    f.random = new Random();</b>
+<i>538</i>&nbsp;    //		if (colormap != null)
+<i>539</i>&nbsp;    //			f.colormap = (Colormap)colormap.clone();
+<b class="nc"><i>540</i>&nbsp;    return f;</b>
+<i>541</i>&nbsp;  }
+<i>542</i>&nbsp;
+<i>543</i>&nbsp;  public String toString() {
+<b class="nc"><i>544</i>&nbsp;    return &quot;Texture/Cellular...&quot;;</b>
+<i>545</i>&nbsp;  }
+<i>546</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,566 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: DiffusionDither</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.twelvemonkeys.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: DiffusionDither (com.twelvemonkeys.image)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DiffusionDither</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 19)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 114)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; * Copyright (c) 2008, Harald Kuhr
+<i>3</i>&nbsp; * All rights reserved.
+<i>4</i>&nbsp; *
+<i>5</i>&nbsp; * Redistribution and use in source and binary forms, with or without
+<i>6</i>&nbsp; * modification, are permitted provided that the following conditions are met:
+<i>7</i>&nbsp; *
+<i>8</i>&nbsp; * * Redistributions of source code must retain the above copyright notice, this
+<i>9</i>&nbsp; *   list of conditions and the following disclaimer.
+<i>10</i>&nbsp; *
+<i>11</i>&nbsp; * * Redistributions in binary form must reproduce the above copyright notice,
+<i>12</i>&nbsp; *   this list of conditions and the following disclaimer in the documentation
+<i>13</i>&nbsp; *   and/or other materials provided with the distribution.
+<i>14</i>&nbsp; *
+<i>15</i>&nbsp; * * Neither the name of the copyright holder nor the names of its
+<i>16</i>&nbsp; *   contributors may be used to endorse or promote products derived from
+<i>17</i>&nbsp; *   this software without specific prior written permission.
+<i>18</i>&nbsp; *
+<i>19</i>&nbsp; * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+<i>20</i>&nbsp; * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+<i>21</i>&nbsp; * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+<i>22</i>&nbsp; * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+<i>23</i>&nbsp; * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+<i>24</i>&nbsp; * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+<i>25</i>&nbsp; * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+<i>26</i>&nbsp; * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+<i>27</i>&nbsp; * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+<i>28</i>&nbsp; * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+<i>29</i>&nbsp; */
+<i>30</i>&nbsp;
+<i>31</i>&nbsp;package com.twelvemonkeys.image;
+<i>32</i>&nbsp;
+<i>33</i>&nbsp;import java.awt.*;
+<i>34</i>&nbsp;import java.awt.geom.Point2D;
+<i>35</i>&nbsp;import java.awt.geom.Rectangle2D;
+<i>36</i>&nbsp;import java.awt.image.*;
+<i>37</i>&nbsp;import java.util.Random;
+<i>38</i>&nbsp;
+<i>39</i>&nbsp;/**
+<i>40</i>&nbsp; * This {@code BufferedImageOp/RasterOp} implements basic
+<i>41</i>&nbsp; * Floyd-Steinberg error-diffusion algorithm for dithering.
+<i>42</i>&nbsp; * &lt;P/&gt;
+<i>43</i>&nbsp; * The weights used are 7/16, 3/16, 5/16 and 1/16, distributed like this:
+<i>44</i>&nbsp; * &lt;!-- - -
+<i>45</i>&nbsp; *  | |x|7|
+<i>46</i>&nbsp; *  - - - -
+<i>47</i>&nbsp; *  |3|5|1|
+<i>48</i>&nbsp; *   - - --&gt;
+<i>49</i>&nbsp; * &lt;P/&gt;
+<i>50</i>&nbsp; * &lt;TABLE border=&quot;1&quot; cellpadding=&quot;4&quot; cellspacing=&quot;0&quot;&gt;
+<i>51</i>&nbsp; *  &lt;TR&gt;&lt;TD bgcolor=&quot;#000000&quot;&gt;&amp;nbsp;&lt;/TD&gt;&lt;TD class=&quot;TableHeadingColor&quot;
+<i>52</i>&nbsp; *          align=&quot;center&quot;&gt;X&lt;/TD&gt;&lt;TD&gt;7/16&lt;/TD&gt;&lt;/TR&gt;
+<i>53</i>&nbsp; *  &lt;TR&gt;&lt;TD&gt;3/16&lt;/TD&gt;&lt;TD&gt;5/16&lt;/TD&gt;&lt;TD&gt;1/16&lt;/TD&gt;&lt;/TR&gt;
+<i>54</i>&nbsp; * &lt;/TABLE&gt;
+<i>55</i>&nbsp; * &lt;P/&gt;
+<i>56</i>&nbsp; * See &lt;A href=&quot;http://www.awprofessional.com/bookstore/product.asp?isbn=0201848406&amp;rl=1&quot;&gt;Computer Graphics (Foley et al.)&lt;/a&gt;
+<i>57</i>&nbsp; * for more information.
+<i>58</i>&nbsp; *
+<i>59</i>&nbsp; * @author &lt;a href=&quot;mailto:harald.kuhr@gmail.com&quot;&gt;Harald Kuhr&lt;/a&gt;
+<i>60</i>&nbsp; * @author last modified by $Author: haku $
+<i>61</i>&nbsp; *
+<i>62</i>&nbsp; * @version $Id: DiffusionDither.java#1 $
+<i>63</i>&nbsp; */
+<i>64</i>&nbsp;public class DiffusionDither implements BufferedImageOp, RasterOp {
+<i>65</i>&nbsp;
+<i>66</i>&nbsp;    private static final int FS_SCALE = 1 &lt;&lt; 8;
+<b class="nc"><i>67</i>&nbsp;    private static final Random RANDOM = new Random();</b>
+<i>68</i>&nbsp;
+<i>69</i>&nbsp;    protected final IndexColorModel indexColorModel;
+<b class="nc"><i>70</i>&nbsp;    private boolean alternateScans = true;</b>
+<i>71</i>&nbsp;
+<i>72</i>&nbsp;    /**
+<i>73</i>&nbsp;     * Creates a {@code DiffusionDither}, using the given
+<i>74</i>&nbsp;     * {@code IndexColorModel} for dithering into.
+<i>75</i>&nbsp;     *
+<i>76</i>&nbsp;     * @param pICM an IndexColorModel.
+<i>77</i>&nbsp;     */
+<b class="nc"><i>78</i>&nbsp;    public DiffusionDither(final IndexColorModel pICM) {</b>
+<i>79</i>&nbsp;        // Store color model
+<b class="nc"><i>80</i>&nbsp;        indexColorModel = pICM;</b>
+<i>81</i>&nbsp;    }
+<i>82</i>&nbsp;
+<i>83</i>&nbsp;    /**
+<i>84</i>&nbsp;     * Creates a {@code DiffusionDither}, with no fixed
+<i>85</i>&nbsp;     * {@code IndexColorModel}. The color model will be generated for each
+<i>86</i>&nbsp;     * filtering, unless the destination image already has an
+<i>87</i>&nbsp;     * {@code IndexColorModel}.
+<i>88</i>&nbsp;     */
+<i>89</i>&nbsp;    public DiffusionDither() {
+<b class="nc"><i>90</i>&nbsp;        this(null);</b>
+<i>91</i>&nbsp;    }
+<i>92</i>&nbsp;
+<i>93</i>&nbsp;    /**
+<i>94</i>&nbsp;     * Sets the scan mode. If the parameter is true, error distribution for
+<i>95</i>&nbsp;     * every even line will be left-to-right, while odd lines will be
+<i>96</i>&nbsp;     * right-to-left.
+<i>97</i>&nbsp;     * The default is {@code true}.
+<i>98</i>&nbsp;     *
+<i>99</i>&nbsp;     * @param pUse {@code true} if scan mode should be alternating left/right
+<i>100</i>&nbsp;     */
+<i>101</i>&nbsp;    public void setAlternateScans(boolean pUse) {
+<b class="nc"><i>102</i>&nbsp;        alternateScans = pUse;</b>
+<i>103</i>&nbsp;    }
+<i>104</i>&nbsp;
+<i>105</i>&nbsp;    /**
+<i>106</i>&nbsp;     * Creates a compatible {@code BufferedImage} to dither into.
+<i>107</i>&nbsp;     * Only {@code IndexColorModel} allowed.
+<i>108</i>&nbsp;     *
+<i>109</i>&nbsp;     * @return a compatible {@code BufferedImage}
+<i>110</i>&nbsp;     *
+<i>111</i>&nbsp;     * @throws ImageFilterException if {@code pDestCM} is not {@code null} or
+<i>112</i>&nbsp;     * an instance of {@code IndexColorModel}.
+<i>113</i>&nbsp;     */
+<i>114</i>&nbsp;    public final BufferedImage createCompatibleDestImage(BufferedImage pSource, ColorModel pDestCM) {
+<b class="nc"><i>115</i>&nbsp;        if (pDestCM == null) {</b>
+<b class="nc"><i>116</i>&nbsp;            return new BufferedImage(pSource.getWidth(), pSource.getHeight(),</b>
+<i>117</i>&nbsp;                                     BufferedImage.TYPE_BYTE_INDEXED,
+<b class="nc"><i>118</i>&nbsp;                                     getICM(pSource));</b>
+<i>119</i>&nbsp;        }
+<b class="nc"><i>120</i>&nbsp;        else if (pDestCM instanceof IndexColorModel) {</b>
+<b class="nc"><i>121</i>&nbsp;            return new BufferedImage(pSource.getWidth(), pSource.getHeight(),</b>
+<i>122</i>&nbsp;                                     BufferedImage.TYPE_BYTE_INDEXED,
+<i>123</i>&nbsp;                                     (IndexColorModel) pDestCM);
+<i>124</i>&nbsp;        }
+<i>125</i>&nbsp;        else {
+<b class="nc"><i>126</i>&nbsp;            throw new ImageFilterException(&quot;Only IndexColorModel allowed.&quot;);</b>
+<i>127</i>&nbsp;        }
+<i>128</i>&nbsp;    }
+<i>129</i>&nbsp;
+<i>130</i>&nbsp;    /**
+<i>131</i>&nbsp;     * Creates a compatible {@code Raster} to dither into.
+<i>132</i>&nbsp;     * Only {@code IndexColorModel} allowed.
+<i>133</i>&nbsp;     *
+<i>134</i>&nbsp;     * @param pSrc the source raster
+<i>135</i>&nbsp;     *
+<i>136</i>&nbsp;     * @return a {@code WritableRaster}
+<i>137</i>&nbsp;     */
+<i>138</i>&nbsp;    public final WritableRaster createCompatibleDestRaster(Raster pSrc) {
+<b class="nc"><i>139</i>&nbsp;        return createCompatibleDestRaster(pSrc, getICM(pSrc));</b>
+<i>140</i>&nbsp;    }
+<i>141</i>&nbsp;
+<i>142</i>&nbsp;    /**
+<i>143</i>&nbsp;     * Creates a compatible {@code Raster} to dither into.
+<i>144</i>&nbsp;     *
+<i>145</i>&nbsp;     * @param pSrc the source raster.
+<i>146</i>&nbsp;     * @param pIndexColorModel the index color model used to create a {@code Raster}.
+<i>147</i>&nbsp;     *
+<i>148</i>&nbsp;     * @return a {@code WritableRaster}
+<i>149</i>&nbsp;     */
+<i>150</i>&nbsp;    public final WritableRaster createCompatibleDestRaster(Raster pSrc, IndexColorModel pIndexColorModel) {
+<b class="nc"><i>151</i>&nbsp;        return pIndexColorModel.createCompatibleWritableRaster(pSrc.getWidth(), pSrc.getHeight());</b>
+<i>152</i>&nbsp;    }
+<i>153</i>&nbsp;
+<i>154</i>&nbsp;
+<i>155</i>&nbsp;    /**
+<i>156</i>&nbsp;     * Returns the bounding box of the filtered destination image.  Since
+<i>157</i>&nbsp;     * this is not a geometric operation, the bounding box does not
+<i>158</i>&nbsp;     * change.
+<i>159</i>&nbsp;     * @param pSrc the {@code BufferedImage} to be filtered
+<i>160</i>&nbsp;     * @return the bounds of the filtered definition image.
+<i>161</i>&nbsp;     */
+<i>162</i>&nbsp;    public final Rectangle2D getBounds2D(BufferedImage pSrc) {
+<b class="nc"><i>163</i>&nbsp;        return getBounds2D(pSrc.getRaster());</b>
+<i>164</i>&nbsp;    }
+<i>165</i>&nbsp;
+<i>166</i>&nbsp;    /**
+<i>167</i>&nbsp;     * Returns the bounding box of the filtered destination Raster.  Since
+<i>168</i>&nbsp;     * this is not a geometric operation, the bounding box does not
+<i>169</i>&nbsp;     * change.
+<i>170</i>&nbsp;     * @param pSrc the {@code Raster} to be filtered
+<i>171</i>&nbsp;     * @return the bounds of the filtered definition {@code Raster}.
+<i>172</i>&nbsp;     */
+<i>173</i>&nbsp;    public final Rectangle2D getBounds2D(Raster pSrc) {
+<b class="nc"><i>174</i>&nbsp;        return pSrc.getBounds();</b>
+<i>175</i>&nbsp;    }
+<i>176</i>&nbsp;
+<i>177</i>&nbsp;    /**
+<i>178</i>&nbsp;     * Returns the location of the destination point given a
+<i>179</i>&nbsp;     * point in the source.  If {@code dstPt} is not
+<i>180</i>&nbsp;     * {@code null}, it will be used to hold the return value.
+<i>181</i>&nbsp;     * Since this is not a geometric operation, the {@code srcPt}
+<i>182</i>&nbsp;     * will equal the {@code dstPt}.
+<i>183</i>&nbsp;     * @param pSrcPt a {@code Point2D} that represents a point
+<i>184</i>&nbsp;     *        in the source image
+<i>185</i>&nbsp;     * @param pDstPt a {@code Point2D}that represents the location
+<i>186</i>&nbsp;     *        in the destination
+<i>187</i>&nbsp;     * @return the {@code Point2D} in the destination that
+<i>188</i>&nbsp;     *         corresponds to the specified point in the source.
+<i>189</i>&nbsp;     */
+<i>190</i>&nbsp;    public final Point2D getPoint2D(Point2D pSrcPt, Point2D pDstPt) {
+<i>191</i>&nbsp;        // Create new Point, if needed
+<b class="nc"><i>192</i>&nbsp;        if (pDstPt == null) {</b>
+<b class="nc"><i>193</i>&nbsp;            pDstPt = new Point2D.Float();</b>
+<i>194</i>&nbsp;        }
+<i>195</i>&nbsp;
+<i>196</i>&nbsp;        // Copy location
+<b class="nc"><i>197</i>&nbsp;        pDstPt.setLocation(pSrcPt.getX(), pSrcPt.getY());</b>
+<i>198</i>&nbsp;
+<i>199</i>&nbsp;        // Return dest
+<b class="nc"><i>200</i>&nbsp;        return pDstPt;</b>
+<i>201</i>&nbsp;    }
+<i>202</i>&nbsp;
+<i>203</i>&nbsp;    /**
+<i>204</i>&nbsp;     * Returns the rendering mHints for this op.
+<i>205</i>&nbsp;     * @return the {@code RenderingHints} object associated
+<i>206</i>&nbsp;     *         with this op.
+<i>207</i>&nbsp;     */
+<i>208</i>&nbsp;    public final RenderingHints getRenderingHints() {
+<b class="nc"><i>209</i>&nbsp;        return null;</b>
+<i>210</i>&nbsp;    }
+<i>211</i>&nbsp;
+<i>212</i>&nbsp;    /**
+<i>213</i>&nbsp;     * Converts an int ARGB to int triplet.
+<i>214</i>&nbsp;     */
+<i>215</i>&nbsp;    private static int[] toRGBArray(int pARGB, int[] pBuffer) {
+<b class="nc"><i>216</i>&nbsp;        pBuffer[0] = ((pARGB &amp; 0x00ff0000) &gt;&gt; 16);</b>
+<b class="nc"><i>217</i>&nbsp;        pBuffer[1] = ((pARGB &amp; 0x0000ff00) &gt;&gt; 8);</b>
+<b class="nc"><i>218</i>&nbsp;        pBuffer[2] = ((pARGB &amp; 0x000000ff));</b>
+<i>219</i>&nbsp;        //pBuffer[3] = ((pARGB &amp; 0xff000000) &gt;&gt; 24); // alpha
+<i>220</i>&nbsp;
+<b class="nc"><i>221</i>&nbsp;        return pBuffer;</b>
+<i>222</i>&nbsp;    }
+<i>223</i>&nbsp;
+<i>224</i>&nbsp;    /**
+<i>225</i>&nbsp;     * Converts a int triplet to int ARGB.
+<i>226</i>&nbsp;     */
+<i>227</i>&nbsp;    private static int toIntARGB(int[] pRGB) {
+<b class="nc"><i>228</i>&nbsp;        return 0xff000000 // All opaque</b>
+<i>229</i>&nbsp;                | (pRGB[0] &lt;&lt; 16)
+<i>230</i>&nbsp;                | (pRGB[1] &lt;&lt; 8)
+<i>231</i>&nbsp;                | (pRGB[2]);
+<i>232</i>&nbsp;        /*
+<i>233</i>&nbsp;          | ((int) (pRGB[0] &lt;&lt; 16) &amp; 0x00ff0000)
+<i>234</i>&nbsp;          | ((int) (pRGB[1] &lt;&lt;  8) &amp; 0x0000ff00)
+<i>235</i>&nbsp;          | ((int) (pRGB[2]      ) &amp; 0x000000ff);
+<i>236</i>&nbsp;        */
+<i>237</i>&nbsp;    }
+<i>238</i>&nbsp;
+<i>239</i>&nbsp;
+<i>240</i>&nbsp;    /**
+<i>241</i>&nbsp;     * Performs a single-input/single-output dither operation, applying basic
+<i>242</i>&nbsp;     * Floyd-Steinberg error-diffusion to the image.
+<i>243</i>&nbsp;     *
+<i>244</i>&nbsp;     * @param pSource the source image
+<i>245</i>&nbsp;     * @param pDest the destination image
+<i>246</i>&nbsp;     *
+<i>247</i>&nbsp;     * @return the destination image, or a new image, if {@code pDest} was
+<i>248</i>&nbsp;     * {@code null}.
+<i>249</i>&nbsp;     */
+<i>250</i>&nbsp;    public final BufferedImage filter(BufferedImage pSource, BufferedImage pDest) {
+<i>251</i>&nbsp;        // Create destination image, if none provided
+<b class="nc"><i>252</i>&nbsp;        if (pDest == null) {</b>
+<b class="nc"><i>253</i>&nbsp;            pDest = createCompatibleDestImage(pSource, getICM(pSource));</b>
+<i>254</i>&nbsp;        }
+<b class="nc"><i>255</i>&nbsp;        else if (!(pDest.getColorModel() instanceof IndexColorModel)) {</b>
+<b class="nc"><i>256</i>&nbsp;            throw new ImageFilterException(&quot;Only IndexColorModel allowed.&quot;);</b>
+<i>257</i>&nbsp;        }
+<i>258</i>&nbsp;
+<i>259</i>&nbsp;        // Filter rasters
+<b class="nc"><i>260</i>&nbsp;        filter(pSource.getRaster(), pDest.getRaster(), (IndexColorModel) pDest.getColorModel());</b>
+<i>261</i>&nbsp;
+<b class="nc"><i>262</i>&nbsp;        return pDest;</b>
+<i>263</i>&nbsp;    }
+<i>264</i>&nbsp;
+<i>265</i>&nbsp;    /**
+<i>266</i>&nbsp;     * Performs a single-input/single-output dither operation, applying basic
+<i>267</i>&nbsp;     * Floyd-Steinberg error-diffusion to the image.
+<i>268</i>&nbsp;     *
+<i>269</i>&nbsp;     * @param pSource the source raster, assumed to be in sRGB
+<i>270</i>&nbsp;     * @param pDest the destination raster, may be {@code null}
+<i>271</i>&nbsp;     *
+<i>272</i>&nbsp;     * @return the destination raster, or a new raster, if {@code pDest} was
+<i>273</i>&nbsp;     * {@code null}.
+<i>274</i>&nbsp;     */
+<i>275</i>&nbsp;    public final WritableRaster filter(final Raster pSource, WritableRaster pDest) {
+<b class="nc"><i>276</i>&nbsp;        return filter(pSource, pDest, getICM(pSource));</b>
+<i>277</i>&nbsp;    }
+<i>278</i>&nbsp;
+<i>279</i>&nbsp;    private IndexColorModel getICM(BufferedImage pSource) {
+<b class="nc"><i>280</i>&nbsp;        return (indexColorModel != null ? indexColorModel : IndexImage.getIndexColorModel(pSource, 256, IndexImage.TRANSPARENCY_BITMASK));</b>
+<i>281</i>&nbsp;    }
+<i>282</i>&nbsp;    private IndexColorModel getICM(Raster pSource) {
+<b class="nc"><i>283</i>&nbsp;        return (indexColorModel != null ? indexColorModel : createIndexColorModel(pSource));</b>
+<i>284</i>&nbsp;    }
+<i>285</i>&nbsp;
+<i>286</i>&nbsp;    private IndexColorModel createIndexColorModel(Raster pSource) {
+<b class="nc"><i>287</i>&nbsp;        BufferedImage image = new BufferedImage(pSource.getWidth(), pSource.getHeight(),</b>
+<i>288</i>&nbsp;                                                BufferedImage.TYPE_INT_ARGB);
+<b class="nc"><i>289</i>&nbsp;        image.setData(pSource);</b>
+<b class="nc"><i>290</i>&nbsp;        return IndexImage.getIndexColorModel(image, 256, IndexImage.TRANSPARENCY_BITMASK);</b>
+<i>291</i>&nbsp;    }
+<i>292</i>&nbsp;
+<i>293</i>&nbsp;    /**
+<i>294</i>&nbsp;     * Performs a single-input/single-output dither operation, applying basic
+<i>295</i>&nbsp;     * Floyd-Steinberg error-diffusion to the image.
+<i>296</i>&nbsp;     *
+<i>297</i>&nbsp;     * @param pSource the source raster, assumed to be in sRGB
+<i>298</i>&nbsp;     * @param pDest the destination raster, may be {@code null}
+<i>299</i>&nbsp;     * @param pColorModel the indexed color model to use
+<i>300</i>&nbsp;     *
+<i>301</i>&nbsp;     * @return the destination raster, or a new raster, if {@code pDest} was
+<i>302</i>&nbsp;     * {@code null}.
+<i>303</i>&nbsp;     */
+<i>304</i>&nbsp;    public final WritableRaster filter(final Raster pSource, WritableRaster pDest, IndexColorModel pColorModel) {
+<b class="nc"><i>305</i>&nbsp;        int width = pSource.getWidth();</b>
+<b class="nc"><i>306</i>&nbsp;        int height = pSource.getHeight();</b>
+<i>307</i>&nbsp;
+<i>308</i>&nbsp;        // Create destination raster if needed
+<b class="nc"><i>309</i>&nbsp;        if (pDest == null) {</b>
+<b class="nc"><i>310</i>&nbsp;            pDest = createCompatibleDestRaster(pSource, pColorModel);</b>
+<i>311</i>&nbsp;        }
+<i>312</i>&nbsp;
+<i>313</i>&nbsp;        // Initialize Floyd-Steinberg error vectors.
+<i>314</i>&nbsp;        // +2 to handle the previous pixel and next pixel case minimally
+<i>315</i>&nbsp;        // When reference for column, add 1 to reference as this buffer is
+<i>316</i>&nbsp;        // offset from actual column position by one to allow FS to not check
+<i>317</i>&nbsp;        // left/right edge conditions
+<b class="nc"><i>318</i>&nbsp;        int[][] currErr = new int[width + 2][3];</b>
+<b class="nc"><i>319</i>&nbsp;        int[][] nextErr = new int[width + 2][3];</b>
+<i>320</i>&nbsp;
+<i>321</i>&nbsp;        // Random errors in [-1 .. 1] - for first row
+<b class="nc"><i>322</i>&nbsp;        for (int i = 0; i &lt; width + 2; i++) {</b>
+<i>323</i>&nbsp;            // Note: This is broken for the strange cases where nextInt returns Integer.MIN_VALUE
+<b class="nc"><i>324</i>&nbsp;            currErr[i][0] = RANDOM.nextInt(FS_SCALE * 2) - FS_SCALE;</b>
+<b class="nc"><i>325</i>&nbsp;            currErr[i][1] = RANDOM.nextInt(FS_SCALE * 2) - FS_SCALE;</b>
+<b class="nc"><i>326</i>&nbsp;            currErr[i][2] = RANDOM.nextInt(FS_SCALE * 2) - FS_SCALE;</b>
+<i>327</i>&nbsp;        }
+<i>328</i>&nbsp;
+<i>329</i>&nbsp;        // Temp buffers
+<b class="nc"><i>330</i>&nbsp;        final int[] diff = new int[3]; // No alpha</b>
+<b class="nc"><i>331</i>&nbsp;        final int[] inRGB = new int[4];</b>
+<b class="nc"><i>332</i>&nbsp;        final int[] outRGB = new int[4];</b>
+<b class="nc"><i>333</i>&nbsp;        Object pixel = null;</b>
+<b class="nc"><i>334</i>&nbsp;        boolean forward = true;</b>
+<i>335</i>&nbsp;
+<i>336</i>&nbsp;        // Loop through image data
+<b class="nc"><i>337</i>&nbsp;        for (int y = 0; y &lt; height; y++) {</b>
+<i>338</i>&nbsp;            // Clear out next error rows for colour errors
+<b class="nc"><i>339</i>&nbsp;            for (int i = nextErr.length; --i &gt;= 0;) {</b>
+<b class="nc"><i>340</i>&nbsp;                nextErr[i][0] = 0;</b>
+<b class="nc"><i>341</i>&nbsp;                nextErr[i][1] = 0;</b>
+<b class="nc"><i>342</i>&nbsp;                nextErr[i][2] = 0;</b>
+<i>343</i>&nbsp;            }
+<i>344</i>&nbsp;
+<i>345</i>&nbsp;            // Set up start column and limit
+<i>346</i>&nbsp;            int x;
+<i>347</i>&nbsp;            int limit;
+<b class="nc"><i>348</i>&nbsp;            if (forward) {</b>
+<b class="nc"><i>349</i>&nbsp;                x = 0;</b>
+<b class="nc"><i>350</i>&nbsp;                limit = width;</b>
+<i>351</i>&nbsp;            }
+<i>352</i>&nbsp;            else {
+<b class="nc"><i>353</i>&nbsp;                x = width - 1;</b>
+<b class="nc"><i>354</i>&nbsp;                limit = -1;</b>
+<i>355</i>&nbsp;            }
+<i>356</i>&nbsp;
+<i>357</i>&nbsp;            // TODO: Use getPixels instead of getPixel for better performance?            
+<i>358</i>&nbsp;
+<i>359</i>&nbsp;            // Loop over row
+<i>360</i>&nbsp;            while (true) {
+<i>361</i>&nbsp;                // Get RGB from original raster
+<i>362</i>&nbsp;                // DON&#39;T KNOW IF THIS WILL WORK FOR ALL TYPES.
+<b class="nc"><i>363</i>&nbsp;                pSource.getPixel(x, y, inRGB);</b>
+<i>364</i>&nbsp;
+<i>365</i>&nbsp;                // Get error for this pixel &amp; add error to rgb
+<b class="nc"><i>366</i>&nbsp;                for (int i = 0; i &lt; 3; i++) {</b>
+<i>367</i>&nbsp;                    // Make a 28.4 FP number, add Error (with fraction),
+<i>368</i>&nbsp;                    // rounding and truncate to int
+<b class="nc"><i>369</i>&nbsp;                    inRGB[i] = ((inRGB[i] &lt;&lt; 4) + currErr[x + 1][i] + 0x08) &gt;&gt; 4;</b>
+<i>370</i>&nbsp;
+<i>371</i>&nbsp;                    // Clamp
+<b class="nc"><i>372</i>&nbsp;                    if (inRGB[i] &gt; 255) {</b>
+<b class="nc"><i>373</i>&nbsp;                        inRGB[i] = 255;</b>
+<i>374</i>&nbsp;                    }
+<b class="nc"><i>375</i>&nbsp;                    else if (inRGB[i] &lt; 0) {</b>
+<b class="nc"><i>376</i>&nbsp;                        inRGB[i] = 0;</b>
+<i>377</i>&nbsp;                    }
+<i>378</i>&nbsp;                }
+<i>379</i>&nbsp;
+<i>380</i>&nbsp;                // Get pixel value...
+<i>381</i>&nbsp;                // It is VERY important that we are using a IndexColorModel that
+<i>382</i>&nbsp;                // support reverse color lookup for speed.
+<b class="nc"><i>383</i>&nbsp;                pixel = pColorModel.getDataElements(toIntARGB(inRGB), pixel);</b>
+<i>384</i>&nbsp;
+<i>385</i>&nbsp;                // ...set it...
+<b class="nc"><i>386</i>&nbsp;                pDest.setDataElements(x, y, pixel);</b>
+<i>387</i>&nbsp;
+<i>388</i>&nbsp;                // ..and get back the closet match
+<b class="nc"><i>389</i>&nbsp;                pDest.getPixel(x, y, outRGB);</b>
+<i>390</i>&nbsp;
+<i>391</i>&nbsp;                // Convert the value to default sRGB
+<i>392</i>&nbsp;                // Should work for all transfertypes supported by IndexColorModel
+<b class="nc"><i>393</i>&nbsp;                toRGBArray(pColorModel.getRGB(outRGB[0]), outRGB);</b>
+<i>394</i>&nbsp;
+<i>395</i>&nbsp;                // Find diff
+<b class="nc"><i>396</i>&nbsp;                diff[0] = inRGB[0] - outRGB[0];</b>
+<b class="nc"><i>397</i>&nbsp;                diff[1] = inRGB[1] - outRGB[1];</b>
+<b class="nc"><i>398</i>&nbsp;                diff[2] = inRGB[2] - outRGB[2];</b>
+<i>399</i>&nbsp;
+<i>400</i>&nbsp;                // Apply F-S error diffusion
+<i>401</i>&nbsp;                // Serpentine scan: left-right
+<b class="nc"><i>402</i>&nbsp;                if (forward) {</b>
+<i>403</i>&nbsp;                    // Row 1 (y)
+<i>404</i>&nbsp;                    // Update error in this pixel (x + 1)
+<b class="nc"><i>405</i>&nbsp;                    currErr[x + 2][0] += diff[0] * 7;</b>
+<b class="nc"><i>406</i>&nbsp;                    currErr[x + 2][1] += diff[1] * 7;</b>
+<b class="nc"><i>407</i>&nbsp;                    currErr[x + 2][2] += diff[2] * 7;</b>
+<i>408</i>&nbsp;
+<i>409</i>&nbsp;                    // Row 2 (y + 1)
+<i>410</i>&nbsp;                    // Update error in this pixel (x - 1)
+<b class="nc"><i>411</i>&nbsp;                    nextErr[x][0] += diff[0] * 3;</b>
+<b class="nc"><i>412</i>&nbsp;                    nextErr[x][1] += diff[1] * 3;</b>
+<b class="nc"><i>413</i>&nbsp;                    nextErr[x][2] += diff[2] * 3;</b>
+<i>414</i>&nbsp;                    // Update error in this pixel (x)
+<b class="nc"><i>415</i>&nbsp;                    nextErr[x + 1][0] += diff[0] * 5;</b>
+<b class="nc"><i>416</i>&nbsp;                    nextErr[x + 1][1] += diff[1] * 5;</b>
+<b class="nc"><i>417</i>&nbsp;                    nextErr[x + 1][2] += diff[2] * 5;</b>
+<i>418</i>&nbsp;                    // Update error in this pixel (x + 1)
+<i>419</i>&nbsp;                    // TODO: Consider calculating this using
+<i>420</i>&nbsp;                    // error term = error - sum(error terms 1, 2 and 3)
+<i>421</i>&nbsp;                    // See Computer Graphics (Foley et al.), p. 573
+<b class="nc"><i>422</i>&nbsp;                    nextErr[x + 2][0] += diff[0]; // * 1;</b>
+<b class="nc"><i>423</i>&nbsp;                    nextErr[x + 2][1] += diff[1]; // * 1;</b>
+<b class="nc"><i>424</i>&nbsp;                    nextErr[x + 2][2] += diff[2]; // * 1;</b>
+<i>425</i>&nbsp;
+<i>426</i>&nbsp;                    // Next
+<b class="nc"><i>427</i>&nbsp;                    x++;</b>
+<i>428</i>&nbsp;
+<i>429</i>&nbsp;                    // Done?
+<b class="nc"><i>430</i>&nbsp;                    if (x &gt;= limit) {</b>
+<b class="nc"><i>431</i>&nbsp;                        break;</b>
+<i>432</i>&nbsp;                    }
+<i>433</i>&nbsp;
+<i>434</i>&nbsp;                }
+<i>435</i>&nbsp;                else {
+<i>436</i>&nbsp;                    // Row 1 (y)
+<i>437</i>&nbsp;                    // Update error in this pixel (x - 1)
+<b class="nc"><i>438</i>&nbsp;                    currErr[x][0] += diff[0] * 7;</b>
+<b class="nc"><i>439</i>&nbsp;                    currErr[x][1] += diff[1] * 7;</b>
+<b class="nc"><i>440</i>&nbsp;                    currErr[x][2] += diff[2] * 7;</b>
+<i>441</i>&nbsp;
+<i>442</i>&nbsp;                    // Row 2 (y + 1)
+<i>443</i>&nbsp;                    // Update error in this pixel (x + 1)
+<b class="nc"><i>444</i>&nbsp;                    nextErr[x + 2][0] += diff[0] * 3;</b>
+<b class="nc"><i>445</i>&nbsp;                    nextErr[x + 2][1] += diff[1] * 3;</b>
+<b class="nc"><i>446</i>&nbsp;                    nextErr[x + 2][2] += diff[2] * 3;</b>
+<i>447</i>&nbsp;                    // Update error in this pixel (x)
+<b class="nc"><i>448</i>&nbsp;                    nextErr[x + 1][0] += diff[0] * 5;</b>
+<b class="nc"><i>449</i>&nbsp;                    nextErr[x + 1][1] += diff[1] * 5;</b>
+<b class="nc"><i>450</i>&nbsp;                    nextErr[x + 1][2] += diff[2] * 5;</b>
+<i>451</i>&nbsp;                    // Update error in this pixel (x - 1)
+<i>452</i>&nbsp;                    // TODO: Consider calculating this using
+<i>453</i>&nbsp;                    // error term = error - sum(error terms 1, 2 and 3)
+<i>454</i>&nbsp;                    // See Computer Graphics (Foley et al.), p. 573
+<b class="nc"><i>455</i>&nbsp;                    nextErr[x][0] += diff[0]; // * 1;</b>
+<b class="nc"><i>456</i>&nbsp;                    nextErr[x][1] += diff[1]; // * 1;</b>
+<b class="nc"><i>457</i>&nbsp;                    nextErr[x][2] += diff[2]; // * 1;</b>
+<i>458</i>&nbsp;
+<i>459</i>&nbsp;                    // Previous
+<b class="nc"><i>460</i>&nbsp;                    x--;</b>
+<i>461</i>&nbsp;
+<i>462</i>&nbsp;                    // Done?
+<b class="nc"><i>463</i>&nbsp;                    if (x &lt;= limit) {</b>
+<b class="nc"><i>464</i>&nbsp;                        break;</b>
+<i>465</i>&nbsp;                    }
+<i>466</i>&nbsp;                }
+<i>467</i>&nbsp;            }
+<i>468</i>&nbsp;
+<i>469</i>&nbsp;            // Make next error info current for next iteration
+<i>470</i>&nbsp;            int[][] temperr;
+<b class="nc"><i>471</i>&nbsp;            temperr = currErr;</b>
+<b class="nc"><i>472</i>&nbsp;            currErr = nextErr;</b>
+<b class="nc"><i>473</i>&nbsp;            nextErr = temperr;</b>
+<i>474</i>&nbsp;
+<i>475</i>&nbsp;            // Toggle direction
+<b class="nc"><i>476</i>&nbsp;            if (alternateScans) {</b>
+<b class="nc"><i>477</i>&nbsp;                forward = !forward;</b>
+<i>478</i>&nbsp;            }
+<i>479</i>&nbsp;        }
+<i>480</i>&nbsp;
+<b class="nc"><i>481</i>&nbsp;        return pDest;</b>
+<i>482</i>&nbsp;    }
+<i>483</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

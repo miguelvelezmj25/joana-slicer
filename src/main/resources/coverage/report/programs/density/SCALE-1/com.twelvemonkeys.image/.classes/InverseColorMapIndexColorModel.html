@@ -1,0 +1,388 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: InverseColorMapIndexColorModel</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.twelvemonkeys.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: InverseColorMapIndexColorModel (com.twelvemonkeys.image)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">InverseColorMapIndexColorModel</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 63)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; * Copyright (c) 2008, Harald Kuhr
+<i>3</i>&nbsp; * All rights reserved.
+<i>4</i>&nbsp; *
+<i>5</i>&nbsp; * Redistribution and use in source and binary forms, with or without
+<i>6</i>&nbsp; * modification, are permitted provided that the following conditions are met:
+<i>7</i>&nbsp; *
+<i>8</i>&nbsp; * * Redistributions of source code must retain the above copyright notice, this
+<i>9</i>&nbsp; *   list of conditions and the following disclaimer.
+<i>10</i>&nbsp; *
+<i>11</i>&nbsp; * * Redistributions in binary form must reproduce the above copyright notice,
+<i>12</i>&nbsp; *   this list of conditions and the following disclaimer in the documentation
+<i>13</i>&nbsp; *   and/or other materials provided with the distribution.
+<i>14</i>&nbsp; *
+<i>15</i>&nbsp; * * Neither the name of the copyright holder nor the names of its
+<i>16</i>&nbsp; *   contributors may be used to endorse or promote products derived from
+<i>17</i>&nbsp; *   this software without specific prior written permission.
+<i>18</i>&nbsp; *
+<i>19</i>&nbsp; * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+<i>20</i>&nbsp; * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+<i>21</i>&nbsp; * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+<i>22</i>&nbsp; * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+<i>23</i>&nbsp; * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+<i>24</i>&nbsp; * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+<i>25</i>&nbsp; * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+<i>26</i>&nbsp; * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+<i>27</i>&nbsp; * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+<i>28</i>&nbsp; * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+<i>29</i>&nbsp; */
+<i>30</i>&nbsp;
+<i>31</i>&nbsp;
+<i>32</i>&nbsp;package com.twelvemonkeys.image;
+<i>33</i>&nbsp;
+<i>34</i>&nbsp;import com.twelvemonkeys.lang.StringUtil;
+<i>35</i>&nbsp;import com.twelvemonkeys.lang.Validate;
+<i>36</i>&nbsp;
+<i>37</i>&nbsp;import java.awt.*;
+<i>38</i>&nbsp;import java.awt.image.DataBuffer;
+<i>39</i>&nbsp;import java.awt.image.IndexColorModel;
+<i>40</i>&nbsp;
+<i>41</i>&nbsp;/**
+<i>42</i>&nbsp; * A faster implementation of {@code IndexColorModel}, that is backed by an
+<i>43</i>&nbsp; * inverse color-map, for fast look-ups.
+<i>44</i>&nbsp; *
+<i>45</i>&nbsp; * @author &lt;a href=&quot;mailto:harald.kuhr@gmail.com&quot;&gt;Harald Kuhr&lt;/a&gt;
+<i>46</i>&nbsp; * @author $Author: haku $
+<i>47</i>&nbsp; * @version $Id: //depot/branches/personal/haraldk/twelvemonkeys/release-2/twelvemonkeys-core/src/main/java/com/twelvemonkeys/image/InverseColorMapIndexColorModel.java#1 $
+<i>48</i>&nbsp; *
+<i>49</i>&nbsp; */
+<i>50</i>&nbsp;public class InverseColorMapIndexColorModel extends IndexColorModel {
+<i>51</i>&nbsp;
+<i>52</i>&nbsp;    protected int rgbs[];
+<i>53</i>&nbsp;    protected int mapSize;
+<i>54</i>&nbsp;
+<b class="nc"><i>55</i>&nbsp;    protected InverseColorMap inverseMap = null;</b>
+<i>56</i>&nbsp;    private final static int ALPHA_THRESHOLD = 0x80;
+<i>57</i>&nbsp;
+<b class="nc"><i>58</i>&nbsp;    private int whiteIndex = -1;</b>
+<i>59</i>&nbsp;    private final static int WHITE = 0x00FFFFFF;
+<i>60</i>&nbsp;    private final static int RGB_MASK = 0x00FFFFFF;
+<i>61</i>&nbsp;
+<i>62</i>&nbsp;    /**
+<i>63</i>&nbsp;     * Creates an {@code InverseColorMapIndexColorModel} from an existing
+<i>64</i>&nbsp;     * {@code IndexColorModel}.
+<i>65</i>&nbsp;     *
+<i>66</i>&nbsp;     * @param pColorModel the color model to create from.
+<i>67</i>&nbsp;     * @throws IllegalArgumentException if {@code pColorModel} is {@code null}
+<i>68</i>&nbsp;     */
+<i>69</i>&nbsp;    public InverseColorMapIndexColorModel(final IndexColorModel pColorModel) {
+<b class="nc"><i>70</i>&nbsp;        this(Validate.notNull(pColorModel, &quot;color model&quot;), getRGBs(pColorModel));</b>
+<i>71</i>&nbsp;    }
+<i>72</i>&nbsp;
+<i>73</i>&nbsp;    // NOTE: The pRGBs parameter is used to get around invoking getRGBs two
+<i>74</i>&nbsp;    // times. What is wrong with protected?!
+<i>75</i>&nbsp;    private InverseColorMapIndexColorModel(IndexColorModel pColorModel, int[] pRGBs) {
+<b class="nc"><i>76</i>&nbsp;        super(pColorModel.getComponentSize()[0], pColorModel.getMapSize(), pRGBs, 0, pColorModel.getTransferType(), pColorModel.getValidPixels());</b>
+<i>77</i>&nbsp;
+<b class="nc"><i>78</i>&nbsp;        rgbs = pRGBs;</b>
+<b class="nc"><i>79</i>&nbsp;        mapSize = rgbs.length;</b>
+<i>80</i>&nbsp;
+<b class="nc"><i>81</i>&nbsp;        inverseMap = new InverseColorMap(rgbs);</b>
+<b class="nc"><i>82</i>&nbsp;        whiteIndex = getWhiteIndex();</b>
+<i>83</i>&nbsp;    }
+<i>84</i>&nbsp;
+<i>85</i>&nbsp;    /**
+<i>86</i>&nbsp;     * Creates a defensive copy of the RGB color map in the given
+<i>87</i>&nbsp;     * {@code IndexColorModel}.
+<i>88</i>&nbsp;     *
+<i>89</i>&nbsp;     * @param pColorModel the indexed color model to get RGB values from
+<i>90</i>&nbsp;     * @return the RGB color map
+<i>91</i>&nbsp;     */
+<i>92</i>&nbsp;    private static int[] getRGBs(IndexColorModel pColorModel) {
+<b class="nc"><i>93</i>&nbsp;        int[] rgb = new int[pColorModel.getMapSize()];</b>
+<b class="nc"><i>94</i>&nbsp;        pColorModel.getRGBs(rgb);</b>
+<i>95</i>&nbsp;
+<b class="nc"><i>96</i>&nbsp;        return rgb;</b>
+<i>97</i>&nbsp;    }
+<i>98</i>&nbsp;
+<i>99</i>&nbsp;    /**
+<i>100</i>&nbsp;     * Creates an {@code InverseColorMapIndexColorModel} from the given array
+<i>101</i>&nbsp;     * of RGB components, plus one transparent index.
+<i>102</i>&nbsp;     *
+<i>103</i>&nbsp;     * @param pNumBits the number of bits each pixel occupies
+<i>104</i>&nbsp;     * @param pSize the size of the color component arrays
+<i>105</i>&nbsp;     * @param pRGBs the array of packed RGB color components
+<i>106</i>&nbsp;     * @param pStart the starting offset of the first color component
+<i>107</i>&nbsp;     * @param pAlpha indicates whether alpha values are contained in {@code pRGBs}
+<i>108</i>&nbsp;     * @param pTransparentIndex the index of the transparent pixel
+<i>109</i>&nbsp;     * @param pTransferType the data type of the array used to represent pixels
+<i>110</i>&nbsp;     *
+<i>111</i>&nbsp;     * @throws IllegalArgumentException if bits is less than 1 or greater than 16,
+<i>112</i>&nbsp;     * or if size is less than 1
+<i>113</i>&nbsp;     *
+<i>114</i>&nbsp;     * @see IndexColorModel#IndexColorModel(int, int, int[], int, boolean, int, int)
+<i>115</i>&nbsp;     */
+<i>116</i>&nbsp;    public InverseColorMapIndexColorModel(int pNumBits, int pSize, int[] pRGBs, int pStart, boolean pAlpha, int pTransparentIndex, int pTransferType) {
+<b class="nc"><i>117</i>&nbsp;        super(pNumBits, pSize, pRGBs, pStart, pAlpha, pTransparentIndex, pTransferType);</b>
+<b class="nc"><i>118</i>&nbsp;        rgbs = getRGBs(this);</b>
+<b class="nc"><i>119</i>&nbsp;        mapSize = rgbs.length;</b>
+<i>120</i>&nbsp;
+<b class="nc"><i>121</i>&nbsp;        inverseMap = new InverseColorMap(rgbs, pTransparentIndex);</b>
+<b class="nc"><i>122</i>&nbsp;        whiteIndex = getWhiteIndex();</b>
+<i>123</i>&nbsp;    }
+<i>124</i>&nbsp;
+<i>125</i>&nbsp;    /**
+<i>126</i>&nbsp;     * Creates an {@code InverseColorMapIndexColorModel} from the given arrays
+<i>127</i>&nbsp;     * of red, green, and blue components, plus one transparent index.
+<i>128</i>&nbsp;     *
+<i>129</i>&nbsp;     * @param pNumBits the number of bits each pixel occupies
+<i>130</i>&nbsp;     * @param pSize the size of the color component arrays
+<i>131</i>&nbsp;     * @param pReds the array of red color components
+<i>132</i>&nbsp;     * @param pGreens the array of green color components
+<i>133</i>&nbsp;     * @param pBlues the array of blue color components
+<i>134</i>&nbsp;     * @param pTransparentIndex the index of the transparent pixel
+<i>135</i>&nbsp;     *
+<i>136</i>&nbsp;     * @throws IllegalArgumentException if bits is less than 1 or greater than 16,
+<i>137</i>&nbsp;     * or if size is less than 1
+<i>138</i>&nbsp;     *
+<i>139</i>&nbsp;     * @see IndexColorModel#IndexColorModel(int, int, byte[], byte[], byte[], int)
+<i>140</i>&nbsp;     */
+<i>141</i>&nbsp;    public InverseColorMapIndexColorModel(int pNumBits, int pSize, byte[] pReds, byte[] pGreens, byte[] pBlues, int pTransparentIndex) {
+<b class="nc"><i>142</i>&nbsp;        super(pNumBits, pSize, pReds, pGreens, pBlues, pTransparentIndex);</b>
+<b class="nc"><i>143</i>&nbsp;        rgbs = getRGBs(this);</b>
+<b class="nc"><i>144</i>&nbsp;        mapSize = rgbs.length;</b>
+<i>145</i>&nbsp;
+<b class="nc"><i>146</i>&nbsp;        inverseMap = new InverseColorMap(rgbs, pTransparentIndex);</b>
+<b class="nc"><i>147</i>&nbsp;        whiteIndex = getWhiteIndex();</b>
+<i>148</i>&nbsp;    }
+<i>149</i>&nbsp;
+<i>150</i>&nbsp;    /**
+<i>151</i>&nbsp;     * Creates an {@code InverseColorMapIndexColorModel} from the given arrays
+<i>152</i>&nbsp;     * of red, green, and blue components.
+<i>153</i>&nbsp;     *
+<i>154</i>&nbsp;     * @param pNumBits the number of bits each pixel occupies
+<i>155</i>&nbsp;     * @param pSize the size of the color component arrays
+<i>156</i>&nbsp;     * @param pReds the array of red color components
+<i>157</i>&nbsp;     * @param pGreens the array of green color components
+<i>158</i>&nbsp;     * @param pBlues the array of blue color components
+<i>159</i>&nbsp;     *
+<i>160</i>&nbsp;     * @throws IllegalArgumentException if bits is less than 1 or greater than 16,
+<i>161</i>&nbsp;     * or if size is less than 1
+<i>162</i>&nbsp;     *
+<i>163</i>&nbsp;     * @see IndexColorModel#IndexColorModel(int, int, byte[], byte[], byte[])
+<i>164</i>&nbsp;     */
+<i>165</i>&nbsp;    public InverseColorMapIndexColorModel(int pNumBits, int pSize, byte[] pReds, byte[] pGreens, byte[] pBlues) {
+<b class="nc"><i>166</i>&nbsp;        super(pNumBits, pSize, pReds, pGreens, pBlues);</b>
+<b class="nc"><i>167</i>&nbsp;        rgbs = getRGBs(this);</b>
+<b class="nc"><i>168</i>&nbsp;        mapSize = rgbs.length;</b>
+<i>169</i>&nbsp;
+<b class="nc"><i>170</i>&nbsp;        inverseMap = new InverseColorMap(rgbs);</b>
+<b class="nc"><i>171</i>&nbsp;        whiteIndex = getWhiteIndex();</b>
+<i>172</i>&nbsp;    }
+<i>173</i>&nbsp;
+<i>174</i>&nbsp;    private int getWhiteIndex() {
+<b class="nc"><i>175</i>&nbsp;        for (int i = 0; i &lt; rgbs.length; i++) {</b>
+<b class="nc"><i>176</i>&nbsp;            int color = rgbs[i];</b>
+<b class="nc"><i>177</i>&nbsp;            if ((color &amp; RGB_MASK) == WHITE) {</b>
+<b class="nc"><i>178</i>&nbsp;                return i;</b>
+<i>179</i>&nbsp;            }
+<i>180</i>&nbsp;        }
+<b class="nc"><i>181</i>&nbsp;        return -1;</b>
+<i>182</i>&nbsp;    }
+<i>183</i>&nbsp;
+<i>184</i>&nbsp;    /**
+<i>185</i>&nbsp;     * Creates an {@code IndexColorModel} optimized for the given {@code Image}.
+<i>186</i>&nbsp;     *
+<i>187</i>&nbsp;     * @param pImage the {@code Image} containing the RGB samples
+<i>188</i>&nbsp;     * @param pNumCols the maximum number of colors in the {@code IndexColorModel}
+<i>189</i>&nbsp;     * @param pFlags flags
+<i>190</i>&nbsp;     *
+<i>191</i>&nbsp;     * @return a new optimized {@code IndexColorModel}
+<i>192</i>&nbsp;     */
+<i>193</i>&nbsp;    public static IndexColorModel create(Image pImage, int pNumCols, int pFlags) {
+<i>194</i>&nbsp;        // TODO: Inline and deprecate IndexImage.getIndexColorModel!?
+<b class="nc"><i>195</i>&nbsp;        IndexColorModel icm = IndexImage.getIndexColorModel(pImage, pNumCols, pFlags);</b>
+<i>196</i>&nbsp;
+<i>197</i>&nbsp;        InverseColorMapIndexColorModel cm;
+<b class="nc"><i>198</i>&nbsp;        if (icm instanceof InverseColorMapIndexColorModel) {</b>
+<b class="nc"><i>199</i>&nbsp;            cm = (InverseColorMapIndexColorModel) icm;</b>
+<i>200</i>&nbsp;        }
+<i>201</i>&nbsp;        else {
+<b class="nc"><i>202</i>&nbsp;            cm = new InverseColorMapIndexColorModel(icm);</b>
+<i>203</i>&nbsp;        }
+<i>204</i>&nbsp;
+<b class="nc"><i>205</i>&nbsp;        return cm;</b>
+<i>206</i>&nbsp;    }
+<i>207</i>&nbsp;
+<i>208</i>&nbsp;    /**
+<i>209</i>&nbsp;     * Returns a data element array representation of a pixel in this
+<i>210</i>&nbsp;     * ColorModel, given an integer pixel representation in the
+<i>211</i>&nbsp;     * default RGB color model.  This array can then be passed to the
+<i>212</i>&nbsp;     * {@link java.awt.image.WritableRaster#setDataElements(int, int, Object) setDataElements}
+<i>213</i>&nbsp;     * method of a {@link java.awt.image.WritableRaster} object.  If the pixel variable is
+<i>214</i>&nbsp;     * {@code null}, a new array is allocated.  If {@code pixel}
+<i>215</i>&nbsp;     * is not {@code null}, it must be
+<i>216</i>&nbsp;     * a primitive array of type {@code transferType}; otherwise, a
+<i>217</i>&nbsp;     * {@code ClassCastException} is thrown.  An
+<i>218</i>&nbsp;     * {@code ArrayIndexOutOfBoundsException} is
+<i>219</i>&nbsp;     * thrown if {@code pixel} is not large enough to hold a pixel
+<i>220</i>&nbsp;     * value for this {@code ColorModel}.  The pixel array is returned.
+<i>221</i>&nbsp;     * &lt;p&gt;
+<i>222</i>&nbsp;     * Since {@code OpaqueIndexColorModel} can be subclassed, subclasses
+<i>223</i>&nbsp;     * inherit the implementation of this method and if they don&#39;t
+<i>224</i>&nbsp;     * override it then they throw an exception if they use an
+<i>225</i>&nbsp;     * unsupported {@code transferType}.
+<i>226</i>&nbsp;     *
+<i>227</i>&nbsp;     * #param rgb the integer pixel representation in the default RGB
+<i>228</i>&nbsp;     * color model
+<i>229</i>&nbsp;     * #param pixel the specified pixel
+<i>230</i>&nbsp;     * #return an array representation of the specified pixel in this
+<i>231</i>&nbsp;     *  {@code OpaqueIndexColorModel}.
+<i>232</i>&nbsp;     * #throws ClassCastException if {@code pixel}
+<i>233</i>&nbsp;     *  is not a primitive array of type {@code transferType}
+<i>234</i>&nbsp;     * #throws ArrayIndexOutOfBoundsException if
+<i>235</i>&nbsp;     *  {@code pixel} is not large enough to hold a pixel value
+<i>236</i>&nbsp;     *  for this {@code ColorModel}
+<i>237</i>&nbsp;     * #throws UnsupportedOperationException if {@code transferType}
+<i>238</i>&nbsp;     *         is invalid
+<i>239</i>&nbsp;     * @see java.awt.image.WritableRaster#setDataElements
+<i>240</i>&nbsp;     * @see java.awt.image.SampleModel#setDataElements
+<i>241</i>&nbsp;     *
+<i>242</i>&nbsp;     */
+<i>243</i>&nbsp;    public Object getDataElements(int rgb, Object pixel) {
+<b class="nc"><i>244</i>&nbsp;        int alpha = (rgb&gt;&gt;&gt;24);</b>
+<i>245</i>&nbsp;
+<i>246</i>&nbsp;        int pix;
+<b class="nc"><i>247</i>&nbsp;        if (alpha &lt; ALPHA_THRESHOLD &amp;&amp; getTransparentPixel() != -1) {</b>
+<b class="nc"><i>248</i>&nbsp;            pix = getTransparentPixel();</b>
+<i>249</i>&nbsp;        }
+<i>250</i>&nbsp;        else {
+<b class="nc"><i>251</i>&nbsp;            int color = rgb &amp; RGB_MASK;</b>
+<b class="nc"><i>252</i>&nbsp;            if (color == WHITE &amp;&amp; whiteIndex != -1) {</b>
+<b class="nc"><i>253</i>&nbsp;                pix = whiteIndex;</b>
+<i>254</i>&nbsp;            }
+<i>255</i>&nbsp;            else {
+<b class="nc"><i>256</i>&nbsp;                pix = inverseMap.getIndexNearest(color);</b>
+<i>257</i>&nbsp;            }
+<i>258</i>&nbsp;        }
+<i>259</i>&nbsp;
+<b class="nc"><i>260</i>&nbsp;        return installpixel(pixel, pix);</b>
+<i>261</i>&nbsp;    }
+<i>262</i>&nbsp;
+<i>263</i>&nbsp;    private Object installpixel(Object pixel, int pix) {
+<b class="nc"><i>264</i>&nbsp;        switch (transferType) {</b>
+<i>265</i>&nbsp;            case DataBuffer.TYPE_INT:
+<i>266</i>&nbsp;                int[] intObj;
+<b class="nc"><i>267</i>&nbsp;                if (pixel == null) {</b>
+<b class="nc"><i>268</i>&nbsp;                    pixel = intObj = new int[1];</b>
+<i>269</i>&nbsp;                }
+<i>270</i>&nbsp;                else {
+<b class="nc"><i>271</i>&nbsp;                    intObj = (int[]) pixel;</b>
+<i>272</i>&nbsp;                }
+<b class="nc"><i>273</i>&nbsp;                intObj[0] = pix;</b>
+<b class="nc"><i>274</i>&nbsp;                break;</b>
+<i>275</i>&nbsp;            case DataBuffer.TYPE_BYTE:
+<i>276</i>&nbsp;                byte[] byteObj;
+<b class="nc"><i>277</i>&nbsp;                if (pixel == null) {</b>
+<b class="nc"><i>278</i>&nbsp;                    pixel = byteObj = new byte[1];</b>
+<i>279</i>&nbsp;                }
+<i>280</i>&nbsp;                else {
+<b class="nc"><i>281</i>&nbsp;                    byteObj = (byte[]) pixel;</b>
+<i>282</i>&nbsp;                }
+<b class="nc"><i>283</i>&nbsp;                byteObj[0] = (byte) pix;</b>
+<b class="nc"><i>284</i>&nbsp;                break;</b>
+<i>285</i>&nbsp;            case DataBuffer.TYPE_USHORT:
+<i>286</i>&nbsp;                short[] shortObj;
+<b class="nc"><i>287</i>&nbsp;                if (pixel == null) {</b>
+<b class="nc"><i>288</i>&nbsp;                    pixel = shortObj = new short[1];</b>
+<i>289</i>&nbsp;                }
+<i>290</i>&nbsp;                else {
+<b class="nc"><i>291</i>&nbsp;                    shortObj = (short[]) pixel;</b>
+<i>292</i>&nbsp;                }
+<b class="nc"><i>293</i>&nbsp;                shortObj[0] = (short) pix;</b>
+<b class="nc"><i>294</i>&nbsp;                break;</b>
+<i>295</i>&nbsp;            default:
+<b class="nc"><i>296</i>&nbsp;                throw new UnsupportedOperationException(&quot;This method has not been implemented for transferType &quot; + transferType);</b>
+<i>297</i>&nbsp;        }
+<b class="nc"><i>298</i>&nbsp;        return pixel;</b>
+<i>299</i>&nbsp;    }
+<i>300</i>&nbsp;
+<i>301</i>&nbsp;    public String toString() {
+<i>302</i>&nbsp;        // Just a workaround to ease debugging
+<b class="nc"><i>303</i>&nbsp;        return StringUtil.replace(super.toString(), &quot;IndexColorModel: &quot;, getClass().getName() + &quot;: &quot;);</b>
+<i>304</i>&nbsp;    }
+<i>305</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

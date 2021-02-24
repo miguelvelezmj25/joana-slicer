@@ -1,0 +1,308 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: ImageHandler</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">at.favre.tools.dconvert.converters.scaling</a> ]
+</div>
+
+<h1>Coverage Summary for Class: ImageHandler (at.favre.tools.dconvert.converters.scaling)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ImageHandler</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    88.9%
+  </span>
+  <span class="absValue">
+    (8/ 9)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    82.1%
+  </span>
+  <span class="absValue">
+    (64/ 78)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; *  Copyright 2016 Patrick Favre-Bulle
+<i>3</i>&nbsp; *
+<i>4</i>&nbsp; *  Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp; *  you may not use this file except in compliance with the License.
+<i>6</i>&nbsp; *  You may obtain a copy of the License at
+<i>7</i>&nbsp; *
+<i>8</i>&nbsp; *      http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp; *
+<i>10</i>&nbsp; * Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp; * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp; * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp; * See the License for the specific language governing permissions and
+<i>14</i>&nbsp; * limitations under the License.
+<i>15</i>&nbsp; */
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package at.favre.tools.dconvert.converters.scaling;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import at.favre.tools.dconvert.arg.Arguments;
+<i>20</i>&nbsp;import at.favre.tools.dconvert.arg.EScalingAlgorithm;
+<i>21</i>&nbsp;import at.favre.tools.dconvert.arg.ImageType;
+<i>22</i>&nbsp;import at.favre.tools.dconvert.util.LoadedImage;
+<i>23</i>&nbsp;import at.favre.tools.dconvert.util.MiscUtil;
+<i>24</i>&nbsp;import at.favre.tools.dconvert.util.NinePatchScaler;
+<i>25</i>&nbsp;import com.twelvemonkeys.imageio.metadata.CompoundDirectory;
+<i>26</i>&nbsp;
+<i>27</i>&nbsp;import javax.imageio.IIOImage;
+<i>28</i>&nbsp;import javax.imageio.ImageIO;
+<i>29</i>&nbsp;import javax.imageio.ImageWriteParam;
+<i>30</i>&nbsp;import javax.imageio.ImageWriter;
+<i>31</i>&nbsp;import javax.imageio.stream.FileImageOutputStream;
+<i>32</i>&nbsp;import javax.imageio.stream.ImageOutputStream;
+<i>33</i>&nbsp;import java.awt.*;
+<i>34</i>&nbsp;import java.awt.image.BufferedImage;
+<i>35</i>&nbsp;import java.awt.image.ConvolveOp;
+<i>36</i>&nbsp;import java.awt.image.Kernel;
+<i>37</i>&nbsp;import java.io.File;
+<i>38</i>&nbsp;import java.io.IOException;
+<i>39</i>&nbsp;import java.util.List;
+<i>40</i>&nbsp;import java.util.*;
+<i>41</i>&nbsp;
+<i>42</i>&nbsp;/** Handles scaling and writing/compression images to disk */
+<i>43</i>&nbsp;public class ImageHandler {
+<i>44</i>&nbsp;  public static final boolean TEST_MODE = false;
+<b class="fc"><i>45</i>&nbsp;  public static final ConvolveOp OP_ANTIALIAS =</b>
+<i>46</i>&nbsp;      new ConvolveOp(
+<i>47</i>&nbsp;          new Kernel(3, 3, new float[] {.0f, .08f, .0f, .08f, .68f, .08f, .0f, .08f, .0f}),
+<i>48</i>&nbsp;          ConvolveOp.EDGE_NO_OP,
+<i>49</i>&nbsp;          null);
+<b class="fc"><i>50</i>&nbsp;  private static final Color DEFAULT_COLOR = Color.white;</b>
+<b class="fc"><i>51</i>&nbsp;  public static Map&lt;ScaleAlgorithm, Long&gt; traceMap = new HashMap&lt;ScaleAlgorithm, Long&gt;();</b>
+<i>52</i>&nbsp;  private final Arguments args;
+<i>53</i>&nbsp;
+<b class="fc"><i>54</i>&nbsp;  public ImageHandler(Arguments args) {</b>
+<b class="fc"><i>55</i>&nbsp;    this.args = args;</b>
+<b class="fc"><i>56</i>&nbsp;  }</b>
+<i>57</i>&nbsp;
+<i>58</i>&nbsp;  public List&lt;File&gt; saveToFile(
+<i>59</i>&nbsp;      File targetFile, LoadedImage imageData, Dimension targetDimension, boolean isNinePatch)
+<i>60</i>&nbsp;      throws Exception {
+<i>61</i>&nbsp;
+<b class="fc"><i>62</i>&nbsp;    List&lt;File&gt; files = new ArrayList&lt;File&gt;(2);</b>
+<b class="fc"><i>63</i>&nbsp;    List&lt;ImageType.ECompression&gt; compressionList =</b>
+<b class="fc"><i>64</i>&nbsp;        Arguments.getOutCompressionForType(</b>
+<b class="fc"><i>65</i>&nbsp;            args.outputCompressionMode, Arguments.getImageType(imageData.getSourceFile()));</b>
+<b class="fc"><i>66</i>&nbsp;    for (ImageType.ECompression compression : compressionList) {</b>
+<b class="fc"><i>67</i>&nbsp;      File imageFile = new File(targetFile.getAbsolutePath() + &quot;.&quot; + compression.extension);</b>
+<i>68</i>&nbsp;
+<b class="fc"><i>69</i>&nbsp;      if (imageFile.exists() &amp;&amp; args.skipExistingFiles) {</b>
+<b class="nc"><i>70</i>&nbsp;        break;</b>
+<i>71</i>&nbsp;      }
+<i>72</i>&nbsp;
+<b class="fc"><i>73</i>&nbsp;      List&lt;ScaleAlgorithm&gt; algorithms =</b>
+<b class="fc"><i>74</i>&nbsp;          getScaleAlgorithm(</b>
+<b class="fc"><i>75</i>&nbsp;              getScalingAlgorithm(getScalingType(imageData, targetDimension)),</b>
+<b class="fc"><i>76</i>&nbsp;              getScalingType(imageData, targetDimension));</b>
+<i>77</i>&nbsp;
+<b class="fc"><i>78</i>&nbsp;      for (ScaleAlgorithm scaleAlgorithm : algorithms) {</b>
+<i>79</i>&nbsp;
+<b class="fc"><i>80</i>&nbsp;        if (!traceMap.containsKey(scaleAlgorithm)) {</b>
+<b class="fc"><i>81</i>&nbsp;          traceMap.put(scaleAlgorithm, 0L);</b>
+<i>82</i>&nbsp;        }
+<i>83</i>&nbsp;
+<i>84</i>&nbsp;        BufferedImage scaledImage;
+<b class="fc"><i>85</i>&nbsp;        if (isNinePatch &amp;&amp; compression == ImageType.ECompression.PNG) {</b>
+<b class="nc"><i>86</i>&nbsp;          scaledImage =</b>
+<i>87</i>&nbsp;              new NinePatchScaler()
+<b class="nc"><i>88</i>&nbsp;                  .scale(</b>
+<b class="nc"><i>89</i>&nbsp;                      imageData.getImage(),</b>
+<i>90</i>&nbsp;                      targetDimension,
+<b class="nc"><i>91</i>&nbsp;                      getAsScalingAlgorithm(scaleAlgorithm, compression));</b>
+<i>92</i>&nbsp;        } else {
+<b class="fc"><i>93</i>&nbsp;          long startNanos = System.nanoTime();</b>
+<b class="fc"><i>94</i>&nbsp;          scaledImage =</b>
+<b class="fc"><i>95</i>&nbsp;              scale(</b>
+<i>96</i>&nbsp;                  scaleAlgorithm,
+<b class="fc"><i>97</i>&nbsp;                  imageData.getImage(),</b>
+<i>98</i>&nbsp;                  targetDimension.width,
+<i>99</i>&nbsp;                  targetDimension.height,
+<i>100</i>&nbsp;                  compression,
+<i>101</i>&nbsp;                  DEFAULT_COLOR);
+<b class="fc"><i>102</i>&nbsp;          traceMap.put(</b>
+<b class="fc"><i>103</i>&nbsp;              scaleAlgorithm, traceMap.get(scaleAlgorithm) + (System.nanoTime() - startNanos));</b>
+<i>104</i>&nbsp;        }
+<i>105</i>&nbsp;
+<b class="fc"><i>106</i>&nbsp;        File fileToSave = imageFile;</b>
+<i>107</i>&nbsp;
+<b class="fc"><i>108</i>&nbsp;        if (algorithms.size() &gt; 1) {</b>
+<b class="nc"><i>109</i>&nbsp;          fileToSave =</b>
+<i>110</i>&nbsp;              new File(
+<b class="nc"><i>111</i>&nbsp;                  imageFile.getParentFile(),</b>
+<b class="nc"><i>112</i>&nbsp;                  MiscUtil.getFileNameWithoutExtension(imageFile)</b>
+<i>113</i>&nbsp;                      + &quot;.&quot;
+<b class="nc"><i>114</i>&nbsp;                      + scaleAlgorithm.toString()</b>
+<i>115</i>&nbsp;                      + &quot;.&quot;
+<b class="nc"><i>116</i>&nbsp;                      + MiscUtil.getFileExtension(imageFile));</b>
+<i>117</i>&nbsp;        }
+<i>118</i>&nbsp;
+<b class="fc"><i>119</i>&nbsp;        if (compression == ImageType.ECompression.JPG) {</b>
+<b class="fc"><i>120</i>&nbsp;          compressJpeg(scaledImage, null, args.compressionQuality, fileToSave);</b>
+<i>121</i>&nbsp;        } else {
+<b class="nc"><i>122</i>&nbsp;          ImageIO.write(scaledImage, compression.name().toLowerCase(), fileToSave);</b>
+<i>123</i>&nbsp;        }
+<b class="fc"><i>124</i>&nbsp;        scaledImage.flush();</b>
+<b class="fc"><i>125</i>&nbsp;        files.add(imageFile);</b>
+<b class="fc"><i>126</i>&nbsp;      }</b>
+<b class="fc"><i>127</i>&nbsp;    }</b>
+<b class="fc"><i>128</i>&nbsp;    return files;</b>
+<i>129</i>&nbsp;  }
+<i>130</i>&nbsp;
+<i>131</i>&nbsp;  public void compressJpeg(
+<i>132</i>&nbsp;      BufferedImage bufferedImage, CompoundDirectory exif, float quality, File targetFile)
+<i>133</i>&nbsp;      throws IOException {
+<b class="fc"><i>134</i>&nbsp;    if (bufferedImage.hasTileWriters()) {</b>
+<b class="fc"><i>135</i>&nbsp;      ImageWriter jpgWriter = ImageIO.getImageWritersByFormatName(&quot;jpg&quot;).next();</b>
+<b class="fc"><i>136</i>&nbsp;      ImageWriteParam jpgWriteParam = jpgWriter.getDefaultWriteParam();</b>
+<b class="fc"><i>137</i>&nbsp;      jpgWriteParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);</b>
+<b class="fc"><i>138</i>&nbsp;      jpgWriteParam.setCompressionQuality(quality);</b>
+<i>139</i>&nbsp;
+<b class="fc"><i>140</i>&nbsp;      ImageWriter writer = null;</b>
+<i>141</i>&nbsp;      try {
+<b class="fc"><i>142</i>&nbsp;        ImageOutputStream outputStream = new FileImageOutputStream(targetFile);</b>
+<b class="fc"><i>143</i>&nbsp;        writer = ImageIO.getImageWritersByFormatName(&quot;jpg&quot;).next();</b>
+<b class="fc"><i>144</i>&nbsp;        writer.setOutput(outputStream);</b>
+<b class="fc"><i>145</i>&nbsp;        writer.write(null, new IIOImage(bufferedImage, null, null), jpgWriteParam);</b>
+<b class="fc"><i>146</i>&nbsp;        outputStream.close();</b>
+<i>147</i>&nbsp;      } finally {
+<b class="fc"><i>148</i>&nbsp;        if (writer != null) writer.dispose();</b>
+<b class="nc"><i>149</i>&nbsp;      }</b>
+<i>150</i>&nbsp;    }
+<b class="fc"><i>151</i>&nbsp;  }</b>
+<i>152</i>&nbsp;
+<i>153</i>&nbsp;  private EScalingAlgorithm getScalingAlgorithm(EScalingAlgorithm.Type type) {
+<b class="fc"><i>154</i>&nbsp;    return type == EScalingAlgorithm.Type.UPSCALING</b>
+<i>155</i>&nbsp;        ? args.upScalingAlgorithm
+<i>156</i>&nbsp;        : args.downScalingAlgorithm;
+<i>157</i>&nbsp;  }
+<i>158</i>&nbsp;
+<i>159</i>&nbsp;  private EScalingAlgorithm.Type getScalingType(LoadedImage imageData, Dimension targetDimension) {
+<b class="fc"><i>160</i>&nbsp;    long targetSize = targetDimension.height * targetDimension.width;</b>
+<b class="fc"><i>161</i>&nbsp;    long sourceSize = imageData.getImage().getHeight() * imageData.getImage().getWidth();</b>
+<b class="fc"><i>162</i>&nbsp;    return targetSize &gt;= sourceSize</b>
+<i>163</i>&nbsp;        ? EScalingAlgorithm.Type.UPSCALING
+<i>164</i>&nbsp;        : EScalingAlgorithm.Type.DOWNSCALING;
+<i>165</i>&nbsp;  }
+<i>166</i>&nbsp;
+<i>167</i>&nbsp;  private List&lt;ScaleAlgorithm&gt; getScaleAlgorithm(
+<i>168</i>&nbsp;      EScalingAlgorithm algorithm, EScalingAlgorithm.Type type) {
+<i>169</i>&nbsp;    if (TEST_MODE) {
+<i>170</i>&nbsp;      List&lt;ScaleAlgorithm&gt; algos = new ArrayList&lt;ScaleAlgorithm&gt;();
+<i>171</i>&nbsp;      for (EScalingAlgorithm eScalingAlgorithm : EScalingAlgorithm.getAllEnabled()) {
+<i>172</i>&nbsp;        if (eScalingAlgorithm.getSupportedForType().contains(type)) {
+<i>173</i>&nbsp;          algos.add(eScalingAlgorithm.getImplementation());
+<i>174</i>&nbsp;        }
+<i>175</i>&nbsp;      }
+<i>176</i>&nbsp;      return algos;
+<i>177</i>&nbsp;      //      return EScalingAlgorithm.getAllEnabled().stream()
+<i>178</i>&nbsp;      //          .filter(eScalingAlgorithm -&gt;
+<i>179</i>&nbsp;      // eScalingAlgorithm.getSupportedForType().contains(type))
+<i>180</i>&nbsp;      //          .map(EScalingAlgorithm::getImplementation)
+<i>181</i>&nbsp;      //          .collect(Collectors.toList());
+<i>182</i>&nbsp;    } else {
+<b class="fc"><i>183</i>&nbsp;      return Collections.singletonList(algorithm.getImplementation());</b>
+<i>184</i>&nbsp;    }
+<i>185</i>&nbsp;  }
+<i>186</i>&nbsp;
+<i>187</i>&nbsp;  public BufferedImage scale(
+<i>188</i>&nbsp;      ScaleAlgorithm scaleAlgorithm,
+<i>189</i>&nbsp;      BufferedImage imageToScale,
+<i>190</i>&nbsp;      int dWidth,
+<i>191</i>&nbsp;      int dHeight,
+<i>192</i>&nbsp;      ImageType.ECompression compression,
+<i>193</i>&nbsp;      Color background) {
+<i>194</i>&nbsp;
+<i>195</i>&nbsp;    BufferedImage scaledImage;
+<i>196</i>&nbsp;
+<b class="fc"><i>197</i>&nbsp;    if (dWidth == imageToScale.getWidth() &amp;&amp; dHeight == imageToScale.getHeight()) {</b>
+<b class="fc"><i>198</i>&nbsp;      scaledImage = imageToScale;</b>
+<i>199</i>&nbsp;    } else {
+<b class="fc"><i>200</i>&nbsp;      scaledImage = scaleAlgorithm.scale(imageToScale, dWidth, dHeight);</b>
+<i>201</i>&nbsp;    }
+<i>202</i>&nbsp;
+<b class="fc"><i>203</i>&nbsp;    if (!compression.hasTransparency) {</b>
+<b class="fc"><i>204</i>&nbsp;      BufferedImage convertedImg =</b>
+<i>205</i>&nbsp;          new BufferedImage(
+<b class="fc"><i>206</i>&nbsp;              scaledImage.getWidth(), scaledImage.getHeight(), BufferedImage.TYPE_INT_RGB);</b>
+<b class="fc"><i>207</i>&nbsp;      convertedImg.getGraphics().drawImage(scaledImage, 0, 0, background, null);</b>
+<b class="fc"><i>208</i>&nbsp;      scaledImage = convertedImg;</b>
+<i>209</i>&nbsp;    }
+<i>210</i>&nbsp;
+<b class="fc"><i>211</i>&nbsp;    if (args.enableAntiAliasing) {</b>
+<b class="nc"><i>212</i>&nbsp;      scaledImage = OP_ANTIALIAS.filter(scaledImage, null);</b>
+<i>213</i>&nbsp;    }
+<i>214</i>&nbsp;
+<b class="fc"><i>215</i>&nbsp;    return scaledImage;</b>
+<i>216</i>&nbsp;  }
+<i>217</i>&nbsp;
+<i>218</i>&nbsp;  private ScaleAlgorithm getAsScalingAlgorithm(
+<i>219</i>&nbsp;      final ScaleAlgorithm algorithm, ImageType.ECompression compression) {
+<b class="nc"><i>220</i>&nbsp;    throw new UnsupportedOperationException(&quot;Java 1.6&quot;);</b>
+<i>221</i>&nbsp;    //    return (imageToScale, dWidth, dHeight) -&gt;
+<i>222</i>&nbsp;    //        ImageHandler.this.scale(
+<i>223</i>&nbsp;    //            algorithm, imageToScale, dWidth, dHeight, compression, DEFAULT_COLOR);
+<i>224</i>&nbsp;  }
+<i>225</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:49</div>
+</div>
+</body>
+</html>

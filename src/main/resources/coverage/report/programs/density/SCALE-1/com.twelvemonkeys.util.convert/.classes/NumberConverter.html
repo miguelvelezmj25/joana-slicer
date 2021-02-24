@@ -1,0 +1,293 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: NumberConverter</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.twelvemonkeys.util.convert</a> ]
+</div>
+
+<h1>Coverage Summary for Class: NumberConverter (com.twelvemonkeys.util.convert)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">NumberConverter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 58)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; * Copyright (c) 2008, Harald Kuhr
+<i>3</i>&nbsp; * All rights reserved.
+<i>4</i>&nbsp; *
+<i>5</i>&nbsp; * Redistribution and use in source and binary forms, with or without
+<i>6</i>&nbsp; * modification, are permitted provided that the following conditions are met:
+<i>7</i>&nbsp; *
+<i>8</i>&nbsp; * * Redistributions of source code must retain the above copyright notice, this
+<i>9</i>&nbsp; *   list of conditions and the following disclaimer.
+<i>10</i>&nbsp; *
+<i>11</i>&nbsp; * * Redistributions in binary form must reproduce the above copyright notice,
+<i>12</i>&nbsp; *   this list of conditions and the following disclaimer in the documentation
+<i>13</i>&nbsp; *   and/or other materials provided with the distribution.
+<i>14</i>&nbsp; *
+<i>15</i>&nbsp; * * Neither the name of the copyright holder nor the names of its
+<i>16</i>&nbsp; *   contributors may be used to endorse or promote products derived from
+<i>17</i>&nbsp; *   this software without specific prior written permission.
+<i>18</i>&nbsp; *
+<i>19</i>&nbsp; * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+<i>20</i>&nbsp; * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+<i>21</i>&nbsp; * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+<i>22</i>&nbsp; * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+<i>23</i>&nbsp; * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+<i>24</i>&nbsp; * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+<i>25</i>&nbsp; * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+<i>26</i>&nbsp; * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+<i>27</i>&nbsp; * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+<i>28</i>&nbsp; * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+<i>29</i>&nbsp; */
+<i>30</i>&nbsp;
+<i>31</i>&nbsp;package com.twelvemonkeys.util.convert;
+<i>32</i>&nbsp;
+<i>33</i>&nbsp;import com.twelvemonkeys.lang.BeanUtil;
+<i>34</i>&nbsp;import com.twelvemonkeys.lang.StringUtil;
+<i>35</i>&nbsp;import com.twelvemonkeys.util.LRUHashMap;
+<i>36</i>&nbsp;
+<i>37</i>&nbsp;import java.math.BigDecimal;
+<i>38</i>&nbsp;import java.math.BigInteger;
+<i>39</i>&nbsp;import java.text.*;
+<i>40</i>&nbsp;import java.util.Arrays;
+<i>41</i>&nbsp;import java.util.Locale;
+<i>42</i>&nbsp;import java.util.Map;
+<i>43</i>&nbsp;
+<i>44</i>&nbsp;/**
+<i>45</i>&nbsp; * Converts strings to numbers and back.
+<i>46</i>&nbsp; * &lt;p/&gt;
+<i>47</i>&nbsp; * &lt;small&gt;This class has a static cache of {@code NumberFormats}, to avoid
+<i>48</i>&nbsp; * creation and  parsing of number formats every time one is used.&lt;/small&gt;
+<i>49</i>&nbsp; *
+<i>50</i>&nbsp; * @author &lt;a href=&quot;mailto:harald.kuhr@gmail.com&quot;&gt;Harald Kuhr&lt;/a&gt;
+<i>51</i>&nbsp; * @author last modified by $Author: haku $
+<i>52</i>&nbsp; * @version $Id: //depot/branches/personal/haraldk/twelvemonkeys/release-2/twelvemonkeys-core/src/main/java/com/twelvemonkeys/util/convert/NumberConverter.java#2 $
+<i>53</i>&nbsp; */
+<i>54</i>&nbsp;public class NumberConverter implements PropertyConverter {
+<i>55</i>&nbsp;    // TODO: Need to either make this non-locale aware, or document that it is...
+<i>56</i>&nbsp;
+<b class="nc"><i>57</i>&nbsp;    private static final DecimalFormatSymbols SYMBOLS = new DecimalFormatSymbols(Locale.US);</b>
+<b class="nc"><i>58</i>&nbsp;    private static final NumberFormat sDefaultFormat = new DecimalFormat(&quot;#0.#&quot;, SYMBOLS);</b>
+<b class="nc"><i>59</i>&nbsp;    private static final Map&lt;String, Format&gt; sFormats = new LRUHashMap&lt;String, Format&gt;(50);</b>
+<i>60</i>&nbsp;
+<b class="nc"><i>61</i>&nbsp;    public NumberConverter() {</b>
+<i>62</i>&nbsp;    }
+<i>63</i>&nbsp;    
+<i>64</i>&nbsp;    /**
+<i>65</i>&nbsp;     * Converts the string to a number, using the given format for parsing.
+<i>66</i>&nbsp;     *
+<i>67</i>&nbsp;     * @param pString the string to convert.
+<i>68</i>&nbsp;     * @param pType the type to convert to. PropertyConverter
+<i>69</i>&nbsp;     * implementations may choose to ignore this parameter.
+<i>70</i>&nbsp;     * @param pFormat the format used for parsing. PropertyConverter
+<i>71</i>&nbsp;     * implementations may choose to ignore this parameter. Also, 
+<i>72</i>&nbsp;     * implementations that require a parser format, should provide a default
+<i>73</i>&nbsp;     * format, and allow {@code null} as the format argument.
+<i>74</i>&nbsp;     *
+<i>75</i>&nbsp;     * @return the object created from the given string. May safely be typecast
+<i>76</i>&nbsp;     * to {@code java.lang.Number} or the class of the {@code type} parameter.
+<i>77</i>&nbsp;     *
+<i>78</i>&nbsp;     * @see Number
+<i>79</i>&nbsp;     * @see NumberFormat
+<i>80</i>&nbsp;     *
+<i>81</i>&nbsp;     * @throws ConversionException
+<i>82</i>&nbsp;     */
+<i>83</i>&nbsp;    public Object toObject(final String pString, final Class pType, final String pFormat) throws ConversionException {
+<b class="nc"><i>84</i>&nbsp;        if (StringUtil.isEmpty(pString)) {</b>
+<b class="nc"><i>85</i>&nbsp;            return null;</b>
+<i>86</i>&nbsp;        }
+<i>87</i>&nbsp;
+<i>88</i>&nbsp;        try {
+<b class="nc"><i>89</i>&nbsp;            if (pType.equals(BigInteger.class)) {</b>
+<b class="nc"><i>90</i>&nbsp;                return new BigInteger(pString); // No format?</b>
+<i>91</i>&nbsp;            }
+<b class="nc"><i>92</i>&nbsp;            if (pType.equals(BigDecimal.class)) {</b>
+<b class="nc"><i>93</i>&nbsp;                return new BigDecimal(pString); // No format?</b>
+<i>94</i>&nbsp;            }
+<i>95</i>&nbsp;
+<i>96</i>&nbsp;            NumberFormat format;
+<i>97</i>&nbsp;
+<b class="nc"><i>98</i>&nbsp;            if (pFormat == null) {</b>
+<i>99</i>&nbsp;                // Use system default format, using default locale
+<b class="nc"><i>100</i>&nbsp;                format = sDefaultFormat;</b>
+<i>101</i>&nbsp;            }
+<i>102</i>&nbsp;            else {
+<i>103</i>&nbsp;                // Get format from cache
+<b class="nc"><i>104</i>&nbsp;                format = getNumberFormat(pFormat);</b>
+<i>105</i>&nbsp;            }
+<i>106</i>&nbsp;
+<i>107</i>&nbsp;            Number num;
+<b class="nc"><i>108</i>&nbsp;            synchronized (format) {</b>
+<b class="nc"><i>109</i>&nbsp;                num = format.parse(pString);</b>
+<b class="nc"><i>110</i>&nbsp;            }</b>
+<i>111</i>&nbsp;
+<b class="nc"><i>112</i>&nbsp;            if (pType == Integer.TYPE || pType == Integer.class) {</b>
+<b class="nc"><i>113</i>&nbsp;                return num.intValue();</b>
+<i>114</i>&nbsp;            }
+<b class="nc"><i>115</i>&nbsp;            else if (pType == Long.TYPE || pType == Long.class) {</b>
+<b class="nc"><i>116</i>&nbsp;                return num.longValue();</b>
+<i>117</i>&nbsp;            }
+<b class="nc"><i>118</i>&nbsp;            else if (pType == Double.TYPE || pType == Double.class) {</b>
+<b class="nc"><i>119</i>&nbsp;                return num.doubleValue();</b>
+<i>120</i>&nbsp;            }
+<b class="nc"><i>121</i>&nbsp;            else if (pType == Float.TYPE || pType == Float.class) {</b>
+<b class="nc"><i>122</i>&nbsp;                return num.floatValue();</b>
+<i>123</i>&nbsp;            }
+<b class="nc"><i>124</i>&nbsp;            else if (pType == Byte.TYPE || pType == Byte.class) {</b>
+<b class="nc"><i>125</i>&nbsp;                return num.byteValue();</b>
+<i>126</i>&nbsp;            }
+<b class="nc"><i>127</i>&nbsp;            else if (pType == Short.TYPE || pType == Short.class) {</b>
+<b class="nc"><i>128</i>&nbsp;                return num.shortValue();</b>
+<i>129</i>&nbsp;            }
+<i>130</i>&nbsp;
+<b class="nc"><i>131</i>&nbsp;            return num;</b>
+<i>132</i>&nbsp;        }
+<b class="nc"><i>133</i>&nbsp;        catch (ParseException pe) {</b>
+<b class="nc"><i>134</i>&nbsp;            throw new ConversionException(pe);</b>
+<i>135</i>&nbsp;        }
+<b class="nc"><i>136</i>&nbsp;        catch (RuntimeException rte) {</b>
+<b class="nc"><i>137</i>&nbsp;            throw new ConversionException(rte);</b>
+<i>138</i>&nbsp;        }
+<i>139</i>&nbsp;    }
+<i>140</i>&nbsp;
+<i>141</i>&nbsp;    /**
+<i>142</i>&nbsp;     * Converts the object to a string, using the given format
+<i>143</i>&nbsp;     *
+<i>144</i>&nbsp;     * @param pObject the object to convert.
+<i>145</i>&nbsp;     * @param pFormat the format used for parsing. PropertyConverter
+<i>146</i>&nbsp;     * implementations may choose to ignore this parameter. Also,
+<i>147</i>&nbsp;     * implementations that require a parser format, should provide a default
+<i>148</i>&nbsp;     * format, and allow {@code null} as the format argument.
+<i>149</i>&nbsp;     *
+<i>150</i>&nbsp;     * @return the string representation of the object, on the correct format.
+<i>151</i>&nbsp;     *
+<i>152</i>&nbsp;     * @throws ConversionException if the object is not a subclass of {@link Number}
+<i>153</i>&nbsp;     */
+<i>154</i>&nbsp;    public String toString(final Object pObject, final String pFormat)
+<i>155</i>&nbsp;        throws ConversionException {
+<i>156</i>&nbsp;
+<b class="nc"><i>157</i>&nbsp;        if (pObject == null) {</b>
+<b class="nc"><i>158</i>&nbsp;            return null;</b>
+<i>159</i>&nbsp;        }
+<i>160</i>&nbsp;
+<b class="nc"><i>161</i>&nbsp;        if (!(pObject instanceof Number)) {</b>
+<b class="nc"><i>162</i>&nbsp;            throw new TypeMismathException(pObject.getClass());</b>
+<i>163</i>&nbsp;        }
+<i>164</i>&nbsp;
+<i>165</i>&nbsp;        try {
+<i>166</i>&nbsp;            // Convert to string, default way
+<b class="nc"><i>167</i>&nbsp;            if (StringUtil.isEmpty(pFormat)) {</b>
+<b class="nc"><i>168</i>&nbsp;                return sDefaultFormat.format(pObject);</b>
+<i>169</i>&nbsp;            }
+<i>170</i>&nbsp;	    
+<i>171</i>&nbsp;            // Convert to string, using format
+<b class="nc"><i>172</i>&nbsp;            NumberFormat format = getNumberFormat(pFormat);</b>
+<i>173</i>&nbsp;
+<b class="nc"><i>174</i>&nbsp;            synchronized (format) {</b>
+<b class="nc"><i>175</i>&nbsp;                return format.format(pObject);</b>
+<b class="nc"><i>176</i>&nbsp;            }</b>
+<i>177</i>&nbsp;        }
+<b class="nc"><i>178</i>&nbsp;        catch (RuntimeException rte) {</b>
+<b class="nc"><i>179</i>&nbsp;            throw new ConversionException(rte);</b>
+<i>180</i>&nbsp;        }
+<i>181</i>&nbsp;    }   
+<i>182</i>&nbsp;
+<i>183</i>&nbsp;    private NumberFormat getNumberFormat(String pFormat) {
+<b class="nc"><i>184</i>&nbsp;        return (NumberFormat) getFormat(DecimalFormat.class,  pFormat, SYMBOLS);</b>
+<i>185</i>&nbsp;    }
+<i>186</i>&nbsp;
+<i>187</i>&nbsp;    protected final Format getFormat(Class pFormatterClass, Object... pFormat) {
+<i>188</i>&nbsp;        // Try to get format from cache
+<b class="nc"><i>189</i>&nbsp;        synchronized (sFormats) {</b>
+<b class="nc"><i>190</i>&nbsp;            String key = pFormatterClass.getName() + &quot;:&quot; + Arrays.toString(pFormat);</b>
+<b class="nc"><i>191</i>&nbsp;            Format format = sFormats.get(key);</b>
+<i>192</i>&nbsp;
+<b class="nc"><i>193</i>&nbsp;            if (format == null) {</b>
+<i>194</i>&nbsp;                // If not found, create...
+<i>195</i>&nbsp;                try {
+<b class="nc"><i>196</i>&nbsp;                    format = (Format) BeanUtil.createInstance(pFormatterClass, pFormat);</b>
+<i>197</i>&nbsp;                }
+<b class="nc"><i>198</i>&nbsp;                catch (Exception e) {</b>
+<b class="nc"><i>199</i>&nbsp;                    e.printStackTrace();</b>
+<b class="nc"><i>200</i>&nbsp;                    return null;</b>
+<b class="nc"><i>201</i>&nbsp;                }</b>
+<i>202</i>&nbsp;
+<i>203</i>&nbsp;                // ...and store in cache
+<b class="nc"><i>204</i>&nbsp;                sFormats.put(key, format);</b>
+<i>205</i>&nbsp;            }
+<i>206</i>&nbsp;
+<b class="nc"><i>207</i>&nbsp;            return format;</b>
+<b class="nc"><i>208</i>&nbsp;        }</b>
+<i>209</i>&nbsp;    }
+<i>210</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

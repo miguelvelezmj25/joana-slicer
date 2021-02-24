@@ -1,0 +1,348 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: TransformFilter</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.jhlabs.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: TransformFilter (com.jhlabs.image)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">TransformFilter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 99)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp;Copyright 2006 Jerry Huxtable
+<i>3</i>&nbsp;
+<i>4</i>&nbsp;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp;you may not use this file except in compliance with the License.
+<i>6</i>&nbsp;You may obtain a copy of the License at
+<i>7</i>&nbsp;
+<i>8</i>&nbsp;   http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp;
+<i>10</i>&nbsp;Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp;See the License for the specific language governing permissions and
+<i>14</i>&nbsp;limitations under the License.
+<i>15</i>&nbsp;*/
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package com.jhlabs.image;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import java.awt.*;
+<i>20</i>&nbsp;import java.awt.image.BufferedImage;
+<i>21</i>&nbsp;import java.awt.image.ColorModel;
+<i>22</i>&nbsp;import java.awt.image.WritableRaster;
+<i>23</i>&nbsp;
+<i>24</i>&nbsp;/**
+<i>25</i>&nbsp; * An abstract superclass for filters which distort images in some way. The subclass only needs to
+<i>26</i>&nbsp; * override two methods to provide the mapping between source and destination pixels.
+<i>27</i>&nbsp; */
+<b class="nc"><i>28</i>&nbsp;public abstract class TransformFilter extends AbstractBufferedImageOp {</b>
+<i>29</i>&nbsp;
+<i>30</i>&nbsp;  /** Treat pixels off the edge as zero. */
+<i>31</i>&nbsp;  public static final int ZERO = 0;
+<i>32</i>&nbsp;
+<i>33</i>&nbsp;  /** Clamp pixels to the image edges. */
+<i>34</i>&nbsp;  public static final int CLAMP = 1;
+<i>35</i>&nbsp;
+<i>36</i>&nbsp;  /** Wrap pixels off the edge onto the oppsoite edge. */
+<i>37</i>&nbsp;  public static final int WRAP = 2;
+<i>38</i>&nbsp;
+<i>39</i>&nbsp;  /**
+<i>40</i>&nbsp;   * Clamp pixels RGB to the image edges, but zero the alpha. This prevents gray borders on your
+<i>41</i>&nbsp;   * image.
+<i>42</i>&nbsp;   */
+<i>43</i>&nbsp;  public static final int RGB_CLAMP = 3;
+<i>44</i>&nbsp;
+<i>45</i>&nbsp;  /** Use nearest-neighbout interpolation. */
+<i>46</i>&nbsp;  public static final int NEAREST_NEIGHBOUR = 0;
+<i>47</i>&nbsp;
+<i>48</i>&nbsp;  /** Use bilinear interpolation. */
+<i>49</i>&nbsp;  public static final int BILINEAR = 1;
+<i>50</i>&nbsp;
+<i>51</i>&nbsp;  /** The action to take for pixels off the image edge. */
+<b class="nc"><i>52</i>&nbsp;  protected int edgeAction = RGB_CLAMP;</b>
+<i>53</i>&nbsp;
+<i>54</i>&nbsp;  /** The type of interpolation to use. */
+<b class="nc"><i>55</i>&nbsp;  protected int interpolation = BILINEAR;</b>
+<i>56</i>&nbsp;
+<i>57</i>&nbsp;  /** The output image rectangle. */
+<i>58</i>&nbsp;  protected Rectangle transformedSpace;
+<i>59</i>&nbsp;
+<i>60</i>&nbsp;  /** The input image rectangle. */
+<i>61</i>&nbsp;  protected Rectangle originalSpace;
+<i>62</i>&nbsp;
+<i>63</i>&nbsp;  /**
+<i>64</i>&nbsp;   * Set the action to perform for pixels off the edge of the image.
+<i>65</i>&nbsp;   *
+<i>66</i>&nbsp;   * @param edgeAction one of ZERO, CLAMP or WRAP
+<i>67</i>&nbsp;   * @see #getEdgeAction
+<i>68</i>&nbsp;   */
+<i>69</i>&nbsp;  public void setEdgeAction(int edgeAction) {
+<b class="nc"><i>70</i>&nbsp;    this.edgeAction = edgeAction;</b>
+<i>71</i>&nbsp;  }
+<i>72</i>&nbsp;
+<i>73</i>&nbsp;  /**
+<i>74</i>&nbsp;   * Get the action to perform for pixels off the edge of the image.
+<i>75</i>&nbsp;   *
+<i>76</i>&nbsp;   * @return one of ZERO, CLAMP or WRAP
+<i>77</i>&nbsp;   * @see #setEdgeAction
+<i>78</i>&nbsp;   */
+<i>79</i>&nbsp;  public int getEdgeAction() {
+<b class="nc"><i>80</i>&nbsp;    return edgeAction;</b>
+<i>81</i>&nbsp;  }
+<i>82</i>&nbsp;
+<i>83</i>&nbsp;  /**
+<i>84</i>&nbsp;   * Set the type of interpolation to perform.
+<i>85</i>&nbsp;   *
+<i>86</i>&nbsp;   * @param interpolation one of NEAREST_NEIGHBOUR or BILINEAR
+<i>87</i>&nbsp;   * @see #getInterpolation
+<i>88</i>&nbsp;   */
+<i>89</i>&nbsp;  public void setInterpolation(int interpolation) {
+<b class="nc"><i>90</i>&nbsp;    this.interpolation = interpolation;</b>
+<i>91</i>&nbsp;  }
+<i>92</i>&nbsp;
+<i>93</i>&nbsp;  /**
+<i>94</i>&nbsp;   * Get the type of interpolation to perform.
+<i>95</i>&nbsp;   *
+<i>96</i>&nbsp;   * @return one of NEAREST_NEIGHBOUR or BILINEAR
+<i>97</i>&nbsp;   * @see #setInterpolation
+<i>98</i>&nbsp;   */
+<i>99</i>&nbsp;  public int getInterpolation() {
+<b class="nc"><i>100</i>&nbsp;    return interpolation;</b>
+<i>101</i>&nbsp;  }
+<i>102</i>&nbsp;
+<i>103</i>&nbsp;  /**
+<i>104</i>&nbsp;   * Inverse transform a point. This method needs to be overriden by all subclasses.
+<i>105</i>&nbsp;   *
+<i>106</i>&nbsp;   * @param x the X position of the pixel in the output image
+<i>107</i>&nbsp;   * @param y the Y position of the pixel in the output image
+<i>108</i>&nbsp;   * @param out the position of the pixel in the input image
+<i>109</i>&nbsp;   */
+<i>110</i>&nbsp;  protected abstract void transformInverse(int x, int y, float[] out);
+<i>111</i>&nbsp;
+<i>112</i>&nbsp;  /**
+<i>113</i>&nbsp;   * Forward transform a rectangle. Used to determine the size of the output image.
+<i>114</i>&nbsp;   *
+<i>115</i>&nbsp;   * @param rect the rectangle to transform
+<i>116</i>&nbsp;   */
+<i>117</i>&nbsp;  protected void transformSpace(Rectangle rect) {}
+<i>118</i>&nbsp;
+<i>119</i>&nbsp;  public BufferedImage filter(BufferedImage src, BufferedImage dst) {
+<b class="nc"><i>120</i>&nbsp;    int width = src.getWidth();</b>
+<b class="nc"><i>121</i>&nbsp;    int height = src.getHeight();</b>
+<b class="nc"><i>122</i>&nbsp;    int type = src.getType();</b>
+<b class="nc"><i>123</i>&nbsp;    WritableRaster srcRaster = src.getRaster();</b>
+<i>124</i>&nbsp;
+<b class="nc"><i>125</i>&nbsp;    originalSpace = new Rectangle(0, 0, width, height);</b>
+<b class="nc"><i>126</i>&nbsp;    transformedSpace = new Rectangle(0, 0, width, height);</b>
+<b class="nc"><i>127</i>&nbsp;    transformSpace(transformedSpace);</b>
+<i>128</i>&nbsp;
+<b class="nc"><i>129</i>&nbsp;    if (dst == null) {</b>
+<b class="nc"><i>130</i>&nbsp;      ColorModel dstCM = src.getColorModel();</b>
+<b class="nc"><i>131</i>&nbsp;      dst =</b>
+<i>132</i>&nbsp;          new BufferedImage(
+<i>133</i>&nbsp;              dstCM,
+<b class="nc"><i>134</i>&nbsp;              dstCM.createCompatibleWritableRaster(transformedSpace.width, transformedSpace.height),</b>
+<b class="nc"><i>135</i>&nbsp;              dstCM.isAlphaPremultiplied(),</b>
+<i>136</i>&nbsp;              null);
+<i>137</i>&nbsp;    }
+<b class="nc"><i>138</i>&nbsp;    WritableRaster dstRaster = dst.getRaster();</b>
+<i>139</i>&nbsp;
+<b class="nc"><i>140</i>&nbsp;    int[] inPixels = getRGB(src, 0, 0, width, height, null);</b>
+<i>141</i>&nbsp;
+<b class="nc"><i>142</i>&nbsp;    if (interpolation == NEAREST_NEIGHBOUR)</b>
+<b class="nc"><i>143</i>&nbsp;      return filterPixelsNN(dst, width, height, inPixels, transformedSpace);</b>
+<i>144</i>&nbsp;
+<b class="nc"><i>145</i>&nbsp;    int srcWidth = width;</b>
+<b class="nc"><i>146</i>&nbsp;    int srcHeight = height;</b>
+<b class="nc"><i>147</i>&nbsp;    int srcWidth1 = width - 1;</b>
+<b class="nc"><i>148</i>&nbsp;    int srcHeight1 = height - 1;</b>
+<b class="nc"><i>149</i>&nbsp;    int outWidth = transformedSpace.width;</b>
+<b class="nc"><i>150</i>&nbsp;    int outHeight = transformedSpace.height;</b>
+<i>151</i>&nbsp;    int outX, outY;
+<b class="nc"><i>152</i>&nbsp;    int index = 0;</b>
+<b class="nc"><i>153</i>&nbsp;    int[] outPixels = new int[outWidth];</b>
+<i>154</i>&nbsp;
+<b class="nc"><i>155</i>&nbsp;    outX = transformedSpace.x;</b>
+<b class="nc"><i>156</i>&nbsp;    outY = transformedSpace.y;</b>
+<b class="nc"><i>157</i>&nbsp;    float[] out = new float[2];</b>
+<i>158</i>&nbsp;
+<b class="nc"><i>159</i>&nbsp;    for (int y = 0; y &lt; outHeight; y++) {</b>
+<b class="nc"><i>160</i>&nbsp;      for (int x = 0; x &lt; outWidth; x++) {</b>
+<b class="nc"><i>161</i>&nbsp;        transformInverse(outX + x, outY + y, out);</b>
+<b class="nc"><i>162</i>&nbsp;        int srcX = (int) Math.floor(out[0]);</b>
+<b class="nc"><i>163</i>&nbsp;        int srcY = (int) Math.floor(out[1]);</b>
+<b class="nc"><i>164</i>&nbsp;        float xWeight = out[0] - srcX;</b>
+<b class="nc"><i>165</i>&nbsp;        float yWeight = out[1] - srcY;</b>
+<i>166</i>&nbsp;        int nw, ne, sw, se;
+<i>167</i>&nbsp;
+<b class="nc"><i>168</i>&nbsp;        if (srcX &gt;= 0 &amp;&amp; srcX &lt; srcWidth1 &amp;&amp; srcY &gt;= 0 &amp;&amp; srcY &lt; srcHeight1) {</b>
+<i>169</i>&nbsp;          // Easy case, all corners are in the image
+<b class="nc"><i>170</i>&nbsp;          int i = srcWidth * srcY + srcX;</b>
+<b class="nc"><i>171</i>&nbsp;          nw = inPixels[i];</b>
+<b class="nc"><i>172</i>&nbsp;          ne = inPixels[i + 1];</b>
+<b class="nc"><i>173</i>&nbsp;          sw = inPixels[i + srcWidth];</b>
+<b class="nc"><i>174</i>&nbsp;          se = inPixels[i + srcWidth + 1];</b>
+<b class="nc"><i>175</i>&nbsp;        } else {</b>
+<i>176</i>&nbsp;          // Some of the corners are off the image
+<b class="nc"><i>177</i>&nbsp;          nw = getPixel(inPixels, srcX, srcY, srcWidth, srcHeight);</b>
+<b class="nc"><i>178</i>&nbsp;          ne = getPixel(inPixels, srcX + 1, srcY, srcWidth, srcHeight);</b>
+<b class="nc"><i>179</i>&nbsp;          sw = getPixel(inPixels, srcX, srcY + 1, srcWidth, srcHeight);</b>
+<b class="nc"><i>180</i>&nbsp;          se = getPixel(inPixels, srcX + 1, srcY + 1, srcWidth, srcHeight);</b>
+<i>181</i>&nbsp;        }
+<b class="nc"><i>182</i>&nbsp;        outPixels[x] = ImageMath.bilinearInterpolate(xWeight, yWeight, nw, ne, sw, se);</b>
+<i>183</i>&nbsp;      }
+<b class="nc"><i>184</i>&nbsp;      setRGB(dst, 0, y, transformedSpace.width, 1, outPixels);</b>
+<i>185</i>&nbsp;    }
+<b class="nc"><i>186</i>&nbsp;    return dst;</b>
+<i>187</i>&nbsp;  }
+<i>188</i>&nbsp;
+<i>189</i>&nbsp;  private final int getPixel(int[] pixels, int x, int y, int width, int height) {
+<b class="nc"><i>190</i>&nbsp;    if (x &lt; 0 || x &gt;= width || y &lt; 0 || y &gt;= height) {</b>
+<b class="nc"><i>191</i>&nbsp;      switch (edgeAction) {</b>
+<i>192</i>&nbsp;        case ZERO:
+<i>193</i>&nbsp;        default:
+<b class="nc"><i>194</i>&nbsp;          return 0;</b>
+<i>195</i>&nbsp;        case WRAP:
+<b class="nc"><i>196</i>&nbsp;          return pixels[(ImageMath.mod(y, height) * width) + ImageMath.mod(x, width)];</b>
+<i>197</i>&nbsp;        case CLAMP:
+<b class="nc"><i>198</i>&nbsp;          return pixels[</b>
+<b class="nc"><i>199</i>&nbsp;              (ImageMath.clamp(y, 0, height - 1) * width) + ImageMath.clamp(x, 0, width - 1)];</b>
+<i>200</i>&nbsp;        case RGB_CLAMP:
+<b class="nc"><i>201</i>&nbsp;          return pixels[</b>
+<b class="nc"><i>202</i>&nbsp;                  (ImageMath.clamp(y, 0, height - 1) * width) + ImageMath.clamp(x, 0, width - 1)]</b>
+<i>203</i>&nbsp;              &amp; 0x00ffffff;
+<i>204</i>&nbsp;      }
+<i>205</i>&nbsp;    }
+<b class="nc"><i>206</i>&nbsp;    return pixels[y * width + x];</b>
+<i>207</i>&nbsp;  }
+<i>208</i>&nbsp;
+<i>209</i>&nbsp;  protected BufferedImage filterPixelsNN(
+<i>210</i>&nbsp;      BufferedImage dst, int width, int height, int[] inPixels, Rectangle transformedSpace) {
+<b class="nc"><i>211</i>&nbsp;    int srcWidth = width;</b>
+<b class="nc"><i>212</i>&nbsp;    int srcHeight = height;</b>
+<b class="nc"><i>213</i>&nbsp;    int outWidth = transformedSpace.width;</b>
+<b class="nc"><i>214</i>&nbsp;    int outHeight = transformedSpace.height;</b>
+<i>215</i>&nbsp;    int outX, outY, srcX, srcY;
+<b class="nc"><i>216</i>&nbsp;    int[] outPixels = new int[outWidth];</b>
+<i>217</i>&nbsp;
+<b class="nc"><i>218</i>&nbsp;    outX = transformedSpace.x;</b>
+<b class="nc"><i>219</i>&nbsp;    outY = transformedSpace.y;</b>
+<b class="nc"><i>220</i>&nbsp;    int[] rgb = new int[4];</b>
+<b class="nc"><i>221</i>&nbsp;    float[] out = new float[2];</b>
+<i>222</i>&nbsp;
+<b class="nc"><i>223</i>&nbsp;    for (int y = 0; y &lt; outHeight; y++) {</b>
+<b class="nc"><i>224</i>&nbsp;      for (int x = 0; x &lt; outWidth; x++) {</b>
+<b class="nc"><i>225</i>&nbsp;        transformInverse(outX + x, outY + y, out);</b>
+<b class="nc"><i>226</i>&nbsp;        srcX = (int) out[0];</b>
+<b class="nc"><i>227</i>&nbsp;        srcY = (int) out[1];</b>
+<i>228</i>&nbsp;        // int casting rounds towards zero, so we check out[0] &lt; 0, not srcX &lt; 0
+<b class="nc"><i>229</i>&nbsp;        if (out[0] &lt; 0 || srcX &gt;= srcWidth || out[1] &lt; 0 || srcY &gt;= srcHeight) {</b>
+<i>230</i>&nbsp;          int p;
+<b class="nc"><i>231</i>&nbsp;          switch (edgeAction) {</b>
+<i>232</i>&nbsp;            case ZERO:
+<i>233</i>&nbsp;            default:
+<b class="nc"><i>234</i>&nbsp;              p = 0;</b>
+<b class="nc"><i>235</i>&nbsp;              break;</b>
+<i>236</i>&nbsp;            case WRAP:
+<b class="nc"><i>237</i>&nbsp;              p =</b>
+<i>238</i>&nbsp;                  inPixels[
+<b class="nc"><i>239</i>&nbsp;                      (ImageMath.mod(srcY, srcHeight) * srcWidth) + ImageMath.mod(srcX, srcWidth)];</b>
+<b class="nc"><i>240</i>&nbsp;              break;</b>
+<i>241</i>&nbsp;            case CLAMP:
+<b class="nc"><i>242</i>&nbsp;              p =</b>
+<i>243</i>&nbsp;                  inPixels[
+<b class="nc"><i>244</i>&nbsp;                      (ImageMath.clamp(srcY, 0, srcHeight - 1) * srcWidth)</b>
+<b class="nc"><i>245</i>&nbsp;                          + ImageMath.clamp(srcX, 0, srcWidth - 1)];</b>
+<b class="nc"><i>246</i>&nbsp;              break;</b>
+<i>247</i>&nbsp;            case RGB_CLAMP:
+<b class="nc"><i>248</i>&nbsp;              p =</b>
+<i>249</i>&nbsp;                  inPixels[
+<b class="nc"><i>250</i>&nbsp;                          (ImageMath.clamp(srcY, 0, srcHeight - 1) * srcWidth)</b>
+<b class="nc"><i>251</i>&nbsp;                              + ImageMath.clamp(srcX, 0, srcWidth - 1)]</b>
+<i>252</i>&nbsp;                      &amp; 0x00ffffff;
+<i>253</i>&nbsp;          }
+<b class="nc"><i>254</i>&nbsp;          outPixels[x] = p;</b>
+<b class="nc"><i>255</i>&nbsp;        } else {</b>
+<b class="nc"><i>256</i>&nbsp;          int i = srcWidth * srcY + srcX;</b>
+<b class="nc"><i>257</i>&nbsp;          rgb[0] = inPixels[i];</b>
+<b class="nc"><i>258</i>&nbsp;          outPixels[x] = inPixels[i];</b>
+<i>259</i>&nbsp;        }
+<i>260</i>&nbsp;      }
+<b class="nc"><i>261</i>&nbsp;      setRGB(dst, 0, y, transformedSpace.width, 1, outPixels);</b>
+<i>262</i>&nbsp;    }
+<b class="nc"><i>263</i>&nbsp;    return dst;</b>
+<i>264</i>&nbsp;  }
+<i>265</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,356 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: JPEGQuality</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.twelvemonkeys.imageio.metadata.jpeg</a> ]
+</div>
+
+<h1>Coverage Summary for Class: JPEGQuality (com.twelvemonkeys.imageio.metadata.jpeg)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">JPEGQuality</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 64)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; * Copyright (c) 2012, Harald Kuhr
+<i>3</i>&nbsp; * All rights reserved.
+<i>4</i>&nbsp; *
+<i>5</i>&nbsp; * Redistribution and use in source and binary forms, with or without
+<i>6</i>&nbsp; * modification, are permitted provided that the following conditions are met:
+<i>7</i>&nbsp; *
+<i>8</i>&nbsp; * * Redistributions of source code must retain the above copyright notice, this
+<i>9</i>&nbsp; *   list of conditions and the following disclaimer.
+<i>10</i>&nbsp; *
+<i>11</i>&nbsp; * * Redistributions in binary form must reproduce the above copyright notice,
+<i>12</i>&nbsp; *   this list of conditions and the following disclaimer in the documentation
+<i>13</i>&nbsp; *   and/or other materials provided with the distribution.
+<i>14</i>&nbsp; *
+<i>15</i>&nbsp; * * Neither the name of the copyright holder nor the names of its
+<i>16</i>&nbsp; *   contributors may be used to endorse or promote products derived from
+<i>17</i>&nbsp; *   this software without specific prior written permission.
+<i>18</i>&nbsp; *
+<i>19</i>&nbsp; * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+<i>20</i>&nbsp; * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+<i>21</i>&nbsp; * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+<i>22</i>&nbsp; * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+<i>23</i>&nbsp; * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+<i>24</i>&nbsp; * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+<i>25</i>&nbsp; * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+<i>26</i>&nbsp; * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+<i>27</i>&nbsp; * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+<i>28</i>&nbsp; * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+<i>29</i>&nbsp; */
+<i>30</i>&nbsp;
+<i>31</i>&nbsp;package com.twelvemonkeys.imageio.metadata.jpeg;
+<i>32</i>&nbsp;
+<i>33</i>&nbsp;import com.twelvemonkeys.lang.Validate;
+<i>34</i>&nbsp;
+<i>35</i>&nbsp;import javax.imageio.IIOException;
+<i>36</i>&nbsp;import javax.imageio.ImageIO;
+<i>37</i>&nbsp;import javax.imageio.plugins.jpeg.JPEGQTable;
+<i>38</i>&nbsp;import javax.imageio.stream.ImageInputStream;
+<i>39</i>&nbsp;import java.io.DataInputStream;
+<i>40</i>&nbsp;import java.io.File;
+<i>41</i>&nbsp;import java.io.IOException;
+<i>42</i>&nbsp;import java.util.ArrayList;
+<i>43</i>&nbsp;import java.util.List;
+<i>44</i>&nbsp;
+<i>45</i>&nbsp;/**
+<i>46</i>&nbsp; * Determines an approximate JPEG compression quality value from the quantization tables.
+<i>47</i>&nbsp; *
+<i>48</i>&nbsp; * @author &lt;a href=&quot;mailto:harald.kuhr@gmail.com&quot;&gt;Harald Kuhr&lt;/a&gt;
+<i>49</i>&nbsp; * @author last modified by $Author: haraldk$
+<i>50</i>&nbsp; * @version $Id: JPEGQuality.java,v 1.0 16.02.12 17:07 haraldk Exp$
+<i>51</i>&nbsp; */
+<b class="nc"><i>52</i>&nbsp;public final class JPEGQuality {</b>
+<i>53</i>&nbsp;    static final int NUM_QUANT_TABLES = 4; /* Quantization tables are numbered 0..3 */
+<i>54</i>&nbsp;    static final int DCT_SIZE_2 = 64; /* DCT_SIZE squared; # of elements in a block */
+<i>55</i>&nbsp;
+<i>56</i>&nbsp;    /**
+<i>57</i>&nbsp;     * Determines an approximate JPEG compression quality value from the quantization tables.
+<i>58</i>&nbsp;     * The value will be in the range {@code [0...1]}, where {@code 1} is the best possible value.
+<i>59</i>&nbsp;     *
+<i>60</i>&nbsp;     * @param segments a list of JPEG segments containing the DQT quantization tables.
+<i>61</i>&nbsp;     * @return a float in the range {@code [0...1]}, representing the JPEG quality,
+<i>62</i>&nbsp;     *         or {@code -1} if the quality can&#39;t be determined.
+<i>63</i>&nbsp;     * @throws IIOException if a JPEG format error is found during parsing.
+<i>64</i>&nbsp;     * @throws IOException if an I/O exception occurs during parsing.
+<i>65</i>&nbsp;     *
+<i>66</i>&nbsp;     * @see javax.imageio.plugins.jpeg.JPEGImageWriteParam#setCompressionQuality(float)
+<i>67</i>&nbsp;     * @see JPEG#DQT
+<i>68</i>&nbsp;     */
+<i>69</i>&nbsp;    public static float getJPEGQuality(final List&lt;JPEGSegment&gt; segments) throws IOException {
+<b class="nc"><i>70</i>&nbsp;        int quality = getJPEGQuality(getQuantizationTables(segments));</b>
+<b class="nc"><i>71</i>&nbsp;        return quality &gt;= 0 ? quality / 100f : quality;</b>
+<i>72</i>&nbsp;    }
+<i>73</i>&nbsp;
+<i>74</i>&nbsp;    /**
+<i>75</i>&nbsp;     * Determines an approximate JPEG compression quality value from the quantization tables.
+<i>76</i>&nbsp;     * The value will be in the range {@code [0...1]}, where {@code 1} is the best possible value.
+<i>77</i>&nbsp;     *
+<i>78</i>&nbsp;     * @param input an image input stream containing JPEG data.
+<i>79</i>&nbsp;     * @return a float in the range {@code [0...1]}, representing the JPEG quality,
+<i>80</i>&nbsp;     *         or {@code -1} if the quality can&#39;t be determined.
+<i>81</i>&nbsp;     * @throws IIOException if a JPEG format error is found during parsing.
+<i>82</i>&nbsp;     * @throws IOException if an I/O exception occurs during parsing.
+<i>83</i>&nbsp;     *
+<i>84</i>&nbsp;     * @see javax.imageio.plugins.jpeg.JPEGImageWriteParam#setCompressionQuality(float)
+<i>85</i>&nbsp;     * @see JPEG#DQT
+<i>86</i>&nbsp;     */
+<i>87</i>&nbsp;    public static float getJPEGQuality(final ImageInputStream input) throws IOException {
+<b class="nc"><i>88</i>&nbsp;        return getJPEGQuality(JPEGSegmentUtil.readSegments(input, JPEG.DQT, null));</b>
+<i>89</i>&nbsp;    }
+<i>90</i>&nbsp;
+<i>91</i>&nbsp;    // Adapted from ImageMagick coders/jpeg.c &amp; http://blog.apokalyptik.com/2009/09/16/quality-time-with-your-jpegs/
+<i>92</i>&nbsp;    private static int getJPEGQuality(final int[][] quantizationTables) throws IOException {
+<i>93</i>&nbsp;//        System.err.println(&quot;tables: &quot; + Arrays.deepToString(tables));
+<i>94</i>&nbsp;
+<i>95</i>&nbsp;        // TODO: Determine lossless JPEG, it&#39;s an entirely different algorithm
+<i>96</i>&nbsp;
+<i>97</i>&nbsp;        int qvalue;
+<i>98</i>&nbsp;        
+<i>99</i>&nbsp;        // Determine the JPEG compression quality from the quantization tables.
+<b class="nc"><i>100</i>&nbsp;        int sum = 0;</b>
+<b class="nc"><i>101</i>&nbsp;        for (int i = 0; i &lt; NUM_QUANT_TABLES; i++) {</b>
+<b class="nc"><i>102</i>&nbsp;            if (quantizationTables[i] != null) {</b>
+<b class="nc"><i>103</i>&nbsp;                for (int j = 0; j &lt; DCT_SIZE_2; j++) {</b>
+<b class="nc"><i>104</i>&nbsp;                    sum += quantizationTables[i][j];</b>
+<i>105</i>&nbsp;                }
+<i>106</i>&nbsp;            }
+<i>107</i>&nbsp;        }
+<i>108</i>&nbsp;
+<i>109</i>&nbsp;        int[] hash, sums;
+<i>110</i>&nbsp;
+<b class="nc"><i>111</i>&nbsp;        if (quantizationTables[0] != null &amp;&amp; quantizationTables[1] != null) {</b>
+<i>112</i>&nbsp;            // TODO: Make constant
+<b class="nc"><i>113</i>&nbsp;            hash = new int[] {</b>
+<i>114</i>&nbsp;                    1020, 1015, 932, 848, 780, 735, 702, 679, 660, 645,
+<i>115</i>&nbsp;                    632, 623, 613, 607, 600, 594, 589, 585, 581, 571,
+<i>116</i>&nbsp;                    555, 542, 529, 514, 494, 474, 457, 439, 424, 410,
+<i>117</i>&nbsp;                    397, 386, 373, 364, 351, 341, 334, 324, 317, 309,
+<i>118</i>&nbsp;                    299, 294, 287, 279, 274, 267, 262, 257, 251, 247,
+<i>119</i>&nbsp;                    243, 237, 232, 227, 222, 217, 213, 207, 202, 198,
+<i>120</i>&nbsp;                    192, 188, 183, 177, 173, 168, 163, 157, 153, 148,
+<i>121</i>&nbsp;                    143, 139, 132, 128, 125, 119, 115, 108, 104, 99,
+<i>122</i>&nbsp;                    94, 90, 84, 79, 74, 70, 64, 59, 55, 49,
+<i>123</i>&nbsp;                    45, 40, 34, 30, 25, 20, 15, 11, 6, 4,
+<i>124</i>&nbsp;                    0
+<i>125</i>&nbsp;            };
+<b class="nc"><i>126</i>&nbsp;            sums = new int[] {</b>
+<i>127</i>&nbsp;                    32640, 32635, 32266, 31495, 30665, 29804, 29146, 28599, 28104,
+<i>128</i>&nbsp;                    27670, 27225, 26725, 26210, 25716, 25240, 24789, 24373, 23946,
+<i>129</i>&nbsp;                    23572, 22846, 21801, 20842, 19949, 19121, 18386, 17651, 16998,
+<i>130</i>&nbsp;                    16349, 15800, 15247, 14783, 14321, 13859, 13535, 13081, 12702,
+<i>131</i>&nbsp;                    12423, 12056, 11779, 11513, 11135, 10955, 10676, 10392, 10208,
+<i>132</i>&nbsp;                    9928, 9747, 9564, 9369, 9193, 9017, 8822, 8639, 8458,
+<i>133</i>&nbsp;                    8270, 8084, 7896, 7710, 7527, 7347, 7156, 6977, 6788,
+<i>134</i>&nbsp;                    6607, 6422, 6236, 6054, 5867, 5684, 5495, 5305, 5128,
+<i>135</i>&nbsp;                    4945, 4751, 4638, 4442, 4248, 4065, 3888, 3698, 3509,
+<i>136</i>&nbsp;                    3326, 3139, 2957, 2775, 2586, 2405, 2216, 2037, 1846,
+<i>137</i>&nbsp;                    1666, 1483, 1297, 1109, 927, 735, 554, 375, 201,
+<i>138</i>&nbsp;                    128, 0
+<i>139</i>&nbsp;            };
+<i>140</i>&nbsp;
+<b class="nc"><i>141</i>&nbsp;            qvalue = quantizationTables[0][2] + quantizationTables[0][53] + quantizationTables[1][0] + quantizationTables[1][DCT_SIZE_2 - 1];</b>
+<i>142</i>&nbsp;        }
+<b class="nc"><i>143</i>&nbsp;        else if (quantizationTables[0] != null) {</b>
+<i>144</i>&nbsp;            // TODO: Make constant
+<b class="nc"><i>145</i>&nbsp;            hash = new int[] {</b>
+<i>146</i>&nbsp;                    510, 505, 422, 380, 355, 338, 326, 318, 311, 305,
+<i>147</i>&nbsp;                    300, 297, 293, 291, 288, 286, 284, 283, 281, 280,
+<i>148</i>&nbsp;                    279, 278, 277, 273, 262, 251, 243, 233, 225, 218,
+<i>149</i>&nbsp;                    211, 205, 198, 193, 186, 181, 177, 172, 168, 164,
+<i>150</i>&nbsp;                    158, 156, 152, 148, 145, 142, 139, 136, 133, 131,
+<i>151</i>&nbsp;                    129, 126, 123, 120, 118, 115, 113, 110, 107, 105,
+<i>152</i>&nbsp;                    102, 100, 97, 94, 92, 89, 87, 83, 81, 79,
+<i>153</i>&nbsp;                    76, 74, 70, 68, 66, 63, 61, 57, 55, 52,
+<i>154</i>&nbsp;                    50, 48, 44, 42, 39, 37, 34, 31, 29, 26,
+<i>155</i>&nbsp;                    24, 21, 18, 16, 13, 11, 8, 6, 3, 2,
+<i>156</i>&nbsp;                    0
+<i>157</i>&nbsp;            };
+<b class="nc"><i>158</i>&nbsp;            sums = new int[] {</b>
+<i>159</i>&nbsp;                    16320, 16315, 15946, 15277, 14655, 14073, 13623, 13230, 12859,
+<i>160</i>&nbsp;                    12560, 12240, 11861, 11456, 11081, 10714, 10360, 10027, 9679,
+<i>161</i>&nbsp;                    9368, 9056, 8680, 8331, 7995, 7668, 7376, 7084, 6823,
+<i>162</i>&nbsp;                    6562, 6345, 6125, 5939, 5756, 5571, 5421, 5240, 5086,
+<i>163</i>&nbsp;                    4976, 4829, 4719, 4616, 4463, 4393, 4280, 4166, 4092,
+<i>164</i>&nbsp;                    3980, 3909, 3835, 3755, 3688, 3621, 3541, 3467, 3396,
+<i>165</i>&nbsp;                    3323, 3247, 3170, 3096, 3021, 2952, 2874, 2804, 2727,
+<i>166</i>&nbsp;                    2657, 2583, 2509, 2437, 2362, 2290, 2211, 2136, 2068,
+<i>167</i>&nbsp;                    1996, 1915, 1858, 1773, 1692, 1620, 1552, 1477, 1398,
+<i>168</i>&nbsp;                    1326, 1251, 1179, 1109, 1031, 961, 884, 814, 736,
+<i>169</i>&nbsp;                    667, 592, 518, 441, 369, 292, 221, 151, 86,
+<i>170</i>&nbsp;                    64, 0
+<i>171</i>&nbsp;            };
+<i>172</i>&nbsp;
+<b class="nc"><i>173</i>&nbsp;            qvalue = quantizationTables[0][2] + quantizationTables[0][53];</b>
+<i>174</i>&nbsp;        }
+<i>175</i>&nbsp;        else {
+<b class="nc"><i>176</i>&nbsp;            return -1;</b>
+<i>177</i>&nbsp;        }
+<i>178</i>&nbsp;
+<b class="nc"><i>179</i>&nbsp;        for (int i = 0; i &lt; 100; i++) {</b>
+<b class="nc"><i>180</i>&nbsp;            if (qvalue &lt; hash[i] &amp;&amp; sum &lt; sums[i]) {</b>
+<b class="nc"><i>181</i>&nbsp;                continue;</b>
+<i>182</i>&nbsp;            }
+<i>183</i>&nbsp;
+<b class="nc"><i>184</i>&nbsp;            if (qvalue &lt;= hash[i] &amp;&amp; sum &lt;= sums[i] || i &gt;= 50) {</b>
+<b class="nc"><i>185</i>&nbsp;                return i + 1;</b>
+<i>186</i>&nbsp;            }
+<i>187</i>&nbsp;
+<i>188</i>&nbsp;            break;
+<i>189</i>&nbsp;        }
+<i>190</i>&nbsp;
+<b class="nc"><i>191</i>&nbsp;        return -1;</b>
+<i>192</i>&nbsp;    }
+<i>193</i>&nbsp;
+<i>194</i>&nbsp;    public static JPEGQTable[] getQTables(final List&lt;JPEGSegment&gt; segments) throws IOException {
+<b class="nc"><i>195</i>&nbsp;        int[][] tables = getQuantizationTables(segments);</b>
+<i>196</i>&nbsp;
+<b class="nc"><i>197</i>&nbsp;        List&lt;JPEGQTable&gt; qTables = new ArrayList&lt;JPEGQTable&gt;();</b>
+<b class="nc"><i>198</i>&nbsp;        for (int[] table : tables) {</b>
+<b class="nc"><i>199</i>&nbsp;            if (table != null) {</b>
+<b class="nc"><i>200</i>&nbsp;                qTables.add(new JPEGQTable(table));</b>
+<i>201</i>&nbsp;            }
+<i>202</i>&nbsp;        }
+<i>203</i>&nbsp;
+<b class="nc"><i>204</i>&nbsp;        return qTables.toArray(new JPEGQTable[qTables.size()]);</b>
+<i>205</i>&nbsp;    }
+<i>206</i>&nbsp;
+<i>207</i>&nbsp;    private static int[][] getQuantizationTables(final List&lt;JPEGSegment&gt; dqtSegments) throws IOException {
+<b class="nc"><i>208</i>&nbsp;        Validate.notNull(dqtSegments, &quot;segments&quot;);</b>
+<i>209</i>&nbsp;
+<b class="nc"><i>210</i>&nbsp;        int[][] tables = new int[4][];</b>
+<i>211</i>&nbsp;
+<i>212</i>&nbsp;        // JPEG may contain multiple DQT marker segments
+<b class="nc"><i>213</i>&nbsp;        for (JPEGSegment segment : dqtSegments) {</b>
+<b class="nc"><i>214</i>&nbsp;            if (segment.marker() != JPEG.DQT) {</b>
+<b class="nc"><i>215</i>&nbsp;                continue;</b>
+<i>216</i>&nbsp;            }
+<i>217</i>&nbsp;
+<b class="nc"><i>218</i>&nbsp;            DataInputStream data = new DataInputStream(segment.data());</b>
+<b class="nc"><i>219</i>&nbsp;            int read = 0;</b>
+<i>220</i>&nbsp;
+<i>221</i>&nbsp;            // A single DQT marker segment may contain multiple tables
+<b class="nc"><i>222</i>&nbsp;            while (read &lt; segment.length()) {</b>
+<b class="nc"><i>223</i>&nbsp;                int qtInfo = data.read();</b>
+<b class="nc"><i>224</i>&nbsp;                read++;</b>
+<i>225</i>&nbsp;//                System.err.printf(&quot;qtInfo: 0x%02x\n&quot;, qtInfo);
+<i>226</i>&nbsp;
+<b class="nc"><i>227</i>&nbsp;                int num = qtInfo &amp; 0x0f; // 0-3</b>
+<b class="nc"><i>228</i>&nbsp;                int bits = qtInfo &gt;&gt; 4; // 0 == 8 bits, 1 == 16 bits</b>
+<i>229</i>&nbsp;
+<b class="nc"><i>230</i>&nbsp;                if (num &gt;= 4) {</b>
+<b class="nc"><i>231</i>&nbsp;                    throw new IIOException(&quot;Bad DQT table index: &quot; + num);</b>
+<i>232</i>&nbsp;                }
+<b class="nc"><i>233</i>&nbsp;                else if (tables[num] != null) {</b>
+<b class="nc"><i>234</i>&nbsp;                    throw new IIOException(&quot;Duplicate DQT table index: &quot; + num);</b>
+<i>235</i>&nbsp;                }
+<i>236</i>&nbsp;
+<b class="nc"><i>237</i>&nbsp;                if (bits &lt; 0 || bits &gt; 1) {</b>
+<b class="nc"><i>238</i>&nbsp;                    throw new IIOException(&quot;Bad DQT bit info: &quot; + bits);</b>
+<i>239</i>&nbsp;                }
+<i>240</i>&nbsp;
+<b class="nc"><i>241</i>&nbsp;                byte[] qtData = new byte[DCT_SIZE_2 * (bits + 1)];</b>
+<b class="nc"><i>242</i>&nbsp;                data.readFully(qtData);</b>
+<b class="nc"><i>243</i>&nbsp;                read += qtData.length;</b>
+<b class="nc"><i>244</i>&nbsp;                tables[num] = new int[DCT_SIZE_2];</b>
+<i>245</i>&nbsp;
+<i>246</i>&nbsp;                // Expand (this is slightly inefficient)
+<b class="nc"><i>247</i>&nbsp;                switch (bits) {</b>
+<i>248</i>&nbsp;                    case 0:
+<b class="nc"><i>249</i>&nbsp;                        for (int j = 0, qtDataLength = qtData.length; j &lt; qtDataLength; j++) {</b>
+<b class="nc"><i>250</i>&nbsp;                            tables[num][j] = (short) (qtData[j] &amp; 0xff);</b>
+<i>251</i>&nbsp;                        }
+<i>252</i>&nbsp;
+<b class="nc"><i>253</i>&nbsp;                        break;</b>
+<i>254</i>&nbsp;                    case 1:
+<b class="nc"><i>255</i>&nbsp;                        for (int j = 0, qtDataLength = qtData.length; j &lt; qtDataLength; j += 2) {</b>
+<b class="nc"><i>256</i>&nbsp;                            tables[num][j / 2] = (short) ((qtData[j] &amp; 0xff) &lt;&lt; 8 | (qtData[j + 1] &amp; 0xff));</b>
+<i>257</i>&nbsp;                        }
+<i>258</i>&nbsp;
+<i>259</i>&nbsp;                        break;
+<i>260</i>&nbsp;                }
+<b class="nc"><i>261</i>&nbsp;            }</b>
+<b class="nc"><i>262</i>&nbsp;        }</b>
+<i>263</i>&nbsp;
+<b class="nc"><i>264</i>&nbsp;        return tables;</b>
+<i>265</i>&nbsp;    }
+<i>266</i>&nbsp;
+<i>267</i>&nbsp;    public static void main(String[] args) throws IOException {
+<b class="nc"><i>268</i>&nbsp;        for (String arg : args) {</b>
+<b class="nc"><i>269</i>&nbsp;            float quality = getJPEGQuality(ImageIO.createImageInputStream(new File(arg)));</b>
+<b class="nc"><i>270</i>&nbsp;            System.err.println(arg + &quot; quality: &quot; + quality + &quot;/&quot; + (int) (quality * 100));</b>
+<i>271</i>&nbsp;        }
+<i>272</i>&nbsp;    }
+<i>273</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

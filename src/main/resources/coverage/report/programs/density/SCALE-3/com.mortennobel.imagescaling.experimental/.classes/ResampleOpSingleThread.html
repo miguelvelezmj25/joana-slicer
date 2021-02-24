@@ -1,0 +1,478 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: ResampleOpSingleThread</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.mortennobel.imagescaling.experimental</a> ]
+</div>
+
+<h1>Coverage Summary for Class: ResampleOpSingleThread (com.mortennobel.imagescaling.experimental)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ResampleOpSingleThread</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 154)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ResampleOpSingleThread$SubSamplingData</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 7)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 161)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp; * Copyright 2013, Morten Nobel-Joergensen
+<i>3</i>&nbsp; *
+<i>4</i>&nbsp; * License: The BSD 3-Clause License
+<i>5</i>&nbsp; * http://opensource.org/licenses/BSD-3-Clause
+<i>6</i>&nbsp; */
+<i>7</i>&nbsp;package com.mortennobel.imagescaling.experimental;
+<i>8</i>&nbsp;
+<i>9</i>&nbsp;import com.mortennobel.imagescaling.*;
+<i>10</i>&nbsp;
+<i>11</i>&nbsp;import java.awt.image.BufferedImage;
+<i>12</i>&nbsp;import java.awt.image.DataBuffer;
+<i>13</i>&nbsp;import java.util.BitSet;
+<i>14</i>&nbsp;
+<i>15</i>&nbsp;/**
+<i>16</i>&nbsp; * Based on work from Java Image Util ( http://schmidt.devlib.org/jiu/ )
+<i>17</i>&nbsp; *
+<i>18</i>&nbsp; * &lt;p&gt;Note that the filter method is not thread safe
+<i>19</i>&nbsp; *
+<i>20</i>&nbsp; * @author Morten Nobel-Joergensen
+<i>21</i>&nbsp; * @author Heinz Doerr
+<i>22</i>&nbsp; */
+<b class="nc"><i>23</i>&nbsp;public class ResampleOpSingleThread extends AdvancedResizeOp {</b>
+<b class="nc"><i>24</i>&nbsp;  private final int MAX_CHANNEL_VALUE = 255;</b>
+<i>25</i>&nbsp;
+<i>26</i>&nbsp;  private int nrChannels;
+<i>27</i>&nbsp;  private int srcWidth;
+<i>28</i>&nbsp;  private int srcHeight;
+<i>29</i>&nbsp;  private int dstWidth;
+<i>30</i>&nbsp;  private int dstHeight;
+<i>31</i>&nbsp;
+<b class="nc"><i>32</i>&nbsp;  private class SubSamplingData {</b>
+<i>33</i>&nbsp;    private final int[] arrN; // individual - per row or per column - nr of contributions
+<i>34</i>&nbsp;    private final int[] arrPixel; // 2Dim: [wid or hei][contrib]
+<i>35</i>&nbsp;    private final float[] arrWeight; // 2Dim: [wid or hei][contrib]
+<i>36</i>&nbsp;    private final int
+<i>37</i>&nbsp;        numContributors; // the primary index length for the 2Dim arrays : arrPixel and arrWeight
+<i>38</i>&nbsp;    private final float width;
+<i>39</i>&nbsp;
+<i>40</i>&nbsp;    private SubSamplingData(
+<b class="nc"><i>41</i>&nbsp;        int[] arrN, int[] arrPixel, float[] arrWeight, int numContributors, float width) {</b>
+<b class="nc"><i>42</i>&nbsp;      this.arrN = arrN;</b>
+<b class="nc"><i>43</i>&nbsp;      this.arrPixel = arrPixel;</b>
+<b class="nc"><i>44</i>&nbsp;      this.arrWeight = arrWeight;</b>
+<b class="nc"><i>45</i>&nbsp;      this.numContributors = numContributors;</b>
+<b class="nc"><i>46</i>&nbsp;      this.width = width;</b>
+<i>47</i>&nbsp;    }
+<i>48</i>&nbsp;  }
+<i>49</i>&nbsp;
+<i>50</i>&nbsp;  private SubSamplingData horizontalSubsamplingData;
+<i>51</i>&nbsp;  private SubSamplingData verticalSubsamplingData;
+<i>52</i>&nbsp;
+<i>53</i>&nbsp;  private int processedItems;
+<i>54</i>&nbsp;  private int totalItems;
+<i>55</i>&nbsp;
+<b class="nc"><i>56</i>&nbsp;  private ResampleFilter filter = ResampleFilters.getLanczos3Filter();</b>
+<i>57</i>&nbsp;
+<i>58</i>&nbsp;  public ResampleOpSingleThread(int destWidth, int destHeight) {
+<b class="nc"><i>59</i>&nbsp;    super(DimensionConstrain.createAbsolutionDimension(destWidth, destHeight));</b>
+<i>60</i>&nbsp;  }
+<i>61</i>&nbsp;
+<i>62</i>&nbsp;  public ResampleOpSingleThread(DimensionConstrain dimensionConstrain) {
+<b class="nc"><i>63</i>&nbsp;    super(dimensionConstrain);</b>
+<i>64</i>&nbsp;  }
+<i>65</i>&nbsp;
+<i>66</i>&nbsp;  public ResampleFilter getFilter() {
+<b class="nc"><i>67</i>&nbsp;    return filter;</b>
+<i>68</i>&nbsp;  }
+<i>69</i>&nbsp;
+<i>70</i>&nbsp;  public void setFilter(ResampleFilter filter) {
+<b class="nc"><i>71</i>&nbsp;    this.filter = filter;</b>
+<i>72</i>&nbsp;  }
+<i>73</i>&nbsp;
+<i>74</i>&nbsp;  public BufferedImage doFilter(
+<i>75</i>&nbsp;      BufferedImage srcImg, BufferedImage dest, int dstWidth, int dstHeight) {
+<b class="nc"><i>76</i>&nbsp;    this.dstWidth = dstWidth;</b>
+<b class="nc"><i>77</i>&nbsp;    this.dstHeight = dstHeight;</b>
+<b class="nc"><i>78</i>&nbsp;    if (srcImg.getType() == BufferedImage.TYPE_BYTE_BINARY</b>
+<b class="nc"><i>79</i>&nbsp;        || srcImg.getType() == BufferedImage.TYPE_BYTE_INDEXED</b>
+<b class="nc"><i>80</i>&nbsp;        || srcImg.getType() == BufferedImage.TYPE_CUSTOM)</b>
+<b class="nc"><i>81</i>&nbsp;      srcImg =</b>
+<b class="nc"><i>82</i>&nbsp;          ImageUtils.convert(</b>
+<i>83</i>&nbsp;              srcImg,
+<b class="nc"><i>84</i>&nbsp;              srcImg.getColorModel().hasAlpha()</b>
+<i>85</i>&nbsp;                  ? BufferedImage.TYPE_4BYTE_ABGR
+<i>86</i>&nbsp;                  : BufferedImage.TYPE_3BYTE_BGR);
+<i>87</i>&nbsp;
+<b class="nc"><i>88</i>&nbsp;    this.nrChannels = ImageUtils.nrChannels(srcImg);</b>
+<b class="nc"><i>89</i>&nbsp;    assert nrChannels &gt; 0;</b>
+<b class="nc"><i>90</i>&nbsp;    this.srcWidth = srcImg.getWidth();</b>
+<b class="nc"><i>91</i>&nbsp;    this.srcHeight = srcImg.getHeight();</b>
+<i>92</i>&nbsp;
+<b class="nc"><i>93</i>&nbsp;    this.processedItems = 0;</b>
+<b class="nc"><i>94</i>&nbsp;    this.totalItems = srcHeight;</b>
+<i>95</i>&nbsp;
+<i>96</i>&nbsp;    // Pre-calculate  sub-sampling
+<b class="nc"><i>97</i>&nbsp;    horizontalSubsamplingData = createSubSampling(srcWidth, dstWidth);</b>
+<b class="nc"><i>98</i>&nbsp;    verticalSubsamplingData = createSubSampling(srcHeight, dstHeight);</b>
+<i>99</i>&nbsp;
+<i>100</i>&nbsp;    // final byte[] outPixels = new byte[dstWidth*dstHeight*nrChannels];
+<i>101</i>&nbsp;
+<i>102</i>&nbsp;    // Idea: Since only a small part of the buffer is used, scaling the image, we reuse the rows to
+<i>103</i>&nbsp;    // save memory
+<b class="nc"><i>104</i>&nbsp;    final int bufferHeight = (int) Math.ceil(verticalSubsamplingData.width) * 2;</b>
+<b class="nc"><i>105</i>&nbsp;    byte[][] workPixels = new byte[srcHeight][];</b>
+<b class="nc"><i>106</i>&nbsp;    for (int i = 0; i &lt; bufferHeight &amp;&amp; i &lt; srcHeight; i++) {</b>
+<b class="nc"><i>107</i>&nbsp;      workPixels[i] = new byte[dstWidth * nrChannels];</b>
+<i>108</i>&nbsp;    }
+<b class="nc"><i>109</i>&nbsp;    for (int i = bufferHeight; i &lt; workPixels.length; i++) {</b>
+<b class="nc"><i>110</i>&nbsp;      workPixels[i] = workPixels[i % bufferHeight];</b>
+<i>111</i>&nbsp;    }
+<i>112</i>&nbsp;
+<b class="nc"><i>113</i>&nbsp;    final byte[][] workPixelsCopy = workPixels;</b>
+<i>114</i>&nbsp;
+<i>115</i>&nbsp;    BufferedImage out;
+<b class="nc"><i>116</i>&nbsp;    if (dest != null &amp;&amp; dstWidth == dest.getWidth() &amp;&amp; dstHeight == dest.getHeight()) {</b>
+<b class="nc"><i>117</i>&nbsp;      out = dest;</b>
+<i>118</i>&nbsp;    } else {
+<b class="nc"><i>119</i>&nbsp;      out = new BufferedImage(dstWidth, dstHeight, getResultBufferedImageType(srcImg));</b>
+<i>120</i>&nbsp;    }
+<i>121</i>&nbsp;
+<b class="nc"><i>122</i>&nbsp;    scale(srcImg, workPixelsCopy, out);</b>
+<i>123</i>&nbsp;
+<b class="nc"><i>124</i>&nbsp;    return out;</b>
+<i>125</i>&nbsp;  }
+<i>126</i>&nbsp;
+<i>127</i>&nbsp;  private SubSamplingData createSubSampling(int srcSize, int dstSize) {
+<b class="nc"><i>128</i>&nbsp;    float scale = (float) dstSize / (float) srcSize;</b>
+<b class="nc"><i>129</i>&nbsp;    int[] arrN = new int[dstSize];</b>
+<i>130</i>&nbsp;    int numContributors;
+<i>131</i>&nbsp;    float[] arrWeight;
+<i>132</i>&nbsp;    int[] arrPixel;
+<i>133</i>&nbsp;
+<b class="nc"><i>134</i>&nbsp;    final float fwidth = filter.getSamplingRadius();</b>
+<i>135</i>&nbsp;    final float width;
+<b class="nc"><i>136</i>&nbsp;    if (scale &lt; 1.0f) {</b>
+<b class="nc"><i>137</i>&nbsp;      width = fwidth / scale;</b>
+<b class="nc"><i>138</i>&nbsp;      numContributors = (int) (width * 2.0f + 2); // Heinz: added 1 to be save with the ceilling</b>
+<b class="nc"><i>139</i>&nbsp;      arrWeight = new float[dstSize * numContributors];</b>
+<b class="nc"><i>140</i>&nbsp;      arrPixel = new int[dstSize * numContributors];</b>
+<i>141</i>&nbsp;
+<b class="nc"><i>142</i>&nbsp;      final float fNormFac = (float) (1f / (Math.ceil(width) / fwidth));</b>
+<i>143</i>&nbsp;      //
+<b class="nc"><i>144</i>&nbsp;      for (int i = 0; i &lt; dstSize; i++) {</b>
+<b class="nc"><i>145</i>&nbsp;        final int subindex = i * numContributors;</b>
+<b class="nc"><i>146</i>&nbsp;        float center = i / scale;</b>
+<b class="nc"><i>147</i>&nbsp;        int left = (int) Math.floor(center - width);</b>
+<b class="nc"><i>148</i>&nbsp;        int right = (int) Math.ceil(center + width);</b>
+<i>149</i>&nbsp;
+<b class="nc"><i>150</i>&nbsp;        assert right - left &lt;= numContributors;</b>
+<i>151</i>&nbsp;
+<b class="nc"><i>152</i>&nbsp;        for (int j = left; j &lt;= right; j++) {</b>
+<i>153</i>&nbsp;          float weight;
+<b class="nc"><i>154</i>&nbsp;          weight = filter.apply((center - j) * fNormFac);</b>
+<i>155</i>&nbsp;
+<b class="nc"><i>156</i>&nbsp;          if (weight == 0.0f) {</b>
+<b class="nc"><i>157</i>&nbsp;            continue;</b>
+<i>158</i>&nbsp;          }
+<i>159</i>&nbsp;          int n;
+<b class="nc"><i>160</i>&nbsp;          if (j &lt; 0) {</b>
+<b class="nc"><i>161</i>&nbsp;            n = -j;</b>
+<b class="nc"><i>162</i>&nbsp;          } else if (j &gt;= srcSize) {</b>
+<b class="nc"><i>163</i>&nbsp;            n = srcSize - j + srcSize - 1;</b>
+<i>164</i>&nbsp;          } else {
+<b class="nc"><i>165</i>&nbsp;            n = j;</b>
+<i>166</i>&nbsp;          }
+<b class="nc"><i>167</i>&nbsp;          int k = arrN[i];</b>
+<b class="nc"><i>168</i>&nbsp;          arrN[i]++;</b>
+<b class="nc"><i>169</i>&nbsp;          if (n &lt; 0 || n &gt;= srcSize) {</b>
+<b class="nc"><i>170</i>&nbsp;            weight = 0.0f; // Flag that cell should not be used</b>
+<i>171</i>&nbsp;          }
+<b class="nc"><i>172</i>&nbsp;          arrPixel[subindex + k] = n;</b>
+<b class="nc"><i>173</i>&nbsp;          arrWeight[subindex + k] = weight;</b>
+<i>174</i>&nbsp;        }
+<i>175</i>&nbsp;        // normalize the filter&#39;s weight&#39;s so the sum equals to 1.0, very important for avoiding box
+<i>176</i>&nbsp;        // type of artifacts
+<b class="nc"><i>177</i>&nbsp;        final int max = arrN[i];</b>
+<b class="nc"><i>178</i>&nbsp;        float tot = 0;</b>
+<b class="nc"><i>179</i>&nbsp;        for (int k = 0; k &lt; max; k++) tot += arrWeight[subindex + k];</b>
+<b class="nc"><i>180</i>&nbsp;        if (tot != 0f) { // 0 should never happen except bug in filter</b>
+<b class="nc"><i>181</i>&nbsp;          for (int k = 0; k &lt; max; k++) arrWeight[subindex + k] /= tot;</b>
+<i>182</i>&nbsp;        }
+<i>183</i>&nbsp;      }
+<b class="nc"><i>184</i>&nbsp;    } else</b>
+<i>185</i>&nbsp;    // super-sampling
+<i>186</i>&nbsp;    // Scales from smaller to bigger height
+<i>187</i>&nbsp;    {
+<b class="nc"><i>188</i>&nbsp;      width = fwidth;</b>
+<b class="nc"><i>189</i>&nbsp;      numContributors = (int) (fwidth * 2.0f + 1);</b>
+<b class="nc"><i>190</i>&nbsp;      arrWeight = new float[dstSize * numContributors];</b>
+<b class="nc"><i>191</i>&nbsp;      arrPixel = new int[dstSize * numContributors];</b>
+<i>192</i>&nbsp;      //
+<b class="nc"><i>193</i>&nbsp;      for (int i = 0; i &lt; dstSize; i++) {</b>
+<b class="nc"><i>194</i>&nbsp;        final int subindex = i * numContributors;</b>
+<b class="nc"><i>195</i>&nbsp;        float center = i / scale;</b>
+<b class="nc"><i>196</i>&nbsp;        int left = (int) Math.floor(center - fwidth);</b>
+<b class="nc"><i>197</i>&nbsp;        int right = (int) Math.ceil(center + fwidth);</b>
+<i>198</i>&nbsp;
+<b class="nc"><i>199</i>&nbsp;        for (int j = left; j &lt;= right; j++) {</b>
+<b class="nc"><i>200</i>&nbsp;          float weight = filter.apply(center - j);</b>
+<b class="nc"><i>201</i>&nbsp;          if (weight == 0.0f) {</b>
+<b class="nc"><i>202</i>&nbsp;            continue;</b>
+<i>203</i>&nbsp;          }
+<i>204</i>&nbsp;          int n;
+<b class="nc"><i>205</i>&nbsp;          if (j &lt; 0) {</b>
+<b class="nc"><i>206</i>&nbsp;            n = -j;</b>
+<b class="nc"><i>207</i>&nbsp;          } else if (j &gt;= srcSize) {</b>
+<b class="nc"><i>208</i>&nbsp;            n = srcSize - j + srcSize - 1;</b>
+<i>209</i>&nbsp;          } else {
+<b class="nc"><i>210</i>&nbsp;            n = j;</b>
+<i>211</i>&nbsp;          }
+<b class="nc"><i>212</i>&nbsp;          int k = arrN[i];</b>
+<b class="nc"><i>213</i>&nbsp;          arrN[i]++;</b>
+<b class="nc"><i>214</i>&nbsp;          if (n &lt; 0 || n &gt;= srcSize) {</b>
+<b class="nc"><i>215</i>&nbsp;            weight = 0.0f; // Flag that cell should not be used</b>
+<i>216</i>&nbsp;          }
+<b class="nc"><i>217</i>&nbsp;          arrPixel[subindex + k] = n;</b>
+<b class="nc"><i>218</i>&nbsp;          arrWeight[subindex + k] = weight;</b>
+<i>219</i>&nbsp;        }
+<i>220</i>&nbsp;        // normalize the filter&#39;s weight&#39;s so the sum equals to 1.0, very important for avoiding box
+<i>221</i>&nbsp;        // type of artifacts
+<b class="nc"><i>222</i>&nbsp;        final int max = arrN[i];</b>
+<b class="nc"><i>223</i>&nbsp;        float tot = 0;</b>
+<b class="nc"><i>224</i>&nbsp;        for (int k = 0; k &lt; max; k++) tot += arrWeight[subindex + k];</b>
+<b class="nc"><i>225</i>&nbsp;        assert tot != 0 : &quot;should never happen except bug in filter&quot;;</b>
+<b class="nc"><i>226</i>&nbsp;        if (tot != 0f) {</b>
+<b class="nc"><i>227</i>&nbsp;          for (int k = 0; k &lt; max; k++) arrWeight[subindex + k] /= tot;</b>
+<i>228</i>&nbsp;        }
+<i>229</i>&nbsp;      }
+<i>230</i>&nbsp;    }
+<b class="nc"><i>231</i>&nbsp;    return new SubSamplingData(arrN, arrPixel, arrWeight, numContributors, width);</b>
+<i>232</i>&nbsp;  }
+<i>233</i>&nbsp;
+<i>234</i>&nbsp;  /**
+<i>235</i>&nbsp;   * Pseudocode: for each for in destination image check that all dependent rows in source image is
+<i>236</i>&nbsp;   * scaled horizontally and stored in work pixels if not then scale missing rows horizontal and
+<i>237</i>&nbsp;   * store them in work pixels Scale the destination row vertically and store the result in out
+<i>238</i>&nbsp;   * pixels
+<i>239</i>&nbsp;   *
+<i>240</i>&nbsp;   * &lt;p&gt;It may seem counter intuitive that the vertical scale is done for each row. The simple
+<i>241</i>&nbsp;   * scaling algorithm would first scale the image horizontal (a row at a time) into the temp image,
+<i>242</i>&nbsp;   * and then scale the temp image vertically (a column at a time) into the final image. The
+<i>243</i>&nbsp;   * disadvantage of the simple approach is that you need a large temporary image.
+<i>244</i>&nbsp;   *
+<i>245</i>&nbsp;   * &lt;p&gt;I have avoided this by doing the vertically scale a row at a time. Scaling a single row
+<i>246</i>&nbsp;   * vertically, needs the horizontally scaled rows that the scaling depends on. These dependencies
+<i>247</i>&nbsp;   * will be lazy initialized. Since we know the height of the &#39;window&#39; we work on (the maximum
+<i>248</i>&nbsp;   * number of source rows needed to calculate a dest row), the work pixels only needs to have the
+<i>249</i>&nbsp;   * same height.
+<i>250</i>&nbsp;   *
+<i>251</i>&nbsp;   * &lt;p&gt;Instead of creating a temporary image with a height different from the source image&#39;s
+<i>252</i>&nbsp;   * height, I created a double array where inner array is repeated (so if the window height is 3
+<i>253</i>&nbsp;   * the first and the forth row is the same instance). This keeps algorithm a bit simpler (the
+<i>254</i>&nbsp;   * alternative would be to maintain a mapping between)
+<i>255</i>&nbsp;   *
+<i>256</i>&nbsp;   * @param srcImg source image
+<i>257</i>&nbsp;   * @param workPixels temporary image
+<i>258</i>&nbsp;   * @param outImage result image
+<i>259</i>&nbsp;   */
+<i>260</i>&nbsp;  private void scale(BufferedImage srcImg, byte[][] workPixels, BufferedImage outImage) {
+<b class="nc"><i>261</i>&nbsp;    final int[] tempPixels =</b>
+<i>262</i>&nbsp;        new int
+<i>263</i>&nbsp;            [srcWidth]; // Used if we work on int based bitmaps, later used to keep channel values
+<b class="nc"><i>264</i>&nbsp;    final byte[] srcPixels =</b>
+<i>265</i>&nbsp;        new byte[srcWidth * nrChannels]; // create reusable row to minimize memory overhead
+<i>266</i>&nbsp;
+<b class="nc"><i>267</i>&nbsp;    final byte[] dstPixels = new byte[dstWidth * nrChannels];</b>
+<i>268</i>&nbsp;
+<b class="nc"><i>269</i>&nbsp;    final BitSet isRowInitialized = new BitSet(srcHeight);</b>
+<i>270</i>&nbsp;
+<b class="nc"><i>271</i>&nbsp;    for (int dstY = dstHeight - 1; dstY &gt;= 0; dstY--) {</b>
+<i>272</i>&nbsp;      // vertical scaling
+<b class="nc"><i>273</i>&nbsp;      final int yTimesNumContributors = dstY * verticalSubsamplingData.numContributors;</b>
+<b class="nc"><i>274</i>&nbsp;      final int max = verticalSubsamplingData.arrN[dstY];</b>
+<i>275</i>&nbsp;
+<i>276</i>&nbsp;      // check that the horizontal rows are scaled horizontally
+<i>277</i>&nbsp;      {
+<b class="nc"><i>278</i>&nbsp;        int index = yTimesNumContributors;</b>
+<b class="nc"><i>279</i>&nbsp;        for (int j = max - 1; j &gt;= 0; j--) {</b>
+<b class="nc"><i>280</i>&nbsp;          int valueLocation = verticalSubsamplingData.arrPixel[index];</b>
+<b class="nc"><i>281</i>&nbsp;          index++;</b>
+<b class="nc"><i>282</i>&nbsp;          if (!isRowInitialized.get(valueLocation)) {</b>
+<i>283</i>&nbsp;            // do horizontal scaling
+<b class="nc"><i>284</i>&nbsp;            isRowInitialized.set(valueLocation);</b>
+<i>285</i>&nbsp;
+<i>286</i>&nbsp;            // scale row horizontally
+<b class="nc"><i>287</i>&nbsp;            ImageUtils.getPixelsBGR(srcImg, valueLocation, srcWidth, srcPixels, tempPixels);</b>
+<i>288</i>&nbsp;
+<b class="nc"><i>289</i>&nbsp;            for (int channel = nrChannels - 1; channel &gt;= 0; channel--) {</b>
+<i>290</i>&nbsp;              // reuse tempPixels as sample value
+<b class="nc"><i>291</i>&nbsp;              getSamplesHorizontal(srcPixels, channel, tempPixels);</b>
+<i>292</i>&nbsp;
+<b class="nc"><i>293</i>&nbsp;              for (int i = dstWidth - 1; i &gt;= 0; i--) {</b>
+<b class="nc"><i>294</i>&nbsp;                int sampleLocation = i * nrChannels;</b>
+<b class="nc"><i>295</i>&nbsp;                final int horizontalMax = horizontalSubsamplingData.arrN[i];</b>
+<i>296</i>&nbsp;
+<b class="nc"><i>297</i>&nbsp;                float sample = 0.0f;</b>
+<b class="nc"><i>298</i>&nbsp;                int horizontalIndex = i * horizontalSubsamplingData.numContributors;</b>
+<b class="nc"><i>299</i>&nbsp;                for (int jj = horizontalMax - 1; jj &gt;= 0; jj--) {</b>
+<i>300</i>&nbsp;
+<b class="nc"><i>301</i>&nbsp;                  sample +=</b>
+<b class="nc"><i>302</i>&nbsp;                      tempPixels[horizontalSubsamplingData.arrPixel[horizontalIndex]]</b>
+<b class="nc"><i>303</i>&nbsp;                          * horizontalSubsamplingData.arrWeight[horizontalIndex];</b>
+<b class="nc"><i>304</i>&nbsp;                  horizontalIndex++;</b>
+<i>305</i>&nbsp;                }
+<i>306</i>&nbsp;
+<b class="nc"><i>307</i>&nbsp;                putSample(workPixels[valueLocation], channel, (int) sample, sampleLocation);</b>
+<i>308</i>&nbsp;              }
+<i>309</i>&nbsp;            }
+<i>310</i>&nbsp;          }
+<i>311</i>&nbsp;        }
+<i>312</i>&nbsp;      }
+<i>313</i>&nbsp;
+<b class="nc"><i>314</i>&nbsp;      for (int x = 0; x &lt; dstWidth; x++) {</b>
+<b class="nc"><i>315</i>&nbsp;        final int xLocation = x * nrChannels;</b>
+<b class="nc"><i>316</i>&nbsp;        final int sampleLocation = x * nrChannels;</b>
+<i>317</i>&nbsp;
+<b class="nc"><i>318</i>&nbsp;        for (int channel = nrChannels - 1; channel &gt;= 0; channel--) {</b>
+<b class="nc"><i>319</i>&nbsp;          float sample = 0.0f;</b>
+<b class="nc"><i>320</i>&nbsp;          int index = yTimesNumContributors;</b>
+<b class="nc"><i>321</i>&nbsp;          for (int j = max - 1; j &gt;= 0; j--) {</b>
+<b class="nc"><i>322</i>&nbsp;            int valueLocation = verticalSubsamplingData.arrPixel[index];</b>
+<b class="nc"><i>323</i>&nbsp;            sample +=</b>
+<i>324</i>&nbsp;                (workPixels[valueLocation][xLocation + channel] &amp; 0xff)
+<b class="nc"><i>325</i>&nbsp;                    * verticalSubsamplingData.arrWeight[index];</b>
+<i>326</i>&nbsp;
+<b class="nc"><i>327</i>&nbsp;            index++;</b>
+<i>328</i>&nbsp;          }
+<i>329</i>&nbsp;
+<b class="nc"><i>330</i>&nbsp;          putSample(dstPixels, channel, sample, sampleLocation);</b>
+<i>331</i>&nbsp;        }
+<i>332</i>&nbsp;      }
+<i>333</i>&nbsp;
+<b class="nc"><i>334</i>&nbsp;      ImageUtils.setBGRPixels(dstPixels, outImage, 0, dstY, dstWidth, 1);</b>
+<i>335</i>&nbsp;
+<b class="nc"><i>336</i>&nbsp;      setProgress(processedItems++, totalItems);</b>
+<i>337</i>&nbsp;    }
+<i>338</i>&nbsp;  }
+<i>339</i>&nbsp;
+<i>340</i>&nbsp;  private void putSample(byte[] image, int channel, float sample, int location) {
+<b class="nc"><i>341</i>&nbsp;    int result = (int) sample;</b>
+<b class="nc"><i>342</i>&nbsp;    if (sample &lt; 0) {</b>
+<b class="nc"><i>343</i>&nbsp;      result = 0;</b>
+<b class="nc"><i>344</i>&nbsp;    } else if (result &gt; MAX_CHANNEL_VALUE) {</b>
+<b class="nc"><i>345</i>&nbsp;      result = MAX_CHANNEL_VALUE;</b>
+<i>346</i>&nbsp;    }
+<b class="nc"><i>347</i>&nbsp;    image[location + channel] = (byte) result;</b>
+<i>348</i>&nbsp;  }
+<i>349</i>&nbsp;
+<i>350</i>&nbsp;  private void getSamplesHorizontal(byte[] src, int channel, int[] dest) {
+<b class="nc"><i>351</i>&nbsp;    for (int xDest = 0, x = channel; x &lt; src.length; x += nrChannels, xDest++) {</b>
+<b class="nc"><i>352</i>&nbsp;      dest[xDest] = src[x] &amp; 0xff;</b>
+<i>353</i>&nbsp;    }
+<i>354</i>&nbsp;  }
+<i>355</i>&nbsp;
+<i>356</i>&nbsp;  private void setProgress(int zeroBasedIndex, int totalItems) {
+<b class="nc"><i>357</i>&nbsp;    fireProgressChanged(zeroBasedIndex / (float) totalItems);</b>
+<i>358</i>&nbsp;  }
+<i>359</i>&nbsp;
+<i>360</i>&nbsp;  protected int getResultBufferedImageType(BufferedImage srcImg) {
+<b class="nc"><i>361</i>&nbsp;    return nrChannels == 3</b>
+<i>362</i>&nbsp;        ? BufferedImage.TYPE_3BYTE_BGR
+<i>363</i>&nbsp;        : (nrChannels == 4
+<i>364</i>&nbsp;            ? BufferedImage.TYPE_4BYTE_ABGR
+<b class="nc"><i>365</i>&nbsp;            : (srcImg.getSampleModel().getDataType() == DataBuffer.TYPE_USHORT</b>
+<i>366</i>&nbsp;                ? BufferedImage.TYPE_USHORT_GRAY
+<i>367</i>&nbsp;                : BufferedImage.TYPE_BYTE_GRAY));
+<i>368</i>&nbsp;  }
+<i>369</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:49</div>
+</div>
+</body>
+</html>

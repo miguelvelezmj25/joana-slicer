@@ -1,0 +1,440 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: ShapeFilter</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.jhlabs.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: ShapeFilter (com.jhlabs.image)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ShapeFilter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 21)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 176)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp;Copyright 2006 Jerry Huxtable
+<i>3</i>&nbsp;
+<i>4</i>&nbsp;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp;you may not use this file except in compliance with the License.
+<i>6</i>&nbsp;You may obtain a copy of the License at
+<i>7</i>&nbsp;
+<i>8</i>&nbsp;   http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp;
+<i>10</i>&nbsp;Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp;See the License for the specific language governing permissions and
+<i>14</i>&nbsp;limitations under the License.
+<i>15</i>&nbsp;*/
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package com.jhlabs.image;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import java.awt.*;
+<i>20</i>&nbsp;
+<i>21</i>&nbsp;// original code Copyright (C) Jerry Huxtable 1998
+<i>22</i>&nbsp;//
+<i>23</i>&nbsp;// customizations (C) Michele Puccini 19/12/2001
+<i>24</i>&nbsp;// - conversion from float to int math
+<i>25</i>&nbsp;// - complete rewrite of applyMap()
+<i>26</i>&nbsp;// - implemented merge to dest function
+<i>27</i>&nbsp;
+<i>28</i>&nbsp;public class ShapeFilter extends WholeImageFilter {
+<i>29</i>&nbsp;
+<i>30</i>&nbsp;  public static final int LINEAR = 0;
+<i>31</i>&nbsp;  public static final int CIRCLE_UP = 1;
+<i>32</i>&nbsp;  public static final int CIRCLE_DOWN = 2;
+<i>33</i>&nbsp;  public static final int SMOOTH = 3;
+<i>34</i>&nbsp;
+<b class="nc"><i>35</i>&nbsp;  private float factor = 1.0f;</b>
+<i>36</i>&nbsp;  protected Colormap colormap;
+<b class="nc"><i>37</i>&nbsp;  private boolean useAlpha = true;</b>
+<b class="nc"><i>38</i>&nbsp;  private boolean invert = false;</b>
+<b class="nc"><i>39</i>&nbsp;  private boolean merge = false;</b>
+<i>40</i>&nbsp;  private int type;
+<i>41</i>&nbsp;
+<i>42</i>&nbsp;  private static final int one = 41;
+<b class="nc"><i>43</i>&nbsp;  private static final int sqrt2 = (int) (41 * Math.sqrt(2));</b>
+<b class="nc"><i>44</i>&nbsp;  private static final int sqrt5 = (int) (41 * Math.sqrt(5));</b>
+<i>45</i>&nbsp;
+<b class="nc"><i>46</i>&nbsp;  public ShapeFilter() {</b>
+<b class="nc"><i>47</i>&nbsp;    colormap = new LinearColormap();</b>
+<i>48</i>&nbsp;  }
+<i>49</i>&nbsp;
+<i>50</i>&nbsp;  public void setFactor(float factor) {
+<b class="nc"><i>51</i>&nbsp;    this.factor = factor;</b>
+<i>52</i>&nbsp;  }
+<i>53</i>&nbsp;
+<i>54</i>&nbsp;  public float getFactor() {
+<b class="nc"><i>55</i>&nbsp;    return factor;</b>
+<i>56</i>&nbsp;  }
+<i>57</i>&nbsp;
+<i>58</i>&nbsp;  /**
+<i>59</i>&nbsp;   * Set the colormap to be used for the filter.
+<i>60</i>&nbsp;   *
+<i>61</i>&nbsp;   * @param colormap the colormap
+<i>62</i>&nbsp;   * @see #getColormap
+<i>63</i>&nbsp;   */
+<i>64</i>&nbsp;  public void setColormap(Colormap colormap) {
+<b class="nc"><i>65</i>&nbsp;    this.colormap = colormap;</b>
+<i>66</i>&nbsp;  }
+<i>67</i>&nbsp;
+<i>68</i>&nbsp;  /**
+<i>69</i>&nbsp;   * Get the colormap to be used for the filter.
+<i>70</i>&nbsp;   *
+<i>71</i>&nbsp;   * @return the colormap
+<i>72</i>&nbsp;   * @see #setColormap
+<i>73</i>&nbsp;   */
+<i>74</i>&nbsp;  public Colormap getColormap() {
+<b class="nc"><i>75</i>&nbsp;    return colormap;</b>
+<i>76</i>&nbsp;  }
+<i>77</i>&nbsp;
+<i>78</i>&nbsp;  public void setUseAlpha(boolean useAlpha) {
+<b class="nc"><i>79</i>&nbsp;    this.useAlpha = useAlpha;</b>
+<i>80</i>&nbsp;  }
+<i>81</i>&nbsp;
+<i>82</i>&nbsp;  public boolean getUseAlpha() {
+<b class="nc"><i>83</i>&nbsp;    return useAlpha;</b>
+<i>84</i>&nbsp;  }
+<i>85</i>&nbsp;
+<i>86</i>&nbsp;  public void setType(int type) {
+<b class="nc"><i>87</i>&nbsp;    this.type = type;</b>
+<i>88</i>&nbsp;  }
+<i>89</i>&nbsp;
+<i>90</i>&nbsp;  public int getType() {
+<b class="nc"><i>91</i>&nbsp;    return type;</b>
+<i>92</i>&nbsp;  }
+<i>93</i>&nbsp;
+<i>94</i>&nbsp;  public void setInvert(boolean invert) {
+<b class="nc"><i>95</i>&nbsp;    this.invert = invert;</b>
+<i>96</i>&nbsp;  }
+<i>97</i>&nbsp;
+<i>98</i>&nbsp;  public boolean getInvert() {
+<b class="nc"><i>99</i>&nbsp;    return invert;</b>
+<i>100</i>&nbsp;  }
+<i>101</i>&nbsp;
+<i>102</i>&nbsp;  public void setMerge(boolean merge) {
+<b class="nc"><i>103</i>&nbsp;    this.merge = merge;</b>
+<i>104</i>&nbsp;  }
+<i>105</i>&nbsp;
+<i>106</i>&nbsp;  public boolean getMerge() {
+<b class="nc"><i>107</i>&nbsp;    return merge;</b>
+<i>108</i>&nbsp;  }
+<i>109</i>&nbsp;
+<i>110</i>&nbsp;  protected int[] filterPixels(int width, int height, int[] inPixels, Rectangle transformedSpace) {
+<b class="nc"><i>111</i>&nbsp;    int[] map = new int[width * height];</b>
+<b class="nc"><i>112</i>&nbsp;    makeMap(inPixels, map, width, height);</b>
+<b class="nc"><i>113</i>&nbsp;    int max = distanceMap(map, width, height);</b>
+<b class="nc"><i>114</i>&nbsp;    applyMap(map, inPixels, width, height, max);</b>
+<i>115</i>&nbsp;
+<b class="nc"><i>116</i>&nbsp;    return inPixels;</b>
+<i>117</i>&nbsp;  }
+<i>118</i>&nbsp;
+<i>119</i>&nbsp;  public int distanceMap(int[] map, int width, int height) {
+<b class="nc"><i>120</i>&nbsp;    int xmax = width - 3;</b>
+<b class="nc"><i>121</i>&nbsp;    int ymax = height - 3;</b>
+<b class="nc"><i>122</i>&nbsp;    int max = 0;</b>
+<i>123</i>&nbsp;    int v;
+<i>124</i>&nbsp;
+<b class="nc"><i>125</i>&nbsp;    for (int y = 0; y &lt; height; y++) {</b>
+<b class="nc"><i>126</i>&nbsp;      for (int x = 0; x &lt; width; x++) {</b>
+<b class="nc"><i>127</i>&nbsp;        int offset = x + y * width;</b>
+<b class="nc"><i>128</i>&nbsp;        if (map[offset] &gt; 0) {</b>
+<b class="nc"><i>129</i>&nbsp;          if (x &lt; 2 || x &gt; xmax || y &lt; 2 || y &gt; ymax)</b>
+<b class="nc"><i>130</i>&nbsp;            v = setEdgeValue(x, y, map, width, offset, xmax, ymax);</b>
+<b class="nc"><i>131</i>&nbsp;          else v = setValue(map, width, offset);</b>
+<b class="nc"><i>132</i>&nbsp;          if (v &gt; max) max = v;</b>
+<i>133</i>&nbsp;        }
+<i>134</i>&nbsp;      }
+<i>135</i>&nbsp;    }
+<b class="nc"><i>136</i>&nbsp;    for (int y = height - 1; y &gt;= 0; y--) {</b>
+<b class="nc"><i>137</i>&nbsp;      for (int x = width - 1; x &gt;= 0; x--) {</b>
+<b class="nc"><i>138</i>&nbsp;        int offset = x + y * width;</b>
+<b class="nc"><i>139</i>&nbsp;        if (map[offset] &gt; 0) {</b>
+<b class="nc"><i>140</i>&nbsp;          if (x &lt; 2 || x &gt; xmax || y &lt; 2 || y &gt; ymax)</b>
+<b class="nc"><i>141</i>&nbsp;            v = setEdgeValue(x, y, map, width, offset, xmax, ymax);</b>
+<b class="nc"><i>142</i>&nbsp;          else v = setValue(map, width, offset);</b>
+<b class="nc"><i>143</i>&nbsp;          if (v &gt; max) max = v;</b>
+<i>144</i>&nbsp;        }
+<i>145</i>&nbsp;      }
+<i>146</i>&nbsp;    }
+<b class="nc"><i>147</i>&nbsp;    return max;</b>
+<i>148</i>&nbsp;  }
+<i>149</i>&nbsp;
+<i>150</i>&nbsp;  private void makeMap(int[] pixels, int[] map, int width, int height) {
+<b class="nc"><i>151</i>&nbsp;    for (int y = 0; y &lt; height; y++) {</b>
+<b class="nc"><i>152</i>&nbsp;      for (int x = 0; x &lt; width; x++) {</b>
+<b class="nc"><i>153</i>&nbsp;        int offset = x + y * width;</b>
+<b class="nc"><i>154</i>&nbsp;        int b = useAlpha ? (pixels[offset] &gt;&gt; 24) &amp; 0xff : PixelUtils.brightness(pixels[offset]);</b>
+<i>155</i>&nbsp;        //				map[offset] = b * one;
+<b class="nc"><i>156</i>&nbsp;        map[offset] = b * one / 10;</b>
+<i>157</i>&nbsp;      }
+<i>158</i>&nbsp;    }
+<i>159</i>&nbsp;  }
+<i>160</i>&nbsp;
+<i>161</i>&nbsp;  private void applyMap(int[] map, int[] pixels, int width, int height, int max) {
+<b class="nc"><i>162</i>&nbsp;    if (max == 0) max = 1;</b>
+<b class="nc"><i>163</i>&nbsp;    for (int y = 0; y &lt; height; y++) {</b>
+<b class="nc"><i>164</i>&nbsp;      for (int x = 0; x &lt; width; x++) {</b>
+<b class="nc"><i>165</i>&nbsp;        int offset = x + y * width;</b>
+<b class="nc"><i>166</i>&nbsp;        int m = map[offset];</b>
+<b class="nc"><i>167</i>&nbsp;        float v = 0;</b>
+<b class="nc"><i>168</i>&nbsp;        int sa = 0, sr = 0, sg = 0, sb = 0;</b>
+<i>169</i>&nbsp;
+<b class="nc"><i>170</i>&nbsp;        if (m == 0) {</b>
+<i>171</i>&nbsp;          // default color
+<b class="nc"><i>172</i>&nbsp;          sa = sr = sg = sb = 0;</b>
+<b class="nc"><i>173</i>&nbsp;          sa = (pixels[offset] &gt;&gt; 24) &amp; 0xff;</b>
+<i>174</i>&nbsp;        } else {
+<i>175</i>&nbsp;          // get V from map
+<b class="nc"><i>176</i>&nbsp;          v = ImageMath.clamp(factor * m / max, 0, 1);</b>
+<b class="nc"><i>177</i>&nbsp;          switch (type) {</b>
+<i>178</i>&nbsp;            case CIRCLE_UP:
+<b class="nc"><i>179</i>&nbsp;              v = (ImageMath.circleUp(v));</b>
+<b class="nc"><i>180</i>&nbsp;              break;</b>
+<i>181</i>&nbsp;            case CIRCLE_DOWN:
+<b class="nc"><i>182</i>&nbsp;              v = (ImageMath.circleDown(v));</b>
+<b class="nc"><i>183</i>&nbsp;              break;</b>
+<i>184</i>&nbsp;            case SMOOTH:
+<b class="nc"><i>185</i>&nbsp;              v = (ImageMath.smoothStep(0, 1, v));</b>
+<i>186</i>&nbsp;              break;
+<i>187</i>&nbsp;          }
+<i>188</i>&nbsp;
+<b class="nc"><i>189</i>&nbsp;          if (colormap == null) {</b>
+<b class="nc"><i>190</i>&nbsp;            sr = sg = sb = (int) (v * 255);</b>
+<i>191</i>&nbsp;          } else {
+<b class="nc"><i>192</i>&nbsp;            int c = (colormap.getColor(v));</b>
+<i>193</i>&nbsp;
+<b class="nc"><i>194</i>&nbsp;            sr = (c &gt;&gt; 16) &amp; 0xFF;</b>
+<b class="nc"><i>195</i>&nbsp;            sg = (c &gt;&gt; 8) &amp; 0xFF;</b>
+<b class="nc"><i>196</i>&nbsp;            sb = (c) &amp; 0xFF;</b>
+<i>197</i>&nbsp;          }
+<i>198</i>&nbsp;
+<b class="nc"><i>199</i>&nbsp;          sa = useAlpha ? (pixels[offset] &gt;&gt; 24) &amp; 0xff : PixelUtils.brightness(pixels[offset]);</b>
+<i>200</i>&nbsp;
+<i>201</i>&nbsp;          // invert v if necessary
+<b class="nc"><i>202</i>&nbsp;          if (invert) {</b>
+<b class="nc"><i>203</i>&nbsp;            sr = 255 - sr;</b>
+<b class="nc"><i>204</i>&nbsp;            sg = 255 - sg;</b>
+<b class="nc"><i>205</i>&nbsp;            sb = 255 - sb;</b>
+<i>206</i>&nbsp;          }
+<i>207</i>&nbsp;        }
+<i>208</i>&nbsp;
+<i>209</i>&nbsp;        // write results
+<b class="nc"><i>210</i>&nbsp;        if (merge) {</b>
+<i>211</i>&nbsp;          // merge with source
+<b class="nc"><i>212</i>&nbsp;          int transp = 255;</b>
+<b class="nc"><i>213</i>&nbsp;          int col = pixels[offset];</b>
+<i>214</i>&nbsp;
+<b class="nc"><i>215</i>&nbsp;          int a = (col &amp; 0xFF000000) &gt;&gt; 24;</b>
+<b class="nc"><i>216</i>&nbsp;          int r = (col &amp; 0xFF0000) &gt;&gt; 16;</b>
+<b class="nc"><i>217</i>&nbsp;          int g = (col &amp; 0xFF00) &gt;&gt; 8;</b>
+<b class="nc"><i>218</i>&nbsp;          int b = (col &amp; 0xFF);</b>
+<i>219</i>&nbsp;
+<b class="nc"><i>220</i>&nbsp;          r = (int) ((sr * r / transp));</b>
+<b class="nc"><i>221</i>&nbsp;          g = (int) ((sg * g / transp));</b>
+<b class="nc"><i>222</i>&nbsp;          b = (int) ((sb * b / transp));</b>
+<i>223</i>&nbsp;
+<i>224</i>&nbsp;          // clip colors
+<b class="nc"><i>225</i>&nbsp;          if (r &lt; 0) r = 0;</b>
+<b class="nc"><i>226</i>&nbsp;          if (r &gt; 255) r = 255;</b>
+<b class="nc"><i>227</i>&nbsp;          if (g &lt; 0) g = 0;</b>
+<b class="nc"><i>228</i>&nbsp;          if (g &gt; 255) g = 255;</b>
+<b class="nc"><i>229</i>&nbsp;          if (b &lt; 0) b = 0;</b>
+<b class="nc"><i>230</i>&nbsp;          if (b &gt; 255) b = 255;</b>
+<i>231</i>&nbsp;
+<b class="nc"><i>232</i>&nbsp;          pixels[offset] = (a &lt;&lt; 24) | (r &lt;&lt; 16) | (g &lt;&lt; 8) | b;</b>
+<b class="nc"><i>233</i>&nbsp;        } else {</b>
+<i>234</i>&nbsp;          // write gray shades
+<b class="nc"><i>235</i>&nbsp;          pixels[offset] = (sa &lt;&lt; 24) | (sr &lt;&lt; 16) | (sg &lt;&lt; 8) | sb;</b>
+<i>236</i>&nbsp;        }
+<i>237</i>&nbsp;      }
+<i>238</i>&nbsp;    }
+<i>239</i>&nbsp;  }
+<i>240</i>&nbsp;
+<i>241</i>&nbsp;  private int setEdgeValue(int x, int y, int[] map, int width, int offset, int xmax, int ymax) {
+<i>242</i>&nbsp;    int min, v;
+<i>243</i>&nbsp;    int r1, r2, r3, r4, r5;
+<i>244</i>&nbsp;
+<b class="nc"><i>245</i>&nbsp;    r1 = offset - width - width - 2;</b>
+<b class="nc"><i>246</i>&nbsp;    r2 = r1 + width;</b>
+<b class="nc"><i>247</i>&nbsp;    r3 = r2 + width;</b>
+<b class="nc"><i>248</i>&nbsp;    r4 = r3 + width;</b>
+<b class="nc"><i>249</i>&nbsp;    r5 = r4 + width;</b>
+<i>250</i>&nbsp;
+<b class="nc"><i>251</i>&nbsp;    if (y == 0 || x == 0 || y == ymax + 2 || x == xmax + 2) return map[offset] = one;</b>
+<i>252</i>&nbsp;
+<b class="nc"><i>253</i>&nbsp;    v = map[r2 + 2] + one;</b>
+<b class="nc"><i>254</i>&nbsp;    min = v;</b>
+<i>255</i>&nbsp;
+<b class="nc"><i>256</i>&nbsp;    v = map[r3 + 1] + one;</b>
+<b class="nc"><i>257</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>258</i>&nbsp;
+<b class="nc"><i>259</i>&nbsp;    v = map[r3 + 3] + one;</b>
+<b class="nc"><i>260</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>261</i>&nbsp;
+<b class="nc"><i>262</i>&nbsp;    v = map[r4 + 2] + one;</b>
+<b class="nc"><i>263</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>264</i>&nbsp;
+<b class="nc"><i>265</i>&nbsp;    v = map[r2 + 1] + sqrt2;</b>
+<b class="nc"><i>266</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>267</i>&nbsp;
+<b class="nc"><i>268</i>&nbsp;    v = map[r2 + 3] + sqrt2;</b>
+<b class="nc"><i>269</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>270</i>&nbsp;
+<b class="nc"><i>271</i>&nbsp;    v = map[r4 + 1] + sqrt2;</b>
+<b class="nc"><i>272</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>273</i>&nbsp;
+<b class="nc"><i>274</i>&nbsp;    v = map[r4 + 3] + sqrt2;</b>
+<b class="nc"><i>275</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>276</i>&nbsp;
+<b class="nc"><i>277</i>&nbsp;    if (y == 1 || x == 1 || y == ymax + 1 || x == xmax + 1) return map[offset] = min;</b>
+<i>278</i>&nbsp;
+<b class="nc"><i>279</i>&nbsp;    v = map[r1 + 1] + sqrt5;</b>
+<b class="nc"><i>280</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>281</i>&nbsp;
+<b class="nc"><i>282</i>&nbsp;    v = map[r1 + 3] + sqrt5;</b>
+<b class="nc"><i>283</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>284</i>&nbsp;
+<b class="nc"><i>285</i>&nbsp;    v = map[r2 + 4] + sqrt5;</b>
+<b class="nc"><i>286</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>287</i>&nbsp;
+<b class="nc"><i>288</i>&nbsp;    v = map[r4 + 4] + sqrt5;</b>
+<b class="nc"><i>289</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>290</i>&nbsp;
+<b class="nc"><i>291</i>&nbsp;    v = map[r5 + 3] + sqrt5;</b>
+<b class="nc"><i>292</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>293</i>&nbsp;
+<b class="nc"><i>294</i>&nbsp;    v = map[r5 + 1] + sqrt5;</b>
+<b class="nc"><i>295</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>296</i>&nbsp;
+<b class="nc"><i>297</i>&nbsp;    v = map[r4] + sqrt5;</b>
+<b class="nc"><i>298</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>299</i>&nbsp;
+<b class="nc"><i>300</i>&nbsp;    v = map[r2] + sqrt5;</b>
+<b class="nc"><i>301</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>302</i>&nbsp;
+<b class="nc"><i>303</i>&nbsp;    return map[offset] = min;</b>
+<i>304</i>&nbsp;  }
+<i>305</i>&nbsp;
+<i>306</i>&nbsp;  private int setValue(int[] map, int width, int offset) {
+<i>307</i>&nbsp;    int min, v;
+<i>308</i>&nbsp;    int r1, r2, r3, r4, r5;
+<i>309</i>&nbsp;
+<b class="nc"><i>310</i>&nbsp;    r1 = offset - width - width - 2;</b>
+<b class="nc"><i>311</i>&nbsp;    r2 = r1 + width;</b>
+<b class="nc"><i>312</i>&nbsp;    r3 = r2 + width;</b>
+<b class="nc"><i>313</i>&nbsp;    r4 = r3 + width;</b>
+<b class="nc"><i>314</i>&nbsp;    r5 = r4 + width;</b>
+<i>315</i>&nbsp;
+<b class="nc"><i>316</i>&nbsp;    v = map[r2 + 2] + one;</b>
+<b class="nc"><i>317</i>&nbsp;    min = v;</b>
+<b class="nc"><i>318</i>&nbsp;    v = map[r3 + 1] + one;</b>
+<b class="nc"><i>319</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>320</i>&nbsp;    v = map[r3 + 3] + one;</b>
+<b class="nc"><i>321</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>322</i>&nbsp;    v = map[r4 + 2] + one;</b>
+<b class="nc"><i>323</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>324</i>&nbsp;
+<b class="nc"><i>325</i>&nbsp;    v = map[r2 + 1] + sqrt2;</b>
+<b class="nc"><i>326</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>327</i>&nbsp;    v = map[r2 + 3] + sqrt2;</b>
+<b class="nc"><i>328</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>329</i>&nbsp;    v = map[r4 + 1] + sqrt2;</b>
+<b class="nc"><i>330</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>331</i>&nbsp;    v = map[r4 + 3] + sqrt2;</b>
+<b class="nc"><i>332</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>333</i>&nbsp;
+<b class="nc"><i>334</i>&nbsp;    v = map[r1 + 1] + sqrt5;</b>
+<b class="nc"><i>335</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>336</i>&nbsp;    v = map[r1 + 3] + sqrt5;</b>
+<b class="nc"><i>337</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>338</i>&nbsp;    v = map[r2 + 4] + sqrt5;</b>
+<b class="nc"><i>339</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>340</i>&nbsp;    v = map[r4 + 4] + sqrt5;</b>
+<b class="nc"><i>341</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>342</i>&nbsp;    v = map[r5 + 3] + sqrt5;</b>
+<b class="nc"><i>343</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>344</i>&nbsp;    v = map[r5 + 1] + sqrt5;</b>
+<b class="nc"><i>345</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>346</i>&nbsp;    v = map[r4] + sqrt5;</b>
+<b class="nc"><i>347</i>&nbsp;    if (v &lt; min) min = v;</b>
+<b class="nc"><i>348</i>&nbsp;    v = map[r2] + sqrt5;</b>
+<b class="nc"><i>349</i>&nbsp;    if (v &lt; min) min = v;</b>
+<i>350</i>&nbsp;
+<b class="nc"><i>351</i>&nbsp;    return map[offset] = min;</b>
+<i>352</i>&nbsp;  }
+<i>353</i>&nbsp;
+<i>354</i>&nbsp;  public String toString() {
+<b class="nc"><i>355</i>&nbsp;    return &quot;Stylize/Shapeburst...&quot;;</b>
+<i>356</i>&nbsp;  }
+<i>357</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>

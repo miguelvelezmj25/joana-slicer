@@ -1,0 +1,581 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: Gradient</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">com.jhlabs.image</a> ]
+</div>
+
+<h1>Coverage Summary for Class: Gradient (com.jhlabs.image)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Gradient</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 177)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/*
+<i>2</i>&nbsp;Copyright 2006 Jerry Huxtable
+<i>3</i>&nbsp;
+<i>4</i>&nbsp;Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+<i>5</i>&nbsp;you may not use this file except in compliance with the License.
+<i>6</i>&nbsp;You may obtain a copy of the License at
+<i>7</i>&nbsp;
+<i>8</i>&nbsp;   http://www.apache.org/licenses/LICENSE-2.0
+<i>9</i>&nbsp;
+<i>10</i>&nbsp;Unless required by applicable law or agreed to in writing, software
+<i>11</i>&nbsp;distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+<i>12</i>&nbsp;WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<i>13</i>&nbsp;See the License for the specific language governing permissions and
+<i>14</i>&nbsp;limitations under the License.
+<i>15</i>&nbsp;*/
+<i>16</i>&nbsp;
+<i>17</i>&nbsp;package com.jhlabs.image;
+<i>18</i>&nbsp;
+<i>19</i>&nbsp;import java.awt.*;
+<i>20</i>&nbsp;
+<i>21</i>&nbsp;/**
+<i>22</i>&nbsp; * A Colormap implemented using Catmull-Rom colour splines. The map has a variable number of knots
+<i>23</i>&nbsp; * with a minimum of four. The first and last knots give the tangent at the end of the spline, and
+<i>24</i>&nbsp; * colours are interpolated from the second to the second-last knots. Each knot can be given a type
+<i>25</i>&nbsp; * of interpolation. These are:
+<i>26</i>&nbsp; *
+<i>27</i>&nbsp; * &lt;UL&gt;
+<i>28</i>&nbsp; *   &lt;LI&gt;LINEAR - linear interpolation to next knot
+<i>29</i>&nbsp; *   &lt;LI&gt;SPLINE - spline interpolation to next knot
+<i>30</i>&nbsp; *   &lt;LI&gt;CONSTANT - no interpolation - the colour is constant to the next knot
+<i>31</i>&nbsp; *   &lt;LI&gt;HUE_CW - interpolation of hue clockwise to next knot
+<i>32</i>&nbsp; *   &lt;LI&gt;HUE_CCW - interpolation of hue counter-clockwise to next knot
+<i>33</i>&nbsp; * &lt;/UL&gt;
+<i>34</i>&nbsp; */
+<i>35</i>&nbsp;public class Gradient extends ArrayColormap implements Cloneable {
+<i>36</i>&nbsp;
+<i>37</i>&nbsp;  /** Interpolate in RGB space. */
+<i>38</i>&nbsp;  public static final int RGB = 0x00;
+<i>39</i>&nbsp;
+<i>40</i>&nbsp;  /** Interpolate hue clockwise. */
+<i>41</i>&nbsp;  public static final int HUE_CW = 0x01;
+<i>42</i>&nbsp;
+<i>43</i>&nbsp;  /** Interpolate hue counter clockwise. */
+<i>44</i>&nbsp;  public static final int HUE_CCW = 0x02;
+<i>45</i>&nbsp;
+<i>46</i>&nbsp;  /** Interpolate linearly. */
+<i>47</i>&nbsp;  public static final int LINEAR = 0x10;
+<i>48</i>&nbsp;
+<i>49</i>&nbsp;  /** Interpolate using a spline. */
+<i>50</i>&nbsp;  public static final int SPLINE = 0x20;
+<i>51</i>&nbsp;
+<i>52</i>&nbsp;  /** Interpolate with a rising circle shape curve. */
+<i>53</i>&nbsp;  public static final int CIRCLE_UP = 0x30;
+<i>54</i>&nbsp;
+<i>55</i>&nbsp;  /** Interpolate with a falling circle shape curve. */
+<i>56</i>&nbsp;  public static final int CIRCLE_DOWN = 0x40;
+<i>57</i>&nbsp;
+<i>58</i>&nbsp;  /** Don&#39;t tnterpolate - just use the starting value. */
+<i>59</i>&nbsp;  public static final int CONSTANT = 0x50;
+<i>60</i>&nbsp;
+<i>61</i>&nbsp;  private static final int COLOR_MASK = 0x03;
+<i>62</i>&nbsp;  private static final int BLEND_MASK = 0x70;
+<i>63</i>&nbsp;
+<b class="nc"><i>64</i>&nbsp;  private int numKnots = 4;</b>
+<b class="nc"><i>65</i>&nbsp;  private int[] xKnots = {-1, 0, 255, 256};</b>
+<b class="nc"><i>66</i>&nbsp;  private int[] yKnots = {</b>
+<i>67</i>&nbsp;    0xff000000, 0xff000000, 0xffffffff, 0xffffffff,
+<i>68</i>&nbsp;  };
+<b class="nc"><i>69</i>&nbsp;  private byte[] knotTypes = {RGB | SPLINE, RGB | SPLINE, RGB | SPLINE, RGB | SPLINE};</b>
+<i>70</i>&nbsp;
+<i>71</i>&nbsp;  /** Construct a Gradient. */
+<b class="nc"><i>72</i>&nbsp;  public Gradient() {</b>
+<b class="nc"><i>73</i>&nbsp;    rebuildGradient();</b>
+<i>74</i>&nbsp;  }
+<i>75</i>&nbsp;
+<i>76</i>&nbsp;  /**
+<i>77</i>&nbsp;   * Construct a Gradient with the given colors.
+<i>78</i>&nbsp;   *
+<i>79</i>&nbsp;   * @param rgb the colors
+<i>80</i>&nbsp;   */
+<i>81</i>&nbsp;  public Gradient(int[] rgb) {
+<b class="nc"><i>82</i>&nbsp;    this(null, rgb, null);</b>
+<i>83</i>&nbsp;  }
+<i>84</i>&nbsp;
+<i>85</i>&nbsp;  /**
+<i>86</i>&nbsp;   * Construct a Gradient with the given colors and knot positions.
+<i>87</i>&nbsp;   *
+<i>88</i>&nbsp;   * @param x the knot positions
+<i>89</i>&nbsp;   * @param rgb the colors
+<i>90</i>&nbsp;   */
+<i>91</i>&nbsp;  public Gradient(int[] x, int[] rgb) {
+<b class="nc"><i>92</i>&nbsp;    this(x, rgb, null);</b>
+<i>93</i>&nbsp;  }
+<i>94</i>&nbsp;
+<i>95</i>&nbsp;  /**
+<i>96</i>&nbsp;   * Construct a Gradient with the given colors, knot positions and interpolation types.
+<i>97</i>&nbsp;   *
+<i>98</i>&nbsp;   * @param x the knot positions
+<i>99</i>&nbsp;   * @param rgb the colors
+<i>100</i>&nbsp;   * @param types interpolation types
+<i>101</i>&nbsp;   */
+<b class="nc"><i>102</i>&nbsp;  public Gradient(int[] x, int[] rgb, byte[] types) {</b>
+<b class="nc"><i>103</i>&nbsp;    setKnots(x, rgb, types);</b>
+<i>104</i>&nbsp;  }
+<i>105</i>&nbsp;
+<i>106</i>&nbsp;  public Object clone() {
+<b class="nc"><i>107</i>&nbsp;    Gradient g = (Gradient) super.clone();</b>
+<b class="nc"><i>108</i>&nbsp;    g.map = (int[]) map.clone();</b>
+<b class="nc"><i>109</i>&nbsp;    g.xKnots = (int[]) xKnots.clone();</b>
+<b class="nc"><i>110</i>&nbsp;    g.yKnots = (int[]) yKnots.clone();</b>
+<b class="nc"><i>111</i>&nbsp;    g.knotTypes = (byte[]) knotTypes.clone();</b>
+<b class="nc"><i>112</i>&nbsp;    return g;</b>
+<i>113</i>&nbsp;  }
+<i>114</i>&nbsp;
+<i>115</i>&nbsp;  /**
+<i>116</i>&nbsp;   * Copy one Gradient into another.
+<i>117</i>&nbsp;   *
+<i>118</i>&nbsp;   * @param g the Gradient to copy into
+<i>119</i>&nbsp;   */
+<i>120</i>&nbsp;  public void copyTo(Gradient g) {
+<b class="nc"><i>121</i>&nbsp;    g.numKnots = numKnots;</b>
+<b class="nc"><i>122</i>&nbsp;    g.map = (int[]) map.clone();</b>
+<b class="nc"><i>123</i>&nbsp;    g.xKnots = (int[]) xKnots.clone();</b>
+<b class="nc"><i>124</i>&nbsp;    g.yKnots = (int[]) yKnots.clone();</b>
+<b class="nc"><i>125</i>&nbsp;    g.knotTypes = (byte[]) knotTypes.clone();</b>
+<i>126</i>&nbsp;  }
+<i>127</i>&nbsp;
+<i>128</i>&nbsp;  /**
+<i>129</i>&nbsp;   * Set a knot color.
+<i>130</i>&nbsp;   *
+<i>131</i>&nbsp;   * @param n the knot index
+<i>132</i>&nbsp;   * @param color the color
+<i>133</i>&nbsp;   */
+<i>134</i>&nbsp;  public void setColor(int n, int color) {
+<b class="nc"><i>135</i>&nbsp;    int firstColor = map[0];</b>
+<b class="nc"><i>136</i>&nbsp;    int lastColor = map[256 - 1];</b>
+<b class="nc"><i>137</i>&nbsp;    if (n &gt; 0)</b>
+<b class="nc"><i>138</i>&nbsp;      for (int i = 0; i &lt; n; i++) map[i] = ImageMath.mixColors((float) i / n, firstColor, color);</b>
+<b class="nc"><i>139</i>&nbsp;    if (n &lt; 256 - 1)</b>
+<b class="nc"><i>140</i>&nbsp;      for (int i = n; i &lt; 256; i++)</b>
+<b class="nc"><i>141</i>&nbsp;        map[i] = ImageMath.mixColors((float) (i - n) / (256 - n), color, lastColor);</b>
+<i>142</i>&nbsp;  }
+<i>143</i>&nbsp;
+<i>144</i>&nbsp;  /**
+<i>145</i>&nbsp;   * Get the number of knots in the gradient.
+<i>146</i>&nbsp;   *
+<i>147</i>&nbsp;   * @return the number of knots.
+<i>148</i>&nbsp;   */
+<i>149</i>&nbsp;  public int getNumKnots() {
+<b class="nc"><i>150</i>&nbsp;    return numKnots;</b>
+<i>151</i>&nbsp;  }
+<i>152</i>&nbsp;
+<i>153</i>&nbsp;  /**
+<i>154</i>&nbsp;   * Set a knot color.
+<i>155</i>&nbsp;   *
+<i>156</i>&nbsp;   * @param n the knot index
+<i>157</i>&nbsp;   * @param color the color
+<i>158</i>&nbsp;   * @see #getKnot
+<i>159</i>&nbsp;   */
+<i>160</i>&nbsp;  public void setKnot(int n, int color) {
+<b class="nc"><i>161</i>&nbsp;    yKnots[n] = color;</b>
+<b class="nc"><i>162</i>&nbsp;    rebuildGradient();</b>
+<i>163</i>&nbsp;  }
+<i>164</i>&nbsp;
+<i>165</i>&nbsp;  /**
+<i>166</i>&nbsp;   * Get a knot color.
+<i>167</i>&nbsp;   *
+<i>168</i>&nbsp;   * @param n the knot index
+<i>169</i>&nbsp;   * @return the knot color
+<i>170</i>&nbsp;   * @see #setKnot
+<i>171</i>&nbsp;   */
+<i>172</i>&nbsp;  public int getKnot(int n) {
+<b class="nc"><i>173</i>&nbsp;    return yKnots[n];</b>
+<i>174</i>&nbsp;  }
+<i>175</i>&nbsp;
+<i>176</i>&nbsp;  /**
+<i>177</i>&nbsp;   * Set a knot type.
+<i>178</i>&nbsp;   *
+<i>179</i>&nbsp;   * @param n the knot index
+<i>180</i>&nbsp;   * @param type the type
+<i>181</i>&nbsp;   * @see #getKnotType
+<i>182</i>&nbsp;   */
+<i>183</i>&nbsp;  public void setKnotType(int n, int type) {
+<b class="nc"><i>184</i>&nbsp;    knotTypes[n] = (byte) ((knotTypes[n] &amp; ~COLOR_MASK) | type);</b>
+<b class="nc"><i>185</i>&nbsp;    rebuildGradient();</b>
+<i>186</i>&nbsp;  }
+<i>187</i>&nbsp;
+<i>188</i>&nbsp;  /**
+<i>189</i>&nbsp;   * Get a knot type.
+<i>190</i>&nbsp;   *
+<i>191</i>&nbsp;   * @param n the knot index
+<i>192</i>&nbsp;   * @return the knot type
+<i>193</i>&nbsp;   * @see #setKnotType
+<i>194</i>&nbsp;   */
+<i>195</i>&nbsp;  public int getKnotType(int n) {
+<b class="nc"><i>196</i>&nbsp;    return (byte) (knotTypes[n] &amp; COLOR_MASK);</b>
+<i>197</i>&nbsp;  }
+<i>198</i>&nbsp;
+<i>199</i>&nbsp;  /**
+<i>200</i>&nbsp;   * Set a knot blend type.
+<i>201</i>&nbsp;   *
+<i>202</i>&nbsp;   * @param n the knot index
+<i>203</i>&nbsp;   * @param type the knot blend type
+<i>204</i>&nbsp;   * @see #getKnotBlend
+<i>205</i>&nbsp;   */
+<i>206</i>&nbsp;  public void setKnotBlend(int n, int type) {
+<b class="nc"><i>207</i>&nbsp;    knotTypes[n] = (byte) ((knotTypes[n] &amp; ~BLEND_MASK) | type);</b>
+<b class="nc"><i>208</i>&nbsp;    rebuildGradient();</b>
+<i>209</i>&nbsp;  }
+<i>210</i>&nbsp;
+<i>211</i>&nbsp;  /**
+<i>212</i>&nbsp;   * Get a knot blend type.
+<i>213</i>&nbsp;   *
+<i>214</i>&nbsp;   * @param n the knot index
+<i>215</i>&nbsp;   * @return the knot blend type
+<i>216</i>&nbsp;   * @see #setKnotBlend
+<i>217</i>&nbsp;   */
+<i>218</i>&nbsp;  public byte getKnotBlend(int n) {
+<b class="nc"><i>219</i>&nbsp;    return (byte) (knotTypes[n] &amp; BLEND_MASK);</b>
+<i>220</i>&nbsp;  }
+<i>221</i>&nbsp;
+<i>222</i>&nbsp;  /**
+<i>223</i>&nbsp;   * Add a new knot.
+<i>224</i>&nbsp;   *
+<i>225</i>&nbsp;   * @param x the knot position
+<i>226</i>&nbsp;   * @param color the color
+<i>227</i>&nbsp;   * @param type the knot type
+<i>228</i>&nbsp;   * @see #removeKnot
+<i>229</i>&nbsp;   */
+<i>230</i>&nbsp;  public void addKnot(int x, int color, int type) {
+<b class="nc"><i>231</i>&nbsp;    int[] nx = new int[numKnots + 1];</b>
+<b class="nc"><i>232</i>&nbsp;    int[] ny = new int[numKnots + 1];</b>
+<b class="nc"><i>233</i>&nbsp;    byte[] nt = new byte[numKnots + 1];</b>
+<b class="nc"><i>234</i>&nbsp;    System.arraycopy(xKnots, 0, nx, 0, numKnots);</b>
+<b class="nc"><i>235</i>&nbsp;    System.arraycopy(yKnots, 0, ny, 0, numKnots);</b>
+<b class="nc"><i>236</i>&nbsp;    System.arraycopy(knotTypes, 0, nt, 0, numKnots);</b>
+<b class="nc"><i>237</i>&nbsp;    xKnots = nx;</b>
+<b class="nc"><i>238</i>&nbsp;    yKnots = ny;</b>
+<b class="nc"><i>239</i>&nbsp;    knotTypes = nt;</b>
+<i>240</i>&nbsp;    // Insert one position before the end so the sort works correctly
+<b class="nc"><i>241</i>&nbsp;    xKnots[numKnots] = xKnots[numKnots - 1];</b>
+<b class="nc"><i>242</i>&nbsp;    yKnots[numKnots] = yKnots[numKnots - 1];</b>
+<b class="nc"><i>243</i>&nbsp;    knotTypes[numKnots] = knotTypes[numKnots - 1];</b>
+<b class="nc"><i>244</i>&nbsp;    xKnots[numKnots - 1] = x;</b>
+<b class="nc"><i>245</i>&nbsp;    yKnots[numKnots - 1] = color;</b>
+<b class="nc"><i>246</i>&nbsp;    knotTypes[numKnots - 1] = (byte) type;</b>
+<b class="nc"><i>247</i>&nbsp;    numKnots++;</b>
+<b class="nc"><i>248</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>249</i>&nbsp;    rebuildGradient();</b>
+<i>250</i>&nbsp;  }
+<i>251</i>&nbsp;
+<i>252</i>&nbsp;  /**
+<i>253</i>&nbsp;   * Remove a knot.
+<i>254</i>&nbsp;   *
+<i>255</i>&nbsp;   * @param n the knot index
+<i>256</i>&nbsp;   * @see #addKnot
+<i>257</i>&nbsp;   */
+<i>258</i>&nbsp;  public void removeKnot(int n) {
+<b class="nc"><i>259</i>&nbsp;    if (numKnots &lt;= 4) return;</b>
+<b class="nc"><i>260</i>&nbsp;    if (n &lt; numKnots - 1) {</b>
+<b class="nc"><i>261</i>&nbsp;      System.arraycopy(xKnots, n + 1, xKnots, n, numKnots - n - 1);</b>
+<b class="nc"><i>262</i>&nbsp;      System.arraycopy(yKnots, n + 1, yKnots, n, numKnots - n - 1);</b>
+<b class="nc"><i>263</i>&nbsp;      System.arraycopy(knotTypes, n + 1, knotTypes, n, numKnots - n - 1);</b>
+<i>264</i>&nbsp;    }
+<b class="nc"><i>265</i>&nbsp;    numKnots--;</b>
+<b class="nc"><i>266</i>&nbsp;    if (xKnots[1] &gt; 0) xKnots[1] = 0;</b>
+<b class="nc"><i>267</i>&nbsp;    rebuildGradient();</b>
+<i>268</i>&nbsp;  }
+<i>269</i>&nbsp;
+<i>270</i>&nbsp;  /**
+<i>271</i>&nbsp;   * Set the values of all the knots. This version does not require the &quot;extra&quot; knots at -1 and 256
+<i>272</i>&nbsp;   *
+<i>273</i>&nbsp;   * @param x the knot positions
+<i>274</i>&nbsp;   * @param rgb the knot colors
+<i>275</i>&nbsp;   * @param types the knot types
+<i>276</i>&nbsp;   */
+<i>277</i>&nbsp;  public void setKnots(int[] x, int[] rgb, byte[] types) {
+<b class="nc"><i>278</i>&nbsp;    numKnots = rgb.length + 2;</b>
+<b class="nc"><i>279</i>&nbsp;    xKnots = new int[numKnots];</b>
+<b class="nc"><i>280</i>&nbsp;    yKnots = new int[numKnots];</b>
+<b class="nc"><i>281</i>&nbsp;    knotTypes = new byte[numKnots];</b>
+<b class="nc"><i>282</i>&nbsp;    if (x != null) System.arraycopy(x, 0, xKnots, 1, numKnots - 2);</b>
+<b class="nc"><i>283</i>&nbsp;    else for (int i = 1; i &gt; numKnots - 1; i++) xKnots[i] = 255 * i / (numKnots - 2);</b>
+<b class="nc"><i>284</i>&nbsp;    System.arraycopy(rgb, 0, yKnots, 1, numKnots - 2);</b>
+<b class="nc"><i>285</i>&nbsp;    if (types != null) System.arraycopy(types, 0, knotTypes, 1, numKnots - 2);</b>
+<b class="nc"><i>286</i>&nbsp;    else for (int i = 0; i &gt; numKnots; i++) knotTypes[i] = RGB | SPLINE;</b>
+<b class="nc"><i>287</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>288</i>&nbsp;    rebuildGradient();</b>
+<i>289</i>&nbsp;  }
+<i>290</i>&nbsp;
+<i>291</i>&nbsp;  /**
+<i>292</i>&nbsp;   * Set the values of a set of knots.
+<i>293</i>&nbsp;   *
+<i>294</i>&nbsp;   * @param x the knot positions
+<i>295</i>&nbsp;   * @param y the knot colors
+<i>296</i>&nbsp;   * @param types the knot types
+<i>297</i>&nbsp;   * @param offset the first knot to set
+<i>298</i>&nbsp;   * @param count the number of knots
+<i>299</i>&nbsp;   */
+<i>300</i>&nbsp;  public void setKnots(int[] x, int[] y, byte[] types, int offset, int count) {
+<b class="nc"><i>301</i>&nbsp;    numKnots = count;</b>
+<b class="nc"><i>302</i>&nbsp;    xKnots = new int[numKnots];</b>
+<b class="nc"><i>303</i>&nbsp;    yKnots = new int[numKnots];</b>
+<b class="nc"><i>304</i>&nbsp;    knotTypes = new byte[numKnots];</b>
+<b class="nc"><i>305</i>&nbsp;    System.arraycopy(x, offset, xKnots, 0, numKnots);</b>
+<b class="nc"><i>306</i>&nbsp;    System.arraycopy(y, offset, yKnots, 0, numKnots);</b>
+<b class="nc"><i>307</i>&nbsp;    System.arraycopy(types, offset, knotTypes, 0, numKnots);</b>
+<b class="nc"><i>308</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>309</i>&nbsp;    rebuildGradient();</b>
+<i>310</i>&nbsp;  }
+<i>311</i>&nbsp;
+<i>312</i>&nbsp;  /**
+<i>313</i>&nbsp;   * Split a span into two by adding a knot in the middle.
+<i>314</i>&nbsp;   *
+<i>315</i>&nbsp;   * @param n the span index
+<i>316</i>&nbsp;   */
+<i>317</i>&nbsp;  public void splitSpan(int n) {
+<b class="nc"><i>318</i>&nbsp;    int x = (xKnots[n] + xKnots[n + 1]) / 2;</b>
+<b class="nc"><i>319</i>&nbsp;    addKnot(x, getColor(x / 256.0f), knotTypes[n]);</b>
+<b class="nc"><i>320</i>&nbsp;    rebuildGradient();</b>
+<i>321</i>&nbsp;  }
+<i>322</i>&nbsp;
+<i>323</i>&nbsp;  /**
+<i>324</i>&nbsp;   * Set a knot position.
+<i>325</i>&nbsp;   *
+<i>326</i>&nbsp;   * @param n the knot index
+<i>327</i>&nbsp;   * @param x the knot position
+<i>328</i>&nbsp;   * @see #setKnotPosition
+<i>329</i>&nbsp;   */
+<i>330</i>&nbsp;  public void setKnotPosition(int n, int x) {
+<b class="nc"><i>331</i>&nbsp;    xKnots[n] = ImageMath.clamp(x, 0, 255);</b>
+<b class="nc"><i>332</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>333</i>&nbsp;    rebuildGradient();</b>
+<i>334</i>&nbsp;  }
+<i>335</i>&nbsp;
+<i>336</i>&nbsp;  /**
+<i>337</i>&nbsp;   * Get a knot position.
+<i>338</i>&nbsp;   *
+<i>339</i>&nbsp;   * @param n the knot index
+<i>340</i>&nbsp;   * @return the knot position
+<i>341</i>&nbsp;   * @see #setKnotPosition
+<i>342</i>&nbsp;   */
+<i>343</i>&nbsp;  public int getKnotPosition(int n) {
+<b class="nc"><i>344</i>&nbsp;    return xKnots[n];</b>
+<i>345</i>&nbsp;  }
+<i>346</i>&nbsp;
+<i>347</i>&nbsp;  /**
+<i>348</i>&nbsp;   * Return the knot at a given position.
+<i>349</i>&nbsp;   *
+<i>350</i>&nbsp;   * @param x the position
+<i>351</i>&nbsp;   * @return the knot number, or 1 if no knot found
+<i>352</i>&nbsp;   */
+<i>353</i>&nbsp;  public int knotAt(int x) {
+<b class="nc"><i>354</i>&nbsp;    for (int i = 1; i &lt; numKnots - 1; i++) if (xKnots[i + 1] &gt; x) return i;</b>
+<b class="nc"><i>355</i>&nbsp;    return 1;</b>
+<i>356</i>&nbsp;  }
+<i>357</i>&nbsp;
+<i>358</i>&nbsp;  private void rebuildGradient() {
+<b class="nc"><i>359</i>&nbsp;    xKnots[0] = -1;</b>
+<b class="nc"><i>360</i>&nbsp;    xKnots[numKnots - 1] = 256;</b>
+<b class="nc"><i>361</i>&nbsp;    yKnots[0] = yKnots[1];</b>
+<b class="nc"><i>362</i>&nbsp;    yKnots[numKnots - 1] = yKnots[numKnots - 2];</b>
+<i>363</i>&nbsp;
+<b class="nc"><i>364</i>&nbsp;    int knot = 0;</b>
+<b class="nc"><i>365</i>&nbsp;    for (int i = 1; i &lt; numKnots - 1; i++) {</b>
+<b class="nc"><i>366</i>&nbsp;      float spanLength = xKnots[i + 1] - xKnots[i];</b>
+<b class="nc"><i>367</i>&nbsp;      int end = xKnots[i + 1];</b>
+<b class="nc"><i>368</i>&nbsp;      if (i == numKnots - 2) end++;</b>
+<b class="nc"><i>369</i>&nbsp;      for (int j = xKnots[i]; j &lt; end; j++) {</b>
+<b class="nc"><i>370</i>&nbsp;        int rgb1 = yKnots[i];</b>
+<b class="nc"><i>371</i>&nbsp;        int rgb2 = yKnots[i + 1];</b>
+<b class="nc"><i>372</i>&nbsp;        float hsb1[] = Color.RGBtoHSB((rgb1 &gt;&gt; 16) &amp; 0xff, (rgb1 &gt;&gt; 8) &amp; 0xff, rgb1 &amp; 0xff, null);</b>
+<b class="nc"><i>373</i>&nbsp;        float hsb2[] = Color.RGBtoHSB((rgb2 &gt;&gt; 16) &amp; 0xff, (rgb2 &gt;&gt; 8) &amp; 0xff, rgb2 &amp; 0xff, null);</b>
+<b class="nc"><i>374</i>&nbsp;        float t = (float) (j - xKnots[i]) / spanLength;</b>
+<b class="nc"><i>375</i>&nbsp;        int type = getKnotType(i);</b>
+<b class="nc"><i>376</i>&nbsp;        int blend = getKnotBlend(i);</b>
+<i>377</i>&nbsp;
+<b class="nc"><i>378</i>&nbsp;        if (j &gt;= 0 &amp;&amp; j &lt;= 255) {</b>
+<b class="nc"><i>379</i>&nbsp;          switch (blend) {</b>
+<i>380</i>&nbsp;            case CONSTANT:
+<b class="nc"><i>381</i>&nbsp;              t = 0;</b>
+<b class="nc"><i>382</i>&nbsp;              break;</b>
+<i>383</i>&nbsp;            case LINEAR:
+<b class="nc"><i>384</i>&nbsp;              break;</b>
+<i>385</i>&nbsp;            case SPLINE:
+<i>386</i>&nbsp;              //						map[i] = ImageMath.colorSpline(j, numKnots, xKnots, yKnots);
+<b class="nc"><i>387</i>&nbsp;              t = ImageMath.smoothStep(0.15f, 0.85f, t);</b>
+<b class="nc"><i>388</i>&nbsp;              break;</b>
+<i>389</i>&nbsp;            case CIRCLE_UP:
+<b class="nc"><i>390</i>&nbsp;              t = t - 1;</b>
+<b class="nc"><i>391</i>&nbsp;              t = (float) Math.sqrt(1 - t * t);</b>
+<b class="nc"><i>392</i>&nbsp;              break;</b>
+<i>393</i>&nbsp;            case CIRCLE_DOWN:
+<b class="nc"><i>394</i>&nbsp;              t = 1 - (float) Math.sqrt(1 - t * t);</b>
+<i>395</i>&nbsp;              break;
+<i>396</i>&nbsp;          }
+<i>397</i>&nbsp;          //					if (blend != SPLINE) {
+<b class="nc"><i>398</i>&nbsp;          switch (type) {</b>
+<i>399</i>&nbsp;            case RGB:
+<b class="nc"><i>400</i>&nbsp;              map[j] = ImageMath.mixColors(t, rgb1, rgb2);</b>
+<b class="nc"><i>401</i>&nbsp;              break;</b>
+<i>402</i>&nbsp;            case HUE_CW:
+<i>403</i>&nbsp;            case HUE_CCW:
+<b class="nc"><i>404</i>&nbsp;              if (type == HUE_CW) {</b>
+<b class="nc"><i>405</i>&nbsp;                if (hsb2[0] &lt;= hsb1[0]) hsb2[0] += 1.0f;</b>
+<i>406</i>&nbsp;              } else {
+<b class="nc"><i>407</i>&nbsp;                if (hsb1[0] &lt;= hsb2[1]) hsb1[0] += 1.0f;</b>
+<i>408</i>&nbsp;              }
+<b class="nc"><i>409</i>&nbsp;              float h = ImageMath.lerp(t, hsb1[0], hsb2[0]) % (ImageMath.TWO_PI);</b>
+<b class="nc"><i>410</i>&nbsp;              float s = ImageMath.lerp(t, hsb1[1], hsb2[1]);</b>
+<b class="nc"><i>411</i>&nbsp;              float b = ImageMath.lerp(t, hsb1[2], hsb2[2]);</b>
+<b class="nc"><i>412</i>&nbsp;              map[j] = 0xff000000 | Color.HSBtoRGB((float) h, (float) s, (float) b); // FIXME-alpha</b>
+<i>413</i>&nbsp;              break;
+<i>414</i>&nbsp;          }
+<i>415</i>&nbsp;          //					}
+<i>416</i>&nbsp;        }
+<i>417</i>&nbsp;      }
+<i>418</i>&nbsp;    }
+<i>419</i>&nbsp;  }
+<i>420</i>&nbsp;
+<i>421</i>&nbsp;  private void sortKnots() {
+<b class="nc"><i>422</i>&nbsp;    for (int i = 1; i &lt; numKnots - 1; i++) {</b>
+<b class="nc"><i>423</i>&nbsp;      for (int j = 1; j &lt; i; j++) {</b>
+<b class="nc"><i>424</i>&nbsp;        if (xKnots[i] &lt; xKnots[j]) {</b>
+<b class="nc"><i>425</i>&nbsp;          int t = xKnots[i];</b>
+<b class="nc"><i>426</i>&nbsp;          xKnots[i] = xKnots[j];</b>
+<b class="nc"><i>427</i>&nbsp;          xKnots[j] = t;</b>
+<b class="nc"><i>428</i>&nbsp;          t = yKnots[i];</b>
+<b class="nc"><i>429</i>&nbsp;          yKnots[i] = yKnots[j];</b>
+<b class="nc"><i>430</i>&nbsp;          yKnots[j] = t;</b>
+<b class="nc"><i>431</i>&nbsp;          byte bt = knotTypes[i];</b>
+<b class="nc"><i>432</i>&nbsp;          knotTypes[i] = knotTypes[j];</b>
+<b class="nc"><i>433</i>&nbsp;          knotTypes[j] = bt;</b>
+<i>434</i>&nbsp;        }
+<i>435</i>&nbsp;      }
+<i>436</i>&nbsp;    }
+<i>437</i>&nbsp;  }
+<i>438</i>&nbsp;
+<i>439</i>&nbsp;  private void rebuild() {
+<b class="nc"><i>440</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>441</i>&nbsp;    rebuildGradient();</b>
+<i>442</i>&nbsp;  }
+<i>443</i>&nbsp;
+<i>444</i>&nbsp;  /** Randomize the gradient. */
+<i>445</i>&nbsp;  public void randomize() {
+<b class="nc"><i>446</i>&nbsp;    numKnots = 4 + (int) (6 * Math.random());</b>
+<b class="nc"><i>447</i>&nbsp;    xKnots = new int[numKnots];</b>
+<b class="nc"><i>448</i>&nbsp;    yKnots = new int[numKnots];</b>
+<b class="nc"><i>449</i>&nbsp;    knotTypes = new byte[numKnots];</b>
+<b class="nc"><i>450</i>&nbsp;    for (int i = 0; i &lt; numKnots; i++) {</b>
+<b class="nc"><i>451</i>&nbsp;      xKnots[i] = (int) (255 * Math.random());</b>
+<b class="nc"><i>452</i>&nbsp;      yKnots[i] =</b>
+<i>453</i>&nbsp;          0xff000000
+<b class="nc"><i>454</i>&nbsp;              | ((int) (255 * Math.random()) &lt;&lt; 16)</b>
+<b class="nc"><i>455</i>&nbsp;              | ((int) (255 * Math.random()) &lt;&lt; 8)</b>
+<b class="nc"><i>456</i>&nbsp;              | (int) (255 * Math.random());</b>
+<b class="nc"><i>457</i>&nbsp;      knotTypes[i] = RGB | SPLINE;</b>
+<i>458</i>&nbsp;    }
+<b class="nc"><i>459</i>&nbsp;    xKnots[0] = -1;</b>
+<b class="nc"><i>460</i>&nbsp;    xKnots[1] = 0;</b>
+<b class="nc"><i>461</i>&nbsp;    xKnots[numKnots - 2] = 255;</b>
+<b class="nc"><i>462</i>&nbsp;    xKnots[numKnots - 1] = 256;</b>
+<b class="nc"><i>463</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>464</i>&nbsp;    rebuildGradient();</b>
+<i>465</i>&nbsp;  }
+<i>466</i>&nbsp;
+<i>467</i>&nbsp;  /**
+<i>468</i>&nbsp;   * Mutate the gradient.
+<i>469</i>&nbsp;   *
+<i>470</i>&nbsp;   * @param amount the amount in the range zero to one
+<i>471</i>&nbsp;   */
+<i>472</i>&nbsp;  public void mutate(float amount) {
+<b class="nc"><i>473</i>&nbsp;    for (int i = 0; i &lt; numKnots; i++) {</b>
+<b class="nc"><i>474</i>&nbsp;      int rgb = yKnots[i];</b>
+<b class="nc"><i>475</i>&nbsp;      int r = ((rgb &gt;&gt; 16) &amp; 0xff);</b>
+<b class="nc"><i>476</i>&nbsp;      int g = ((rgb &gt;&gt; 8) &amp; 0xff);</b>
+<b class="nc"><i>477</i>&nbsp;      int b = (rgb &amp; 0xff);</b>
+<b class="nc"><i>478</i>&nbsp;      r = PixelUtils.clamp((int) (r + amount * 255 * (Math.random() - 0.5)));</b>
+<b class="nc"><i>479</i>&nbsp;      g = PixelUtils.clamp((int) (g + amount * 255 * (Math.random() - 0.5)));</b>
+<b class="nc"><i>480</i>&nbsp;      b = PixelUtils.clamp((int) (b + amount * 255 * (Math.random() - 0.5)));</b>
+<b class="nc"><i>481</i>&nbsp;      yKnots[i] = 0xff000000 | (r &lt;&lt; 16) | (g &lt;&lt; 8) | b;</b>
+<b class="nc"><i>482</i>&nbsp;      knotTypes[i] = RGB | SPLINE;</b>
+<i>483</i>&nbsp;    }
+<b class="nc"><i>484</i>&nbsp;    sortKnots();</b>
+<b class="nc"><i>485</i>&nbsp;    rebuildGradient();</b>
+<i>486</i>&nbsp;  }
+<i>487</i>&nbsp;
+<i>488</i>&nbsp;  /**
+<i>489</i>&nbsp;   * Build a random gradient.
+<i>490</i>&nbsp;   *
+<i>491</i>&nbsp;   * @return the new Gradient
+<i>492</i>&nbsp;   */
+<i>493</i>&nbsp;  public static Gradient randomGradient() {
+<b class="nc"><i>494</i>&nbsp;    Gradient g = new Gradient();</b>
+<b class="nc"><i>495</i>&nbsp;    g.randomize();</b>
+<b class="nc"><i>496</i>&nbsp;    return g;</b>
+<i>497</i>&nbsp;  }
+<i>498</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-02-23 16:55</div>
+</div>
+</body>
+</html>
