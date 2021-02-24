@@ -3,10 +3,12 @@ package edu.cmu.cs.mvelezce.joana.slicer.sdg.build;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.util.CancelException;
 import com.ibm.wala.util.graph.GraphIntegrity;
+import edu.cmu.cs.mvelezce.joana.slicer.coverage.CoverageReportParser;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Map;
 
 class SDGBuilderTest {
 
@@ -142,20 +144,40 @@ class SDGBuilderTest {
         USER_HOME
             + "/Documents/programming/java/projects/perf-debug-systems/density-converter/target/classes";
     String entryMethod = "at.favre.tools.dconvert.Convert.main([Ljava/lang/String;)V";
-    String exclusions =
-        "at\\/favre\\/tools\\/dconvert\\/converters\\/IOSConverter\n"
-            + "at\\/favre\\/tools\\/dconvert\\/converters\\/WebConverter\n"
-            + "at\\/favre\\/tools\\/dconvert\\/converters\\/scaling\\/NaiveGraphics2dAlgorithm\n"
-            + "at\\/favre\\/tools\\/dconvert\\/converters\\/scaling\\/ProgressiveAlgorithm\n"
-            + "at\\/favre\\/tools\\/dconvert\\/converters\\/WindowsConverter\n"
-            + "at\\/favre\\/tools\\/dconvert\\/util\\/NinePatchScaler\n"
+    String exclusions = this.getExclusions(programName, 6);
+    exclusions +=
+        "at\\/favre\\/tools\\/dconvert\\/converters\\/scaling\\/ProgressiveAlgorithm\n"
             + "java\\/io\\/.*\n"
             + "java\\/security\\/.*\n"
             + "java\\/util\\/concurrent\\/.*\n"
             + "java\\/util\\/HashMap\n"
             + "java\\/util\\/regex\\/.*\n";
+    exclusions =
+        exclusions.replace(
+            "at\\/favre\\/tools\\/dconvert\\/converters\\/descriptors\\/AndroidDensityDescriptor\n",
+            "");
+    exclusions =
+        exclusions.replace(
+            "at\\/favre\\/tools\\/dconvert\\/converters\\/descriptors\\/DensityDescriptor\n", "");
+    exclusions = exclusions.replace("com\\/mortennobel\\/imagescaling\\/DimensionConstrain\n", "");
     SDGBuilder builder = new SDGBuilder(programName, classPath, entryMethod, exclusions);
     SDG sdg = builder.build();
     builder.save(sdg);
+  }
+
+  private String getExclusions(String programName, int coverageThreshold) throws IOException {
+    CoverageReportParser parser = new CoverageReportParser(programName);
+    Map<String, Integer> classes2Coverages = parser.read();
+
+    StringBuilder exclusions = new StringBuilder();
+    for (Map.Entry<String, Integer> entry : classes2Coverages.entrySet()) {
+      if (entry.getValue() > coverageThreshold) {
+        continue;
+      }
+      String className = entry.getKey();
+      className = className.replace(".", "\\/");
+      exclusions.append(className).append("\n");
+    }
+    return exclusions.toString();
   }
 }

@@ -137,9 +137,9 @@ class ChopperTest {
   void density() throws IOException {
     String programName = "density";
     int sourceNode = 12;
-    //    int targetNode = 8809;
-    //        int targetNode = 13393;
-    int targetNode = 10689;
+//        int targetNode = 6636;
+//    int targetNode = 12879;
+    int targetNode = 9374;
     String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
