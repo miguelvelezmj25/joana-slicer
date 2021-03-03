@@ -62,9 +62,9 @@ class ChopperTest {
   @Test
   void main() throws IOException {
     String programName = "main";
-    int sourceNode = 5;
+    int sourceNode = 6;
     int targetNode = 22;
-    String algo = Chopper.SIMPLE_THREAD_CHOPPER_ALGO;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
     chopper.saveFilesToLines(filesToLines);
@@ -137,8 +137,8 @@ class ChopperTest {
   void density() throws IOException {
     String programName = "density";
     int sourceNode = 12;
-//        int targetNode = 6636;
-//    int targetNode = 12879;
+    //        int targetNode = 6636;
+    //    int targetNode = 12879;
     int targetNode = 9374;
     String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
