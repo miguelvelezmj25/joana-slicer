@@ -38,4 +38,9 @@ public class Lines {
   public int hashCode() {
     return Objects.hashCode(startLineNumber, endLineNumber);
   }
+
+  @Override
+  public String toString() {
+    return String.valueOf(startLineNumber);
+  }
 }

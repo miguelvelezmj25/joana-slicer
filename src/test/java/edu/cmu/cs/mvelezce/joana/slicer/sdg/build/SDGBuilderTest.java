@@ -35,6 +35,27 @@ class SDGBuilderTest {
   }
 
   @Test
+  void example()
+      throws IOException, CancelException, ClassHierarchyException,
+          GraphIntegrity.UnsoundGraphException {
+    String programName = "example";
+    String classPath =
+        USER_HOME
+            + "/Documents/programming/java/projects/perf-debug-systems/perf-debug-config/target/classes";
+    String entryMethod =
+        "edu.cmu.cs.mvelezce.perf.debug.config.core.Main.main([Ljava/lang/String;)V";
+    String exclusions =
+        "java\\/io\\/.*\n"
+            + "java\\/security\\/.*\n"
+            + "java\\/util\\/concurrent\\/.*\n"
+            + "java\\/util\\/HashMap\n"
+            + "java\\/util\\/regex\\/.*\n";
+    SDGBuilder builder = new SDGBuilder(programName, classPath, entryMethod, exclusions);
+    SDG sdg = builder.build();
+    builder.save(sdg);
+  }
+
+  @Test
   void ignoreImplementations()
       throws IOException, CancelException, ClassHierarchyException,
           GraphIntegrity.UnsoundGraphException {

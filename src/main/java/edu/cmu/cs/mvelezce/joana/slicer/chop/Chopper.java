@@ -87,7 +87,7 @@ public class Chopper {
               VERY_SIMPLE_THREAD_CHOPPER_ALGO // 4.82 seconds
               ));
 
-  private static final Comparator<Lines> LINES_COMPARATOR =
+  public static final Comparator<Lines> LINES_COMPARATOR =
       Comparator.comparingInt(Lines::getStartLineNumber).thenComparing(Lines::getEndLineNumber);
 
   private final String programName;
@@ -124,19 +124,19 @@ public class Chopper {
     Set<ChopData> chopDataSet = new HashSet<>();
     Set<String> files = new TreeSet<>();
     for (SDGNode node : nodes) {
-      if(node == null) {
+      if (node == null) {
         continue;
       }
       SourceLocation sourceLocation = node.getSourceLocation();
       files.add(sourceLocation.getSourceFile());
     }
 
-    for(String file : files) {
+    for (String file : files) {
       System.out.println(file);
     }
 
     for (SDGNode node : nodes) {
-      if(node == null) {
+      if (node == null) {
         continue;
       }
       SourceLocation sourceLocation = node.getSourceLocation();
@@ -331,9 +331,9 @@ public class Chopper {
 
     Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
     for (Map.Entry<String, Set<Lines>> entry : filesToUnsortedLines.entrySet()) {
-      if(entry.getValue().size() == 1) {
+      if (entry.getValue().size() == 1) {
         Lines lines = entry.getValue().iterator().next();
-        if(lines.getStartLineNumber() == 0) {
+        if (lines.getStartLineNumber() == 0) {
           continue;
         }
       }
