@@ -16,10 +16,21 @@ class ChopperTest {
   // -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
 
   @Test
+  void example() throws IOException {
+    String programName = "example";
+    int sourceNode = 10;
+    int targetNode = 266;
+    String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
+    Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
+    Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
+    chopper.saveFilesToLines(filesToLines);
+  }
+
+  @Test
   void loop() throws IOException {
     String programName = "loop";
     int sourceNode = 5;
-    int targetNode = 104;
+    int targetNode = 272;
     String algo = Chopper.FIXED_POINT_CHOPPER_ALGO;
     Chopper chopper = getChopper(programName, sourceNode, targetNode, algo);
     Map<String, SortedSet<Lines>> filesToLines = chopper.chopAndProcess();
