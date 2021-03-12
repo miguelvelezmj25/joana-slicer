@@ -24,6 +24,8 @@ import java.util.stream.Stream;
 
 public class SlicingHandler implements HttpHandler {
 
+  private static final String SOURCE_WRAPPER_METHOD_CLASS =
+      "edu.cmu.cs.mvelezce.optionhotspot.sources.Sources";
   private static final String CHOPPING_ALGO = Chopper.FIXED_POINT_CHOPPER_ALGO;
   private static final Set<SDGNode.Kind> SOURCE_KINDS_TO_CONSIDER =
       Stream.of(SDGNode.Kind.ACTUAL_IN).collect(Collectors.toCollection(HashSet::new));
@@ -123,6 +125,10 @@ public class SlicingHandler implements HttpHandler {
 
     JSONArray connectionData = new JSONArray();
     for (Pair<String, String> connection : connections) {
+      if (connection.getKey().startsWith(SOURCE_WRAPPER_METHOD_CLASS)
+          || connection.getValue().startsWith(SOURCE_WRAPPER_METHOD_CLASS)) {
+        continue;
+      }
       JSONObject data = new JSONObject();
       data.put("source", connection.getKey());
       data.put("target", connection.getValue());
