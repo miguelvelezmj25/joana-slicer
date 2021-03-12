@@ -6,11 +6,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import edu.cmu.cs.mvelezce.joana.slicer.data.ChopData;
 import edu.cmu.cs.mvelezce.joana.slicer.data.Lines;
 import edu.kit.joana.ifc.sdg.graph.SDG;
+import edu.kit.joana.ifc.sdg.graph.SDGEdge;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
 import edu.kit.joana.ifc.sdg.graph.chopper.*;
 import edu.kit.joana.ifc.sdg.graph.chopper.barrier.*;
 import edu.kit.joana.ifc.sdg.graph.chopper.conc.*;
 import edu.kit.joana.util.SourceLocation;
+import javafx.util.Pair;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -96,6 +98,7 @@ public class Chopper {
   private final int targetNode;
   private final String algo;
   private final Set<SDGNode> barrierNodes = new HashSet<>();
+  private final Map<SDGNode, Set<SDGNode>> entryNod2ProcedureNodes;
 
   public Chopper(String programName, String algo) {
     this(programName, new SDG(), -1, -1, algo);
@@ -118,6 +121,8 @@ public class Chopper {
     this.targetNode = targetNode;
     this.algo = algo;
     this.barrierNodes.addAll(barrierNodes);
+    // Could be improved if we calculate nodes to procedures ahead of time
+    this.entryNod2ProcedureNodes = this.sdg.sortByProcedures();
   }
 
   public static Set<ChopData> parseChopData(Collection<SDGNode> nodes) {
@@ -196,6 +201,33 @@ public class Chopper {
     Collection<SDGNode> chop = this.chop();
     Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
     return Chopper.parseFilesToLines(chopDataSet);
+  }
+
+  public Set<Pair<String, String>> getProcedureConnections(Collection<SDGNode> chop) {
+    Set<Pair<String, String>> links = new HashSet<>();
+    for (SDGEdge edge : this.sdg.edgeSet()) {
+      if (!chop.contains(edge.getSource()) || !chop.contains(edge.getTarget())) {
+        continue;
+      }
+
+      SDGNode sourceNode = edge.getSource();
+      String caller = this.getProcedure(sourceNode);
+      SDGNode targetNode = edge.getTarget();
+      String callee = this.getProcedure(targetNode);
+      if (!caller.equals(callee)) {
+        links.add(new Pair<>(caller, callee));
+      }
+    }
+    return links;
+  }
+
+  private String getProcedure(SDGNode node) {
+    for (Map.Entry<SDGNode, Set<SDGNode>> entry : this.entryNod2ProcedureNodes.entrySet()) {
+      if (entry.getValue().contains(node)) {
+        return entry.getKey().getLabel();
+      }
+    }
+    throw new RuntimeException("Could not find procedure for node " + node.getId());
   }
 
   public Collection<SDGNode> chop() {

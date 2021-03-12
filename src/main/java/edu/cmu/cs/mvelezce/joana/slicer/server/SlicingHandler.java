@@ -3,11 +3,13 @@ package edu.cmu.cs.mvelezce.joana.slicer.server;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import edu.cmu.cs.mvelezce.joana.slicer.chop.Chopper;
+import edu.cmu.cs.mvelezce.joana.slicer.data.ChopData;
 import edu.cmu.cs.mvelezce.joana.slicer.data.Lines;
 import edu.cmu.cs.mvelezce.joana.slicer.sdg.read.SDGReader;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
 import edu.kit.joana.util.SourceLocation;
+import javafx.util.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -79,6 +81,7 @@ public class SlicingHandler implements HttpHandler {
     System.out.println();
 
     Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
+    Set<Pair<String, String>> connections = new HashSet<>();
     for (int sourceLine : sourceLines) {
       Set<Integer> sourceNodes =
           this.getSourceSDGNodeIds(sourceClass, sourceLine, SOURCE_KINDS_TO_CONSIDER);
@@ -89,19 +92,22 @@ public class SlicingHandler implements HttpHandler {
               "############### Source node: " + sourceNode + " - Target node: " + targetNode);
           Chopper chopper =
               new Chopper(this.programName, this.sdg, sourceNode, targetNode, CHOPPING_ALGO);
-          Map<String, SortedSet<Lines>> results = chopper.chopAndProcess();
+          Collection<SDGNode> chop = chopper.chop();
+          Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
+          Map<String, SortedSet<Lines>> results = Chopper.parseFilesToLines(chopDataSet);
           for (Map.Entry<String, SortedSet<Lines>> entry : results.entrySet()) {
             filesToLines.putIfAbsent(entry.getKey(), new TreeSet<>(Chopper.LINES_COMPARATOR));
             filesToLines.get(entry.getKey()).addAll(entry.getValue());
           }
-
           chopper.saveFilesToLines(filesToLines);
+
+          connections.addAll(chopper.getProcedureConnections(chop));
           System.out.println();
         }
       }
     }
 
-    JSONArray data = new JSONArray();
+    JSONArray sliceData = new JSONArray();
     for (Map.Entry<String, SortedSet<Lines>> entry : filesToLines.entrySet()) {
       JSONArray linesToHighlight = new JSONArray();
       for (Lines lines : entry.getValue()) {
@@ -112,11 +118,21 @@ public class SlicingHandler implements HttpHandler {
       JSONObject fileData = new JSONObject();
       fileData.put("file", entry.getKey());
       fileData.put("lines", linesToHighlight);
-      data.put(fileData);
+      sliceData.put(fileData);
     }
 
-    String dataToSend = new JSONObject().put("data", data).toString();
-    byte[] response = dataToSend.getBytes();
+    JSONArray connectionData = new JSONArray();
+    for (Pair<String, String> connection : connections) {
+      JSONObject data = new JSONObject();
+      data.put("source", connection.getKey());
+      data.put("target", connection.getValue());
+      connectionData.put(data);
+    }
+
+    JSONObject dataToSend = new JSONObject();
+    dataToSend.put("slice", sliceData);
+    dataToSend.put("connections", connectionData);
+    byte[] response = dataToSend.toString().getBytes();
     httpExchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, response.length);
     httpExchange.getResponseBody().write(response);
     httpExchange.close();
