@@ -12,7 +12,6 @@ import edu.kit.joana.ifc.sdg.graph.chopper.*;
 import edu.kit.joana.ifc.sdg.graph.chopper.barrier.*;
 import edu.kit.joana.ifc.sdg.graph.chopper.conc.*;
 import edu.kit.joana.util.SourceLocation;
-import javafx.util.Pair;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -203,8 +202,8 @@ public class Chopper {
     return Chopper.parseFilesToLines(chopDataSet);
   }
 
-  public Set<Pair<String, String>> getProcedureConnections(Collection<SDGNode> chop) {
-    Set<Pair<String, String>> links = new HashSet<>();
+  public Set<AbstractMap.SimpleEntry<String, String>> getProcedureConnections(Collection<SDGNode> chop) {
+    Set<AbstractMap.SimpleEntry<String, String>> links = new HashSet<>();
     for (SDGEdge edge : this.sdg.edgeSet()) {
       if (!chop.contains(edge.getSource()) || !chop.contains(edge.getTarget())) {
         continue;
@@ -215,7 +214,7 @@ public class Chopper {
       SDGNode targetNode = edge.getTarget();
       String callee = this.getProcedure(targetNode);
       if (!caller.equals(callee)) {
-        links.add(new Pair<>(caller, callee));
+        links.add(new AbstractMap.SimpleEntry<>(caller, callee));
       }
     }
     return links;

@@ -9,7 +9,6 @@ import edu.cmu.cs.mvelezce.joana.slicer.sdg.read.SDGReader;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
 import edu.kit.joana.util.SourceLocation;
-import javafx.util.Pair;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -83,7 +82,7 @@ public class SlicingHandler implements HttpHandler {
     System.out.println();
 
     Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
-    Set<Pair<String, String>> connections = new HashSet<>();
+    Set<AbstractMap.SimpleEntry<String, String>> connections = new HashSet<>();
     for (int sourceLine : sourceLines) {
       Set<Integer> sourceNodes =
           this.getSourceSDGNodeIds(sourceClass, sourceLine, SOURCE_KINDS_TO_CONSIDER);
@@ -124,7 +123,7 @@ public class SlicingHandler implements HttpHandler {
     }
 
     JSONArray connectionData = new JSONArray();
-    for (Pair<String, String> connection : connections) {
+    for (AbstractMap.SimpleEntry<String, String> connection : connections) {
       if (connection.getKey().startsWith(SOURCE_WRAPPER_METHOD_CLASS)
           || connection.getValue().startsWith(SOURCE_WRAPPER_METHOD_CLASS)) {
         continue;
