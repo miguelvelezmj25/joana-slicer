@@ -220,7 +220,7 @@ public class Chopper {
     return links;
   }
 
-  private String getProcedure(SDGNode node) {
+  public String getProcedure(SDGNode node) {
     for (Map.Entry<SDGNode, Set<SDGNode>> entry : this.entryNod2ProcedureNodes.entrySet()) {
       if (entry.getValue().contains(node)) {
         return entry.getKey().getLabel();

@@ -83,6 +83,7 @@ public class SlicingHandler implements HttpHandler {
 
     Map<String, SortedSet<Lines>> filesToLines = new HashMap<>();
     Set<AbstractMap.SimpleEntry<String, String>> connections = new HashSet<>();
+    Set<String> targetMethodNames = new HashSet<>();
     for (int sourceLine : sourceLines) {
       Set<Integer> sourceNodes =
           this.getSourceSDGNodeIds(sourceClass, sourceLine, SOURCE_KINDS_TO_CONSIDER);
@@ -103,6 +104,7 @@ public class SlicingHandler implements HttpHandler {
           chopper.saveFilesToLines(filesToLines);
 
           connections.addAll(chopper.getProcedureConnections(chop));
+          targetMethodNames.add(chopper.getProcedure(this.sdg.getNode(targetNode)));
           System.out.println();
         }
       }
@@ -137,6 +139,7 @@ public class SlicingHandler implements HttpHandler {
     JSONObject dataToSend = new JSONObject();
     dataToSend.put("slice", sliceData);
     dataToSend.put("connections", connectionData);
+    dataToSend.put("targetMethodName", targetMethodNames.iterator().next());
     byte[] response = dataToSend.toString().getBytes();
     httpExchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, response.length);
     httpExchange.getResponseBody().write(response);
