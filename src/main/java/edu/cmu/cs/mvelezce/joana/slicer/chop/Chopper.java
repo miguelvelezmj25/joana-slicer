@@ -98,13 +98,11 @@ public class Chopper {
   private final String algo;
   private final Set<SDGNode> barrierNodes = new HashSet<>();
   private final Map<SDGNode, Set<SDGNode>> entryNod2ProcedureNodes;
+  private final Map<String, Integer> stmtsToNotHighlight = new HashMap<>();
+  private final Set<String> excludedMethods = new HashSet<>();
 
   public Chopper(String programName, String algo) {
-    this(programName, new SDG(), -1, -1, algo);
-  }
-
-  public Chopper(String programName, SDG sdg, int sourceNode, int targetNode, String algo) {
-    this(programName, sdg, sourceNode, targetNode, algo, Collections.emptySet());
+    this(programName, new SDG(), -1, -1, algo, Collections.emptySet(), Collections.emptyMap());
   }
 
   public Chopper(
@@ -113,7 +111,28 @@ public class Chopper {
       int sourceNode,
       int targetNode,
       String algo,
-      Set<SDGNode> barrierNodes) {
+      Set<String> excludedMethods,
+      Map<String, Integer> stmtsToNotHighlight) {
+    this(
+        programName,
+        sdg,
+        sourceNode,
+        targetNode,
+        algo,
+        Collections.emptySet(),
+        excludedMethods,
+        stmtsToNotHighlight);
+  }
+
+  public Chopper(
+      String programName,
+      SDG sdg,
+      int sourceNode,
+      int targetNode,
+      String algo,
+      Set<SDGNode> barrierNodes,
+      Set<String> excludedMethods,
+      Map<String, Integer> stmtsToNotHighlight) {
     this.programName = programName;
     this.sdg = sdg;
     this.sourceNode = sourceNode;
@@ -122,39 +141,8 @@ public class Chopper {
     this.barrierNodes.addAll(barrierNodes);
     // Could be improved if we calculate nodes to procedures ahead of time
     this.entryNod2ProcedureNodes = this.sdg.sortByProcedures();
-  }
-
-  public static Set<ChopData> parseChopData(Collection<SDGNode> nodes) {
-    Set<ChopData> chopDataSet = new HashSet<>();
-    Set<String> files = new TreeSet<>();
-    for (SDGNode node : nodes) {
-      if (node == null) {
-        continue;
-      }
-      SourceLocation sourceLocation = node.getSourceLocation();
-      files.add(sourceLocation.getSourceFile());
-    }
-
-    for (String file : files) {
-      System.out.println(file);
-    }
-
-    for (SDGNode node : nodes) {
-      if (node == null) {
-        continue;
-      }
-      SourceLocation sourceLocation = node.getSourceLocation();
-      String file = sourceLocation.getSourceFile();
-      if (file.startsWith("java/")
-          || file.startsWith("javax/")
-          || file.startsWith("com/ibm/wala")) {
-        continue;
-      }
-      ChopData chopData =
-          new ChopData(file, sourceLocation.getStartRow(), sourceLocation.getEndRow());
-      chopDataSet.add(chopData);
-    }
-    return chopDataSet;
+    this.excludedMethods.addAll(excludedMethods);
+    this.stmtsToNotHighlight.putAll(stmtsToNotHighlight);
   }
 
   public static Set<SDGNode> getNodes(SDG sdg, Set<Integer> nodeIds) {
@@ -196,13 +184,71 @@ public class Chopper {
     return filesToLines;
   }
 
+  public Set<ChopData> parseChopData(Collection<SDGNode> nodes) {
+    Set<ChopData> chopDataSet = new HashSet<>();
+    Set<String> files = new TreeSet<>();
+    for (SDGNode node : nodes) {
+      if (node == null) {
+        continue;
+      }
+      SourceLocation sourceLocation = node.getSourceLocation();
+      files.add(sourceLocation.getSourceFile());
+    }
+
+    for (String file : files) {
+      System.out.println(file);
+    }
+
+    for (SDGNode node : nodes) {
+      if (node == null) {
+        continue;
+      }
+      SourceLocation sourceLocation = node.getSourceLocation();
+      String file = sourceLocation.getSourceFile();
+      if (file.startsWith("java/")
+          || file.startsWith("javax/")
+          || file.startsWith("com/ibm/wala")) {
+        continue;
+      }
+
+      String method = this.getProcedure(node);
+      boolean skipMethod = false;
+      for (String excludedMethod : this.excludedMethods) {
+        if (method.startsWith(excludedMethod)) {
+          skipMethod = true;
+          break;
+        }
+      }
+      if (skipMethod) {
+        continue;
+      }
+
+      boolean skipHighlight = false;
+      for (Map.Entry<String, Integer> entry : this.stmtsToNotHighlight.entrySet()) {
+        if (method.startsWith(entry.getKey()) && sourceLocation.getStartRow() == entry.getValue()) {
+          skipHighlight = true;
+          break;
+        }
+      }
+      if (skipHighlight) {
+        continue;
+      }
+
+      ChopData chopData =
+          new ChopData(file, sourceLocation.getStartRow(), sourceLocation.getEndRow());
+      chopDataSet.add(chopData);
+    }
+    return chopDataSet;
+  }
+
   public Map<String, SortedSet<Lines>> chopAndProcess() {
     Collection<SDGNode> chop = this.chop();
-    Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
+    Set<ChopData> chopDataSet = this.parseChopData(chop);
     return Chopper.parseFilesToLines(chopDataSet);
   }
 
-  public Set<AbstractMap.SimpleEntry<String, String>> getProcedureConnections(Collection<SDGNode> chop) {
+  public Set<AbstractMap.SimpleEntry<String, String>> getProcedureConnections(
+      Collection<SDGNode> chop) {
     Set<AbstractMap.SimpleEntry<String, String>> links = new HashSet<>();
     for (SDGEdge edge : this.sdg.edgeSet()) {
       if (!chop.contains(edge.getSource()) || !chop.contains(edge.getTarget())) {
@@ -213,6 +259,18 @@ public class Chopper {
       String caller = this.getProcedure(sourceNode);
       SDGNode targetNode = edge.getTarget();
       String callee = this.getProcedure(targetNode);
+
+      boolean skipMethod = false;
+      for (String excludedMethod : this.excludedMethods) {
+        if (caller.startsWith(excludedMethod) || callee.startsWith(excludedMethod)) {
+          skipMethod = true;
+          break;
+        }
+      }
+      if (skipMethod) {
+        continue;
+      }
+
       if (!caller.equals(callee)) {
         links.add(new AbstractMap.SimpleEntry<>(caller, callee));
       }

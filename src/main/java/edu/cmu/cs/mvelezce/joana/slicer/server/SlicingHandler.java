@@ -32,11 +32,17 @@ public class SlicingHandler implements HttpHandler {
 
   private final String programName;
   private final SDG sdg;
+  private final Map<String, Integer> stmtsToNotHighlight = new HashMap<>();
+  private final Set<String> excludedMethods = new HashSet<>();
 
-  public SlicingHandler(String programName) throws IOException {
+  public SlicingHandler(
+      String programName, Set<String> excludedMethods, Map<String, Integer> stmtsToNotHighlight)
+      throws IOException {
     this.programName = programName;
     SDGReader reader = new SDGReader(this.programName);
     this.sdg = reader.readSDG();
+    this.excludedMethods.addAll(excludedMethods);
+    this.stmtsToNotHighlight.putAll(stmtsToNotHighlight);
   }
 
   @Override
@@ -93,9 +99,16 @@ public class SlicingHandler implements HttpHandler {
           System.out.println(
               "############### Source node: " + sourceNode + " - Target node: " + targetNode);
           Chopper chopper =
-              new Chopper(this.programName, this.sdg, sourceNode, targetNode, CHOPPING_ALGO);
+              new Chopper(
+                  this.programName,
+                  this.sdg,
+                  sourceNode,
+                  targetNode,
+                  CHOPPING_ALGO,
+                  this.excludedMethods,
+                  this.stmtsToNotHighlight);
           Collection<SDGNode> chop = chopper.chop();
-          Set<ChopData> chopDataSet = Chopper.parseChopData(chop);
+          Set<ChopData> chopDataSet = chopper.parseChopData(chop);
           Map<String, SortedSet<Lines>> results = Chopper.parseFilesToLines(chopDataSet);
           for (Map.Entry<String, SortedSet<Lines>> entry : results.entrySet()) {
             filesToLines.putIfAbsent(entry.getKey(), new TreeSet<>(Chopper.LINES_COMPARATOR));

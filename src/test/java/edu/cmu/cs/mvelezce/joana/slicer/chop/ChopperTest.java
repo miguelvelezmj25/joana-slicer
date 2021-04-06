@@ -7,10 +7,7 @@ import edu.kit.joana.ifc.sdg.graph.SDGNode;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
+import java.util.*;
 
 class ChopperTest {
   // -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005
@@ -175,7 +172,15 @@ class ChopperTest {
       throws IOException {
     SDG sdg = getSDG(programName);
     Set<SDGNode> barrierNodes = Chopper.getMethodNodes(sdg, methods);
-    return new Chopper(programName, sdg, sourceNode, targetNode, algo, barrierNodes);
+    return new Chopper(
+        programName,
+        sdg,
+        sourceNode,
+        targetNode,
+        algo,
+        barrierNodes,
+        Collections.emptySet(),
+        Collections.emptyMap());
   }
 
   private Chopper getChopperNodesBarrier(
@@ -183,13 +188,28 @@ class ChopperTest {
       throws IOException {
     SDG sdg = getSDG(programName);
     Set<SDGNode> barrierNodes = Chopper.getNodes(sdg, nodeIds);
-    return new Chopper(programName, sdg, sourceNode, targetNode, algo, barrierNodes);
+    return new Chopper(
+        programName,
+        sdg,
+        sourceNode,
+        targetNode,
+        algo,
+        barrierNodes,
+        Collections.emptySet(),
+        Collections.emptyMap());
   }
 
   private Chopper getChopper(String programName, int sourceNode, int targetNode, String algo)
       throws IOException {
     SDG sdg = getSDG(programName);
-    return new Chopper(programName, sdg, sourceNode, targetNode, algo);
+    return new Chopper(
+        programName,
+        sdg,
+        sourceNode,
+        targetNode,
+        algo,
+        Collections.emptySet(),
+        Collections.emptyMap());
   }
 
   private SDG getSDG(String programName) throws IOException {

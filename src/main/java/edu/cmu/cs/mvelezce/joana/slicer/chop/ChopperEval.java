@@ -5,6 +5,7 @@ import edu.cmu.cs.mvelezce.joana.slicer.sdg.read.SDGReader;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.SortedSet;
 
@@ -27,7 +28,14 @@ public class ChopperEval {
   private static Chopper getChopper(String programName, int sourceNode, int targetNode, String algo)
       throws IOException {
     SDG sdg = getSDG(programName);
-    return new Chopper(programName, sdg, sourceNode, targetNode, algo);
+    return new Chopper(
+        programName,
+        sdg,
+        sourceNode,
+        targetNode,
+        algo,
+        Collections.emptySet(),
+        Collections.emptyMap());
   }
 
   private static SDG getSDG(String programName) throws IOException {
