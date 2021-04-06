@@ -4,10 +4,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executors;
 
 public class SlicingServer {
@@ -26,7 +23,7 @@ public class SlicingServer {
             + " for program: "
             + programName);
     Set<String> excludedMethods = getExcludedMethods(programName);
-    Map<String, Integer> stmtsToNotHighlight = getStmtsToNotHighlight(programName);
+    Map<String, Set<Integer>> stmtsToNotHighlight = getStmtsToNotHighlight(programName);
     HttpServer server = HttpServer.create(new InetSocketAddress(HOSTNAME, port), 0);
     server.createContext(
         "/slice", new SlicingHandler(programName, excludedMethods, stmtsToNotHighlight));
@@ -34,10 +31,31 @@ public class SlicingServer {
     server.start();
   }
 
-  private static Map<String, Integer> getStmtsToNotHighlight(String programName) {
-    Map<String, Integer> stmtsToNotHighlight = new HashMap<>();
+  private static Map<String, Set<Integer>> getStmtsToNotHighlight(String programName) {
+    Map<String, Set<Integer>> stmtsToNotHighlight = new HashMap<>();
     if (programName.equals("example")) {
       //      stmtsToNotHighlight.put("edu.cmu.cs.mvelezce.perf.debug.config.core.Main.main", 10);
+    } else if (programName.equals("density")) {
+      stmtsToNotHighlight.put(
+          "at.favre.tools.dconvert.DConvert.1.onFinished",
+          new HashSet<>(Collections.singletonList(180)));
+      stmtsToNotHighlight.put(
+          "at.favre.tools.dconvert.WorkerHandler.start",
+          new HashSet<>(Collections.singletonList(84)));
+      stmtsToNotHighlight.put(
+          "at.favre.tools.dconvert.converters.APlatformConverter.convert",
+          new HashSet<>(Collections.singletonList(72)));
+      stmtsToNotHighlight.put(
+          "com.mortennobel.imagescaling.ResampleOp.doFilter",
+          new HashSet<>(Arrays.asList(111, 118, 120, 124, 125)));
+      stmtsToNotHighlight.put(
+          "at.favre.tools.dconvert.converters.scaling.ImageHandler.saveToFile",
+          new HashSet<>(Arrays.asList(86, 88, 89)));
+      stmtsToNotHighlight.put(
+          "at.favre.tools.dconvert.converters.scaling.ImageHandler.scale",
+          new HashSet<>(Arrays.asList(204, 212)));
+      stmtsToNotHighlight.put(
+          "com.mortennobel.imagescaling", new HashSet<>(Collections.singletonList(72)));
     }
     return stmtsToNotHighlight;
   }
@@ -46,6 +64,12 @@ public class SlicingServer {
     Set<String> excludedMethods = new HashSet<>();
     if (programName.equals("example")) {
       //      excludedMethods.add("edu.cmu.cs.mvelezce.perf.debug.config.core.TaskHandler.<init>");
+    } else if (programName.equals("density")) {
+      excludedMethods.add("at.favre.tools.dconvert.DConvert.1.onFinished");
+      excludedMethods.add("java.util.TreeMap.put");
+      excludedMethods.add("com.mortennobel.imagescaling.ImageUtils.nrChannels");
+      excludedMethods.add(
+          "at.favre.tools.dconvert.converters.descriptors.DensityDescriptor.compareTo");
     }
     return excludedMethods;
   }

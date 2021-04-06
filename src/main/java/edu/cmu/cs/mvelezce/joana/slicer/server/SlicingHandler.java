@@ -32,11 +32,13 @@ public class SlicingHandler implements HttpHandler {
 
   private final String programName;
   private final SDG sdg;
-  private final Map<String, Integer> stmtsToNotHighlight = new HashMap<>();
+  private final Map<String, Set<Integer>> stmtsToNotHighlight = new HashMap<>();
   private final Set<String> excludedMethods = new HashSet<>();
 
   public SlicingHandler(
-      String programName, Set<String> excludedMethods, Map<String, Integer> stmtsToNotHighlight)
+      String programName,
+      Set<String> excludedMethods,
+      Map<String, Set<Integer>> stmtsToNotHighlight)
       throws IOException {
     this.programName = programName;
     SDGReader reader = new SDGReader(this.programName);

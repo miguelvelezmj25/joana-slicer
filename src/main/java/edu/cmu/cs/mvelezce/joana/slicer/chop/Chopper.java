@@ -98,7 +98,7 @@ public class Chopper {
   private final String algo;
   private final Set<SDGNode> barrierNodes = new HashSet<>();
   private final Map<SDGNode, Set<SDGNode>> entryNod2ProcedureNodes;
-  private final Map<String, Integer> stmtsToNotHighlight = new HashMap<>();
+  private final Map<String, Set<Integer>> stmtsToNotHighlight = new HashMap<>();
   private final Set<String> excludedMethods = new HashSet<>();
 
   public Chopper(String programName, String algo) {
@@ -112,7 +112,7 @@ public class Chopper {
       int targetNode,
       String algo,
       Set<String> excludedMethods,
-      Map<String, Integer> stmtsToNotHighlight) {
+      Map<String, Set<Integer>> stmtsToNotHighlight) {
     this(
         programName,
         sdg,
@@ -132,7 +132,7 @@ public class Chopper {
       String algo,
       Set<SDGNode> barrierNodes,
       Set<String> excludedMethods,
-      Map<String, Integer> stmtsToNotHighlight) {
+      Map<String, Set<Integer>> stmtsToNotHighlight) {
     this.programName = programName;
     this.sdg = sdg;
     this.sourceNode = sourceNode;
@@ -224,8 +224,9 @@ public class Chopper {
       }
 
       boolean skipHighlight = false;
-      for (Map.Entry<String, Integer> entry : this.stmtsToNotHighlight.entrySet()) {
-        if (method.startsWith(entry.getKey()) && sourceLocation.getStartRow() == entry.getValue()) {
+      for (Map.Entry<String, Set<Integer>> entry : this.stmtsToNotHighlight.entrySet()) {
+        if (method.startsWith(entry.getKey())
+            && entry.getValue().contains(sourceLocation.getStartRow())) {
           skipHighlight = true;
           break;
         }
