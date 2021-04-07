@@ -54,8 +54,10 @@ public class SlicingServer {
       stmtsToNotHighlight.put(
           "at.favre.tools.dconvert.converters.scaling.ImageHandler.scale",
           new HashSet<>(Arrays.asList(204, 212)));
+//      stmtsToNotHighlight.put(
+//          "com.mortennobel.imagescaling", new HashSet<>(Collections.singletonList(72)));
       stmtsToNotHighlight.put(
-          "com.mortennobel.imagescaling", new HashSet<>(Collections.singletonList(72)));
+          "at.favre.tools.dconvert.util.DensityBucketUtil.getDensityBuckets", new HashSet<>(Collections.singletonList(44)));
     }
     return stmtsToNotHighlight;
   }
