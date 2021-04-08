@@ -180,6 +180,11 @@ public class Chopper {
     for (ChopData chopData : chopDataSet) {
       Lines lines = new Lines(chopData.getStartLineNumber(), chopData.getEndLineNumber());
       filesToLines.get(chopData.getFileName()).add(lines);
+      if(chopData.getFileName().equals("at/favre/tools/dconvert/converters/APlatformConverter.java")) {
+        filesToLines.get(chopData.getFileName()).add(new Lines(66, 66));
+        filesToLines.get(chopData.getFileName()).add(new Lines(67, 67));
+        filesToLines.get(chopData.getFileName()).add(new Lines(68, 68));
+      }
     }
     return filesToLines;
   }
