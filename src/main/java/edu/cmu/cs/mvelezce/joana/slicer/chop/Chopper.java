@@ -187,6 +187,7 @@ public class Chopper {
       }
       else if(chopData.getFileName().equals("com/mortennobel/imagescaling/DimensionConstrain.java")) {
         filesToLines.get(chopData.getFileName()).add(new Lines(18, 18));
+        filesToLines.get(chopData.getFileName()).add(new Lines(27, 27));
       }
     }
     return filesToLines;

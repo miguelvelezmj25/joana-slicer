@@ -146,8 +146,8 @@ public class SlicingHandler implements HttpHandler {
         continue;
       }
       JSONObject data = new JSONObject();
-      data.put("source", connection.getKey());
-      data.put("target", connection.getValue());
+      data.put("source", rename(connection.getKey()));
+      data.put("target", rename(connection.getValue()));
       connectionData.put(data);
     }
 
@@ -166,6 +166,12 @@ public class SlicingHandler implements HttpHandler {
 
     System.gc();
     System.out.println("\n\n\n\n");
+  }
+
+  private String rename(String methodName) {
+    return methodName.replaceAll(
+        "com.mortennobel.imagescaling.DimensionConstrain.1",
+        "com.mortennobel.imagescaling.DimensionConstrain");
   }
 
   private Set<Integer> getSourceSDGNodeIds(
