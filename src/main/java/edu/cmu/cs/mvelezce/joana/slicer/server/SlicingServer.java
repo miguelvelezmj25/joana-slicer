@@ -44,20 +44,24 @@ public class SlicingServer {
           new HashSet<>(Collections.singletonList(84)));
       stmtsToNotHighlight.put(
           "at.favre.tools.dconvert.converters.APlatformConverter.convert",
-          new HashSet<>(Collections.singletonList(72)));
+          new HashSet<>(Arrays.asList(42, 46, 72, 78, 82)));
       stmtsToNotHighlight.put(
           "com.mortennobel.imagescaling.ResampleOp.doFilter",
-          new HashSet<>(Arrays.asList(111, 118, 120, 124, 125)));
+          new HashSet<>(Arrays.asList(111, 114, 115, 116, 118, 120, 124, 125)));
       stmtsToNotHighlight.put(
           "at.favre.tools.dconvert.converters.scaling.ImageHandler.saveToFile",
-          new HashSet<>(Arrays.asList(86, 88, 89)));
+          new HashSet<>(Arrays.asList(67, 69, 86, 88, 89)));
       stmtsToNotHighlight.put(
           "at.favre.tools.dconvert.converters.scaling.ImageHandler.scale",
           new HashSet<>(Arrays.asList(204, 212)));
-//      stmtsToNotHighlight.put(
-//          "com.mortennobel.imagescaling", new HashSet<>(Collections.singletonList(72)));
       stmtsToNotHighlight.put(
-          "at.favre.tools.dconvert.util.DensityBucketUtil.getDensityBuckets", new HashSet<>(Collections.singletonList(44)));
+          "at.favre.tools.dconvert.util.MiscUtil.createAndCheckFolder",
+          new HashSet<>(Arrays.asList(54, 55, 62, 65)));
+      //      stmtsToNotHighlight.put(
+      //          "com.mortennobel.imagescaling", new HashSet<>(Collections.singletonList(72)));
+      stmtsToNotHighlight.put(
+          "at.favre.tools.dconvert.util.DensityBucketUtil.getDensityBuckets",
+          new HashSet<>(Arrays.asList(43, 44)));
     }
     return stmtsToNotHighlight;
   }
@@ -70,6 +74,20 @@ public class SlicingServer {
       excludedMethods.add("at.favre.tools.dconvert.DConvert.1.onFinished");
       excludedMethods.add("java.util.TreeMap.put");
       excludedMethods.add("com.mortennobel.imagescaling.ImageUtils.nrChannels");
+      excludedMethods.add(
+          "at.favre.tools.dconvert.converters.AndroidConverter.createFolderForOutputFile");
+      excludedMethods.add("at.favre.tools.dconvert.util.MiscUtil.createAndCheckFolder");
+      excludedMethods.add("at.favre.tools.dconvert.converters.AndroidConverter.isNinePatch");
+      excludedMethods.add(
+          "at.favre.tools.dconvert.converters.AndroidConverter.usedOutputDensities");
+      excludedMethods.add(
+          "at.favre.tools.dconvert.converters.AndroidConverter.getAndroidDensityDescriptors");
+      excludedMethods.add(
+          "at.favre.tools.dconvert.converters.descriptors.AndroidDensityDescriptor.<init>");
+      excludedMethods.add(
+          "at.favre.tools.dconvert.converters.descriptors.DensityDescriptor.<init>");
+      excludedMethods.add("at.favre.tools.dconvert.util.ImageUtil.loadImage");
+      excludedMethods.add("at.favre.tools.dconvert.util.ImageUtil.read");
       excludedMethods.add(
           "at.favre.tools.dconvert.converters.descriptors.DensityDescriptor.compareTo");
     }
