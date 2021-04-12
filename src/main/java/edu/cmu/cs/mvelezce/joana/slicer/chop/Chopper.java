@@ -189,6 +189,15 @@ public class Chopper {
         filesToLines.get(chopData.getFileName()).add(new Lines(18, 18));
         filesToLines.get(chopData.getFileName()).add(new Lines(27, 27));
       }
+      else if(chopData.getFileName().equals("at/favre/tools/dconvert/converters/scaling/ImageHandler.java")) {
+        filesToLines.get(chopData.getFileName()).add(new Lines(95, 95));
+        filesToLines.get(chopData.getFileName()).add(new Lines(96, 96));
+        filesToLines.get(chopData.getFileName()).add(new Lines(97, 97));
+        filesToLines.get(chopData.getFileName()).add(new Lines(98, 98));
+        filesToLines.get(chopData.getFileName()).add(new Lines(99, 99));
+        filesToLines.get(chopData.getFileName()).add(new Lines(100, 100));
+        filesToLines.get(chopData.getFileName()).add(new Lines(101, 101));
+      }
     }
     return filesToLines;
   }
