@@ -180,28 +180,28 @@ public class Chopper {
     for (ChopData chopData : chopDataSet) {
       Lines lines = new Lines(chopData.getStartLineNumber(), chopData.getEndLineNumber());
       filesToLines.get(chopData.getFileName()).add(lines);
-      if (chopData
-          .getFileName()
-          .equals("at/favre/tools/dconvert/converters/APlatformConverter.java")) {
-        filesToLines.get(chopData.getFileName()).add(new Lines(66, 66));
-        filesToLines.get(chopData.getFileName()).add(new Lines(67, 67));
-        filesToLines.get(chopData.getFileName()).add(new Lines(68, 68));
-      } else if (chopData
-          .getFileName()
-          .equals("com/mortennobel/imagescaling/DimensionConstrain.java")) {
-        filesToLines.get(chopData.getFileName()).add(new Lines(18, 18));
-        filesToLines.get(chopData.getFileName()).add(new Lines(27, 27));
-      } else if (chopData
-          .getFileName()
-          .equals("at/favre/tools/dconvert/converters/scaling/ImageHandler.java")) {
-        filesToLines.get(chopData.getFileName()).add(new Lines(76, 76));
-        filesToLines.get(chopData.getFileName()).add(new Lines(95, 95));
-        filesToLines.get(chopData.getFileName()).add(new Lines(96, 96));
-        filesToLines.get(chopData.getFileName()).add(new Lines(97, 97));
-        filesToLines.get(chopData.getFileName()).add(new Lines(98, 98));
-        filesToLines.get(chopData.getFileName()).add(new Lines(99, 99));
-        filesToLines.get(chopData.getFileName()).add(new Lines(100, 100));
-        filesToLines.get(chopData.getFileName()).add(new Lines(101, 101));
+      switch (chopData.getFileName()) {
+        case "com/sleepycat/je/Cursor.java":
+          filesToLines.get(chopData.getFileName()).add(new Lines(1845, 1845));
+        case "at/favre/tools/dconvert/converters/APlatformConverter.java":
+          filesToLines.get(chopData.getFileName()).add(new Lines(66, 66));
+          filesToLines.get(chopData.getFileName()).add(new Lines(67, 67));
+          filesToLines.get(chopData.getFileName()).add(new Lines(68, 68));
+          break;
+        case "com/mortennobel/imagescaling/DimensionConstrain.java":
+          filesToLines.get(chopData.getFileName()).add(new Lines(18, 18));
+          filesToLines.get(chopData.getFileName()).add(new Lines(27, 27));
+          break;
+        case "at/favre/tools/dconvert/converters/scaling/ImageHandler.java":
+          filesToLines.get(chopData.getFileName()).add(new Lines(76, 76));
+          filesToLines.get(chopData.getFileName()).add(new Lines(95, 95));
+          filesToLines.get(chopData.getFileName()).add(new Lines(96, 96));
+          filesToLines.get(chopData.getFileName()).add(new Lines(97, 97));
+          filesToLines.get(chopData.getFileName()).add(new Lines(98, 98));
+          filesToLines.get(chopData.getFileName()).add(new Lines(99, 99));
+          filesToLines.get(chopData.getFileName()).add(new Lines(100, 100));
+          filesToLines.get(chopData.getFileName()).add(new Lines(101, 101));
+          break;
       }
     }
     return filesToLines;
