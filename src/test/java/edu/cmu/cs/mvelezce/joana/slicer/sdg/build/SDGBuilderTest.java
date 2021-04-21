@@ -56,6 +56,31 @@ class SDGBuilderTest {
   }
 
   @Test
+  void berkeley()
+      throws IOException, CancelException, ClassHierarchyException,
+          GraphIntegrity.UnsoundGraphException {
+    String programName = "berkeley";
+    String classPath =
+        USER_HOME
+            + "/Documents/programming/java/projects/perf-debug-systems/berkeley-db/target/classes";
+    String entryMethod = "com.sleepycat.analysis.MeasureDiskOrderedScan.main([Ljava/lang/String;)V";
+    String exclusions = this.getExclusions(programName, 2000);
+    exclusions +=
+        "com\\/sleepycat\\/compact\\/.*\n"
+            + "com\\/sleepycat\\/asm\\/.*\n"
+            + "com\\/sleepycat\\/collections\\/.*\n"
+            + "com\\/sleepycat\\/persist\\/.*\n"
+            + "java\\/io\\/.*\n"
+            + "java\\/security\\/.*\n"
+            + "java\\/util\\/concurrent\\/.*\n"
+            + "java\\/util\\/HashMap\n"
+            + "java\\/util\\/regex\\/.*\n";
+    SDGBuilder builder = new SDGBuilder(programName, classPath, entryMethod, exclusions);
+    SDG sdg = builder.build();
+    builder.save(sdg);
+  }
+
+  @Test
   void ignoreImplementations()
       throws IOException, CancelException, ClassHierarchyException,
           GraphIntegrity.UnsoundGraphException {
