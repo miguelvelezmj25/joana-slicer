@@ -1,0 +1,765 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LogBufferPool</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: LogBufferPool (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LogBufferPool</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    86.7%
+  </span>
+  <span class="absValue">
+    (13/15)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    75.5%
+  </span>
+  <span class="absValue">
+    (120/159)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.LBFP_BUFFER_BYTES;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.LBFP_LOG_BUFFERS;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.LBFP_MISS;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.LBFP_NOT_RESIDENT;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.LBFP_NO_FREE_BUFFER;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">23</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">24</i>&nbsp;import java.util.LinkedList;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.latch.Latch;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.latch.LatchFactory;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.utilint.AtomicLongStat;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.utilint.IntStat;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">39</i>&nbsp;
+<i class="no-highlight">40</i>&nbsp;/**
+<i class="no-highlight">41</i>&nbsp; * LogBufferPool manages a circular pool of LogBuffers.
+<i class="no-highlight">42</i>&nbsp; * The currentWriteBuffer is the buffer that is currently
+<i class="no-highlight">43</i>&nbsp; * used to add data.  When the buffer is full, the next (adjacent)
+<i class="no-highlight">44</i>&nbsp; * buffer is made available for writing. The buffer pool has a dirty
+<i class="no-highlight">45</i>&nbsp; * list of buffers. A buffer becomes a member of the dirty list when the
+<i class="no-highlight">46</i>&nbsp; * currentWriteBuffer is moved to another buffer. Buffers are removed
+<i class="no-highlight">47</i>&nbsp; * from the dirty list when they are written.
+<i class="no-highlight">48</i>&nbsp; * The dirtyStart/dirtyEnd variables indicate the list of dirty buffers.
+<i class="no-highlight">49</i>&nbsp; * A value of -1 for either variables indicates that there are no dirty
+<i class="no-highlight">50</i>&nbsp; * buffers. These variable are synchronized via the
+<i class="no-highlight">51</i>&nbsp; * LogBufferPool.bufferPoolLatch. The LogManager.logWriteLatch (aka LWL)
+<i class="no-highlight">52</i>&nbsp; * is used to serialize access to the currentWriteBuffer, so that entries are
+<i class="no-highlight">53</i>&nbsp; * added in write/LSN order.
+<i class="no-highlight">54</i>&nbsp; *
+<i class="no-highlight">55</i>&nbsp; * A buffer used for writing is accessed by the getWriteBuffer method.
+<i class="no-highlight">56</i>&nbsp; * This method must be called while holding the LWL. The buffer returned
+<i class="no-highlight">57</i>&nbsp; * is not latched.
+<i class="no-highlight">58</i>&nbsp; *
+<i class="no-highlight">59</i>&nbsp; * A LogBuffer has a pin count (LogBuffer.writePinCount) associated with
+<i class="no-highlight">60</i>&nbsp; * it. The pin count is incremented when space is allocated in the buffer.
+<i class="no-highlight">61</i>&nbsp; * The allocation of space is serialized under the LWL. Threads will add
+<i class="no-highlight">62</i>&nbsp; * data to the buffer by latching the buffer, but without holding the LWL.
+<i class="no-highlight">63</i>&nbsp; * After the data is added, the pin count is decremented. A buffer cannot be
+<i class="no-highlight">64</i>&nbsp; * used for reading unless the pin count is zero. It should be noted that the
+<i class="no-highlight">65</i>&nbsp; * increment of the pin count is done with the buffer latched. The decrement
+<i class="no-highlight">66</i>&nbsp; * does not latch the buffer.
+<i class="no-highlight">67</i>&nbsp; *
+<i class="no-highlight">68</i>&nbsp; * Read access to a log buffer is allowed only if the buffer is latched
+<i class="no-highlight">69</i>&nbsp; * and the pin count is zero. A thread that attempt to access a log
+<i class="no-highlight">70</i>&nbsp; * buffer for reading will latch and check the pin count. If the pin
+<i class="no-highlight">71</i>&nbsp; * count is not zero, the latch is released and the process is retried.
+<i class="no-highlight">72</i>&nbsp; * The thread attempting to access the log buffer for reading may be delayed.
+<i class="no-highlight">73</i>&nbsp; * The worst case is when the reader has to wait until the buffer
+<i class="no-highlight">74</i>&nbsp; * is filled (the pin count would be zero).
+<i class="no-highlight">75</i>&nbsp; *
+<i class="no-highlight">76</i>&nbsp; * @see LogBuffer
+<i class="no-highlight">77</i>&nbsp; */
+<b class="fc"><i class="no-highlight">78</i>&nbsp;class LogBufferPool {</b>
+<b class="fc"><i class="no-highlight">79</i>&nbsp;    private static final String DEBUG_NAME = LogBufferPool.class.getName();</b>
+<i class="no-highlight">80</i>&nbsp;
+<b class="fc"><i class="no-highlight">81</i>&nbsp;    private EnvironmentImpl envImpl = null;</b>
+<i class="no-highlight">82</i>&nbsp;    private int nLogBuffers;
+<i class="no-highlight">83</i>&nbsp;    private int logBufferSize;      // size of each log buffer
+<i class="no-highlight">84</i>&nbsp;    private LinkedList&lt;LogBuffer&gt; bufferPool;
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /*
+<i class="no-highlight">87</i>&nbsp;     * The dirty start/end are the indexes of the first/last dirty buffers.
+<i class="no-highlight">88</i>&nbsp;     * These dirty buffers do not include the current write buffer.
+<i class="no-highlight">89</i>&nbsp;     * These fields are changed under buffer pool latch.
+<i class="no-highlight">90</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">91</i>&nbsp;    private int dirtyStart = -1;</b>
+<b class="fc"><i class="no-highlight">92</i>&nbsp;    private int dirtyEnd = -1;</b>
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /*
+<i class="no-highlight">95</i>&nbsp;     * Buffer that holds the current log end.  All writes go
+<i class="no-highlight">96</i>&nbsp;     * to this buffer.The members are protected by
+<i class="no-highlight">97</i>&nbsp;     * the LogManager.logWriteLatch.
+<i class="no-highlight">98</i>&nbsp;     */
+<i class="no-highlight">99</i>&nbsp;    private LogBuffer currentWriteBuffer;
+<i class="no-highlight">100</i>&nbsp;    private int currentWriteBufferIndex;
+<i class="no-highlight">101</i>&nbsp;
+<i class="no-highlight">102</i>&nbsp;    private final FileManager fileManager;
+<i class="no-highlight">103</i>&nbsp;
+<i class="no-highlight">104</i>&nbsp;    /* Stats */
+<i class="no-highlight">105</i>&nbsp;    private final StatGroup stats;
+<i class="no-highlight">106</i>&nbsp;    private final AtomicLongStat nNotResident;  // instantiated from an LSN
+<i class="no-highlight">107</i>&nbsp;    private final AtomicLongStat nCacheMiss;    // retrieved from disk
+<i class="no-highlight">108</i>&nbsp;    private final IntStat logBuffers;
+<i class="no-highlight">109</i>&nbsp;    private final LongStat nBufferBytes;
+<i class="no-highlight">110</i>&nbsp;
+<i class="no-highlight">111</i>&nbsp;    /*
+<i class="no-highlight">112</i>&nbsp;     * Number of times that current write pointer could not be incremented
+<i class="no-highlight">113</i>&nbsp;     * because there was no non-dirty buffer.
+<i class="no-highlight">114</i>&nbsp;     */
+<i class="no-highlight">115</i>&nbsp;    private final LongStat nNoFreeBuffer;
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    private final boolean runInMemory;
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    /*
+<i class="no-highlight">120</i>&nbsp;     * bufferPoolLatch synchronizes access and changes to the buffer pool.
+<i class="no-highlight">121</i>&nbsp;     * Related latches are the log write latch in LogManager and the read
+<i class="no-highlight">122</i>&nbsp;     * latches in each log buffer. The log write latch is always taken before
+<i class="no-highlight">123</i>&nbsp;     * the bufferPoolLatch. The bufferPoolLatch is always taken before any
+<i class="no-highlight">124</i>&nbsp;     * logBuffer read latch. When faulting in an object from the log, the order
+<i class="no-highlight">125</i>&nbsp;     * of latching is:
+<i class="no-highlight">126</i>&nbsp;     *          bufferPoolLatch.acquire()
+<i class="no-highlight">127</i>&nbsp;     *          LogBuffer read latch acquire();
+<i class="no-highlight">128</i>&nbsp;     *          bufferPoolLatch.release();
+<i class="no-highlight">129</i>&nbsp;     *          LogBuffer read latch release()
+<i class="no-highlight">130</i>&nbsp;     * bufferPoolLatch is also used to protect assignment to the
+<i class="no-highlight">131</i>&nbsp;     * currentWriteBuffer field.
+<i class="no-highlight">132</i>&nbsp;     */
+<i class="no-highlight">133</i>&nbsp;    private final Latch bufferPoolLatch;
+<i class="no-highlight">134</i>&nbsp;
+<i class="no-highlight">135</i>&nbsp;    /*
+<i class="no-highlight">136</i>&nbsp;     * A minimum LSN property for the pool that can be checked without
+<i class="no-highlight">137</i>&nbsp;     * latching, to reduce contention by readers. An LSN less than minBufferLsn
+<i class="no-highlight">138</i>&nbsp;     * is guaranteed not to be in the pool. An LSN greater or equal to
+<i class="no-highlight">139</i>&nbsp;     * minBufferLsn may or may not be in the pool, and latching is necessary to
+<i class="no-highlight">140</i>&nbsp;     * determine this.  Initializing minBufferLsn to zero ensures that we will
+<i class="no-highlight">141</i>&nbsp;     * latch and check the pool until it is initialized with a valid LSN.
+<i class="no-highlight">142</i>&nbsp;     * [#19642]
+<i class="no-highlight">143</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">144</i>&nbsp;    private volatile long minBufferLsn = 0;</b>
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    LogBufferPool(FileManager fileManager,
+<i class="no-highlight">147</i>&nbsp;                  EnvironmentImpl envImpl)
+<b class="fc"><i class="no-highlight">148</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">149</i>&nbsp;
+<b class="fc"><i class="no-highlight">150</i>&nbsp;        this.fileManager = fileManager;</b>
+<b class="fc"><i class="no-highlight">151</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">152</i>&nbsp;        bufferPoolLatch = LatchFactory.createExclusiveLatch(</b>
+<i class="no-highlight">153</i>&nbsp;            envImpl, DEBUG_NAME + &quot;_FullLatch&quot;, true /*collectStats*/);
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;        /* Configure the pool. */
+<b class="fc"><i class="no-highlight">156</i>&nbsp;        DbConfigManager configManager = envImpl.getConfigManager();</b>
+<b class="fc"><i class="no-highlight">157</i>&nbsp;        runInMemory = envImpl.isMemOnly();</b>
+<b class="fc"><i class="no-highlight">158</i>&nbsp;        reset(configManager);</b>
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;        /* Current buffer is the active buffer that writes go into. */
+<b class="fc"><i class="no-highlight">161</i>&nbsp;        currentWriteBuffer = bufferPool.getFirst();</b>
+<b class="fc"><i class="no-highlight">162</i>&nbsp;        currentWriteBufferIndex = 0;</b>
+<i class="no-highlight">163</i>&nbsp;
+<b class="fc"><i class="no-highlight">164</i>&nbsp;        stats = new StatGroup(LogStatDefinition.LBF_GROUP_NAME,</b>
+<i class="no-highlight">165</i>&nbsp;                              LogStatDefinition.LBF_GROUP_DESC);
+<b class="fc"><i class="no-highlight">166</i>&nbsp;        nNotResident = new AtomicLongStat(stats, LBFP_NOT_RESIDENT);</b>
+<b class="fc"><i class="no-highlight">167</i>&nbsp;        nCacheMiss = new AtomicLongStat(stats, LBFP_MISS);</b>
+<b class="fc"><i class="no-highlight">168</i>&nbsp;        logBuffers = new IntStat(stats, LBFP_LOG_BUFFERS);</b>
+<b class="fc"><i class="no-highlight">169</i>&nbsp;        nBufferBytes = new LongStat(stats, LBFP_BUFFER_BYTES);</b>
+<b class="fc"><i class="no-highlight">170</i>&nbsp;        nNoFreeBuffer = new LongStat(stats, LBFP_NO_FREE_BUFFER);</b>
+<b class="fc"><i class="no-highlight">171</i>&nbsp;    }</b>
+<i class="no-highlight">172</i>&nbsp;
+<i class="no-highlight">173</i>&nbsp;    final int getLogBufferSize() {
+<b class="fc"><i class="no-highlight">174</i>&nbsp;        return logBufferSize;</b>
+<i class="no-highlight">175</i>&nbsp;    }
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    /**
+<i class="no-highlight">178</i>&nbsp;     * Initialize the pool at construction time and when the cache is resized.
+<i class="no-highlight">179</i>&nbsp;     * This method is called after the memory budget has been calculated.
+<i class="no-highlight">180</i>&nbsp;     *
+<i class="no-highlight">181</i>&nbsp;     * The LWL must be held when the buffer pool is not being constructed.
+<i class="no-highlight">182</i>&nbsp;     */
+<i class="no-highlight">183</i>&nbsp;    void reset(DbConfigManager configManager)
+<i class="no-highlight">184</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;        /*
+<i class="no-highlight">187</i>&nbsp;         * When running in memory, we can&#39;t clear the existing pool and
+<i class="no-highlight">188</i>&nbsp;         * changing the buffer size is not very useful, so just return.
+<i class="no-highlight">189</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">190</i>&nbsp;        if (runInMemory &amp;&amp; bufferPool != null) {</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;            return;</b>
+<i class="no-highlight">192</i>&nbsp;        }
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;        /*
+<i class="no-highlight">195</i>&nbsp;         * Write the currentWriteBuffer to the file and reset
+<i class="no-highlight">196</i>&nbsp;         * currentWriteBuffer.
+<i class="no-highlight">197</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">198</i>&nbsp;        if (currentWriteBuffer != null) {</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            bumpAndWriteDirty(0, true);</b>
+<i class="no-highlight">200</i>&nbsp;        }
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;        /*
+<i class="no-highlight">203</i>&nbsp;         * Based on the log budget, figure the number and size of
+<i class="no-highlight">204</i>&nbsp;         * log buffers to use.
+<i class="no-highlight">205</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        int numBuffers =</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;            configManager.getInt(EnvironmentParams.NUM_LOG_BUFFERS);</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;        long logBufferBudget = envImpl.getMemoryBudget().getLogBufferBudget();</b>
+<i class="no-highlight">209</i>&nbsp;
+<b class="fc"><i class="no-highlight">210</i>&nbsp;        long logFileSize =</b>
+<b class="fc"><i class="no-highlight">211</i>&nbsp;            configManager.getLong(EnvironmentParams.LOG_FILE_MAX);</b>
+<i class="no-highlight">212</i>&nbsp;        /* Buffers must be int sized. */
+<b class="fc"><i class="no-highlight">213</i>&nbsp;        int newBufferSize = (int) logBufferBudget / numBuffers;</b>
+<i class="no-highlight">214</i>&nbsp;        /* Limit log buffer size to size of a log file. */
+<b class="fc"><i class="no-highlight">215</i>&nbsp;        newBufferSize = Math.min(newBufferSize, (int) logFileSize);</b>
+<i class="no-highlight">216</i>&nbsp;        /* list of buffers that are available for log writing */
+<b class="fc"><i class="no-highlight">217</i>&nbsp;        LinkedList&lt;LogBuffer&gt; newPool = new LinkedList&lt;LogBuffer&gt;();</b>
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;        /*
+<i class="no-highlight">220</i>&nbsp;         * If we&#39;re running in memory only, don&#39;t pre-allocate all the buffers.
+<i class="no-highlight">221</i>&nbsp;         * This case only occurs when called from the constructor.
+<i class="no-highlight">222</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">223</i>&nbsp;        if (runInMemory) {</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;            numBuffers = 1;</b>
+<i class="no-highlight">225</i>&nbsp;        }
+<i class="no-highlight">226</i>&nbsp;
+<b class="fc"><i class="no-highlight">227</i>&nbsp;        for (int i = 0; i &lt; numBuffers; i++) {</b>
+<b class="fc"><i class="no-highlight">228</i>&nbsp;            newPool.add(new LogBuffer(newBufferSize, envImpl));</b>
+<i class="no-highlight">229</i>&nbsp;        }
+<i class="no-highlight">230</i>&nbsp;
+<i class="no-highlight">231</i>&nbsp;        /*
+<i class="no-highlight">232</i>&nbsp;         * The following applies when this method is called to reset the pool
+<i class="no-highlight">233</i>&nbsp;         * when an existing pool is in use:
+<i class="no-highlight">234</i>&nbsp;         * - The old pool will no longer be referenced.
+<i class="no-highlight">235</i>&nbsp;         * - Buffers being read in the old pool will be no longer referenced
+<i class="no-highlight">236</i>&nbsp;         * after the read operation is complete.
+<i class="no-highlight">237</i>&nbsp;         * - The currentWriteBuffer field is not changed here; it will be no
+<i class="no-highlight">238</i>&nbsp;         * longer referenced after it is written to the file and a new
+<i class="no-highlight">239</i>&nbsp;         * currentWriteBuffer is assigned.
+<i class="no-highlight">240</i>&nbsp;         * - The logBufferSize can be changed now because it is only used for
+<i class="no-highlight">241</i>&nbsp;         * allocating new buffers; it is not used as the size of the
+<i class="no-highlight">242</i>&nbsp;         * currentWriteBuffer.
+<i class="no-highlight">243</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">244</i>&nbsp;        bufferPoolLatch.acquireExclusive();</b>
+<b class="fc"><i class="no-highlight">245</i>&nbsp;        bufferPool = newPool;</b>
+<b class="fc"><i class="no-highlight">246</i>&nbsp;        nLogBuffers = numBuffers;</b>
+<b class="fc"><i class="no-highlight">247</i>&nbsp;        logBufferSize = newBufferSize;</b>
+<i class="no-highlight">248</i>&nbsp;        /* Current buffer is the active buffer that writes go into. */
+<b class="fc"><i class="no-highlight">249</i>&nbsp;        currentWriteBuffer = bufferPool.getFirst();</b>
+<b class="fc"><i class="no-highlight">250</i>&nbsp;        currentWriteBufferIndex = 0;</b>
+<b class="fc"><i class="no-highlight">251</i>&nbsp;        bufferPoolLatch.release();</b>
+<b class="fc"><i class="no-highlight">252</i>&nbsp;    }</b>
+<i class="no-highlight">253</i>&nbsp;
+<i class="no-highlight">254</i>&nbsp;    /**
+<i class="no-highlight">255</i>&nbsp;     * Get a log buffer for writing an entry of sizeNeeded bytes.
+<i class="no-highlight">256</i>&nbsp;     *
+<i class="no-highlight">257</i>&nbsp;     * If sizeNeeded will fit in currentWriteBuffer, currentWriteBuffer is
+<i class="no-highlight">258</i>&nbsp;     * returned without requiring any flushing. The caller can allocate the
+<i class="no-highlight">259</i>&nbsp;     * entry in the buffer returned.
+<i class="no-highlight">260</i>&nbsp;     *
+<i class="no-highlight">261</i>&nbsp;     * If sizeNeeded won&#39;t fit in currentWriteBuffer, but is LTE the LogBuffer
+<i class="no-highlight">262</i>&nbsp;     * capacity, we bump the buffer to get an empty currentWriteBuffer. If
+<i class="no-highlight">263</i>&nbsp;     * there are no free write buffers, then all dirty buffers must be flushed.
+<i class="no-highlight">264</i>&nbsp;     * The caller can allocate the entry in the buffer returned.
+<i class="no-highlight">265</i>&nbsp;     *
+<i class="no-highlight">266</i>&nbsp;     * If sizeNeeded is greater than the LogBuffer capacity, flush all dirty
+<i class="no-highlight">267</i>&nbsp;     * buffers and return an empty (but too small) currentWriteBuffer. The
+<i class="no-highlight">268</i>&nbsp;     * caller must then write the entry to the file directly.
+<i class="no-highlight">269</i>&nbsp;     *
+<i class="no-highlight">270</i>&nbsp;     * The LWL must be held.
+<i class="no-highlight">271</i>&nbsp;     *
+<i class="no-highlight">272</i>&nbsp;     * @param sizeNeeded size of the entry to be written.
+<i class="no-highlight">273</i>&nbsp;     *
+<i class="no-highlight">274</i>&nbsp;     * @param flippedFile if true, always flush all dirty buffers and get an
+<i class="no-highlight">275</i>&nbsp;     * empty currentWriteBuffer, and fsync/finish the log file.
+<i class="no-highlight">276</i>&nbsp;     *
+<i class="no-highlight">277</i>&nbsp;     * @return currentWriteBuffer, which may or may not have enough room for
+<i class="no-highlight">278</i>&nbsp;     * sizeNeeded.
+<i class="no-highlight">279</i>&nbsp;     */
+<i class="no-highlight">280</i>&nbsp;    LogBuffer getWriteBuffer(int sizeNeeded, boolean flippedFile)
+<i class="no-highlight">281</i>&nbsp;        throws IOException, DatabaseException {
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;        /*
+<i class="no-highlight">284</i>&nbsp;         * We need a new log buffer either because this log buffer is full, or
+<i class="no-highlight">285</i>&nbsp;         * the LSN has marched along to the next file.  Each log buffer only
+<i class="no-highlight">286</i>&nbsp;         * holds entries that belong to a single file.  If we&#39;ve flipped over
+<i class="no-highlight">287</i>&nbsp;         * into the next file, we&#39;ll need to get a new log buffer even if the
+<i class="no-highlight">288</i>&nbsp;         * current one has room.
+<i class="no-highlight">289</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">290</i>&nbsp;        if (flippedFile) {</b>
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;            /*
+<i class="no-highlight">293</i>&nbsp;             * Write the dirty buffers to the file and get an empty
+<i class="no-highlight">294</i>&nbsp;             * currentWriteBuffer.
+<i class="no-highlight">295</i>&nbsp;             *
+<i class="no-highlight">296</i>&nbsp;             * TODO: Why pass true for flushWriteQueue before doing an fsync?
+<i class="no-highlight">297</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">298</i>&nbsp;            bumpAndWriteDirty(sizeNeeded, true /*flushWriteQueue*/);</b>
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;            /* Now that the buffers have been written, fsync. */
+<b class="fc"><i class="no-highlight">301</i>&nbsp;            if (!runInMemory) {</b>
+<b class="fc"><i class="no-highlight">302</i>&nbsp;                fileManager.syncLogEndAndFinishFile();</b>
+<i class="no-highlight">303</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">304</i>&nbsp;        } else if (!currentWriteBuffer.hasRoom(sizeNeeded)) {</b>
+<i class="no-highlight">305</i>&nbsp;
+<i class="no-highlight">306</i>&nbsp;            /*
+<i class="no-highlight">307</i>&nbsp;             * Try to bump the current write buffer since there
+<i class="no-highlight">308</i>&nbsp;             * was not enough space in the current write buffer.
+<i class="no-highlight">309</i>&nbsp;             */
+<i class="no-highlight">310</i>&nbsp;
+<b class="fc"><i class="no-highlight">311</i>&nbsp;            if (!bumpCurrent(sizeNeeded) ||</b>
+<b class="fc"><i class="no-highlight">312</i>&nbsp;                !currentWriteBuffer.hasRoom(sizeNeeded) ) {</b>
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;                /*
+<i class="no-highlight">315</i>&nbsp;                 * We could not bump because there was no free
+<i class="no-highlight">316</i>&nbsp;                 * buffer, or the item is larger than the buffer size.
+<i class="no-highlight">317</i>&nbsp;                 * Write the dirties to free a buffer up, or to flush
+<i class="no-highlight">318</i>&nbsp;                 * in preparation for writing a temporary buffer.
+<i class="no-highlight">319</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">320</i>&nbsp;                bumpAndWriteDirty(sizeNeeded, false /*flushWriteQueue*/);</b>
+<i class="no-highlight">321</i>&nbsp;            }
+<i class="no-highlight">322</i>&nbsp;        }
+<i class="no-highlight">323</i>&nbsp;
+<b class="fc"><i class="no-highlight">324</i>&nbsp;        return currentWriteBuffer;</b>
+<i class="no-highlight">325</i>&nbsp;    }
+<i class="no-highlight">326</i>&nbsp;
+<i class="no-highlight">327</i>&nbsp;    /**
+<i class="no-highlight">328</i>&nbsp;     * Bump current write buffer and write the dirty buffers.
+<i class="no-highlight">329</i>&nbsp;     *
+<i class="no-highlight">330</i>&nbsp;     * The LWL must be held to ensure that, if there are no free buffers, we
+<i class="no-highlight">331</i>&nbsp;     * can write the dirty buffers and have a free one, which is required to
+<i class="no-highlight">332</i>&nbsp;     * bump the current write buffer.
+<i class="no-highlight">333</i>&nbsp;     *
+<i class="no-highlight">334</i>&nbsp;     * @param sizeNeeded used only if running in memory. Size of the log buffer
+<i class="no-highlight">335</i>&nbsp;     *        buffer that is needed.
+<i class="no-highlight">336</i>&nbsp;     *
+<i class="no-highlight">337</i>&nbsp;     * @param flushWriteQueue true if data is written to log, otherwise data
+<i class="no-highlight">338</i>&nbsp;     *        may be placed on the write queue.
+<i class="no-highlight">339</i>&nbsp;     */
+<i class="no-highlight">340</i>&nbsp;    void bumpAndWriteDirty(int sizeNeeded, boolean flushWriteQueue) {
+<i class="no-highlight">341</i>&nbsp;
+<i class="no-highlight">342</i>&nbsp;        /*
+<i class="no-highlight">343</i>&nbsp;         * Write the currentWriteBuffer to the file and reset
+<i class="no-highlight">344</i>&nbsp;         * currentWriteBuffer.
+<i class="no-highlight">345</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">346</i>&nbsp;        if (!bumpCurrent(sizeNeeded)) {</b>
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;            /*
+<i class="no-highlight">349</i>&nbsp;             *  Could not bump the current write buffer; no clean buffers.
+<i class="no-highlight">350</i>&nbsp;             *  Write the current dirty buffers so we can bump.
+<i class="no-highlight">351</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">352</i>&nbsp;            writeDirty(flushWriteQueue);</b>
+<i class="no-highlight">353</i>&nbsp;
+<b class="nc"><i class="no-highlight">354</i>&nbsp;            if (bumpCurrent(sizeNeeded)) {</b>
+<i class="no-highlight">355</i>&nbsp;
+<i class="no-highlight">356</i>&nbsp;                /*
+<i class="no-highlight">357</i>&nbsp;                 * Since we have the log write latch we should be
+<i class="no-highlight">358</i>&nbsp;                 * able to bump the current buffer.
+<i class="no-highlight">359</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">360</i>&nbsp;                writeDirty(flushWriteQueue);</b>
+<i class="no-highlight">361</i>&nbsp;            } else {
+<i class="no-highlight">362</i>&nbsp;                /* should not ever get here */
+<b class="nc"><i class="no-highlight">363</i>&nbsp;                throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">364</i>&nbsp;                    envImpl, &quot;No free log buffers.&quot;);
+<i class="no-highlight">365</i>&nbsp;            }
+<i class="no-highlight">366</i>&nbsp;
+<i class="no-highlight">367</i>&nbsp;        } else {
+<i class="no-highlight">368</i>&nbsp;
+<i class="no-highlight">369</i>&nbsp;            /*
+<i class="no-highlight">370</i>&nbsp;             * Since we have the log write latch we should be
+<i class="no-highlight">371</i>&nbsp;             * able to bump the current buffer.
+<i class="no-highlight">372</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">373</i>&nbsp;            writeDirty(flushWriteQueue);</b>
+<i class="no-highlight">374</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">375</i>&nbsp;    }</b>
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;    /**
+<i class="no-highlight">378</i>&nbsp;     * Returns the next buffer slot number from the input buffer slot number.
+<i class="no-highlight">379</i>&nbsp;     * The slots are are a circular buffer.
+<i class="no-highlight">380</i>&nbsp;     *
+<i class="no-highlight">381</i>&nbsp;     * The bufferPoolLatch must be held.
+<i class="no-highlight">382</i>&nbsp;     *
+<i class="no-highlight">383</i>&nbsp;     * @return the next slot number after the given slotNumber.
+<i class="no-highlight">384</i>&nbsp;     */
+<i class="no-highlight">385</i>&nbsp;    private int getNextSlot(int slotNumber) {
+<b class="fc"><i class="no-highlight">386</i>&nbsp;        assert bufferPoolLatch.isExclusiveOwner();</b>
+<b class="fc"><i class="no-highlight">387</i>&nbsp;        return  (slotNumber &lt; (bufferPool.size() -1)) ? ++slotNumber : 0;</b>
+<i class="no-highlight">388</i>&nbsp;    }
+<i class="no-highlight">389</i>&nbsp;
+<i class="no-highlight">390</i>&nbsp;    /**
+<i class="no-highlight">391</i>&nbsp;     * Writes the dirty log buffers.
+<i class="no-highlight">392</i>&nbsp;     *
+<i class="no-highlight">393</i>&nbsp;     * No latches need be held.
+<i class="no-highlight">394</i>&nbsp;     *
+<i class="no-highlight">395</i>&nbsp;     * Note that if no buffers are dirty, nothing will be written, even when
+<i class="no-highlight">396</i>&nbsp;     * data is buffered in the write queue and flushWriteQueue is true.
+<i class="no-highlight">397</i>&nbsp;     * If we were to allow a condition where 1) the write queue is non-empty,
+<i class="no-highlight">398</i>&nbsp;     * 2) there are no dirty log buffers, and 3) the current write buffer is
+<i class="no-highlight">399</i>&nbsp;     * empty, then a flushNoSync at that time won&#39;t flush the write queue.
+<i class="no-highlight">400</i>&nbsp;     * This should never happen because: a) flushNoSync leaves the write queue
+<i class="no-highlight">401</i>&nbsp;     * empty, b) LogManager.serialLogWork leaves the current write buffer
+<i class="no-highlight">402</i>&nbsp;     * non-empty, and c) writeDirty(false) doesn&#39;t change the state of the
+<i class="no-highlight">403</i>&nbsp;     * current write buffer. TODO: Confirm this with a more detailed analysis.
+<i class="no-highlight">404</i>&nbsp;     *
+<i class="no-highlight">405</i>&nbsp;     * @param flushWriteQueue true then data is written to file otherwise
+<i class="no-highlight">406</i>&nbsp;     *        the data may be placed on the FileManager WriteQueue.
+<i class="no-highlight">407</i>&nbsp;     */
+<i class="no-highlight">408</i>&nbsp;    void writeDirty(boolean flushWriteQueue) {
+<b class="fc"><i class="no-highlight">409</i>&nbsp;        bufferPoolLatch.acquireExclusive();</b>
+<i class="no-highlight">410</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">411</i>&nbsp;            if (dirtyStart &lt; 0) {</b>
+<b class="fc"><i class="no-highlight">412</i>&nbsp;                return;</b>
+<i class="no-highlight">413</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">414</i>&nbsp;            boolean process = true;</b>
+<i class="no-highlight">415</i>&nbsp;            do {
+<b class="fc"><i class="no-highlight">416</i>&nbsp;                LogBuffer lb = bufferPool.get(dirtyStart);</b>
+<b class="fc"><i class="no-highlight">417</i>&nbsp;                lb.waitForZeroAndLatch();</b>
+<i class="no-highlight">418</i>&nbsp;                try {
+<b class="fc"><i class="no-highlight">419</i>&nbsp;                    writeBufferToFile(lb, flushWriteQueue);</b>
+<i class="no-highlight">420</i>&nbsp;                } finally {
+<b class="fc"><i class="no-highlight">421</i>&nbsp;                    lb.release();</b>
+<b class="fc"><i class="no-highlight">422</i>&nbsp;                }</b>
+<b class="fc"><i class="no-highlight">423</i>&nbsp;                if (dirtyStart == dirtyEnd) {</b>
+<b class="fc"><i class="no-highlight">424</i>&nbsp;                    process = false;</b>
+<i class="no-highlight">425</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">426</i>&nbsp;                    dirtyStart = getNextSlot(dirtyStart);</b>
+<i class="no-highlight">427</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">428</i>&nbsp;            } while (process);</b>
+<b class="fc"><i class="no-highlight">429</i>&nbsp;            dirtyStart = -1;</b>
+<b class="fc"><i class="no-highlight">430</i>&nbsp;            dirtyEnd = -1;</b>
+<i class="no-highlight">431</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">432</i>&nbsp;            bufferPoolLatch.releaseIfOwner();</b>
+<b class="fc"><i class="no-highlight">433</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">434</i>&nbsp;    }</b>
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;    /**
+<i class="no-highlight">437</i>&nbsp;     * Writes a log buffer.
+<i class="no-highlight">438</i>&nbsp;     *
+<i class="no-highlight">439</i>&nbsp;     * The LWL or buffer latch must be held.
+<i class="no-highlight">440</i>&nbsp;     *
+<i class="no-highlight">441</i>&nbsp;     * @param latchedBuffer buffer to write
+<i class="no-highlight">442</i>&nbsp;     *
+<i class="no-highlight">443</i>&nbsp;     * @param flushWriteQueue true then data is written to file otherwise
+<i class="no-highlight">444</i>&nbsp;     *        the data may be placed on the FileManager WriteQueue.
+<i class="no-highlight">445</i>&nbsp;     */
+<i class="no-highlight">446</i>&nbsp;    private void writeBufferToFile(LogBuffer latchedBuffer,
+<i class="no-highlight">447</i>&nbsp;                                   boolean flushWriteQueue) {
+<i class="no-highlight">448</i>&nbsp;
+<b class="fc"><i class="no-highlight">449</i>&nbsp;        if (runInMemory) {</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;            return;</b>
+<i class="no-highlight">451</i>&nbsp;        }
+<i class="no-highlight">452</i>&nbsp;
+<i class="no-highlight">453</i>&nbsp;        /*
+<i class="no-highlight">454</i>&nbsp;         * Check for an invalid env while buffer is latched and before writing.
+<i class="no-highlight">455</i>&nbsp;         * This is necessary to prevent writing a buffer corruption that was
+<i class="no-highlight">456</i>&nbsp;         * detected during a read from the buffer. The read will invalidate the
+<i class="no-highlight">457</i>&nbsp;         * env while holding the buffer latch.
+<i class="no-highlight">458</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">459</i>&nbsp;        envImpl.checkIfInvalid();</b>
+<i class="no-highlight">460</i>&nbsp;
+<i class="no-highlight">461</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">462</i>&nbsp;            ByteBuffer currentByteBuffer = latchedBuffer.getDataBuffer();</b>
+<b class="fc"><i class="no-highlight">463</i>&nbsp;            int savePosition = currentByteBuffer.position();</b>
+<b class="fc"><i class="no-highlight">464</i>&nbsp;            int saveLimit = currentByteBuffer.limit();</b>
+<b class="fc"><i class="no-highlight">465</i>&nbsp;            currentByteBuffer.flip();</b>
+<i class="no-highlight">466</i>&nbsp;
+<i class="no-highlight">467</i>&nbsp;            /*
+<i class="no-highlight">468</i>&nbsp;             * If we&#39;re configured for writing (not memory-only situation),
+<i class="no-highlight">469</i>&nbsp;             * write this buffer to disk and find a new buffer to use.
+<i class="no-highlight">470</i>&nbsp;             */
+<i class="no-highlight">471</i>&nbsp;            try {
+<b class="fc"><i class="no-highlight">472</i>&nbsp;                fileManager.writeLogBuffer(latchedBuffer, flushWriteQueue);</b>
+<b class="nc"><i class="no-highlight">473</i>&nbsp;            } catch (Throwable t) {</b>
+<b class="nc"><i class="no-highlight">474</i>&nbsp;                currentByteBuffer.position(savePosition);</b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;                currentByteBuffer.limit(saveLimit);</b>
+<i class="no-highlight">476</i>&nbsp;
+<i class="no-highlight">477</i>&nbsp;                /*
+<i class="no-highlight">478</i>&nbsp;                 * Exceptions thrown during logging are expected to be
+<i class="no-highlight">479</i>&nbsp;                 * fatal. Ensure that the environment is invalidated
+<i class="no-highlight">480</i>&nbsp;                 * when a non-fatal exception is unexpectedly thrown.
+<i class="no-highlight">481</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                 if (t instanceof EnvironmentFailureException) {</b>
+<i class="no-highlight">483</i>&nbsp;
+<i class="no-highlight">484</i>&nbsp;                    /*
+<i class="no-highlight">485</i>&nbsp;                     * If we&#39;ve already invalidated the environment,
+<i class="no-highlight">486</i>&nbsp;                     * re-throw so as not to excessively wrap the
+<i class="no-highlight">487</i>&nbsp;                     * exception.
+<i class="no-highlight">488</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">489</i>&nbsp;                    if (!envImpl.isValid()) {</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;                        throw (EnvironmentFailureException)t;</b>
+<i class="no-highlight">491</i>&nbsp;                    }
+<i class="no-highlight">492</i>&nbsp;                    /* Otherwise, invalidate the environment. */
+<b class="nc"><i class="no-highlight">493</i>&nbsp;                    throw EnvironmentFailureException.unexpectedException(</b>
+<i class="no-highlight">494</i>&nbsp;                        envImpl, (EnvironmentFailureException)t);
+<b class="nc"><i class="no-highlight">495</i>&nbsp;                } else if (t instanceof Error) {</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;                    envImpl.invalidate((Error)t);</b>
+<b class="nc"><i class="no-highlight">497</i>&nbsp;                    throw (Error)t;</b>
+<b class="nc"><i class="no-highlight">498</i>&nbsp;                } else if (t instanceof Exception) {</b>
+<b class="nc"><i class="no-highlight">499</i>&nbsp;                    throw EnvironmentFailureException.unexpectedException(</b>
+<i class="no-highlight">500</i>&nbsp;                        envImpl, (Exception)t);
+<i class="no-highlight">501</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">502</i>&nbsp;                    throw EnvironmentFailureException.unexpectedException(</b>
+<b class="nc"><i class="no-highlight">503</i>&nbsp;                        envImpl, t.getMessage(), null);</b>
+<i class="no-highlight">504</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">505</i>&nbsp;            }</b>
+<i class="no-highlight">506</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">507</i>&nbsp;            latchedBuffer.release();</b>
+<b class="fc"><i class="no-highlight">508</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">509</i>&nbsp;    }</b>
+<i class="no-highlight">510</i>&nbsp;
+<i class="no-highlight">511</i>&nbsp;    /**
+<i class="no-highlight">512</i>&nbsp;     * Move the current write buffer to the next. Will not bump the current
+<i class="no-highlight">513</i>&nbsp;     * write buffer if the buffer is empty.
+<i class="no-highlight">514</i>&nbsp;     *
+<i class="no-highlight">515</i>&nbsp;     * The LWL must be held.
+<i class="no-highlight">516</i>&nbsp;     *
+<i class="no-highlight">517</i>&nbsp;     * @param sizeNeeded used only if running in memory. Size of the log
+<i class="no-highlight">518</i>&nbsp;     *        buffer that is needed.
+<i class="no-highlight">519</i>&nbsp;     *
+<i class="no-highlight">520</i>&nbsp;     * @return false when the buffer needs flushing, but there are no free
+<i class="no-highlight">521</i>&nbsp;     * buffers. Returns true when when running in memory, when the buffer is
+<i class="no-highlight">522</i>&nbsp;     * empty, or when the buffer is non-empty and is bumped.
+<i class="no-highlight">523</i>&nbsp;     */
+<i class="no-highlight">524</i>&nbsp;     boolean bumpCurrent(int sizeNeeded) {
+<i class="no-highlight">525</i>&nbsp;
+<i class="no-highlight">526</i>&nbsp;        /* We&#39;re done with the buffer, flip to make it readable. */
+<b class="fc"><i class="no-highlight">527</i>&nbsp;        bufferPoolLatch.acquireExclusive();</b>
+<b class="fc"><i class="no-highlight">528</i>&nbsp;        currentWriteBuffer.latchForWrite();</b>
+<i class="no-highlight">529</i>&nbsp;
+<b class="fc"><i class="no-highlight">530</i>&nbsp;        LogBuffer latchedBuffer = currentWriteBuffer;</b>
+<i class="no-highlight">531</i>&nbsp;        try {
+<i class="no-highlight">532</i>&nbsp;
+<i class="no-highlight">533</i>&nbsp;            /*
+<i class="no-highlight">534</i>&nbsp;             * Is there anything in this write buffer?
+<i class="no-highlight">535</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">536</i>&nbsp;            if (currentWriteBuffer.getFirstLsn() == DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">537</i>&nbsp;                return true;</b>
+<i class="no-highlight">538</i>&nbsp;            }
+<i class="no-highlight">539</i>&nbsp;
+<b class="fc"><i class="no-highlight">540</i>&nbsp;            if (runInMemory) {</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;                int bufferSize =</b>
+<i class="no-highlight">542</i>&nbsp;                    ((logBufferSize &gt; sizeNeeded) ?
+<i class="no-highlight">543</i>&nbsp;                        logBufferSize : sizeNeeded);
+<i class="no-highlight">544</i>&nbsp;                /* We&#39;re supposed to run in-memory, allocate another buffer. */
+<b class="nc"><i class="no-highlight">545</i>&nbsp;                currentWriteBuffer = new LogBuffer(bufferSize, envImpl);</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;                bufferPool.add(currentWriteBuffer);</b>
+<b class="nc"><i class="no-highlight">547</i>&nbsp;                currentWriteBufferIndex = bufferPool.size() - 1;</b>
+<b class="nc"><i class="no-highlight">548</i>&nbsp;                return true;</b>
+<i class="no-highlight">549</i>&nbsp;            }
+<i class="no-highlight">550</i>&nbsp;
+<b class="fc"><i class="no-highlight">551</i>&nbsp;            if (dirtyStart &lt; 0) {</b>
+<b class="fc"><i class="no-highlight">552</i>&nbsp;                dirtyStart = currentWriteBufferIndex;</b>
+<i class="no-highlight">553</i>&nbsp;            } else {
+<i class="no-highlight">554</i>&nbsp;                /* Check to see if there is an undirty buffer to use. */
+<b class="nc"><i class="no-highlight">555</i>&nbsp;                if (getNextSlot(currentWriteBufferIndex) == dirtyStart) {</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;                    nNoFreeBuffer.increment();</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;                    return false;</b>
+<i class="no-highlight">558</i>&nbsp;                }
+<i class="no-highlight">559</i>&nbsp;            }
+<i class="no-highlight">560</i>&nbsp;
+<b class="fc"><i class="no-highlight">561</i>&nbsp;            dirtyEnd = currentWriteBufferIndex;</b>
+<b class="fc"><i class="no-highlight">562</i>&nbsp;            currentWriteBufferIndex = getNextSlot(currentWriteBufferIndex);</b>
+<b class="fc"><i class="no-highlight">563</i>&nbsp;            LogBuffer nextToUse = bufferPool.get(currentWriteBufferIndex);</b>
+<b class="fc"><i class="no-highlight">564</i>&nbsp;            LogBuffer newInitialBuffer =</b>
+<b class="fc"><i class="no-highlight">565</i>&nbsp;                bufferPool.get(getNextSlot(currentWriteBufferIndex));</b>
+<b class="fc"><i class="no-highlight">566</i>&nbsp;            nextToUse.reinit();</b>
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;            /* Assign currentWriteBuffer with the latch held. */
+<b class="fc"><i class="no-highlight">569</i>&nbsp;            currentWriteBuffer = nextToUse;</b>
+<i class="no-highlight">570</i>&nbsp;
+<i class="no-highlight">571</i>&nbsp;            /* Paranoia: do this after transition to new buffer. */
+<b class="fc"><i class="no-highlight">572</i>&nbsp;            updateMinBufferLsn(newInitialBuffer);</b>
+<b class="fc"><i class="no-highlight">573</i>&nbsp;            return true;</b>
+<i class="no-highlight">574</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">575</i>&nbsp;            latchedBuffer.release();</b>
+<b class="fc"><i class="no-highlight">576</i>&nbsp;            bufferPoolLatch.releaseIfOwner();</b>
+<b class="nc"><i class="no-highlight">577</i>&nbsp;        }</b>
+<i class="no-highlight">578</i>&nbsp;    }
+<i class="no-highlight">579</i>&nbsp;
+<i class="no-highlight">580</i>&nbsp;    /**
+<i class="no-highlight">581</i>&nbsp;     * Set minBufferLsn to start of new initial buffer.  The update occurs only
+<i class="no-highlight">582</i>&nbsp;     * after cycling once through the buffers in the pool.  This is a simple
+<i class="no-highlight">583</i>&nbsp;     * implementation, and waiting until we&#39;ve filled the buffer pool to
+<i class="no-highlight">584</i>&nbsp;     * initialize it is sufficient for reducing read contention in
+<i class="no-highlight">585</i>&nbsp;     * getReadBufferByLsn.  [#19642]
+<i class="no-highlight">586</i>&nbsp;     *
+<i class="no-highlight">587</i>&nbsp;     * The LWL must be held.
+<i class="no-highlight">588</i>&nbsp;     */
+<i class="no-highlight">589</i>&nbsp;    private void updateMinBufferLsn(final LogBuffer newInitialBuffer) {
+<b class="fc"><i class="no-highlight">590</i>&nbsp;        final long newMinLsn = newInitialBuffer.getFirstLsn();</b>
+<b class="fc"><i class="no-highlight">591</i>&nbsp;        if (newMinLsn != DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">592</i>&nbsp;            minBufferLsn = newMinLsn;</b>
+<i class="no-highlight">593</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">594</i>&nbsp;    }</b>
+<i class="no-highlight">595</i>&nbsp;
+<i class="no-highlight">596</i>&nbsp;    /**
+<i class="no-highlight">597</i>&nbsp;     * Find a buffer that contains the given LSN location.
+<i class="no-highlight">598</i>&nbsp;     *
+<i class="no-highlight">599</i>&nbsp;     * No latches need be held.
+<i class="no-highlight">600</i>&nbsp;     *
+<i class="no-highlight">601</i>&nbsp;     * @return the buffer that contains the given LSN location, latched and
+<i class="no-highlight">602</i>&nbsp;     * ready to read, or return null.
+<i class="no-highlight">603</i>&nbsp;     */
+<i class="no-highlight">604</i>&nbsp;    LogBuffer getReadBufferByLsn(long lsn)
+<i class="no-highlight">605</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">606</i>&nbsp;
+<b class="fc"><i class="no-highlight">607</i>&nbsp;        nNotResident.increment();</b>
+<i class="no-highlight">608</i>&nbsp;
+<i class="no-highlight">609</i>&nbsp;        /* Avoid latching if the LSN is known not to be in the pool. */
+<b class="fc"><i class="no-highlight">610</i>&nbsp;        if (DbLsn.compareTo(lsn, minBufferLsn) &lt; 0) {</b>
+<b class="fc"><i class="no-highlight">611</i>&nbsp;            nCacheMiss.increment();</b>
+<b class="fc"><i class="no-highlight">612</i>&nbsp;            return null;</b>
+<i class="no-highlight">613</i>&nbsp;        }
+<i class="no-highlight">614</i>&nbsp;
+<i class="no-highlight">615</i>&nbsp;        /* Latch and check the buffer pool. */
+<b class="fc"><i class="no-highlight">616</i>&nbsp;        bufferPoolLatch.acquireExclusive();</b>
+<i class="no-highlight">617</i>&nbsp;        try {
+<i class="no-highlight">618</i>&nbsp;            /*
+<i class="no-highlight">619</i>&nbsp;             * TODO: Check currentWriteBuffer last, because we will have to
+<i class="no-highlight">620</i>&nbsp;             * wait for its pin count to go to zero, which may require waiting
+<i class="no-highlight">621</i>&nbsp;             * until it is full.
+<i class="no-highlight">622</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">623</i>&nbsp;            for (LogBuffer l : bufferPool) {</b>
+<b class="fc"><i class="no-highlight">624</i>&nbsp;                if (l.containsLsn(lsn)) {</b>
+<b class="fc"><i class="no-highlight">625</i>&nbsp;                    return l;</b>
+<i class="no-highlight">626</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">627</i>&nbsp;            }</b>
+<i class="no-highlight">628</i>&nbsp;
+<b class="nc"><i class="no-highlight">629</i>&nbsp;            nCacheMiss.increment();</b>
+<b class="nc"><i class="no-highlight">630</i>&nbsp;            return null;</b>
+<i class="no-highlight">631</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">632</i>&nbsp;            bufferPoolLatch.releaseIfOwner();</b>
+<b class="nc"><i class="no-highlight">633</i>&nbsp;        }</b>
+<i class="no-highlight">634</i>&nbsp;    }
+<i class="no-highlight">635</i>&nbsp;
+<i class="no-highlight">636</i>&nbsp;    StatGroup loadStats(StatsConfig config)
+<i class="no-highlight">637</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">638</i>&nbsp;
+<i class="no-highlight">639</i>&nbsp;        /* Also return buffer pool memory usage */
+<b class="nc"><i class="no-highlight">640</i>&nbsp;        logBuffers.set(nLogBuffers);</b>
+<b class="nc"><i class="no-highlight">641</i>&nbsp;        nBufferBytes.set((long) nLogBuffers * logBufferSize);</b>
+<i class="no-highlight">642</i>&nbsp;
+<b class="nc"><i class="no-highlight">643</i>&nbsp;        return stats.cloneGroup(config.getClear());</b>
+<i class="no-highlight">644</i>&nbsp;    }
+<i class="no-highlight">645</i>&nbsp;
+<i class="no-highlight">646</i>&nbsp;    /**
+<i class="no-highlight">647</i>&nbsp;     * Return the current nCacheMiss statistic in a lightweight fashion,
+<i class="no-highlight">648</i>&nbsp;     * without perturbing other statistics or requiring synchronization.
+<i class="no-highlight">649</i>&nbsp;     */
+<i class="no-highlight">650</i>&nbsp;    public long getNCacheMiss() {
+<b class="fc"><i class="no-highlight">651</i>&nbsp;        return nCacheMiss.get();</b>
+<i class="no-highlight">652</i>&nbsp;    }
+<i class="no-highlight">653</i>&nbsp;
+<i class="no-highlight">654</i>&nbsp;    /**
+<i class="no-highlight">655</i>&nbsp;     * For unit testing.
+<i class="no-highlight">656</i>&nbsp;     */
+<i class="no-highlight">657</i>&nbsp;    public StatGroup getBufferPoolLatchStats() {
+<b class="nc"><i class="no-highlight">658</i>&nbsp;        return bufferPoolLatch.getStats();</b>
+<i class="no-highlight">659</i>&nbsp;    }
+<i class="no-highlight">660</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

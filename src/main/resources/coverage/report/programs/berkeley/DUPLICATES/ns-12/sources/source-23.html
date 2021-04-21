@@ -1,0 +1,287 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > RestoreMarker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: RestoreMarker (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">RestoreMarker</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/27)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">RestoreMarker$FileCreationException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/28)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.io.File;
+<i class="no-highlight">16</i>&nbsp;import java.io.FileOutputStream;
+<i class="no-highlight">17</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">18</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">19</i>&nbsp;import java.nio.channels.FileChannel;
+<i class="no-highlight">20</i>&nbsp;import java.util.Properties;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.log.entry.FileHeaderEntry;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.log.entry.RestoreRequired;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.log.entry.SingleItemEntry;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;/**
+<i class="no-highlight">28</i>&nbsp; * A RestoreMarker is a file that indicates that a normal recovery is not
+<i class="no-highlight">29</i>&nbsp; * possible, because the log files are physically or semantically inconsistent
+<i class="no-highlight">30</i>&nbsp; * in some way.
+<i class="no-highlight">31</i>&nbsp; *
+<i class="no-highlight">32</i>&nbsp; * One example is an interrupted, incomplete network restore.  The network
+<i class="no-highlight">33</i>&nbsp; * restore copies log files from a source to destination node. If it&#39;s halted,
+<i class="no-highlight">34</i>&nbsp; * while the destination node may contain files that are readable,
+<i class="no-highlight">35</i>&nbsp; * checksum-able and seem correct, the set as a whole may not have a complete
+<i class="no-highlight">36</i>&nbsp; * and coherent copy of the log. In such a case, recovery should not be run on
+<i class="no-highlight">37</i>&nbsp; * this environment&#39;s log until some action is taken to make it consistent. For
+<i class="no-highlight">38</i>&nbsp; * a network restore, this curative action is to restart the copy process, and
+<i class="no-highlight">39</i>&nbsp; * to complete the copy of a set of logs from some node to this node. The
+<i class="no-highlight">40</i>&nbsp; * network restore creates a marker file just before it does any form of change
+<i class="no-highlight">41</i>&nbsp; * to the log that would make the log inconsistent.
+<i class="no-highlight">42</i>&nbsp; *
+<i class="no-highlight">43</i>&nbsp; * The restore marker file is named &lt;MAXINT&gt;.jdb, and holds a normal log file
+<i class="no-highlight">44</i>&nbsp; * header and a RestoreRequired log entry. The RestoreRequired entry indicates
+<i class="no-highlight">45</i>&nbsp; * the type of error of the initial cause, and information needed to repair the
+<i class="no-highlight">46</i>&nbsp; * environment. The mechanism depends on the fact that the very first step of
+<i class="no-highlight">47</i>&nbsp; * recovery is to read backwards from the last file in the
+<i class="no-highlight">48</i>&nbsp; * environment. Recovery will start at this file, and will fail when it reads
+<i class="no-highlight">49</i>&nbsp; * the RestoreRequired log entry, throwing an exception that contains
+<i class="no-highlight">50</i>&nbsp; * prescriptive information for how the environment can be repaired.
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * Note that createMarkerFile() is idempotent and can be safely called multiple
+<i class="no-highlight">53</i>&nbsp; * times. It&#39;s done that way to make it simpler for the caller.
+<i class="no-highlight">54</i>&nbsp; *
+<i class="no-highlight">55</i>&nbsp; * The handler that repairs the log must also delete the marker file so future
+<i class="no-highlight">56</i>&nbsp; * recoveries can succeed.
+<i class="no-highlight">57</i>&nbsp; */
+<i class="no-highlight">58</i>&nbsp;public class RestoreMarker {
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;    /**
+<i class="no-highlight">61</i>&nbsp;     * Internal exception used to distinguish marker file creation from other
+<i class="no-highlight">62</i>&nbsp;     * IOErrors.
+<i class="no-highlight">63</i>&nbsp;     */
+<i class="no-highlight">64</i>&nbsp;    public static class FileCreationException extends Exception {
+<i class="no-highlight">65</i>&nbsp;        FileCreationException(String msg, Throwable cause) {
+<b class="nc"><i class="no-highlight">66</i>&nbsp;            super(msg, cause);</b>
+<i class="no-highlight">67</i>&nbsp;        }
+<i class="no-highlight">68</i>&nbsp;    }
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    private final LogManager logManager;
+<i class="no-highlight">71</i>&nbsp;    private final File lastFile;
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;    public RestoreMarker(FileManager fileManager,
+<b class="nc"><i class="no-highlight">74</i>&nbsp;                         LogManager logManager) {</b>
+<i class="no-highlight">75</i>&nbsp;
+<b class="nc"><i class="no-highlight">76</i>&nbsp;        this.logManager = logManager;</b>
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        String lastFileName = fileManager.getFullFileName(Integer.MAX_VALUE);</b>
+<b class="nc"><i class="no-highlight">78</i>&nbsp;        lastFile = new File(lastFileName);</b>
+<i class="no-highlight">79</i>&nbsp;    }
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    public static String getMarkerFileName() {
+<b class="nc"><i class="no-highlight">82</i>&nbsp;        return FileManager.getFileName(Integer.MAX_VALUE);</b>
+<i class="no-highlight">83</i>&nbsp;    }
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    /**
+<i class="no-highlight">86</i>&nbsp;     * Remove the marker file. Use FileManager.delete so this file works with
+<i class="no-highlight">87</i>&nbsp;     * the FileDeletionDetector.
+<i class="no-highlight">88</i>&nbsp;     * @throws IOException if the file won&#39;t delete.
+<i class="no-highlight">89</i>&nbsp;     */
+<i class="no-highlight">90</i>&nbsp;    public void removeMarkerFile(FileManager fileManager)
+<i class="no-highlight">91</i>&nbsp;        throws IOException {
+<i class="no-highlight">92</i>&nbsp;
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        if (lastFile.exists()) {</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;            fileManager.deleteFile(Integer.MAX_VALUE);</b>
+<i class="no-highlight">95</i>&nbsp;        }
+<i class="no-highlight">96</i>&nbsp;    }
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * Create the restore marker file.
+<i class="no-highlight">100</i>&nbsp;     *
+<i class="no-highlight">101</i>&nbsp;     * The method may be called repeatedly, but will not re-create the marker
+<i class="no-highlight">102</i>&nbsp;     * file if there&#39;s already a non-zero length file.
+<i class="no-highlight">103</i>&nbsp;     *
+<i class="no-highlight">104</i>&nbsp;     * @param failureType the failure type that should be recorded in the
+<i class="no-highlight">105</i>&nbsp;     * RestoreRequired log entry.
+<i class="no-highlight">106</i>&nbsp;     * @param props will be serialized to store information about how to handle
+<i class="no-highlight">107</i>&nbsp;     * the failure type.
+<i class="no-highlight">108</i>&nbsp;     * @throws FileCreationException if the marker file can&#39;t be created.
+<i class="no-highlight">109</i>&nbsp;     */
+<i class="no-highlight">110</i>&nbsp;    public void createMarkerFile(RestoreRequired.FailureType failureType,
+<i class="no-highlight">111</i>&nbsp;                                 Properties props)
+<i class="no-highlight">112</i>&nbsp;        throws FileCreationException {
+<i class="no-highlight">113</i>&nbsp;
+<i class="no-highlight">114</i>&nbsp;        /* Don&#39;t overwrite the file if it already exists. */
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        if (lastFile.exists() &amp;&amp; lastFile.length() &gt; 0) {</b>
+<i class="no-highlight">116</i>&nbsp;            return;
+<i class="no-highlight">117</i>&nbsp;        }
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">120</i>&nbsp;            lastFile.createNewFile();</b>
+<i class="no-highlight">121</i>&nbsp;    
+<i class="no-highlight">122</i>&nbsp;            /*
+<i class="no-highlight">123</i>&nbsp;             * The file will have two log entries:
+<i class="no-highlight">124</i>&nbsp;             * - a manufactured file header. Note that the file header usually
+<i class="no-highlight">125</i>&nbsp;             * has a previous offset that points to the previous log entry. In
+<i class="no-highlight">126</i>&nbsp;             * this case, it&#39;s set to 0 because we will never scan backwards
+<i class="no-highlight">127</i>&nbsp;             * from this file.
+<i class="no-highlight">128</i>&nbsp;             * - a RestoreRequired log entry
+<i class="no-highlight">129</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            FileHeader header = new FileHeader(Integer.MAX_VALUE, 0);</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;            LogEntry headerLogEntry =</b>
+<i class="no-highlight">132</i>&nbsp;                    new FileHeaderEntry(LogEntryType.LOG_FILE_HEADER, header);
+<b class="nc"><i class="no-highlight">133</i>&nbsp;            ByteBuffer buf1 = logManager.putIntoBuffer(headerLogEntry,</b>
+<i class="no-highlight">134</i>&nbsp;                                                       0); // prevLogEntryOffset
+<i class="no-highlight">135</i>&nbsp;    
+<b class="nc"><i class="no-highlight">136</i>&nbsp;            RestoreRequired rr = new RestoreRequired(failureType, props);</b>
+<i class="no-highlight">137</i>&nbsp;    
+<b class="nc"><i class="no-highlight">138</i>&nbsp;            LogEntry marker =</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;                SingleItemEntry.create(LogEntryType.LOG_RESTORE_REQUIRED, rr);</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;            ByteBuffer buf2 = logManager.putIntoBuffer(marker, 0);</b>
+<i class="no-highlight">141</i>&nbsp;
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            try (FileOutputStream stream = new FileOutputStream(lastFile);</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;                 FileChannel channel = stream.getChannel()) {</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;                channel.write(buf1);</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;                channel.write(buf2);</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">147</i>&nbsp;                /* the stream and channel will be closed */
+<b class="nc"><i class="no-highlight">148</i>&nbsp;                throw e;</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        } catch (IOException ioe) {</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;            throw new FileCreationException(</b>
+<i class="no-highlight">152</i>&nbsp;                &quot;Marker file creation failed for: &quot; + failureType +
+<b class="nc"><i class="no-highlight">153</i>&nbsp;                &quot; &quot; + ioe.toString(), ioe);</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        }</b>
+<i class="no-highlight">155</i>&nbsp;    }
+<i class="no-highlight">156</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

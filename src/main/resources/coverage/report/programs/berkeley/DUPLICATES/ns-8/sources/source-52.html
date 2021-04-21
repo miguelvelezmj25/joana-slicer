@@ -1,0 +1,755 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > TransactionConfig</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: TransactionConfig (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">TransactionConfig</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    60%
+  </span>
+  <span class="absValue">
+    (24/40)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    54.5%
+  </span>
+  <span class="absValue">
+    (54/99)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;/**
+<i class="no-highlight">19</i>&nbsp; * Specifies the attributes of a database environment transaction.
+<i class="no-highlight">20</i>&nbsp; */
+<i class="no-highlight">21</i>&nbsp;public class TransactionConfig implements Cloneable {
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;    /**
+<i class="no-highlight">24</i>&nbsp;     * Default configuration used if null is passed to methods that create a
+<i class="no-highlight">25</i>&nbsp;     * transaction.
+<i class="no-highlight">26</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">27</i>&nbsp;    public static final TransactionConfig DEFAULT = new TransactionConfig();</b>
+<i class="no-highlight">28</i>&nbsp;
+<b class="fc"><i class="no-highlight">29</i>&nbsp;    private boolean sync = false;</b>
+<b class="fc"><i class="no-highlight">30</i>&nbsp;    private boolean noSync = false;</b>
+<b class="fc"><i class="no-highlight">31</i>&nbsp;    private boolean writeNoSync = false;</b>
+<b class="fc"><i class="no-highlight">32</i>&nbsp;    private Durability durability = null;</b>
+<i class="no-highlight">33</i>&nbsp;    private ReplicaConsistencyPolicy consistencyPolicy;
+<b class="fc"><i class="no-highlight">34</i>&nbsp;    private boolean noWait = false;</b>
+<b class="fc"><i class="no-highlight">35</i>&nbsp;    private boolean readUncommitted = false;</b>
+<b class="fc"><i class="no-highlight">36</i>&nbsp;    private boolean readCommitted = false;</b>
+<b class="fc"><i class="no-highlight">37</i>&nbsp;    private boolean serializableIsolation = false;</b>
+<b class="fc"><i class="no-highlight">38</i>&nbsp;    private boolean readOnly = false;</b>
+<b class="fc"><i class="no-highlight">39</i>&nbsp;    private boolean localWrite = false;</b>
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;    /**
+<i class="no-highlight">42</i>&nbsp;     * An instance created using the default constructor is initialized with
+<i class="no-highlight">43</i>&nbsp;     * the system&#39;s default settings.
+<i class="no-highlight">44</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">45</i>&nbsp;    public TransactionConfig() {</b>
+<b class="fc"><i class="no-highlight">46</i>&nbsp;    }</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /**
+<i class="no-highlight">49</i>&nbsp;     * @hidden
+<i class="no-highlight">50</i>&nbsp;     * For internal use only.
+<i class="no-highlight">51</i>&nbsp;     *
+<i class="no-highlight">52</i>&nbsp;     * Maps the existing sync settings to the equivalent durability settings.
+<i class="no-highlight">53</i>&nbsp;     * Figure out what we should do on commit. TransactionConfig could be
+<i class="no-highlight">54</i>&nbsp;     * set with conflicting values; take the most stringent ones first.
+<i class="no-highlight">55</i>&nbsp;     * All environment level defaults were applied by the caller.
+<i class="no-highlight">56</i>&nbsp;     *
+<i class="no-highlight">57</i>&nbsp;     * ConfigSync  ConfigWriteNoSync ConfigNoSync   default
+<i class="no-highlight">58</i>&nbsp;     *    0                 0             0         sync
+<i class="no-highlight">59</i>&nbsp;     *    0                 0             1         nosync
+<i class="no-highlight">60</i>&nbsp;     *    0                 1             0         write nosync
+<i class="no-highlight">61</i>&nbsp;     *    0                 1             1         write nosync
+<i class="no-highlight">62</i>&nbsp;     *    1                 0             0         sync
+<i class="no-highlight">63</i>&nbsp;     *    1                 0             1         sync
+<i class="no-highlight">64</i>&nbsp;     *    1                 1             0         sync
+<i class="no-highlight">65</i>&nbsp;     *    1                 1             1         sync
+<i class="no-highlight">66</i>&nbsp;     *
+<i class="no-highlight">67</i>&nbsp;     * @return the equivalent durability
+<i class="no-highlight">68</i>&nbsp;     */
+<i class="no-highlight">69</i>&nbsp;    public Durability getDurabilityFromSync(final EnvironmentImpl envImpl) {
+<b class="fc"><i class="no-highlight">70</i>&nbsp;        if (sync) {</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;            return Durability.COMMIT_SYNC;</b>
+<b class="fc"><i class="no-highlight">72</i>&nbsp;        } else if (writeNoSync) {</b>
+<b class="nc"><i class="no-highlight">73</i>&nbsp;            return Durability.COMMIT_WRITE_NO_SYNC;</b>
+<b class="fc"><i class="no-highlight">74</i>&nbsp;        } else if (noSync) {</b>
+<b class="nc"><i class="no-highlight">75</i>&nbsp;            return Durability.COMMIT_NO_SYNC;</b>
+<i class="no-highlight">76</i>&nbsp;        }
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;        /*
+<i class="no-highlight">79</i>&nbsp;         * Replicated environments default to commitNoSync, while standalone
+<i class="no-highlight">80</i>&nbsp;         * default to commitSync.
+<i class="no-highlight">81</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">82</i>&nbsp;        if (envImpl.isReplicated()) {</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;            return Durability.COMMIT_NO_SYNC;</b>
+<i class="no-highlight">84</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">85</i>&nbsp;            return Durability.COMMIT_SYNC;</b>
+<i class="no-highlight">86</i>&nbsp;        }
+<i class="no-highlight">87</i>&nbsp;    }
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;    /**
+<i class="no-highlight">90</i>&nbsp;     * Configures the transaction to write and synchronously flush the log it
+<i class="no-highlight">91</i>&nbsp;     * when commits.
+<i class="no-highlight">92</i>&nbsp;     *
+<i class="no-highlight">93</i>&nbsp;     * &lt;p&gt;This behavior may be set for a database environment using the
+<i class="no-highlight">94</i>&nbsp;     * Environment.setMutableConfig method. Any value specified to this method
+<i class="no-highlight">95</i>&nbsp;     * overrides that setting.&lt;/p&gt;
+<i class="no-highlight">96</i>&nbsp;     *
+<i class="no-highlight">97</i>&nbsp;     * &lt;p&gt;The default is false for this class and true for the database
+<i class="no-highlight">98</i>&nbsp;     * environment.&lt;/p&gt;
+<i class="no-highlight">99</i>&nbsp;     *
+<i class="no-highlight">100</i>&nbsp;     * &lt;p&gt;If true is passed to both setSync and setNoSync, setSync will take
+<i class="no-highlight">101</i>&nbsp;     * precedence.&lt;/p&gt;
+<i class="no-highlight">102</i>&nbsp;     *
+<i class="no-highlight">103</i>&nbsp;     * @param sync If true, transactions exhibit all the ACID (atomicity,
+<i class="no-highlight">104</i>&nbsp;     * consistency, isolation, and durability) properties.
+<i class="no-highlight">105</i>&nbsp;     *
+<i class="no-highlight">106</i>&nbsp;     * @return this
+<i class="no-highlight">107</i>&nbsp;     */
+<i class="no-highlight">108</i>&nbsp;    public TransactionConfig setSync(final boolean sync) {
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        setSyncVoid(sync);</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        return this;</b>
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;    
+<i class="no-highlight">113</i>&nbsp;    /**
+<i class="no-highlight">114</i>&nbsp;     * @hidden
+<i class="no-highlight">115</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">116</i>&nbsp;     */
+<i class="no-highlight">117</i>&nbsp;    public void setSyncVoid(final boolean sync) {
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        checkMixedMode(sync, noSync, writeNoSync, durability);</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        this.sync = sync;</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;    }</b>
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;    /**
+<i class="no-highlight">123</i>&nbsp;     * Returns true if the transaction is configured to write and synchronously
+<i class="no-highlight">124</i>&nbsp;     * flush the log it when commits.
+<i class="no-highlight">125</i>&nbsp;     *
+<i class="no-highlight">126</i>&nbsp;     * @return true if the transaction is configured to write and synchronously
+<i class="no-highlight">127</i>&nbsp;     * flush the log it when commits.
+<i class="no-highlight">128</i>&nbsp;     */
+<i class="no-highlight">129</i>&nbsp;    public boolean getSync() {
+<b class="fc"><i class="no-highlight">130</i>&nbsp;        return sync;</b>
+<i class="no-highlight">131</i>&nbsp;    }
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;    /**
+<i class="no-highlight">134</i>&nbsp;     * Configures the transaction to not write or synchronously flush the log
+<i class="no-highlight">135</i>&nbsp;     * it when commits.
+<i class="no-highlight">136</i>&nbsp;     *
+<i class="no-highlight">137</i>&nbsp;     * &lt;p&gt;This behavior may be set for a database environment using the
+<i class="no-highlight">138</i>&nbsp;     * Environment.setMutableConfig method. Any value specified to this method
+<i class="no-highlight">139</i>&nbsp;     * overrides that setting.&lt;/p&gt;
+<i class="no-highlight">140</i>&nbsp;     *
+<i class="no-highlight">141</i>&nbsp;     * &lt;p&gt;The default is false for this class and the database environment.&lt;/p&gt;
+<i class="no-highlight">142</i>&nbsp;     *
+<i class="no-highlight">143</i>&nbsp;     * @param noSync If true, transactions exhibit the ACI (atomicity,
+<i class="no-highlight">144</i>&nbsp;     * consistency, and isolation) properties, but not D (durability); that is,
+<i class="no-highlight">145</i>&nbsp;     * database integrity will be maintained, but if the application or system
+<i class="no-highlight">146</i>&nbsp;     * fails, it is possible some number of the most recently committed
+<i class="no-highlight">147</i>&nbsp;     * transactions may be undone during recovery. The number of transactions
+<i class="no-highlight">148</i>&nbsp;     * at risk is governed by how many log updates can fit into the log buffer,
+<i class="no-highlight">149</i>&nbsp;     * how often the operating system flushes dirty buffers to disk, and how
+<i class="no-highlight">150</i>&nbsp;     * often the log is checkpointed.
+<i class="no-highlight">151</i>&nbsp;     *
+<i class="no-highlight">152</i>&nbsp;     * @deprecated replaced by {@link #setDurability}
+<i class="no-highlight">153</i>&nbsp;     *
+<i class="no-highlight">154</i>&nbsp;     * @return this
+<i class="no-highlight">155</i>&nbsp;     */
+<i class="no-highlight">156</i>&nbsp;    public TransactionConfig setNoSync(final boolean noSync) {
+<b class="fc"><i class="no-highlight">157</i>&nbsp;        setNoSyncVoid(noSync);</b>
+<b class="fc"><i class="no-highlight">158</i>&nbsp;        return this;</b>
+<i class="no-highlight">159</i>&nbsp;    }
+<i class="no-highlight">160</i>&nbsp;    
+<i class="no-highlight">161</i>&nbsp;    /**
+<i class="no-highlight">162</i>&nbsp;     * @hidden
+<i class="no-highlight">163</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">164</i>&nbsp;     */
+<i class="no-highlight">165</i>&nbsp;    public void setNoSyncVoid(final boolean noSync) {
+<b class="fc"><i class="no-highlight">166</i>&nbsp;        checkMixedMode(sync, noSync, writeNoSync, durability);</b>
+<b class="fc"><i class="no-highlight">167</i>&nbsp;        this.noSync = noSync;</b>
+<b class="fc"><i class="no-highlight">168</i>&nbsp;    }</b>
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    /**
+<i class="no-highlight">171</i>&nbsp;     * Returns true if the transaction is configured to not write or
+<i class="no-highlight">172</i>&nbsp;     * synchronously flush the log it when commits.
+<i class="no-highlight">173</i>&nbsp;     *
+<i class="no-highlight">174</i>&nbsp;     * @return true if the transaction is configured to not write or
+<i class="no-highlight">175</i>&nbsp;     * synchronously flush the log it when commits.
+<i class="no-highlight">176</i>&nbsp;     *
+<i class="no-highlight">177</i>&nbsp;     * @deprecated replaced by {@link #getDurability}
+<i class="no-highlight">178</i>&nbsp;     */
+<i class="no-highlight">179</i>&nbsp;    public boolean getNoSync() {
+<b class="fc"><i class="no-highlight">180</i>&nbsp;        return noSync;</b>
+<i class="no-highlight">181</i>&nbsp;    }
+<i class="no-highlight">182</i>&nbsp;
+<i class="no-highlight">183</i>&nbsp;    /**
+<i class="no-highlight">184</i>&nbsp;     * Configures the transaction to write but not synchronously flush the log
+<i class="no-highlight">185</i>&nbsp;     * it when commits.
+<i class="no-highlight">186</i>&nbsp;     *
+<i class="no-highlight">187</i>&nbsp;     * &lt;p&gt;This behavior may be set for a database environment using the
+<i class="no-highlight">188</i>&nbsp;     * Environment.setMutableConfig method. Any value specified to this method
+<i class="no-highlight">189</i>&nbsp;     * overrides that setting.&lt;/p&gt;
+<i class="no-highlight">190</i>&nbsp;     *
+<i class="no-highlight">191</i>&nbsp;     * &lt;p&gt;The default is false for this class and the database environment.&lt;/p&gt;
+<i class="no-highlight">192</i>&nbsp;     *
+<i class="no-highlight">193</i>&nbsp;     * @param writeNoSync If true, transactions exhibit the ACI (atomicity,
+<i class="no-highlight">194</i>&nbsp;     * consistency, and isolation) properties, but not D (durability); that is,
+<i class="no-highlight">195</i>&nbsp;     * database integrity will be maintained, but if the operating system
+<i class="no-highlight">196</i>&nbsp;     * fails, it is possible some number of the most recently committed
+<i class="no-highlight">197</i>&nbsp;     * transactions may be undone during recovery. The number of transactions
+<i class="no-highlight">198</i>&nbsp;     * at risk is governed by how often the operating system flushes dirty
+<i class="no-highlight">199</i>&nbsp;     * buffers to disk, and how often the log is checkpointed.
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * @deprecated replaced by {@link #setDurability}
+<i class="no-highlight">202</i>&nbsp;     *
+<i class="no-highlight">203</i>&nbsp;     * @return this
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    public TransactionConfig setWriteNoSync(final boolean writeNoSync) {
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        setWriteNoSyncVoid(writeNoSync);</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;        return this;</b>
+<i class="no-highlight">208</i>&nbsp;    }
+<i class="no-highlight">209</i>&nbsp;    
+<i class="no-highlight">210</i>&nbsp;    /**
+<i class="no-highlight">211</i>&nbsp;     * @hidden
+<i class="no-highlight">212</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">213</i>&nbsp;     */
+<i class="no-highlight">214</i>&nbsp;    public void setWriteNoSyncVoid(final boolean writeNoSync) {
+<b class="fc"><i class="no-highlight">215</i>&nbsp;        checkMixedMode(sync, noSync, writeNoSync, durability);</b>
+<b class="fc"><i class="no-highlight">216</i>&nbsp;        this.writeNoSync = writeNoSync;</b>
+<b class="fc"><i class="no-highlight">217</i>&nbsp;    }</b>
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;    /**
+<i class="no-highlight">220</i>&nbsp;     * Returns true if the transaction is configured to write but not
+<i class="no-highlight">221</i>&nbsp;     * synchronously flush the log it when commits.
+<i class="no-highlight">222</i>&nbsp;     *
+<i class="no-highlight">223</i>&nbsp;     * @return true if the transaction is configured to not write or
+<i class="no-highlight">224</i>&nbsp;     * synchronously flush the log it when commits.
+<i class="no-highlight">225</i>&nbsp;     *
+<i class="no-highlight">226</i>&nbsp;     * @deprecated replaced by {@link #getDurability}
+<i class="no-highlight">227</i>&nbsp;     */
+<i class="no-highlight">228</i>&nbsp;    public boolean getWriteNoSync() {
+<b class="fc"><i class="no-highlight">229</i>&nbsp;        return writeNoSync;</b>
+<i class="no-highlight">230</i>&nbsp;    }
+<i class="no-highlight">231</i>&nbsp;
+<i class="no-highlight">232</i>&nbsp;    /**
+<i class="no-highlight">233</i>&nbsp;     * Configures the durability associated with a transaction when it commits.
+<i class="no-highlight">234</i>&nbsp;     * Changes to durability are not reflected back to the &quot;sync&quot; booleans --
+<i class="no-highlight">235</i>&nbsp;     * there isn&#39;t a one to one mapping.
+<i class="no-highlight">236</i>&nbsp;     *
+<i class="no-highlight">237</i>&nbsp;     * Note that you should not use both the durability and the XXXSync() apis
+<i class="no-highlight">238</i>&nbsp;     * on the same config object.
+<i class="no-highlight">239</i>&nbsp;     *
+<i class="no-highlight">240</i>&nbsp;     * @param durability the durability definition
+<i class="no-highlight">241</i>&nbsp;     *
+<i class="no-highlight">242</i>&nbsp;     * @return this
+<i class="no-highlight">243</i>&nbsp;     */
+<i class="no-highlight">244</i>&nbsp;    public TransactionConfig setDurability(final Durability durability) {
+<b class="fc"><i class="no-highlight">245</i>&nbsp;        setDurabilityVoid(durability);</b>
+<b class="fc"><i class="no-highlight">246</i>&nbsp;        return this;</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;    
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * @hidden
+<i class="no-highlight">251</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    public void setDurabilityVoid(final Durability durability) {
+<b class="fc"><i class="no-highlight">254</i>&nbsp;        checkMixedMode(sync, noSync, writeNoSync, durability);</b>
+<b class="fc"><i class="no-highlight">255</i>&nbsp;        this.durability = durability;</b>
+<b class="fc"><i class="no-highlight">256</i>&nbsp;    }</b>
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;    /**
+<i class="no-highlight">259</i>&nbsp;     * Returns the durability associated with the configuration.
+<i class="no-highlight">260</i>&nbsp;     *
+<i class="no-highlight">261</i>&nbsp;     * If {@link #setDurability} has not been called, this method returns null.
+<i class="no-highlight">262</i>&nbsp;     * When no durability settings have been specified using the
+<i class="no-highlight">263</i>&nbsp;     * {@code TransactionConfig}, the default durability is applied to the
+<i class="no-highlight">264</i>&nbsp;     * {@link Transaction} by {@link Environment#beginTransaction} using
+<i class="no-highlight">265</i>&nbsp;     * {@link EnvironmentConfig} settings.
+<i class="no-highlight">266</i>&nbsp;     *
+<i class="no-highlight">267</i>&nbsp;     * @return the durability setting currently associated with this config.
+<i class="no-highlight">268</i>&nbsp;     */
+<i class="no-highlight">269</i>&nbsp;    public Durability getDurability() {
+<b class="fc"><i class="no-highlight">270</i>&nbsp;        return durability;</b>
+<i class="no-highlight">271</i>&nbsp;    }
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;    /**
+<i class="no-highlight">274</i>&nbsp;     * Used internally to configure Durability, modifying the existing
+<i class="no-highlight">275</i>&nbsp;     * Durability or explicit sync configuration.  This method is used to avoid
+<i class="no-highlight">276</i>&nbsp;     * a mixed mode exception, since the existing config may be in either mode.
+<i class="no-highlight">277</i>&nbsp;     */
+<i class="no-highlight">278</i>&nbsp;    void overrideDurability(final Durability durability) {
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        sync = false;</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        noSync = false;</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        writeNoSync = false;</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;        this.durability = durability;</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;    }</b>
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;    /**
+<i class="no-highlight">286</i>&nbsp;     * Associates a consistency policy with this configuration.
+<i class="no-highlight">287</i>&nbsp;     *
+<i class="no-highlight">288</i>&nbsp;     * @param consistencyPolicy the consistency definition
+<i class="no-highlight">289</i>&nbsp;     *
+<i class="no-highlight">290</i>&nbsp;     * @return this
+<i class="no-highlight">291</i>&nbsp;     */
+<i class="no-highlight">292</i>&nbsp;    public TransactionConfig setConsistencyPolicy(
+<i class="no-highlight">293</i>&nbsp;        final ReplicaConsistencyPolicy consistencyPolicy) {
+<i class="no-highlight">294</i>&nbsp;
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        setConsistencyPolicyVoid(consistencyPolicy);</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        return this;</b>
+<i class="no-highlight">297</i>&nbsp;    }
+<i class="no-highlight">298</i>&nbsp;    
+<i class="no-highlight">299</i>&nbsp;    /**
+<i class="no-highlight">300</i>&nbsp;     * @hidden
+<i class="no-highlight">301</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">302</i>&nbsp;     */
+<i class="no-highlight">303</i>&nbsp;    public void setConsistencyPolicyVoid(
+<i class="no-highlight">304</i>&nbsp;        final ReplicaConsistencyPolicy consistencyPolicy) {
+<i class="no-highlight">305</i>&nbsp;
+<b class="nc"><i class="no-highlight">306</i>&nbsp;        this.consistencyPolicy = consistencyPolicy;</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;    }</b>
+<i class="no-highlight">308</i>&nbsp;    /**
+<i class="no-highlight">309</i>&nbsp;     * Returns the consistency policy associated with the configuration.
+<i class="no-highlight">310</i>&nbsp;     *
+<i class="no-highlight">311</i>&nbsp;     * @return the consistency policy currently associated with this config.
+<i class="no-highlight">312</i>&nbsp;     */
+<i class="no-highlight">313</i>&nbsp;    public ReplicaConsistencyPolicy getConsistencyPolicy() {
+<b class="nc"><i class="no-highlight">314</i>&nbsp;        return consistencyPolicy;</b>
+<i class="no-highlight">315</i>&nbsp;    }
+<i class="no-highlight">316</i>&nbsp;
+<i class="no-highlight">317</i>&nbsp;    /**
+<i class="no-highlight">318</i>&nbsp;     * Configures the transaction to not wait if a lock request cannot be
+<i class="no-highlight">319</i>&nbsp;     * immediately granted.
+<i class="no-highlight">320</i>&nbsp;     *
+<i class="no-highlight">321</i>&nbsp;     * &lt;p&gt;The default is false for this class and the database environment.&lt;/p&gt;
+<i class="no-highlight">322</i>&nbsp;     *
+<i class="no-highlight">323</i>&nbsp;     * @param noWait If true, transactions will not wait if a lock request
+<i class="no-highlight">324</i>&nbsp;     * cannot be immediately granted, instead {@link
+<i class="no-highlight">325</i>&nbsp;     * com.sleepycat.je.LockNotAvailableException LockNotAvailableException}
+<i class="no-highlight">326</i>&nbsp;     * will be thrown.
+<i class="no-highlight">327</i>&nbsp;     *
+<i class="no-highlight">328</i>&nbsp;     * @return this
+<i class="no-highlight">329</i>&nbsp;     */
+<i class="no-highlight">330</i>&nbsp;    public TransactionConfig setNoWait(final boolean noWait) {
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        setNoWaitVoid(noWait);</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        return this;</b>
+<i class="no-highlight">333</i>&nbsp;    }
+<i class="no-highlight">334</i>&nbsp;    
+<i class="no-highlight">335</i>&nbsp;    /**
+<i class="no-highlight">336</i>&nbsp;     * @hidden
+<i class="no-highlight">337</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">338</i>&nbsp;     */
+<i class="no-highlight">339</i>&nbsp;    public void setNoWaitVoid(final boolean noWait) {
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        this.noWait = noWait;</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;    }</b>
+<i class="no-highlight">342</i>&nbsp;
+<i class="no-highlight">343</i>&nbsp;    /**
+<i class="no-highlight">344</i>&nbsp;     * Returns true if the transaction is configured to not wait if a lock
+<i class="no-highlight">345</i>&nbsp;     * request cannot be immediately granted.
+<i class="no-highlight">346</i>&nbsp;     *
+<i class="no-highlight">347</i>&nbsp;     * @return true if the transaction is configured to not wait if a lock
+<i class="no-highlight">348</i>&nbsp;     * request cannot be immediately granted.
+<i class="no-highlight">349</i>&nbsp;     */
+<i class="no-highlight">350</i>&nbsp;    public boolean getNoWait() {
+<b class="fc"><i class="no-highlight">351</i>&nbsp;        return noWait;</b>
+<i class="no-highlight">352</i>&nbsp;    }
+<i class="no-highlight">353</i>&nbsp;
+<i class="no-highlight">354</i>&nbsp;    /**
+<i class="no-highlight">355</i>&nbsp;     * Configures read operations performed by the transaction to return
+<i class="no-highlight">356</i>&nbsp;     * modified but not yet committed data.
+<i class="no-highlight">357</i>&nbsp;     *
+<i class="no-highlight">358</i>&nbsp;     * @param readUncommitted If true, configure read operations performed by
+<i class="no-highlight">359</i>&nbsp;     * the transaction to return modified but not yet committed data.
+<i class="no-highlight">360</i>&nbsp;     *
+<i class="no-highlight">361</i>&nbsp;     * @see LockMode#READ_UNCOMMITTED
+<i class="no-highlight">362</i>&nbsp;     *
+<i class="no-highlight">363</i>&nbsp;     * @return this
+<i class="no-highlight">364</i>&nbsp;     */
+<i class="no-highlight">365</i>&nbsp;    public TransactionConfig setReadUncommitted(
+<i class="no-highlight">366</i>&nbsp;        final boolean readUncommitted) {
+<i class="no-highlight">367</i>&nbsp;
+<b class="nc"><i class="no-highlight">368</i>&nbsp;        setReadUncommittedVoid(readUncommitted);</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        return this;</b>
+<i class="no-highlight">370</i>&nbsp;    }
+<i class="no-highlight">371</i>&nbsp;    
+<i class="no-highlight">372</i>&nbsp;    /**
+<i class="no-highlight">373</i>&nbsp;     * @hidden
+<i class="no-highlight">374</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">375</i>&nbsp;     */
+<i class="no-highlight">376</i>&nbsp;    public void setReadUncommittedVoid(final boolean readUncommitted) {
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        this.readUncommitted = readUncommitted;</b>
+<b class="nc"><i class="no-highlight">378</i>&nbsp;    }</b>
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;    /**
+<i class="no-highlight">381</i>&nbsp;     * Returns true if read operations performed by the transaction are
+<i class="no-highlight">382</i>&nbsp;     * configured to return modified but not yet committed data.
+<i class="no-highlight">383</i>&nbsp;     *
+<i class="no-highlight">384</i>&nbsp;     * @return true if read operations performed by the transaction are
+<i class="no-highlight">385</i>&nbsp;     * configured to return modified but not yet committed data.
+<i class="no-highlight">386</i>&nbsp;     *
+<i class="no-highlight">387</i>&nbsp;     * @see LockMode#READ_UNCOMMITTED
+<i class="no-highlight">388</i>&nbsp;     */
+<i class="no-highlight">389</i>&nbsp;    public boolean getReadUncommitted() {
+<b class="fc"><i class="no-highlight">390</i>&nbsp;        return readUncommitted;</b>
+<i class="no-highlight">391</i>&nbsp;    }
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;    /**
+<i class="no-highlight">394</i>&nbsp;     * Configures the transaction for read committed isolation.
+<i class="no-highlight">395</i>&nbsp;     *
+<i class="no-highlight">396</i>&nbsp;     * &lt;p&gt;This ensures the stability of the current data item read by the
+<i class="no-highlight">397</i>&nbsp;     * cursor but permits data read by this transaction to be modified or
+<i class="no-highlight">398</i>&nbsp;     * deleted prior to the commit of the transaction.&lt;/p&gt;
+<i class="no-highlight">399</i>&nbsp;     *
+<i class="no-highlight">400</i>&nbsp;     * @param readCommitted If true, configure the transaction for read
+<i class="no-highlight">401</i>&nbsp;     * committed isolation.
+<i class="no-highlight">402</i>&nbsp;     *
+<i class="no-highlight">403</i>&nbsp;     * @see LockMode#READ_COMMITTED
+<i class="no-highlight">404</i>&nbsp;     *
+<i class="no-highlight">405</i>&nbsp;     * @return this
+<i class="no-highlight">406</i>&nbsp;     */
+<i class="no-highlight">407</i>&nbsp;    public TransactionConfig setReadCommitted(final boolean readCommitted) {
+<b class="fc"><i class="no-highlight">408</i>&nbsp;        setReadCommittedVoid(readCommitted);</b>
+<b class="fc"><i class="no-highlight">409</i>&nbsp;        return this;</b>
+<i class="no-highlight">410</i>&nbsp;    }
+<i class="no-highlight">411</i>&nbsp;    
+<i class="no-highlight">412</i>&nbsp;    /**
+<i class="no-highlight">413</i>&nbsp;     * @hidden
+<i class="no-highlight">414</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">415</i>&nbsp;     */
+<i class="no-highlight">416</i>&nbsp;    public void setReadCommittedVoid(final boolean readCommitted) {
+<b class="fc"><i class="no-highlight">417</i>&nbsp;        this.readCommitted = readCommitted;</b>
+<b class="fc"><i class="no-highlight">418</i>&nbsp;    }</b>
+<i class="no-highlight">419</i>&nbsp;
+<i class="no-highlight">420</i>&nbsp;    /**
+<i class="no-highlight">421</i>&nbsp;     * Returns true if the transaction is configured for read committed
+<i class="no-highlight">422</i>&nbsp;     * isolation.
+<i class="no-highlight">423</i>&nbsp;     *
+<i class="no-highlight">424</i>&nbsp;     * @return true if the transaction is configured for read committed
+<i class="no-highlight">425</i>&nbsp;     * isolation.
+<i class="no-highlight">426</i>&nbsp;     *
+<i class="no-highlight">427</i>&nbsp;     * @see LockMode#READ_COMMITTED
+<i class="no-highlight">428</i>&nbsp;     */
+<i class="no-highlight">429</i>&nbsp;    public boolean getReadCommitted() {
+<b class="fc"><i class="no-highlight">430</i>&nbsp;        return readCommitted;</b>
+<i class="no-highlight">431</i>&nbsp;    }
+<i class="no-highlight">432</i>&nbsp;
+<i class="no-highlight">433</i>&nbsp;    /**
+<i class="no-highlight">434</i>&nbsp;     * Configures this transaction to have serializable (degree 3) isolation.
+<i class="no-highlight">435</i>&nbsp;     * By setting serializable isolation, phantoms will be prevented.
+<i class="no-highlight">436</i>&nbsp;     *
+<i class="no-highlight">437</i>&nbsp;     * &lt;p&gt;By default a transaction provides Repeatable Read isolation; {@link
+<i class="no-highlight">438</i>&nbsp;     * EnvironmentConfig#setTxnSerializableIsolation} may be called to override
+<i class="no-highlight">439</i>&nbsp;     * the default.  If the environment is configured for serializable
+<i class="no-highlight">440</i>&nbsp;     * isolation, all transactions will be serializable regardless of whether
+<i class="no-highlight">441</i>&nbsp;     * this method is called; calling {@link #setSerializableIsolation} with a
+<i class="no-highlight">442</i>&nbsp;     * false parameter will not disable serializable isolation.&lt;/p&gt;
+<i class="no-highlight">443</i>&nbsp;     *
+<i class="no-highlight">444</i>&nbsp;     * The default is false for this class and the database environment.
+<i class="no-highlight">445</i>&nbsp;     *
+<i class="no-highlight">446</i>&nbsp;     * @see LockMode
+<i class="no-highlight">447</i>&nbsp;     *
+<i class="no-highlight">448</i>&nbsp;     * @return this
+<i class="no-highlight">449</i>&nbsp;     */
+<i class="no-highlight">450</i>&nbsp;    public TransactionConfig setSerializableIsolation(
+<i class="no-highlight">451</i>&nbsp;        final boolean serializableIsolation) {
+<i class="no-highlight">452</i>&nbsp;
+<b class="fc"><i class="no-highlight">453</i>&nbsp;        setSerializableIsolationVoid(serializableIsolation);</b>
+<b class="fc"><i class="no-highlight">454</i>&nbsp;        return this;</b>
+<i class="no-highlight">455</i>&nbsp;    }
+<i class="no-highlight">456</i>&nbsp;    
+<i class="no-highlight">457</i>&nbsp;    /**
+<i class="no-highlight">458</i>&nbsp;     * @hidden
+<i class="no-highlight">459</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">460</i>&nbsp;     */
+<i class="no-highlight">461</i>&nbsp;    public void setSerializableIsolationVoid(
+<i class="no-highlight">462</i>&nbsp;        final boolean serializableIsolation) {
+<i class="no-highlight">463</i>&nbsp;
+<b class="fc"><i class="no-highlight">464</i>&nbsp;        this.serializableIsolation = serializableIsolation;</b>
+<b class="fc"><i class="no-highlight">465</i>&nbsp;    }</b>
+<i class="no-highlight">466</i>&nbsp;
+<i class="no-highlight">467</i>&nbsp;    /**
+<i class="no-highlight">468</i>&nbsp;     * Returns true if the transaction has been explicitly configured to have
+<i class="no-highlight">469</i>&nbsp;     * serializable (degree 3) isolation.
+<i class="no-highlight">470</i>&nbsp;     *
+<i class="no-highlight">471</i>&nbsp;     * @return true if the transaction has been configured to have serializable
+<i class="no-highlight">472</i>&nbsp;     * isolation.
+<i class="no-highlight">473</i>&nbsp;     *
+<i class="no-highlight">474</i>&nbsp;     * @see LockMode
+<i class="no-highlight">475</i>&nbsp;     */
+<i class="no-highlight">476</i>&nbsp;    public boolean getSerializableIsolation() {
+<b class="fc"><i class="no-highlight">477</i>&nbsp;        return serializableIsolation;</b>
+<i class="no-highlight">478</i>&nbsp;    }
+<i class="no-highlight">479</i>&nbsp;
+<i class="no-highlight">480</i>&nbsp;    /**
+<i class="no-highlight">481</i>&nbsp;     * Configures this transaction to disallow write operations, regardless of
+<i class="no-highlight">482</i>&nbsp;     * whether writes are allowed for the {@link Environment} or the
+<i class="no-highlight">483</i>&nbsp;     * {@link Database}s that are accessed.
+<i class="no-highlight">484</i>&nbsp;     *
+<i class="no-highlight">485</i>&nbsp;     * &lt;p&gt;If a write operation is attempted using a read-only transaction,
+<i class="no-highlight">486</i>&nbsp;     * an {@code UnsupportedOperationException} will be thrown.&lt;/p&gt;
+<i class="no-highlight">487</i>&nbsp;     *
+<i class="no-highlight">488</i>&nbsp;     * &lt;p&gt;For a read-only transaction, the transaction&#39;s {@code Durability} is
+<i class="no-highlight">489</i>&nbsp;     * ignored, even when it is explicitly specified using {@link
+<i class="no-highlight">490</i>&nbsp;     * #setDurability(Durability)}.&lt;/p&gt;
+<i class="no-highlight">491</i>&nbsp;     *
+<i class="no-highlight">492</i>&nbsp;     * &lt;p&gt;In a {@link com.sleepycat.je.rep.ReplicatedEnvironment}, a read-only
+<i class="no-highlight">493</i>&nbsp;     * transaction implicitly uses
+<i class="no-highlight">494</i>&nbsp;     * {@link Durability.ReplicaAckPolicy#NONE}.
+<i class="no-highlight">495</i>&nbsp;     * A read-only transaction on a Master will thus not be held up, or
+<i class="no-highlight">496</i>&nbsp;     * throw {@link com.sleepycat.je.rep.InsufficientReplicasException}, if the
+<i class="no-highlight">497</i>&nbsp;     * Master is not in contact with a sufficient number of Replicas at the
+<i class="no-highlight">498</i>&nbsp;     * time the transaction is initiated.&lt;/p&gt;
+<i class="no-highlight">499</i>&nbsp;     *
+<i class="no-highlight">500</i>&nbsp;     * &lt;p&gt;The default setting is false (writes are allowed).&lt;/p&gt;
+<i class="no-highlight">501</i>&nbsp;     *
+<i class="no-highlight">502</i>&nbsp;     * @return this
+<i class="no-highlight">503</i>&nbsp;     */
+<i class="no-highlight">504</i>&nbsp;    public TransactionConfig setReadOnly(final boolean readOnly) {
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        setReadOnlyVoid(readOnly);</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;        return this;</b>
+<i class="no-highlight">507</i>&nbsp;    }
+<i class="no-highlight">508</i>&nbsp;
+<i class="no-highlight">509</i>&nbsp;    /**
+<i class="no-highlight">510</i>&nbsp;     * @hidden
+<i class="no-highlight">511</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">512</i>&nbsp;     */
+<i class="no-highlight">513</i>&nbsp;    public void setReadOnlyVoid(final boolean readOnly) {
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        if (localWrite &amp;&amp; readOnly) {</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">516</i>&nbsp;                &quot;localWrite and readOnly may not both be true&quot;);
+<i class="no-highlight">517</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">518</i>&nbsp;        this.readOnly = readOnly;</b>
+<b class="nc"><i class="no-highlight">519</i>&nbsp;    }</b>
+<i class="no-highlight">520</i>&nbsp;
+<i class="no-highlight">521</i>&nbsp;    /**
+<i class="no-highlight">522</i>&nbsp;     * Returns whether read-only is configured for this transaction.
+<i class="no-highlight">523</i>&nbsp;     */
+<i class="no-highlight">524</i>&nbsp;    public boolean getReadOnly() {
+<b class="fc"><i class="no-highlight">525</i>&nbsp;        return readOnly;</b>
+<i class="no-highlight">526</i>&nbsp;    }
+<i class="no-highlight">527</i>&nbsp;
+<i class="no-highlight">528</i>&nbsp;    /**
+<i class="no-highlight">529</i>&nbsp;     * Configures this transaction to allow writing to non-replicated
+<i class="no-highlight">530</i>&nbsp;     * {@link Database}s in a
+<i class="no-highlight">531</i>&nbsp;     * {@link com.sleepycat.je.rep.ReplicatedEnvironment}.
+<i class="no-highlight">532</i>&nbsp;     *
+<i class="no-highlight">533</i>&nbsp;     * &lt;p&gt;In a replicated environment, a given transaction may be used to
+<i class="no-highlight">534</i>&nbsp;     * write to either replicated databases or non-replicated databases, but
+<i class="no-highlight">535</i>&nbsp;     * not both. If a write operation to a replicated database is attempted
+<i class="no-highlight">536</i>&nbsp;     * when local-write is true, or to a non-replicated database when
+<i class="no-highlight">537</i>&nbsp;     * local-write is false, an {@code UnsupportedOperationException} will be
+<i class="no-highlight">538</i>&nbsp;     * thrown.&lt;/p&gt;
+<i class="no-highlight">539</i>&nbsp;     *
+<i class="no-highlight">540</i>&nbsp;     * &lt;p&gt;Note that for auto-commit transactions (when the {@code Transaction}
+<i class="no-highlight">541</i>&nbsp;     * parameter is null), the local-write setting is automatically set to
+<i class="no-highlight">542</i>&nbsp;     * correspond to whether the database is replicated. With auto-commit,
+<i class="no-highlight">543</i>&nbsp;     * local-write is always true for a non-replicated database, and
+<i class="no-highlight">544</i>&nbsp;     * always false for a replicated database.&lt;/p&gt;
+<i class="no-highlight">545</i>&nbsp;     *
+<i class="no-highlight">546</i>&nbsp;     * &lt;p&gt;In a replicated environment, a local-write transaction implicitly
+<i class="no-highlight">547</i>&nbsp;     * uses {@link Durability.ReplicaAckPolicy#NONE}.
+<i class="no-highlight">548</i>&nbsp;     * A local-write transaction on a Master will thus not be held up, or
+<i class="no-highlight">549</i>&nbsp;     * throw {@link com.sleepycat.je.rep.InsufficientReplicasException}, if the
+<i class="no-highlight">550</i>&nbsp;     * Master is not in contact with a sufficient number of Replicas at the
+<i class="no-highlight">551</i>&nbsp;     * time the transaction is initiated.&lt;/p&gt;
+<i class="no-highlight">552</i>&nbsp;     *
+<i class="no-highlight">553</i>&nbsp;     * &lt;p&gt;By default the local-write setting is false, meaning that the
+<i class="no-highlight">554</i>&nbsp;     * transaction may only write to replicated Databases in a replicated
+<i class="no-highlight">555</i>&nbsp;     * environment.&lt;/p&gt;
+<i class="no-highlight">556</i>&nbsp;     *
+<i class="no-highlight">557</i>&nbsp;     * &lt;p&gt;This configuration setting is ignored in a non-replicated Environment
+<i class="no-highlight">558</i>&nbsp;     * since no databases are replicated.&lt;/p&gt;
+<i class="no-highlight">559</i>&nbsp;     *
+<i class="no-highlight">560</i>&nbsp;     * @return this
+<i class="no-highlight">561</i>&nbsp;     *
+<i class="no-highlight">562</i>&nbsp;     * @see &lt;a href=&quot;rep/ReplicatedEnvironment.html#nonRepDbs&gt;Non-replicated
+<i class="no-highlight">563</i>&nbsp;     * Databases in a Replicated Environment&lt;/a&gt;
+<i class="no-highlight">564</i>&nbsp;     */
+<i class="no-highlight">565</i>&nbsp;    public TransactionConfig setLocalWrite(final boolean localWrite) {
+<b class="nc"><i class="no-highlight">566</i>&nbsp;        setLocalWriteVoid(localWrite);</b>
+<b class="nc"><i class="no-highlight">567</i>&nbsp;        return this;</b>
+<i class="no-highlight">568</i>&nbsp;    }
+<i class="no-highlight">569</i>&nbsp;
+<i class="no-highlight">570</i>&nbsp;    /**
+<i class="no-highlight">571</i>&nbsp;     * @hidden
+<i class="no-highlight">572</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">573</i>&nbsp;     */
+<i class="no-highlight">574</i>&nbsp;    public void setLocalWriteVoid(final boolean localWrite) {
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        if (localWrite &amp;&amp; readOnly) {</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">577</i>&nbsp;                &quot;localWrite and readOnly may not both be true&quot;);
+<i class="no-highlight">578</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">579</i>&nbsp;        this.localWrite = localWrite;</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;    }</b>
+<i class="no-highlight">581</i>&nbsp;
+<i class="no-highlight">582</i>&nbsp;    /**
+<i class="no-highlight">583</i>&nbsp;     * Returns whether local-write is configured for this transaction.
+<i class="no-highlight">584</i>&nbsp;     */
+<i class="no-highlight">585</i>&nbsp;    public boolean getLocalWrite() {
+<b class="nc"><i class="no-highlight">586</i>&nbsp;        return localWrite;</b>
+<i class="no-highlight">587</i>&nbsp;    }
+<i class="no-highlight">588</i>&nbsp;
+<i class="no-highlight">589</i>&nbsp;    /**
+<i class="no-highlight">590</i>&nbsp;     * Returns a copy of this configuration object.
+<i class="no-highlight">591</i>&nbsp;     */
+<i class="no-highlight">592</i>&nbsp;    @Override
+<i class="no-highlight">593</i>&nbsp;    public TransactionConfig clone() {
+<i class="no-highlight">594</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">595</i>&nbsp;            return (TransactionConfig) super.clone();</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        } catch (CloneNotSupportedException willNeverOccur) {</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            return null;</b>
+<i class="no-highlight">598</i>&nbsp;        }
+<i class="no-highlight">599</i>&nbsp;    }
+<i class="no-highlight">600</i>&nbsp;
+<i class="no-highlight">601</i>&nbsp;    /**
+<i class="no-highlight">602</i>&nbsp;     *
+<i class="no-highlight">603</i>&nbsp;     * Checks to catch mixing of deprecated and non-deprecated forms of the
+<i class="no-highlight">604</i>&nbsp;     * API. It&#39;s invoked before setting any of the config parameters. The
+<i class="no-highlight">605</i>&nbsp;     * arguments represent the new state of the durability configuration,
+<i class="no-highlight">606</i>&nbsp;     * before it has been changed.
+<i class="no-highlight">607</i>&nbsp;     *
+<i class="no-highlight">608</i>&nbsp;     * @throws IllegalArgumentException via TransactionConfig and
+<i class="no-highlight">609</i>&nbsp;     * EnvironmentMutableConfig setters
+<i class="no-highlight">610</i>&nbsp;     */
+<i class="no-highlight">611</i>&nbsp;    static void checkMixedMode(final boolean sync,
+<i class="no-highlight">612</i>&nbsp;                               final boolean noSync,
+<i class="no-highlight">613</i>&nbsp;                               final boolean writeNoSync,
+<i class="no-highlight">614</i>&nbsp;                               final Durability durability)
+<i class="no-highlight">615</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">616</i>&nbsp;
+<b class="fc"><i class="no-highlight">617</i>&nbsp;        if ((sync || noSync || writeNoSync) &amp;&amp; (durability != null)) {</b>
+<b class="nc"><i class="no-highlight">618</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">619</i>&nbsp;                (&quot;Mixed use of deprecated and current durability APIs is &quot; +
+<i class="no-highlight">620</i>&nbsp;                 &quot;not supported&quot;);
+<i class="no-highlight">621</i>&nbsp;        }
+<i class="no-highlight">622</i>&nbsp;
+<b class="fc"><i class="no-highlight">623</i>&nbsp;        if ((sync &amp;&amp; noSync) ||</b>
+<i class="no-highlight">624</i>&nbsp;            (sync &amp;&amp; writeNoSync) ||
+<i class="no-highlight">625</i>&nbsp;            (noSync &amp;&amp; writeNoSync)) {
+<b class="nc"><i class="no-highlight">626</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">627</i>&nbsp;                (&quot;Only one of TxnSync, TxnNoSync, and TxnWriteNoSync &quot; +
+<i class="no-highlight">628</i>&nbsp;                 &quot;can be set.&quot;);
+<i class="no-highlight">629</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">630</i>&nbsp;    }</b>
+<i class="no-highlight">631</i>&nbsp;
+<i class="no-highlight">632</i>&nbsp;    /**
+<i class="no-highlight">633</i>&nbsp;     * Returns the values for each configuration attribute.
+<i class="no-highlight">634</i>&nbsp;     *
+<i class="no-highlight">635</i>&nbsp;     * @return the values for each configuration attribute.
+<i class="no-highlight">636</i>&nbsp;     */
+<i class="no-highlight">637</i>&nbsp;    @Override
+<i class="no-highlight">638</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">639</i>&nbsp;        return &quot;sync=&quot; + sync +</b>
+<i class="no-highlight">640</i>&nbsp;            &quot;\nnoSync=&quot; + noSync +
+<i class="no-highlight">641</i>&nbsp;            &quot;\nwriteNoSync=&quot; + writeNoSync +
+<i class="no-highlight">642</i>&nbsp;            &quot;\ndurability=&quot; + durability +
+<i class="no-highlight">643</i>&nbsp;            &quot;\nconsistencyPolicy=&quot; + consistencyPolicy +
+<i class="no-highlight">644</i>&nbsp;            &quot;\nnoWait=&quot; + noWait +
+<i class="no-highlight">645</i>&nbsp;            &quot;\nreadUncommitted=&quot; + readUncommitted +
+<i class="no-highlight">646</i>&nbsp;            &quot;\nreadCommitted=&quot; + readCommitted +
+<i class="no-highlight">647</i>&nbsp;            &quot;\nSerializableIsolation=&quot; + serializableIsolation +
+<i class="no-highlight">648</i>&nbsp;            &quot;\n&quot;;
+<i class="no-highlight">649</i>&nbsp;    }
+<i class="no-highlight">650</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1829 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Checkpointer</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.recovery</a>
+</div>
+
+<h1>Coverage Summary for Class: Checkpointer (com.sleepycat.je.recovery)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Checkpointer</td>
+<td class="coverageStat">
+  <span class="percent">
+    60.9%
+  </span>
+  <span class="absValue">
+    (14/23)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    64%
+  </span>
+  <span class="absValue">
+    (226/353)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Checkpointer$CheckpointReference</td>
+<td class="coverageStat">
+  <span class="percent">
+    25%
+  </span>
+  <span class="absValue">
+    (1/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    47.1%
+  </span>
+  <span class="absValue">
+    (8/17)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Checkpointer$FlushStats</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (5/5)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Checkpointer$RootFlusher</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (4/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    91.3%
+  </span>
+  <span class="absValue">
+    (21/23)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    63.6%
+  </span>
+  <span class="absValue">
+    (21/33)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    65.3%
+  </span>
+  <span class="absValue">
+    (260/398)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.recovery;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_CHECKPOINTS;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_DELTA_IN_FLUSH;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_FULL_BIN_FLUSH;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_FULL_IN_FLUSH;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_LAST_CKPTID;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_LAST_CKPT_END;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_LAST_CKPT_INTERVAL;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.CKPT_LAST_CKPT_START;
+<i class="no-highlight">24</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.GROUP_DESC;
+<i class="no-highlight">25</i>&nbsp;import static com.sleepycat.je.recovery.CheckpointStatDefinition.GROUP_NAME;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">28</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">29</i>&nbsp;import java.util.List;
+<i class="no-highlight">30</i>&nbsp;import java.util.Map;
+<i class="no-highlight">31</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">32</i>&nbsp;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.CacheMode;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.CheckpointConfig;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.DiskLimitException;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.EnvironmentMutableConfig;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.cleaner.Cleaner;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.cleaner.FileSelector.CheckpointStartCleanerState;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.dbi.EnvConfigObserver;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.evictor.OffHeapCache;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.log.LogManager;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.log.Provisional;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.log.entry.INLogEntry;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.log.entry.SingleItemEntry;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.tree.ChildReference;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.tree.SearchResult;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.tree.Tree;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.tree.WithRootLatched;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.utilint.DaemonThread;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">63</i>&nbsp;import com.sleepycat.je.utilint.LSNStat;
+<i class="no-highlight">64</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">65</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">66</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">67</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">68</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">70</i>&nbsp;
+<i class="no-highlight">71</i>&nbsp;/**
+<i class="no-highlight">72</i>&nbsp; * The Checkpointer looks through the tree for internal nodes that must be
+<i class="no-highlight">73</i>&nbsp; * flushed to the log. Checkpoint flushes must be done in ascending order from
+<i class="no-highlight">74</i>&nbsp; * the bottom of the tree up.
+<i class="no-highlight">75</i>&nbsp; *
+<i class="no-highlight">76</i>&nbsp; * Checkpoint and IN Logging Rules
+<i class="no-highlight">77</i>&nbsp; * -------------------------------
+<i class="no-highlight">78</i>&nbsp; * The checkpoint must log, and make accessible via non-provisional ancestors,
+<i class="no-highlight">79</i>&nbsp; * all INs that are dirty at CkptStart.  If we crash and recover from that
+<i class="no-highlight">80</i>&nbsp; * CkptStart onward, any IN that became dirty (before the crash) after the
+<i class="no-highlight">81</i>&nbsp; * CkptStart must become dirty again as the result of replaying the action that
+<i class="no-highlight">82</i>&nbsp; * caused it to originally become dirty.
+<i class="no-highlight">83</i>&nbsp; *
+<i class="no-highlight">84</i>&nbsp; * Therefore, when an IN is dirtied at some point in the checkpoint interval,
+<i class="no-highlight">85</i>&nbsp; * but is not logged by the checkpoint, the log entry representing the action
+<i class="no-highlight">86</i>&nbsp; * that dirtied the IN must follow either the CkptStart or the FirstActiveLSN
+<i class="no-highlight">87</i>&nbsp; * that is recorded in the CkptEnd entry.  The FirstActiveLSN is less than or
+<i class="no-highlight">88</i>&nbsp; * equal to the CkptStart LSN.  Recovery will process LNs between the
+<i class="no-highlight">89</i>&nbsp; * FirstActiveLSN and the end of the log.  Other entries are only processed
+<i class="no-highlight">90</i>&nbsp; * from the CkptStart forward.  And provisional entries are not processed.
+<i class="no-highlight">91</i>&nbsp; *
+<i class="no-highlight">92</i>&nbsp; * Example: Non-transactional LN logging.  We take two actions: 1) log the LN
+<i class="no-highlight">93</i>&nbsp; * and then 2) dirty the parent BIN.  What if the LN is logged before CkptStart
+<i class="no-highlight">94</i>&nbsp; * and the BIN is dirtied after CkptStart?  How do we avoid breaking the rules?
+<i class="no-highlight">95</i>&nbsp; * The answer is that we log the LN while holding the latch on the parent BIN,
+<i class="no-highlight">96</i>&nbsp; * and we don&#39;t release the latch until after we dirty the BIN.   The
+<i class="no-highlight">97</i>&nbsp; * construction of the checkpoint dirty map requires latching the BIN.  Since
+<i class="no-highlight">98</i>&nbsp; * the LN was logged before CkptStart, the BIN will be dirtied before the
+<i class="no-highlight">99</i>&nbsp; * checkpointer latches it during dirty map construction.  So the BIN will
+<i class="no-highlight">100</i>&nbsp; * always be included in the dirty map and logged by the checkpoint.
+<i class="no-highlight">101</i>&nbsp; *
+<i class="no-highlight">102</i>&nbsp; * Example: Abort.  We take two actions: 1) log the abort and then 2) undo the
+<i class="no-highlight">103</i>&nbsp; * changes, which modifies (dirties) the BIN parents of the undone LNs.  There
+<i class="no-highlight">104</i>&nbsp; * is nothing to prevent logging CkptStart in between these two actions, so how
+<i class="no-highlight">105</i>&nbsp; * do we avoid breaking the rules?  The answer is that we do not unregister the
+<i class="no-highlight">106</i>&nbsp; * transaction until after the undo phase.  So although the BINs may be dirtied
+<i class="no-highlight">107</i>&nbsp; * by the undo after CkptStart is logged, the FirstActiveLSN will be prior to
+<i class="no-highlight">108</i>&nbsp; * CkptStart.  Therefore, we will process the Abort and replay the action that
+<i class="no-highlight">109</i>&nbsp; * modifies the BINs.
+<i class="no-highlight">110</i>&nbsp; *
+<i class="no-highlight">111</i>&nbsp; * Exception: Lazy migration.  The log cleaner will make an IN dirty without
+<i class="no-highlight">112</i>&nbsp; * logging an action that makes it dirty.  This is an exception to the general
+<i class="no-highlight">113</i>&nbsp; * rule that actions should be logged when they cause dirtiness.   The reasons
+<i class="no-highlight">114</i>&nbsp; * this is safe are:
+<i class="no-highlight">115</i>&nbsp; * 1. The IN contents are not modified, so there is no information lost if the
+<i class="no-highlight">116</i>&nbsp; *    IN is never logged, or is logged provisionally and no ancestor is logged
+<i class="no-highlight">117</i>&nbsp; *    non-provisionally.
+<i class="no-highlight">118</i>&nbsp; * 2. If the IN is logged non-provisionally, this will have the side effect of
+<i class="no-highlight">119</i>&nbsp; *    recording the old LSN as being obsolete. However, the general rules for
+<i class="no-highlight">120</i>&nbsp; *    checkpointing and recovery will ensure that the new version is used in
+<i class="no-highlight">121</i>&nbsp; *    the Btree.  The new version will either be replayed by recovery or
+<i class="no-highlight">122</i>&nbsp; *    referenced in the active Btree via a non-provisional ancestor.
+<i class="no-highlight">123</i>&nbsp; *
+<i class="no-highlight">124</i>&nbsp; * Checkpoint Algorithm TODO update this
+<i class="no-highlight">125</i>&nbsp; * --------------------
+<i class="no-highlight">126</i>&nbsp; * The final checkpointDirtyMap field is used to hold (in addition to the dirty
+<i class="no-highlight">127</i>&nbsp; * INs) the state of the checkpoint and highest flush levels.  Access to this
+<i class="no-highlight">128</i>&nbsp; * object is synchronized so that eviction and checkpointing can access it
+<i class="no-highlight">129</i>&nbsp; * concurrently.  When a checkpoint is not active, the state is CkptState.NONE
+<i class="no-highlight">130</i>&nbsp; * and the dirty map is empty.  When a checkpoint runs, we do this:
+<i class="no-highlight">131</i>&nbsp; *
+<i class="no-highlight">132</i>&nbsp; * 1. Get set of files from cleaner that can be deleted after this checkpoint.
+<i class="no-highlight">133</i>&nbsp; * 2. Set checkpointDirtyMap state to DIRTY_MAP_INCOMPLETE, meaning that dirty
+<i class="no-highlight">134</i>&nbsp; *    map construction is in progress.
+<i class="no-highlight">135</i>&nbsp; * 3. Log CkptStart
+<i class="no-highlight">136</i>&nbsp; * 4. Construct dirty map, organized by Btree level, from dirty INs in INList.
+<i class="no-highlight">137</i>&nbsp; *    The highest flush levels are calculated during dirty map construction.
+<i class="no-highlight">138</i>&nbsp; *    Set checkpointDirtyMap state to DIRTY_MAP_COMPLETE.
+<i class="no-highlight">139</i>&nbsp; * 5. Flush INs in dirty map.
+<i class="no-highlight">140</i>&nbsp; *        + First, flush the bottom two levels a sub-tree at a time, where a
+<i class="no-highlight">141</i>&nbsp; *          sub-tree is one IN at level two and all its BIN children.  Higher
+<i class="no-highlight">142</i>&nbsp; *          levels (above level two) are logged strictly by level, not using
+<i class="no-highlight">143</i>&nbsp; *          subtrees.
+<i class="no-highlight">144</i>&nbsp; *              o If je.checkpointer.highPriority=false, we log one IN at a
+<i class="no-highlight">145</i>&nbsp; *                time, whether or not the IN is logged as part of a subtree,
+<i class="no-highlight">146</i>&nbsp; *                and do a Btree search for the parent of each IN.
+<i class="no-highlight">147</i>&nbsp; *              o If je.checkpointer.highPriority=true, for the bottom two
+<i class="no-highlight">148</i>&nbsp; *                levels we log each sub-tree in a single call to the
+<i class="no-highlight">149</i>&nbsp; *                LogManager with the parent IN latched, and we only do one
+<i class="no-highlight">150</i>&nbsp; *                Btree search for each level two IN.  Higher levels are logged
+<i class="no-highlight">151</i>&nbsp; *                one IN at a time as with highPriority=false.
+<i class="no-highlight">152</i>&nbsp; *        + The Provisional property is set as follows, depending on the level
+<i class="no-highlight">153</i>&nbsp; *          of the IN:
+<i class="no-highlight">154</i>&nbsp; *              o level is max flush level:  Provisional.NO
+<i class="no-highlight">155</i>&nbsp; *              o level is bottom level: Provisional.YES
+<i class="no-highlight">156</i>&nbsp; *              o Otherwise (middle levels): Provisional.BEFORE_CKPT_END
+<i class="no-highlight">157</i>&nbsp; *  6. Flush VLSNIndex cache to make VLSNIndex recoverable.
+<i class="no-highlight">158</i>&nbsp; *  7. Flush UtilizationTracker (write FileSummaryLNs) to persist all
+<i class="no-highlight">159</i>&nbsp; *     tracked obsolete offsets and utilization summary info, to make this info
+<i class="no-highlight">160</i>&nbsp; *     recoverable.
+<i class="no-highlight">161</i>&nbsp; *  8. Log CkptEnd
+<i class="no-highlight">162</i>&nbsp; *  9. Delete cleaned files from step 1.
+<i class="no-highlight">163</i>&nbsp; * 10. Set checkpointDirtyMap state to NONE.
+<i class="no-highlight">164</i>&nbsp; *
+<i class="no-highlight">165</i>&nbsp; * Per-DB Highest Flush Level
+<i class="no-highlight">166</i>&nbsp; * --------------------------
+<i class="no-highlight">167</i>&nbsp; * As mentioned above, when the dirty map is constructed we also determine the
+<i class="no-highlight">168</i>&nbsp; * highest flush level for each database.  This is the maximum Btree level at
+<i class="no-highlight">169</i>&nbsp; * which a dirty node exists in the DB.
+<i class="no-highlight">170</i>&nbsp; *
+<i class="no-highlight">171</i>&nbsp; * When logging a node below the maxFlushLevel, we add the parent to the dirty
+<i class="no-highlight">172</i>&nbsp; * map.  It may or may not have been added when the dirty map was constructed.
+<i class="no-highlight">173</i>&nbsp; * The idea is to flush all ancestors of all nodes in the dirty map, up to and
+<i class="no-highlight">174</i>&nbsp; * including the maxFlushLevel, even if those ancestors were not dirty when the
+<i class="no-highlight">175</i>&nbsp; * dirty map was constructed.
+<i class="no-highlight">176</i>&nbsp; *
+<i class="no-highlight">177</i>&nbsp; * This is done to avoid orphaning a dirty node as shown in this example.
+<i class="no-highlight">178</i>&nbsp; *
+<i class="no-highlight">179</i>&nbsp; *          IN-A       (root level=4)
+<i class="no-highlight">180</i>&nbsp; *         /    \
+<i class="no-highlight">181</i>&nbsp; *   (d) IN-B   IN-C   (maxFlushLevel=3)
+<i class="no-highlight">182</i>&nbsp; *               \
+<i class="no-highlight">183</i>&nbsp; *           (d) IN-D
+<i class="no-highlight">184</i>&nbsp; *
+<i class="no-highlight">185</i>&nbsp; * IN-C is not dirty (d) when the dirty map is constructed, but it will be
+<i class="no-highlight">186</i>&nbsp; * logged because its child (IN-D) is dirty, and it is not above maxFlushLevel.
+<i class="no-highlight">187</i>&nbsp; *
+<i class="no-highlight">188</i>&nbsp; * If IN-C were not logged, and there were a crash after the checkpoint, the
+<i class="no-highlight">189</i>&nbsp; * changes to IN-D would be lost.  IN-D would not be replayed by recovery
+<i class="no-highlight">190</i>&nbsp; * because it is logged provisionally, and it would not be accessible via its
+<i class="no-highlight">191</i>&nbsp; * parent.  This is because only nodes at maxFlushLevel are logged
+<i class="no-highlight">192</i>&nbsp; * non-provisionally.  The actions that led to the changes in IN-D may not be
+<i class="no-highlight">193</i>&nbsp; * replayed either, because they may appear before the firstActiveLsn
+<i class="no-highlight">194</i>&nbsp; * associated with the checkpoint.
+<i class="no-highlight">195</i>&nbsp; *
+<i class="no-highlight">196</i>&nbsp; * When log files are to be deleted at the end of the checkpoint (after being
+<i class="no-highlight">197</i>&nbsp; * processed by the log cleaner), the maxFlushLevel is increased by one.
+<i class="no-highlight">198</i>&nbsp; * This is to ensure that LSNs in deleted files will not be fetched during
+<i class="no-highlight">199</i>&nbsp; * recovery.  Such files are in the FileSelector.CLEANED state, which means
+<i class="no-highlight">200</i>&nbsp; * they have been processed by the cleaner since the last checkpoint.
+<i class="no-highlight">201</i>&nbsp; *
+<i class="no-highlight">202</i>&nbsp; * TODO: Document circumstances and motivation for the extra flush level.
+<i class="no-highlight">203</i>&nbsp; *
+<i class="no-highlight">204</i>&nbsp; * Lastly, for Database.sync or a checkpoint with MinimizeRecoveryTime
+<i class="no-highlight">205</i>&nbsp; * configured, we will flush all the way to the root rather than using the
+<i class="no-highlight">206</i>&nbsp; * maxFlushLevel computed as described above.
+<i class="no-highlight">207</i>&nbsp; *
+<i class="no-highlight">208</i>&nbsp; * Provisional.BEFORE_CKPT_END
+<i class="no-highlight">209</i>&nbsp; * ---------------------------
+<i class="no-highlight">210</i>&nbsp; * See Provisional.java for a description of the relationship between the
+<i class="no-highlight">211</i>&nbsp; * checkpoint algorithm above and the BEFORE_CKPT_END property.
+<i class="no-highlight">212</i>&nbsp; *
+<i class="no-highlight">213</i>&nbsp; * Coordination of Eviction and Checkpointing
+<i class="no-highlight">214</i>&nbsp; * ------------------------------------------
+<i class="no-highlight">215</i>&nbsp; * Eviction can proceed concurrently with all phases of a checkpoint, and
+<i class="no-highlight">216</i>&nbsp; * eviction may take place concurrently in multiple threads.  This concurrency
+<i class="no-highlight">217</i>&nbsp; * is crucial to avoid blocking application threads that perform eviction and
+<i class="no-highlight">218</i>&nbsp; * to reduce the amount of eviction required in application threads.
+<i class="no-highlight">219</i>&nbsp; *
+<i class="no-highlight">220</i>&nbsp; * Eviction calls Checkpointer.coordinateEvictionWithCheckpoint, which calls
+<i class="no-highlight">221</i>&nbsp; * DirtyINMap.coordinateEvictionWithCheckpoint, just before logging an IN.
+<i class="no-highlight">222</i>&nbsp; * coordinateEvictionWithCheckpoint returns whether the IN should be logged
+<i class="no-highlight">223</i>&nbsp; * provisionally (Provisional.YES) or non-provisionally (Provisional.NO).
+<i class="no-highlight">224</i>&nbsp; *
+<i class="no-highlight">225</i>&nbsp; * Other coordination necessary depends on the state of the checkpoint:
+<i class="no-highlight">226</i>&nbsp; *   + NONE: No additional action.
+<i class="no-highlight">227</i>&nbsp; *      o return Provisional.NO
+<i class="no-highlight">228</i>&nbsp; *   + DIRTY_MAP_INCOMPLETE: The parent IN is added to the dirty map, exactly
+<i class="no-highlight">229</i>&nbsp; *     as if it were encountered as dirty in the INList during dirty map
+<i class="no-highlight">230</i>&nbsp; *     construction.
+<i class="no-highlight">231</i>&nbsp; *      o IN is root: return Provisional.NO
+<i class="no-highlight">232</i>&nbsp; *      o IN is not root: return Provisional.YES
+<i class="no-highlight">233</i>&nbsp; *   + DIRTY_MAP_COMPLETE:
+<i class="no-highlight">234</i>&nbsp; *      o IN level GTE highest flush level: return Provisional.NO
+<i class="no-highlight">235</i>&nbsp; *      o IN level LT highest flush level: return Provisional.YES
+<i class="no-highlight">236</i>&nbsp; *
+<i class="no-highlight">237</i>&nbsp; * In general this is designed so that eviction will use the same provisional
+<i class="no-highlight">238</i>&nbsp; * value that would be used by the checkpoint, as if the checkpoint itself were
+<i class="no-highlight">239</i>&nbsp; * logging the IN.  However, there are several conditions where this is not
+<i class="no-highlight">240</i>&nbsp; * exactly the case.
+<i class="no-highlight">241</i>&nbsp; *
+<i class="no-highlight">242</i>&nbsp; * 1. Eviction may log an IN with Provisional.YES when the IN was not dirty at
+<i class="no-highlight">243</i>&nbsp; *    the time of dirty map creation, if it became dirty afterwards.  In this
+<i class="no-highlight">244</i>&nbsp; *    case, the checkpointer would not have logged the IN at all.  This is safe
+<i class="no-highlight">245</i>&nbsp; *    because the actions that made that IN dirty are logged in the recovery
+<i class="no-highlight">246</i>&nbsp; *    period.
+<i class="no-highlight">247</i>&nbsp; * 2. Eviction may log an IN with Provisional.YES after the checkpoint has
+<i class="no-highlight">248</i>&nbsp; *    logged it, if it becomes dirty again.  In this case the IN is logged
+<i class="no-highlight">249</i>&nbsp; *    twice, which would not have been done by the checkpoint alone.  This is
+<i class="no-highlight">250</i>&nbsp; *    safe because the actions that made that IN dirty are logged in the
+<i class="no-highlight">251</i>&nbsp; *    recovery period.
+<i class="no-highlight">252</i>&nbsp; * 3. An intermediate level IN (not bottom most and not the highest flush
+<i class="no-highlight">253</i>&nbsp; *    level) will be logged by the checkpoint with Provisional.BEFORE_CKPT_END
+<i class="no-highlight">254</i>&nbsp; *    but will be logged by eviction with Provisional.YES.  See below for why
+<i class="no-highlight">255</i>&nbsp; *    this is safe.
+<i class="no-highlight">256</i>&nbsp; * 4. Between checkpoint step 8 (log CkptEnd) and 10 (set checkpointDirtyMap
+<i class="no-highlight">257</i>&nbsp; *    state to NONE), eviction may log an IN with Provisional.YES, although a
+<i class="no-highlight">258</i>&nbsp; *    checkpoint is not strictly active during this interval.  See below for
+<i class="no-highlight">259</i>&nbsp; *    why this is safe.
+<i class="no-highlight">260</i>&nbsp; *
+<i class="no-highlight">261</i>&nbsp; * It is safe for eviction to log an IN as Provisional.YES for the last two
+<i class="no-highlight">262</i>&nbsp; * special cases, because this does not cause incorrect recovery behavior.  For
+<i class="no-highlight">263</i>&nbsp; * recovery to work properly, it is only necessary that:
+<i class="no-highlight">264</i>&nbsp; *
+<i class="no-highlight">265</i>&nbsp; *  + Provisional.NO is used for INs at the max flush level during an active
+<i class="no-highlight">266</i>&nbsp; *    checkpoint.
+<i class="no-highlight">267</i>&nbsp; *  + Provisional.YES or BEFORE_CKPT_END is used for INs below the max flush
+<i class="no-highlight">268</i>&nbsp; *    level, to avoid replaying an IN during recovery that may depend on a file
+<i class="no-highlight">269</i>&nbsp; *    deleted as the result of the checkpoint.
+<i class="no-highlight">270</i>&nbsp; *
+<i class="no-highlight">271</i>&nbsp; * You may ask why we don&#39;t use Provisional.YES for eviction when a checkpoint
+<i class="no-highlight">272</i>&nbsp; * is not active.  There are two reason, both related to performance:
+<i class="no-highlight">273</i>&nbsp; *
+<i class="no-highlight">274</i>&nbsp; * 1. This would be wasteful when an IN is evicted in between checkpoints, and
+<i class="no-highlight">275</i>&nbsp; *    that portion of the log is processed by recovery later, in the event of a
+<i class="no-highlight">276</i>&nbsp; *    crash.  The evicted INs would be ignored by recovery, but the actions
+<i class="no-highlight">277</i>&nbsp; *    that caused them to be dirty would be replayed and the INs would be
+<i class="no-highlight">278</i>&nbsp; *    logged again redundantly.
+<i class="no-highlight">279</i>&nbsp; * 2. Logging a IN provisionally will not count the old LSN as obsolete
+<i class="no-highlight">280</i>&nbsp; *    immediately, so cleaner utilization will be inaccurate until the a
+<i class="no-highlight">281</i>&nbsp; *    non-provisional parent is logged, typically by the next checkpoint.  It
+<i class="no-highlight">282</i>&nbsp; *    is always important to keep the cleaner from stalling and spiking, to
+<i class="no-highlight">283</i>&nbsp; *    keep latency and throughput as level as possible.
+<i class="no-highlight">284</i>&nbsp; *
+<i class="no-highlight">285</i>&nbsp; * Therefore, it is safe to log with Provisional.YES in between checkpoints,
+<i class="no-highlight">286</i>&nbsp; * but not desirable.
+<i class="no-highlight">287</i>&nbsp; *
+<i class="no-highlight">288</i>&nbsp; * Although we don&#39;t do this, it would be safe and optimal to evict with
+<i class="no-highlight">289</i>&nbsp; * BEFORE_CKPT_END in between checkpoints, because it would be treated by
+<i class="no-highlight">290</i>&nbsp; * recovery as if it were Provisional.NO.  This is because the interval between
+<i class="no-highlight">291</i>&nbsp; * checkpoints is only processed by recovery if it follows the last CkptEnd,
+<i class="no-highlight">292</i>&nbsp; * and BEFORE_CKPT_END is treated as Provisional.NO if the IN follows the last
+<i class="no-highlight">293</i>&nbsp; * CkptEnd.
+<i class="no-highlight">294</i>&nbsp; *
+<i class="no-highlight">295</i>&nbsp; * However, it would not be safe to evict an IN with BEFORE_CKPT_END during a
+<i class="no-highlight">296</i>&nbsp; * checkpoint, when logging of the IN&#39;s ancestors does not occur according to
+<i class="no-highlight">297</i>&nbsp; * the rules of the checkpoint.  If this were done, then if the checkpoint
+<i class="no-highlight">298</i>&nbsp; * completes and is used during a subsequent recovery, an obsolete offset for
+<i class="no-highlight">299</i>&nbsp; * the old version of the IN will mistakenly be recorded.  Below are two cases
+<i class="no-highlight">300</i>&nbsp; * where BEFORE_CKPT_END is used correctly and one showing how it could be used
+<i class="no-highlight">301</i>&nbsp; * incorrectly.
+<i class="no-highlight">302</i>&nbsp; *
+<i class="no-highlight">303</i>&nbsp; * 1. Correct use of BEFORE_CKPT_END when the checkpoint does not complete.
+<i class="no-highlight">304</i>&nbsp; *
+<i class="no-highlight">305</i>&nbsp; *        050 BIN-A
+<i class="no-highlight">306</i>&nbsp; *        060 IN-B parent of BIN-A
+<i class="no-highlight">307</i>&nbsp; *        100 CkptStart
+<i class="no-highlight">308</i>&nbsp; *        200 BIN-A logged with BEFORE_CKPT_END
+<i class="no-highlight">309</i>&nbsp; *        300 FileSummaryLN with obsolete offset for BIN-A at 050
+<i class="no-highlight">310</i>&nbsp; *        Crash and recover
+<i class="no-highlight">311</i>&nbsp; *
+<i class="no-highlight">312</i>&nbsp; *    Recovery will process BIN-A at 200 (it will be considered
+<i class="no-highlight">313</i>&nbsp; *    non-provisional) because there is no following CkptEnd.  It is
+<i class="no-highlight">314</i>&nbsp; *    therefore correct that BIN-A at 050 is obsolete.
+<i class="no-highlight">315</i>&nbsp; *
+<i class="no-highlight">316</i>&nbsp; * 2. Correct use of BEFORE_CKPT_END when the checkpoint does complete.
+<i class="no-highlight">317</i>&nbsp; *
+<i class="no-highlight">318</i>&nbsp; *        050 BIN-A
+<i class="no-highlight">319</i>&nbsp; *        060 IN-B parent of BIN-A
+<i class="no-highlight">320</i>&nbsp; *        100 CkptStart
+<i class="no-highlight">321</i>&nbsp; *        200 BIN-A logged with BEFORE_CKPT_END
+<i class="no-highlight">322</i>&nbsp; *        300 FileSummaryLN with obsolete offset for BIN-A at 050
+<i class="no-highlight">323</i>&nbsp; *        400 IN-B parent of BIN-A, non-provisional
+<i class="no-highlight">324</i>&nbsp; *        500 CkptEnd
+<i class="no-highlight">325</i>&nbsp; *        Crash and recover
+<i class="no-highlight">326</i>&nbsp; *
+<i class="no-highlight">327</i>&nbsp; *    Recovery will not process BIN-A at 200 (it will be considered
+<i class="no-highlight">328</i>&nbsp; *    provisional) because there is a following CkptEnd, but it will
+<i class="no-highlight">329</i>&nbsp; *    process its parent IN-B at 400, and therefore the BIN-A at 200 will be
+<i class="no-highlight">330</i>&nbsp; *    active in the tree.  It is therefore correct that BIN-A at 050 is
+<i class="no-highlight">331</i>&nbsp; *    obsolete.
+<i class="no-highlight">332</i>&nbsp; *
+<i class="no-highlight">333</i>&nbsp; * 3. Incorrect use of BEFORE_CKPT_END when the checkpoint does complete.
+<i class="no-highlight">334</i>&nbsp; *
+<i class="no-highlight">335</i>&nbsp; *        050 BIN-A
+<i class="no-highlight">336</i>&nbsp; *        060 IN-B parent of BIN-A
+<i class="no-highlight">337</i>&nbsp; *        100 CkptStart
+<i class="no-highlight">338</i>&nbsp; *        200 BIN-A logged with BEFORE_CKPT_END
+<i class="no-highlight">339</i>&nbsp; *        300 FileSummaryLN with obsolete offset for BIN-A at 050
+<i class="no-highlight">340</i>&nbsp; *        400 CkptEnd
+<i class="no-highlight">341</i>&nbsp; *        Crash and recover
+<i class="no-highlight">342</i>&nbsp; *
+<i class="no-highlight">343</i>&nbsp; *    Recovery will not process BIN-A at 200 (it will be considered
+<i class="no-highlight">344</i>&nbsp; *    provisional) because there is a following CkptEnd, but no parent
+<i class="no-highlight">345</i>&nbsp; *    IN-B is logged, and therefore the IN-B at 060 and BIN-A at 050 will be
+<i class="no-highlight">346</i>&nbsp; *    active in the tree.  It is therefore incorrect that BIN-A at 050 is
+<i class="no-highlight">347</i>&nbsp; *    obsolete.
+<i class="no-highlight">348</i>&nbsp; *
+<i class="no-highlight">349</i>&nbsp; * This last case is what caused the LFNF in SR [#19422], when BEFORE_CKPT_END
+<i class="no-highlight">350</i>&nbsp; * was mistakenly used for logging evicted BINs via CacheMode.EVICT_BIN.
+<i class="no-highlight">351</i>&nbsp; * During the checkpoint, we evict BIN-A and log it with BEFORE_CKPT_END, yet
+<i class="no-highlight">352</i>&nbsp; * neither it nor its parent are part of the checkpoint.  After being counted
+<i class="no-highlight">353</i>&nbsp; * obsolete, we crash and recover.  Then the file containing the BIN (BIN-A at
+<i class="no-highlight">354</i>&nbsp; * 050 above) is cleaned and deleted.  During cleaning, it is not migrated
+<i class="no-highlight">355</i>&nbsp; * because an obsolete offset was previously recorded.  The LFNF occurs when
+<i class="no-highlight">356</i>&nbsp; * trying to access this BIN during a user operation.
+<i class="no-highlight">357</i>&nbsp; *
+<i class="no-highlight">358</i>&nbsp; * CacheMode.EVICT_BIN
+<i class="no-highlight">359</i>&nbsp; * -------------------
+<i class="no-highlight">360</i>&nbsp; * Unlike in JE 4.0 where EVICT_BIN was first introduced, in JE 4.1 and later
+<i class="no-highlight">361</i>&nbsp; * we do not use special rules when an IN is evicted.  Since concurrent
+<i class="no-highlight">362</i>&nbsp; * eviction and checkpointing are supported in JE 4.1, the above rules apply to
+<i class="no-highlight">363</i>&nbsp; * EVICT_BIN as well as all other types of eviction.
+<i class="no-highlight">364</i>&nbsp; */
+<b class="fc"><i class="no-highlight">365</i>&nbsp;public class Checkpointer extends DaemonThread implements EnvConfigObserver {</b>
+<i class="no-highlight">366</i>&nbsp;
+<i class="no-highlight">367</i>&nbsp;    /**
+<i class="no-highlight">368</i>&nbsp;     * For unit testing only.  Called before we flush the max level.  This
+<i class="no-highlight">369</i>&nbsp;     * field is static because it is called from the static flushIN method.
+<i class="no-highlight">370</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">371</i>&nbsp;    private static TestHook&lt;?&gt; maxFlushLevelHook = null;</b>
+<i class="no-highlight">372</i>&nbsp;
+<b class="fc"><i class="no-highlight">373</i>&nbsp;    private static TestHook&lt;?&gt; beforeFlushHook = null;</b>
+<i class="no-highlight">374</i>&nbsp;
+<b class="fc"><i class="no-highlight">375</i>&nbsp;    static TestHook&lt;IN&gt; examineINForCheckpointHook = null;</b>
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;    /* Checkpoint sequence, initialized at recovery. */
+<i class="no-highlight">378</i>&nbsp;    private long checkpointId;
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;    /*
+<i class="no-highlight">381</i>&nbsp;     * How much the log should grow between checkpoints. If 0, we&#39;re using time
+<i class="no-highlight">382</i>&nbsp;     * based checkpointing.
+<i class="no-highlight">383</i>&nbsp;     */
+<i class="no-highlight">384</i>&nbsp;    private final long logSizeBytesInterval;
+<i class="no-highlight">385</i>&nbsp;    private final long logFileMax;
+<i class="no-highlight">386</i>&nbsp;    private final long timeInterval;
+<i class="no-highlight">387</i>&nbsp;    private long lastCheckpointMillis;
+<i class="no-highlight">388</i>&nbsp;    private volatile boolean wakeupAfterNoWrites;
+<i class="no-highlight">389</i>&nbsp;
+<i class="no-highlight">390</i>&nbsp;    /* Configured to true to minimize checkpoint duration. */
+<i class="no-highlight">391</i>&nbsp;    private boolean highPriority;
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;    private long nCheckpoints;
+<i class="no-highlight">394</i>&nbsp;    private long lastCheckpointStart;
+<i class="no-highlight">395</i>&nbsp;    private long lastCheckpointEnd;
+<i class="no-highlight">396</i>&nbsp;    private long lastCheckpointInterval;
+<i class="no-highlight">397</i>&nbsp;    private final FlushStats flushStats;
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;    /**
+<i class="no-highlight">400</i>&nbsp;     * The DirtyINMap for checkpointing is created once and is reset after each
+<i class="no-highlight">401</i>&nbsp;     * checkpoint is complete.  Access to this object is synchronized so that
+<i class="no-highlight">402</i>&nbsp;     * eviction and checkpointing can access it concurrently.
+<i class="no-highlight">403</i>&nbsp;     */
+<i class="no-highlight">404</i>&nbsp;    private final DirtyINMap checkpointDirtyMap;
+<i class="no-highlight">405</i>&nbsp;
+<i class="no-highlight">406</i>&nbsp;    public Checkpointer(EnvironmentImpl envImpl,
+<i class="no-highlight">407</i>&nbsp;                        long waitTime,
+<i class="no-highlight">408</i>&nbsp;                        String name) {
+<b class="fc"><i class="no-highlight">409</i>&nbsp;        super(waitTime, name, envImpl);</b>
+<b class="fc"><i class="no-highlight">410</i>&nbsp;        logSizeBytesInterval =</b>
+<b class="fc"><i class="no-highlight">411</i>&nbsp;            envImpl.getConfigManager().getLong</b>
+<b class="fc"><i class="no-highlight">412</i>&nbsp;                (EnvironmentParams.CHECKPOINTER_BYTES_INTERVAL);</b>
+<b class="fc"><i class="no-highlight">413</i>&nbsp;        logFileMax =</b>
+<b class="fc"><i class="no-highlight">414</i>&nbsp;            envImpl.getConfigManager().getLong(EnvironmentParams.LOG_FILE_MAX);</b>
+<b class="fc"><i class="no-highlight">415</i>&nbsp;        timeInterval = waitTime;</b>
+<b class="fc"><i class="no-highlight">416</i>&nbsp;        lastCheckpointMillis = 0;</b>
+<i class="no-highlight">417</i>&nbsp;
+<b class="fc"><i class="no-highlight">418</i>&nbsp;        nCheckpoints = 0;</b>
+<b class="fc"><i class="no-highlight">419</i>&nbsp;        flushStats = new FlushStats();</b>
+<i class="no-highlight">420</i>&nbsp;
+<b class="fc"><i class="no-highlight">421</i>&nbsp;        checkpointDirtyMap = new DirtyINMap(envImpl);</b>
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;        /* Initialize mutable properties and register for notifications. */
+<b class="fc"><i class="no-highlight">424</i>&nbsp;        envConfigUpdate(envImpl.getConfigManager(), null);</b>
+<b class="fc"><i class="no-highlight">425</i>&nbsp;        envImpl.addConfigObserver(this);</b>
+<b class="fc"><i class="no-highlight">426</i>&nbsp;    }</b>
+<i class="no-highlight">427</i>&nbsp;
+<i class="no-highlight">428</i>&nbsp;    /**
+<i class="no-highlight">429</i>&nbsp;     * Process notifications of mutable property changes.
+<i class="no-highlight">430</i>&nbsp;     */
+<i class="no-highlight">431</i>&nbsp;    @Override
+<i class="no-highlight">432</i>&nbsp;    public void envConfigUpdate(DbConfigManager cm,
+<i class="no-highlight">433</i>&nbsp;                                EnvironmentMutableConfig ignore) {
+<b class="fc"><i class="no-highlight">434</i>&nbsp;        highPriority = cm.getBoolean</b>
+<b class="fc"><i class="no-highlight">435</i>&nbsp;            (EnvironmentParams.CHECKPOINTER_HIGH_PRIORITY);</b>
+<b class="fc"><i class="no-highlight">436</i>&nbsp;    }</b>
+<i class="no-highlight">437</i>&nbsp;
+<i class="no-highlight">438</i>&nbsp;    /**
+<i class="no-highlight">439</i>&nbsp;     * Initializes the checkpoint intervals when no checkpoint is performed
+<i class="no-highlight">440</i>&nbsp;     * while opening the environment.
+<i class="no-highlight">441</i>&nbsp;     */
+<i class="no-highlight">442</i>&nbsp;    void initIntervals(long lastCheckpointStart,
+<i class="no-highlight">443</i>&nbsp;                       long lastCheckpointEnd,
+<i class="no-highlight">444</i>&nbsp;                       long lastCheckpointMillis) {
+<b class="nc"><i class="no-highlight">445</i>&nbsp;        this.lastCheckpointStart = lastCheckpointStart;</b>
+<b class="nc"><i class="no-highlight">446</i>&nbsp;        this.lastCheckpointEnd = lastCheckpointEnd;</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;        this.lastCheckpointMillis = lastCheckpointMillis;</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;    }</b>
+<i class="no-highlight">449</i>&nbsp;
+<i class="no-highlight">450</i>&nbsp;    /**
+<i class="no-highlight">451</i>&nbsp;     * Coordinates an eviction with an in-progress checkpoint and returns
+<i class="no-highlight">452</i>&nbsp;     * whether provisional logging is needed.
+<i class="no-highlight">453</i>&nbsp;     *
+<i class="no-highlight">454</i>&nbsp;     * @return the provisional status to use for logging the target.
+<i class="no-highlight">455</i>&nbsp;     */
+<i class="no-highlight">456</i>&nbsp;    public Provisional coordinateEvictionWithCheckpoint(
+<i class="no-highlight">457</i>&nbsp;        final DatabaseImpl db,
+<i class="no-highlight">458</i>&nbsp;        final int targetLevel,
+<i class="no-highlight">459</i>&nbsp;        final IN parent) {
+<i class="no-highlight">460</i>&nbsp;
+<b class="fc"><i class="no-highlight">461</i>&nbsp;        return checkpointDirtyMap.</b>
+<b class="fc"><i class="no-highlight">462</i>&nbsp;            coordinateEvictionWithCheckpoint(db, targetLevel, parent);</b>
+<i class="no-highlight">463</i>&nbsp;    }
+<i class="no-highlight">464</i>&nbsp;
+<i class="no-highlight">465</i>&nbsp;    /**
+<i class="no-highlight">466</i>&nbsp;     * Coordinates a split with an in-progress checkpoint.
+<i class="no-highlight">467</i>&nbsp;     *
+<i class="no-highlight">468</i>&nbsp;     * @param newSibling the sibling IN created by the split.
+<i class="no-highlight">469</i>&nbsp;     */
+<i class="no-highlight">470</i>&nbsp;    public void coordinateSplitWithCheckpoint(final IN newSibling) {
+<b class="fc"><i class="no-highlight">471</i>&nbsp;        checkpointDirtyMap.coordinateSplitWithCheckpoint(newSibling);</b>
+<b class="fc"><i class="no-highlight">472</i>&nbsp;    }</b>
+<i class="no-highlight">473</i>&nbsp;
+<i class="no-highlight">474</i>&nbsp;    /**
+<i class="no-highlight">475</i>&nbsp;     * Figure out the wakeup period. Supplied through this static method
+<i class="no-highlight">476</i>&nbsp;     * because we need to pass wakeup period to the superclass and need to do
+<i class="no-highlight">477</i>&nbsp;     * the calcuation outside this constructor.
+<i class="no-highlight">478</i>&nbsp;     *
+<i class="no-highlight">479</i>&nbsp;     * @throws IllegalArgumentException via Environment ctor and
+<i class="no-highlight">480</i>&nbsp;     * setMutableConfig.
+<i class="no-highlight">481</i>&nbsp;     */
+<i class="no-highlight">482</i>&nbsp;    public static long getWakeupPeriod(DbConfigManager configManager)
+<i class="no-highlight">483</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">484</i>&nbsp;
+<b class="fc"><i class="no-highlight">485</i>&nbsp;        long wakeupPeriod = configManager.getDuration</b>
+<b class="fc"><i class="no-highlight">486</i>&nbsp;            (EnvironmentParams.CHECKPOINTER_WAKEUP_INTERVAL);</b>
+<b class="fc"><i class="no-highlight">487</i>&nbsp;        long bytePeriod = configManager.getLong</b>
+<b class="fc"><i class="no-highlight">488</i>&nbsp;            (EnvironmentParams.CHECKPOINTER_BYTES_INTERVAL);</b>
+<i class="no-highlight">489</i>&nbsp;
+<i class="no-highlight">490</i>&nbsp;        /* Checkpointing period must be set either by time or by log size. */
+<b class="fc"><i class="no-highlight">491</i>&nbsp;        if ((wakeupPeriod == 0) &amp;&amp; (bytePeriod == 0)) {</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">493</i>&nbsp;                (EnvironmentParams.CHECKPOINTER_BYTES_INTERVAL.getName() +</b>
+<i class="no-highlight">494</i>&nbsp;                 &quot; and &quot; +
+<b class="nc"><i class="no-highlight">495</i>&nbsp;                 EnvironmentParams.CHECKPOINTER_WAKEUP_INTERVAL.getName() +</b>
+<i class="no-highlight">496</i>&nbsp;                 &quot; cannot both be 0. &quot;);
+<i class="no-highlight">497</i>&nbsp;        }
+<i class="no-highlight">498</i>&nbsp;
+<i class="no-highlight">499</i>&nbsp;        /*
+<i class="no-highlight">500</i>&nbsp;         * Checkpointing by log size takes precendence over time based period.
+<i class="no-highlight">501</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">502</i>&nbsp;        if (bytePeriod == 0) {</b>
+<b class="nc"><i class="no-highlight">503</i>&nbsp;            return wakeupPeriod;</b>
+<i class="no-highlight">504</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">505</i>&nbsp;            return 0;</b>
+<i class="no-highlight">506</i>&nbsp;        }
+<i class="no-highlight">507</i>&nbsp;    }
+<i class="no-highlight">508</i>&nbsp;
+<i class="no-highlight">509</i>&nbsp;    /**
+<i class="no-highlight">510</i>&nbsp;     * Set checkpoint id -- can only be done after recovery.
+<i class="no-highlight">511</i>&nbsp;     */
+<i class="no-highlight">512</i>&nbsp;    synchronized void setCheckpointId(long lastCheckpointId) {
+<b class="nc"><i class="no-highlight">513</i>&nbsp;        checkpointId = lastCheckpointId;</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;    }</b>
+<i class="no-highlight">515</i>&nbsp;
+<i class="no-highlight">516</i>&nbsp;    /**
+<i class="no-highlight">517</i>&nbsp;     * Load stats.
+<i class="no-highlight">518</i>&nbsp;     */
+<i class="no-highlight">519</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">520</i>&nbsp;    public StatGroup loadStats(StatsConfig config) {
+<b class="fc"><i class="no-highlight">521</i>&nbsp;        StatGroup stats = new StatGroup(GROUP_NAME, GROUP_DESC);</b>
+<b class="fc"><i class="no-highlight">522</i>&nbsp;        new LongStat(stats, CKPT_LAST_CKPTID, checkpointId);</b>
+<b class="fc"><i class="no-highlight">523</i>&nbsp;        new LongStat(stats, CKPT_CHECKPOINTS, nCheckpoints);</b>
+<b class="fc"><i class="no-highlight">524</i>&nbsp;        new LongStat(stats, CKPT_LAST_CKPT_INTERVAL, lastCheckpointInterval);</b>
+<b class="fc"><i class="no-highlight">525</i>&nbsp;        new LSNStat(stats, CKPT_LAST_CKPT_START, lastCheckpointStart);</b>
+<b class="fc"><i class="no-highlight">526</i>&nbsp;        new LSNStat(stats, CKPT_LAST_CKPT_END, lastCheckpointEnd);</b>
+<b class="fc"><i class="no-highlight">527</i>&nbsp;        new LongStat(stats, CKPT_FULL_IN_FLUSH, flushStats.nFullINFlush);</b>
+<b class="fc"><i class="no-highlight">528</i>&nbsp;        new LongStat(stats, CKPT_FULL_BIN_FLUSH, flushStats.nFullBINFlush);</b>
+<b class="fc"><i class="no-highlight">529</i>&nbsp;        new LongStat(stats, CKPT_DELTA_IN_FLUSH, flushStats.nDeltaINFlush);</b>
+<i class="no-highlight">530</i>&nbsp;
+<b class="fc"><i class="no-highlight">531</i>&nbsp;        if (config.getClear()) {</b>
+<b class="nc"><i class="no-highlight">532</i>&nbsp;            nCheckpoints = 0;</b>
+<b class="nc"><i class="no-highlight">533</i>&nbsp;            flushStats.nFullINFlush = 0;</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;            flushStats.nFullBINFlush = 0;</b>
+<b class="nc"><i class="no-highlight">535</i>&nbsp;            flushStats.nDeltaINFlush = 0;</b>
+<i class="no-highlight">536</i>&nbsp;        }
+<i class="no-highlight">537</i>&nbsp;
+<b class="fc"><i class="no-highlight">538</i>&nbsp;        return stats;</b>
+<i class="no-highlight">539</i>&nbsp;    }
+<i class="no-highlight">540</i>&nbsp;
+<i class="no-highlight">541</i>&nbsp;    /**
+<i class="no-highlight">542</i>&nbsp;     * Return the number of retries when a deadlock exception occurs.
+<i class="no-highlight">543</i>&nbsp;     */
+<i class="no-highlight">544</i>&nbsp;    @Override
+<i class="no-highlight">545</i>&nbsp;    protected long nDeadlockRetries() {
+<b class="nc"><i class="no-highlight">546</i>&nbsp;        return envImpl.getConfigManager().getInt</b>
+<b class="nc"><i class="no-highlight">547</i>&nbsp;            (EnvironmentParams.CHECKPOINTER_RETRY);</b>
+<i class="no-highlight">548</i>&nbsp;    }
+<i class="no-highlight">549</i>&nbsp;
+<i class="no-highlight">550</i>&nbsp;    /**
+<i class="no-highlight">551</i>&nbsp;     * Called whenever the DaemonThread wakes up from a sleep.
+<i class="no-highlight">552</i>&nbsp;     */
+<i class="no-highlight">553</i>&nbsp;    @Override
+<i class="no-highlight">554</i>&nbsp;    protected void onWakeup() {
+<i class="no-highlight">555</i>&nbsp;
+<b class="nc"><i class="no-highlight">556</i>&nbsp;        if (envImpl.isClosing()) {</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            return;</b>
+<i class="no-highlight">558</i>&nbsp;        }
+<i class="no-highlight">559</i>&nbsp;
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        doCheckpoint(</b>
+<i class="no-highlight">561</i>&nbsp;            CheckpointConfig.DEFAULT, &quot;daemon&quot;, true /*invokedFromDaemon*/);
+<i class="no-highlight">562</i>&nbsp;
+<b class="nc"><i class="no-highlight">563</i>&nbsp;        wakeupAfterNoWrites = false;</b>
+<b class="nc"><i class="no-highlight">564</i>&nbsp;    }</b>
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;    /**
+<i class="no-highlight">567</i>&nbsp;     * Wakes up the checkpointer if a checkpoint log interval is configured and
+<i class="no-highlight">568</i>&nbsp;     * the number of bytes written since the last checkpoint exceeds the size
+<i class="no-highlight">569</i>&nbsp;     * of the interval.
+<i class="no-highlight">570</i>&nbsp;     */
+<i class="no-highlight">571</i>&nbsp;    public void wakeupAfterWrite() {
+<i class="no-highlight">572</i>&nbsp;
+<b class="fc"><i class="no-highlight">573</i>&nbsp;        if ((logSizeBytesInterval != 0) &amp;&amp; !isRunning()) {</b>
+<i class="no-highlight">574</i>&nbsp;
+<b class="fc"><i class="no-highlight">575</i>&nbsp;            long nextLsn = envImpl.getFileManager().getNextLsn();</b>
+<i class="no-highlight">576</i>&nbsp;
+<b class="fc"><i class="no-highlight">577</i>&nbsp;            if (DbLsn.getNoCleaningDistance(</b>
+<i class="no-highlight">578</i>&nbsp;                    nextLsn, lastCheckpointStart, logFileMax) &gt;=
+<i class="no-highlight">579</i>&nbsp;                logSizeBytesInterval) {
+<i class="no-highlight">580</i>&nbsp;
+<b class="fc"><i class="no-highlight">581</i>&nbsp;                wakeup();</b>
+<i class="no-highlight">582</i>&nbsp;            }
+<i class="no-highlight">583</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">584</i>&nbsp;    }</b>
+<i class="no-highlight">585</i>&nbsp;
+<i class="no-highlight">586</i>&nbsp;    /**
+<i class="no-highlight">587</i>&nbsp;     * Wakes up the checkpointer if a checkpoint is needed to reclaim disk
+<i class="no-highlight">588</i>&nbsp;     * space for already cleaned files. This method is called after an idle
+<i class="no-highlight">589</i>&nbsp;     * period with no writes.
+<i class="no-highlight">590</i>&nbsp;     */
+<i class="no-highlight">591</i>&nbsp;    public void wakeupAfterNoWrites() {
+<i class="no-highlight">592</i>&nbsp;
+<b class="nc"><i class="no-highlight">593</i>&nbsp;        if (!isRunning() &amp;&amp; needCheckpointForCleanedFiles()) {</b>
+<b class="nc"><i class="no-highlight">594</i>&nbsp;            wakeupAfterNoWrites = true;</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;            wakeup();</b>
+<i class="no-highlight">596</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">597</i>&nbsp;    }</b>
+<i class="no-highlight">598</i>&nbsp;
+<i class="no-highlight">599</i>&nbsp;    private boolean needCheckpointForCleanedFiles() {
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        return envImpl.getCleaner().getFileSelector().isCheckpointNeeded();</b>
+<i class="no-highlight">601</i>&nbsp;    }
+<i class="no-highlight">602</i>&nbsp;
+<i class="no-highlight">603</i>&nbsp;    /**
+<i class="no-highlight">604</i>&nbsp;     * Determine whether a checkpoint should be run.
+<i class="no-highlight">605</i>&nbsp;     */
+<i class="no-highlight">606</i>&nbsp;    private boolean isRunnable(CheckpointConfig config) {
+<i class="no-highlight">607</i>&nbsp;        /* Figure out if we&#39;re using log size or time to determine interval.*/
+<b class="fc"><i class="no-highlight">608</i>&nbsp;        long useBytesInterval = 0;</b>
+<b class="fc"><i class="no-highlight">609</i>&nbsp;        long useTimeInterval = 0;</b>
+<b class="fc"><i class="no-highlight">610</i>&nbsp;        long nextLsn = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">611</i>&nbsp;        boolean runnable = false;</b>
+<i class="no-highlight">612</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">613</i>&nbsp;            if (config.getForce()) {</b>
+<b class="fc"><i class="no-highlight">614</i>&nbsp;                runnable = true;</b>
+<b class="fc"><i class="no-highlight">615</i>&nbsp;                return true;</b>
+<i class="no-highlight">616</i>&nbsp;            }
+<i class="no-highlight">617</i>&nbsp;
+<b class="nc"><i class="no-highlight">618</i>&nbsp;            if (wakeupAfterNoWrites &amp;&amp; needCheckpointForCleanedFiles()) {</b>
+<b class="nc"><i class="no-highlight">619</i>&nbsp;                runnable = true;</b>
+<b class="nc"><i class="no-highlight">620</i>&nbsp;                return true;</b>
+<i class="no-highlight">621</i>&nbsp;            }
+<i class="no-highlight">622</i>&nbsp;
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            if (config.getKBytes() != 0) {</b>
+<b class="nc"><i class="no-highlight">624</i>&nbsp;                useBytesInterval = config.getKBytes() &lt;&lt; 10;</b>
+<i class="no-highlight">625</i>&nbsp;
+<b class="nc"><i class="no-highlight">626</i>&nbsp;            } else if (config.getMinutes() != 0) {</b>
+<i class="no-highlight">627</i>&nbsp;                /* Convert to millis. */
+<b class="nc"><i class="no-highlight">628</i>&nbsp;                useTimeInterval = config.getMinutes() * 60 * 1000;</b>
+<i class="no-highlight">629</i>&nbsp;
+<b class="nc"><i class="no-highlight">630</i>&nbsp;            } else if (logSizeBytesInterval != 0) {</b>
+<b class="nc"><i class="no-highlight">631</i>&nbsp;                useBytesInterval = logSizeBytesInterval;</b>
+<i class="no-highlight">632</i>&nbsp;
+<i class="no-highlight">633</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">634</i>&nbsp;                useTimeInterval = timeInterval;</b>
+<i class="no-highlight">635</i>&nbsp;            }
+<i class="no-highlight">636</i>&nbsp;
+<i class="no-highlight">637</i>&nbsp;            /*
+<i class="no-highlight">638</i>&nbsp;             * If our checkpoint interval is defined by log size, check on how
+<i class="no-highlight">639</i>&nbsp;             * much log has grown since the last checkpoint.
+<i class="no-highlight">640</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">641</i>&nbsp;            if (useBytesInterval != 0) {</b>
+<b class="nc"><i class="no-highlight">642</i>&nbsp;                nextLsn = envImpl.getFileManager().getNextLsn();</b>
+<i class="no-highlight">643</i>&nbsp;
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                if (DbLsn.getNoCleaningDistance(</b>
+<i class="no-highlight">645</i>&nbsp;                    nextLsn, lastCheckpointStart, logFileMax) &gt;=
+<i class="no-highlight">646</i>&nbsp;                    useBytesInterval) {
+<i class="no-highlight">647</i>&nbsp;
+<b class="nc"><i class="no-highlight">648</i>&nbsp;                    runnable = true;</b>
+<i class="no-highlight">649</i>&nbsp;                }
+<i class="no-highlight">650</i>&nbsp;
+<b class="nc"><i class="no-highlight">651</i>&nbsp;            } else if (useTimeInterval != 0) {</b>
+<i class="no-highlight">652</i>&nbsp;
+<i class="no-highlight">653</i>&nbsp;                /*
+<i class="no-highlight">654</i>&nbsp;                 * Our checkpoint is determined by time.  If enough time has
+<i class="no-highlight">655</i>&nbsp;                 * passed and some log data has been written, do a checkpoint.
+<i class="no-highlight">656</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">657</i>&nbsp;                final long lastUsedLsn =</b>
+<b class="nc"><i class="no-highlight">658</i>&nbsp;                    envImpl.getFileManager().getLastUsedLsn();</b>
+<i class="no-highlight">659</i>&nbsp;
+<b class="nc"><i class="no-highlight">660</i>&nbsp;                if (((System.currentTimeMillis() - lastCheckpointMillis) &gt;=</b>
+<i class="no-highlight">661</i>&nbsp;                     useTimeInterval) &amp;&amp;
+<b class="nc"><i class="no-highlight">662</i>&nbsp;                    (DbLsn.compareTo(lastUsedLsn, lastCheckpointEnd) != 0)) {</b>
+<i class="no-highlight">663</i>&nbsp;
+<b class="nc"><i class="no-highlight">664</i>&nbsp;                    runnable = true;</b>
+<i class="no-highlight">665</i>&nbsp;                }
+<i class="no-highlight">666</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">667</i>&nbsp;            return runnable;</b>
+<i class="no-highlight">668</i>&nbsp;
+<i class="no-highlight">669</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">670</i>&nbsp;            if (logger.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                final StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">672</i>&nbsp;                sb.append(&quot;size interval=&quot;).append(useBytesInterval);</b>
+<b class="nc"><i class="no-highlight">673</i>&nbsp;                if (nextLsn != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">674</i>&nbsp;                    sb.append(&quot; nextLsn=&quot;).</b>
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                        append(DbLsn.getNoFormatString(nextLsn));</b>
+<i class="no-highlight">676</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">677</i>&nbsp;                if (lastCheckpointEnd != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">678</i>&nbsp;                    sb.append(&quot; lastCkpt=&quot;);</b>
+<b class="nc"><i class="no-highlight">679</i>&nbsp;                    sb.append(DbLsn.getNoFormatString(lastCheckpointEnd));</b>
+<i class="no-highlight">680</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">681</i>&nbsp;                sb.append(&quot; time interval=&quot;).append(useTimeInterval);</b>
+<b class="nc"><i class="no-highlight">682</i>&nbsp;                sb.append(&quot; force=&quot;).append(config.getForce());</b>
+<b class="nc"><i class="no-highlight">683</i>&nbsp;                sb.append(&quot; runnable=&quot;).append(runnable);</b>
+<i class="no-highlight">684</i>&nbsp;
+<b class="nc"><i class="no-highlight">685</i>&nbsp;                LoggerUtils.finest(logger, envImpl, sb.toString());</b>
+<i class="no-highlight">686</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">687</i>&nbsp;        }</b>
+<i class="no-highlight">688</i>&nbsp;    }
+<i class="no-highlight">689</i>&nbsp;
+<i class="no-highlight">690</i>&nbsp;    /**
+<i class="no-highlight">691</i>&nbsp;     * The real work to do a checkpoint. This may be called by the checkpoint
+<i class="no-highlight">692</i>&nbsp;     * thread when waking up, or it may be invoked programatically through the
+<i class="no-highlight">693</i>&nbsp;     * api.
+<i class="no-highlight">694</i>&nbsp;     *
+<i class="no-highlight">695</i>&nbsp;     * @param invokingSource a debug aid, to indicate who invoked this
+<i class="no-highlight">696</i>&nbsp;     *       checkpoint. (i.e. recovery, the checkpointer daemon, the cleaner,
+<i class="no-highlight">697</i>&nbsp;     *       programatically)
+<i class="no-highlight">698</i>&nbsp;     */
+<i class="no-highlight">699</i>&nbsp;    public synchronized void doCheckpoint(CheckpointConfig config,
+<i class="no-highlight">700</i>&nbsp;                                          String invokingSource,
+<i class="no-highlight">701</i>&nbsp;                                          boolean invokedFromDaemon) {
+<b class="fc"><i class="no-highlight">702</i>&nbsp;        if (envImpl.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">703</i>&nbsp;            return;</b>
+<i class="no-highlight">704</i>&nbsp;        }
+<i class="no-highlight">705</i>&nbsp;
+<b class="fc"><i class="no-highlight">706</i>&nbsp;        if (!isRunnable(config)) {</b>
+<b class="nc"><i class="no-highlight">707</i>&nbsp;            return;</b>
+<i class="no-highlight">708</i>&nbsp;        }
+<i class="no-highlight">709</i>&nbsp;
+<i class="no-highlight">710</i>&nbsp;        /* Stop if we cannot write because of a disk limit violation. */
+<i class="no-highlight">711</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">712</i>&nbsp;            envImpl.checkDiskLimitViolation();</b>
+<b class="nc"><i class="no-highlight">713</i>&nbsp;        } catch (DiskLimitException e) {</b>
+<b class="nc"><i class="no-highlight">714</i>&nbsp;            if (!invokedFromDaemon) {</b>
+<b class="nc"><i class="no-highlight">715</i>&nbsp;                throw e;</b>
+<i class="no-highlight">716</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">717</i>&nbsp;            return;</b>
+<b class="fc"><i class="no-highlight">718</i>&nbsp;        }</b>
+<i class="no-highlight">719</i>&nbsp;
+<i class="no-highlight">720</i>&nbsp;        /*
+<i class="no-highlight">721</i>&nbsp;         * If minimizing recovery time is desired, then flush all the way to
+<i class="no-highlight">722</i>&nbsp;         * the top of the dbtree instead of stopping at the highest level last
+<i class="no-highlight">723</i>&nbsp;         * modified, so that only the root INs are processed by recovery.
+<i class="no-highlight">724</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">725</i>&nbsp;        final boolean flushAll = config.getMinimizeRecoveryTime();</b>
+<i class="no-highlight">726</i>&nbsp;
+<i class="no-highlight">727</i>&nbsp;        /*
+<i class="no-highlight">728</i>&nbsp;         * If there are cleaned files to be deleted, flush an extra level to
+<i class="no-highlight">729</i>&nbsp;         * write out the parents of cleaned nodes.  This ensures that no node
+<i class="no-highlight">730</i>&nbsp;         * will contain the LSN of a cleaned file.
+<i class="no-highlight">731</i>&nbsp;         *
+<i class="no-highlight">732</i>&nbsp;         * Note that we don&#39;t currently distinguish between files in the
+<i class="no-highlight">733</i>&nbsp;         * CLEANED and FULLY_PROCESSED states.  For a FULLY_PROCESSED file, a
+<i class="no-highlight">734</i>&nbsp;         * pending LN may have been processed since the prior checkpoint.
+<i class="no-highlight">735</i>&nbsp;         * However, the BIN containing the LSN of the LN is guaranteed to be
+<i class="no-highlight">736</i>&nbsp;         * logged, so there is no need to increment maxFlushLevel.  So we could
+<i class="no-highlight">737</i>&nbsp;         * optimize in the future and only set flushExtraLevel when some files
+<i class="no-highlight">738</i>&nbsp;         * are CLEANED (i.e., do not set flushExtraLevel when all files are
+<i class="no-highlight">739</i>&nbsp;         * FULLY_PROCESSED or cleanerState.isEmpty()).
+<i class="no-highlight">740</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">741</i>&nbsp;        final Cleaner cleaner = envImpl.getCleaner();</b>
+<i class="no-highlight">742</i>&nbsp;
+<b class="fc"><i class="no-highlight">743</i>&nbsp;        final CheckpointStartCleanerState cleanerState =</b>
+<b class="fc"><i class="no-highlight">744</i>&nbsp;            cleaner.getFilesAtCheckpointStart();</b>
+<i class="no-highlight">745</i>&nbsp;
+<b class="fc"><i class="no-highlight">746</i>&nbsp;        final boolean flushExtraLevel = !cleanerState.isEmpty();</b>
+<i class="no-highlight">747</i>&nbsp;
+<b class="fc"><i class="no-highlight">748</i>&nbsp;        lastCheckpointMillis = System.currentTimeMillis();</b>
+<b class="fc"><i class="no-highlight">749</i>&nbsp;        flushStats.resetPerRunCounters();</b>
+<i class="no-highlight">750</i>&nbsp;
+<i class="no-highlight">751</i>&nbsp;        /* Get the next checkpoint id. */
+<b class="fc"><i class="no-highlight">752</i>&nbsp;        checkpointId++;</b>
+<b class="fc"><i class="no-highlight">753</i>&nbsp;        nCheckpoints++;</b>
+<i class="no-highlight">754</i>&nbsp;
+<b class="fc"><i class="no-highlight">755</i>&nbsp;        boolean success = false;</b>
+<b class="fc"><i class="no-highlight">756</i>&nbsp;        boolean traced = false;</b>
+<i class="no-highlight">757</i>&nbsp;
+<b class="fc"><i class="no-highlight">758</i>&nbsp;        final LogManager logManager = envImpl.getLogManager();</b>
+<i class="no-highlight">759</i>&nbsp;
+<i class="no-highlight">760</i>&nbsp;        /*
+<i class="no-highlight">761</i>&nbsp;         * Set the checkpoint state so that concurrent eviction can be
+<i class="no-highlight">762</i>&nbsp;         * coordinated.
+<i class="no-highlight">763</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">764</i>&nbsp;        checkpointDirtyMap.beginCheckpoint(flushAll, flushExtraLevel);</b>
+<i class="no-highlight">765</i>&nbsp;
+<i class="no-highlight">766</i>&nbsp;        try {
+<i class="no-highlight">767</i>&nbsp;            /* Log the checkpoint start. */
+<b class="fc"><i class="no-highlight">768</i>&nbsp;            final SingleItemEntry&lt;CheckpointStart&gt; startEntry =</b>
+<b class="fc"><i class="no-highlight">769</i>&nbsp;                SingleItemEntry.create(</b>
+<i class="no-highlight">770</i>&nbsp;                    LogEntryType.LOG_CKPT_START,
+<i class="no-highlight">771</i>&nbsp;                    new CheckpointStart(checkpointId, invokingSource));
+<i class="no-highlight">772</i>&nbsp;
+<b class="fc"><i class="no-highlight">773</i>&nbsp;            final long checkpointStart =</b>
+<b class="fc"><i class="no-highlight">774</i>&nbsp;                logManager.log(startEntry, ReplicationContext.NO_REPLICATE);</b>
+<i class="no-highlight">775</i>&nbsp;
+<i class="no-highlight">776</i>&nbsp;            /*
+<i class="no-highlight">777</i>&nbsp;             * Note the first active LSN point. The definition of
+<i class="no-highlight">778</i>&nbsp;             * firstActiveLsn is that all log entries for active transactions
+<i class="no-highlight">779</i>&nbsp;             * are equal to or after that LSN.  This is the starting point for
+<i class="no-highlight">780</i>&nbsp;             * replaying LNs during recovery and will be stored in the CkptEnd
+<i class="no-highlight">781</i>&nbsp;             * entry.
+<i class="no-highlight">782</i>&nbsp;             *
+<i class="no-highlight">783</i>&nbsp;             * Use the checkpointStart as the firstActiveLsn if firstActiveLsn
+<i class="no-highlight">784</i>&nbsp;             * is null, meaning that no txns are active.
+<i class="no-highlight">785</i>&nbsp;             *
+<i class="no-highlight">786</i>&nbsp;             * The current value must be retrieved from TxnManager after
+<i class="no-highlight">787</i>&nbsp;             * logging CkptStart. If it were instead retrieved before logging
+<i class="no-highlight">788</i>&nbsp;             * CkptStart, the following failure could occur.  [#20270]
+<i class="no-highlight">789</i>&nbsp;             *
+<i class="no-highlight">790</i>&nbsp;             *  ... getFirstActiveLsn returns NULL_LSN, will use 200 CkptStart
+<i class="no-highlight">791</i>&nbsp;             *  100 LN-A in Txn-1
+<i class="no-highlight">792</i>&nbsp;             *  200 CkptStart
+<i class="no-highlight">793</i>&nbsp;             *  300 BIN-B refers to 100 LN-A
+<i class="no-highlight">794</i>&nbsp;             *  400 CkptEnd
+<i class="no-highlight">795</i>&nbsp;             *  ... Crash and recover.  Recovery does not undo 100 LN-A.
+<i class="no-highlight">796</i>&nbsp;             *  ... Txn-1 is uncommitted, yet 100 LN-A takes effect.
+<i class="no-highlight">797</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">798</i>&nbsp;            long firstActiveLsn = envImpl.getTxnManager().getFirstActiveLsn();</b>
+<b class="fc"><i class="no-highlight">799</i>&nbsp;            if (firstActiveLsn == DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">800</i>&nbsp;                firstActiveLsn = checkpointStart;</b>
+<i class="no-highlight">801</i>&nbsp;            }
+<i class="no-highlight">802</i>&nbsp;
+<i class="no-highlight">803</i>&nbsp;            /*
+<i class="no-highlight">804</i>&nbsp;             * In a replicated system, the checkpointer will be flushing out
+<i class="no-highlight">805</i>&nbsp;             * the VLSNIndex, which is HA metadata. Check that the in-memory
+<i class="no-highlight">806</i>&nbsp;             * version encompasses all metadata up to the point of the
+<i class="no-highlight">807</i>&nbsp;             * CheckpointStart record. This is no-op for non-replicated
+<i class="no-highlight">808</i>&nbsp;             * systems. [#19754]
+<i class="no-highlight">809</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">810</i>&nbsp;            envImpl.awaitVLSNConsistency();</b>
+<i class="no-highlight">811</i>&nbsp;
+<i class="no-highlight">812</i>&nbsp;            /* Find the set of dirty INs that must be logged. */
+<b class="fc"><i class="no-highlight">813</i>&nbsp;            checkpointDirtyMap.selectDirtyINsForCheckpoint();</b>
+<i class="no-highlight">814</i>&nbsp;
+<i class="no-highlight">815</i>&nbsp;            /* Call hook after dirty map creation and before flushing. */
+<b class="fc"><i class="no-highlight">816</i>&nbsp;            TestHookExecute.doHookIfSet(beforeFlushHook);</b>
+<i class="no-highlight">817</i>&nbsp;
+<i class="no-highlight">818</i>&nbsp;            /* Flush IN nodes. */
+<b class="fc"><i class="no-highlight">819</i>&nbsp;            flushDirtyNodes(</b>
+<i class="no-highlight">820</i>&nbsp;                envImpl, checkpointDirtyMap, checkpointStart, highPriority,
+<i class="no-highlight">821</i>&nbsp;                flushStats);
+<i class="no-highlight">822</i>&nbsp;
+<i class="no-highlight">823</i>&nbsp;            if (DirtyINMap.DIRTY_SET_DEBUG_TRACE) {
+<i class="no-highlight">824</i>&nbsp;                LoggerUtils.logMsg(
+<i class="no-highlight">825</i>&nbsp;                    envImpl.getLogger(), envImpl, Level.INFO,
+<i class="no-highlight">826</i>&nbsp;                    &quot;Ckpt flushed&quot; +
+<i class="no-highlight">827</i>&nbsp;                        &quot; nFullINFlushThisRun = &quot; +
+<i class="no-highlight">828</i>&nbsp;                        flushStats.nFullINFlushThisRun +
+<i class="no-highlight">829</i>&nbsp;                        &quot; nFullBINFlushThisRun = &quot; +
+<i class="no-highlight">830</i>&nbsp;                        flushStats.nFullBINFlushThisRun +
+<i class="no-highlight">831</i>&nbsp;                        &quot; nDeltaINFlushThisRun = &quot; +
+<i class="no-highlight">832</i>&nbsp;                        flushStats.nDeltaINFlushThisRun);
+<i class="no-highlight">833</i>&nbsp;
+<i class="no-highlight">834</i>&nbsp;            }
+<i class="no-highlight">835</i>&nbsp;
+<i class="no-highlight">836</i>&nbsp;            /*
+<i class="no-highlight">837</i>&nbsp;             * Flush MapLNs if not already done by flushDirtyNodes.  Only flush
+<i class="no-highlight">838</i>&nbsp;             * a database if it has not already been flushed since checkpoint
+<i class="no-highlight">839</i>&nbsp;             * start.  Lastly, flush the DB mapping tree root.
+<i class="no-highlight">840</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">841</i>&nbsp;            checkpointDirtyMap.flushMapLNs(checkpointStart);</b>
+<b class="fc"><i class="no-highlight">842</i>&nbsp;            checkpointDirtyMap.flushRoot(checkpointStart);</b>
+<i class="no-highlight">843</i>&nbsp;
+<i class="no-highlight">844</i>&nbsp;            /*
+<i class="no-highlight">845</i>&nbsp;             * Flush replication information if necessary so that the VLSNIndex
+<i class="no-highlight">846</i>&nbsp;             * cache is flushed and is recoverable.
+<i class="no-highlight">847</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">848</i>&nbsp;            envImpl.preCheckpointEndFlush();</b>
+<i class="no-highlight">849</i>&nbsp;
+<i class="no-highlight">850</i>&nbsp;            /*
+<i class="no-highlight">851</i>&nbsp;             * Flush utilization info AFTER flushing IN nodes to reduce the
+<i class="no-highlight">852</i>&nbsp;             * inaccuracies caused by the sequence FileSummaryLN-LN-BIN.
+<i class="no-highlight">853</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">854</i>&nbsp;            envImpl.getUtilizationProfile().flushFileUtilization</b>
+<b class="fc"><i class="no-highlight">855</i>&nbsp;                (envImpl.getUtilizationTracker().getTrackedFiles());</b>
+<i class="no-highlight">856</i>&nbsp;
+<b class="fc"><i class="no-highlight">857</i>&nbsp;            final DbTree dbTree = envImpl.getDbTree();</b>
+<b class="fc"><i class="no-highlight">858</i>&nbsp;            final boolean willDeleteFiles = !cleanerState.isEmpty();</b>
+<i class="no-highlight">859</i>&nbsp;
+<b class="fc"><i class="no-highlight">860</i>&nbsp;            final CheckpointEnd ckptEnd = new CheckpointEnd(</b>
+<b class="fc"><i class="no-highlight">861</i>&nbsp;                invokingSource, checkpointStart, envImpl.getRootLsn(),</b>
+<i class="no-highlight">862</i>&nbsp;                firstActiveLsn,
+<b class="fc"><i class="no-highlight">863</i>&nbsp;                envImpl.getNodeSequence().getLastLocalNodeId(),</b>
+<b class="fc"><i class="no-highlight">864</i>&nbsp;                envImpl.getNodeSequence().getLastReplicatedNodeId(),</b>
+<b class="fc"><i class="no-highlight">865</i>&nbsp;                dbTree.getLastLocalDbId(), dbTree.getLastReplicatedDbId(),</b>
+<b class="fc"><i class="no-highlight">866</i>&nbsp;                envImpl.getTxnManager().getLastLocalTxnId(),</b>
+<b class="fc"><i class="no-highlight">867</i>&nbsp;                envImpl.getTxnManager().getLastReplicatedTxnId(),</b>
+<i class="no-highlight">868</i>&nbsp;                checkpointId, willDeleteFiles);
+<i class="no-highlight">869</i>&nbsp;
+<b class="fc"><i class="no-highlight">870</i>&nbsp;            final SingleItemEntry&lt;CheckpointEnd&gt; endEntry =</b>
+<b class="fc"><i class="no-highlight">871</i>&nbsp;                SingleItemEntry.create(LogEntryType.LOG_CKPT_END, ckptEnd);</b>
+<i class="no-highlight">872</i>&nbsp;
+<i class="no-highlight">873</i>&nbsp;            /*
+<i class="no-highlight">874</i>&nbsp;             * Log checkpoint end and update state kept about the last
+<i class="no-highlight">875</i>&nbsp;             * checkpoint location. Send a trace message *before* the
+<i class="no-highlight">876</i>&nbsp;             * checkpoint end log entry. This is done so that the normal trace
+<i class="no-highlight">877</i>&nbsp;             * message doesn&#39;t affect the time-based isRunnable() calculation,
+<i class="no-highlight">878</i>&nbsp;             * which only issues a checkpoint if a log record has been written
+<i class="no-highlight">879</i>&nbsp;             * since the last checkpoint.
+<i class="no-highlight">880</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">881</i>&nbsp;            trace(envImpl, invokingSource, true);</b>
+<b class="fc"><i class="no-highlight">882</i>&nbsp;            traced = true;</b>
+<i class="no-highlight">883</i>&nbsp;
+<b class="fc"><i class="no-highlight">884</i>&nbsp;            lastCheckpointInterval = DbLsn.getNoCleaningDistance(</b>
+<i class="no-highlight">885</i>&nbsp;                checkpointStart, lastCheckpointStart, logFileMax);
+<i class="no-highlight">886</i>&nbsp;
+<i class="no-highlight">887</i>&nbsp;            /*
+<i class="no-highlight">888</i>&nbsp;             * We must flush and fsync to ensure that cleaned files are not
+<i class="no-highlight">889</i>&nbsp;             * referenced. This also ensures that this checkpoint is not wasted
+<i class="no-highlight">890</i>&nbsp;             * if we crash.
+<i class="no-highlight">891</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">892</i>&nbsp;            lastCheckpointEnd = logManager.logForceFlush(</b>
+<i class="no-highlight">893</i>&nbsp;                endEntry, true /*fsyncRequired*/,
+<i class="no-highlight">894</i>&nbsp;                ReplicationContext.NO_REPLICATE);
+<i class="no-highlight">895</i>&nbsp;
+<b class="fc"><i class="no-highlight">896</i>&nbsp;            lastCheckpointStart = checkpointStart;</b>
+<i class="no-highlight">897</i>&nbsp;
+<b class="fc"><i class="no-highlight">898</i>&nbsp;            success = true;</b>
+<b class="fc"><i class="no-highlight">899</i>&nbsp;            cleaner.updateFilesAtCheckpointEnd(cleanerState);</b>
+<i class="no-highlight">900</i>&nbsp;
+<b class="nc"><i class="no-highlight">901</i>&nbsp;        } catch (DiskLimitException e) {</b>
+<i class="no-highlight">902</i>&nbsp;
+<b class="nc"><i class="no-highlight">903</i>&nbsp;            LoggerUtils.logMsg(</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;                envImpl.getLogger(), envImpl, Level.WARNING,</b>
+<i class="no-highlight">905</i>&nbsp;                &quot;Ckpt id=&quot; + checkpointId + &quot; success=&quot; + success +
+<i class="no-highlight">906</i>&nbsp;                &quot; aborted because of disk limit violation: &quot; + e);
+<i class="no-highlight">907</i>&nbsp;
+<b class="nc"><i class="no-highlight">908</i>&nbsp;            if (!invokedFromDaemon) {</b>
+<b class="nc"><i class="no-highlight">909</i>&nbsp;                throw e;</b>
+<i class="no-highlight">910</i>&nbsp;            }
+<i class="no-highlight">911</i>&nbsp;
+<b class="nc"><i class="no-highlight">912</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">913</i>&nbsp;            LoggerUtils.traceAndLogException(envImpl, &quot;Checkpointer&quot;,</b>
+<i class="no-highlight">914</i>&nbsp;                                             &quot;doCheckpoint&quot;, &quot;checkpointId=&quot; +
+<i class="no-highlight">915</i>&nbsp;                                             checkpointId, e);
+<b class="nc"><i class="no-highlight">916</i>&nbsp;            throw e;</b>
+<i class="no-highlight">917</i>&nbsp;        } finally {
+<i class="no-highlight">918</i>&nbsp;
+<i class="no-highlight">919</i>&nbsp;            /*
+<i class="no-highlight">920</i>&nbsp;             * Reset the checkpoint state so evictor activity knows there&#39;s no
+<i class="no-highlight">921</i>&nbsp;             * further requirement for provisional logging. SR 11163.
+<i class="no-highlight">922</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">923</i>&nbsp;            checkpointDirtyMap.reset();</b>
+<i class="no-highlight">924</i>&nbsp;
+<b class="fc"><i class="no-highlight">925</i>&nbsp;            if (!traced) {</b>
+<b class="nc"><i class="no-highlight">926</i>&nbsp;                trace(envImpl, invokingSource, success);</b>
+<i class="no-highlight">927</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">928</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">929</i>&nbsp;    }</b>
+<i class="no-highlight">930</i>&nbsp;
+<i class="no-highlight">931</i>&nbsp;    private void trace(EnvironmentImpl envImpl,
+<i class="no-highlight">932</i>&nbsp;                       String invokingSource,
+<i class="no-highlight">933</i>&nbsp;                       boolean success ) {
+<i class="no-highlight">934</i>&nbsp;
+<b class="fc"><i class="no-highlight">935</i>&nbsp;        final StringBuilder sb = new StringBuilder();</b>
+<b class="fc"><i class="no-highlight">936</i>&nbsp;        sb.append(&quot;Checkpoint &quot;).append(checkpointId);</b>
+<b class="fc"><i class="no-highlight">937</i>&nbsp;        sb.append(&quot;: source=&quot; ).append(invokingSource);</b>
+<b class="fc"><i class="no-highlight">938</i>&nbsp;        sb.append(&quot; success=&quot;).append(success);</b>
+<b class="fc"><i class="no-highlight">939</i>&nbsp;        sb.append(&quot; nFullINFlushThisRun=&quot;);</b>
+<b class="fc"><i class="no-highlight">940</i>&nbsp;        sb.append(flushStats.nFullINFlushThisRun);</b>
+<b class="fc"><i class="no-highlight">941</i>&nbsp;        sb.append(&quot; nDeltaINFlushThisRun=&quot;);</b>
+<b class="fc"><i class="no-highlight">942</i>&nbsp;        sb.append(flushStats.nDeltaINFlushThisRun);</b>
+<b class="fc"><i class="no-highlight">943</i>&nbsp;        LoggerUtils.logMsg(logger, envImpl, Level.CONFIG, sb.toString());</b>
+<b class="fc"><i class="no-highlight">944</i>&nbsp;    }</b>
+<i class="no-highlight">945</i>&nbsp;
+<i class="no-highlight">946</i>&nbsp;    /**
+<i class="no-highlight">947</i>&nbsp;     * Flush a given database to disk. Like checkpoint, log from the bottom
+<i class="no-highlight">948</i>&nbsp;     * up so that parents properly represent their children.
+<i class="no-highlight">949</i>&nbsp;     */
+<i class="no-highlight">950</i>&nbsp;    public void syncDatabase(EnvironmentImpl envImpl,
+<i class="no-highlight">951</i>&nbsp;                             DatabaseImpl dbImpl,
+<i class="no-highlight">952</i>&nbsp;                             boolean flushLog) {
+<b class="nc"><i class="no-highlight">953</i>&nbsp;        if (envImpl.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">954</i>&nbsp;            return;</b>
+<i class="no-highlight">955</i>&nbsp;        }
+<i class="no-highlight">956</i>&nbsp;
+<b class="nc"><i class="no-highlight">957</i>&nbsp;        envImpl.checkDiskLimitViolation();</b>
+<i class="no-highlight">958</i>&nbsp;
+<b class="nc"><i class="no-highlight">959</i>&nbsp;        final DirtyINMap dirtyMap = new DirtyINMap(envImpl);</b>
+<b class="nc"><i class="no-highlight">960</i>&nbsp;        final FlushStats fstats = new FlushStats();</b>
+<i class="no-highlight">961</i>&nbsp;
+<i class="no-highlight">962</i>&nbsp;        try {
+<i class="no-highlight">963</i>&nbsp;            /* Find the dirty set. */
+<b class="nc"><i class="no-highlight">964</i>&nbsp;            dirtyMap.selectDirtyINsForDbSync(dbImpl);</b>
+<i class="no-highlight">965</i>&nbsp;
+<b class="nc"><i class="no-highlight">966</i>&nbsp;            if (dirtyMap.getNumEntries() &gt; 0) {</b>
+<i class="no-highlight">967</i>&nbsp;                /* Write all dirtyINs out.*/
+<b class="nc"><i class="no-highlight">968</i>&nbsp;                flushDirtyNodes(</b>
+<i class="no-highlight">969</i>&nbsp;                    envImpl, dirtyMap, DbLsn.NULL_LSN  /*ckptStart*/,
+<i class="no-highlight">970</i>&nbsp;                    false /*highPriority*/, fstats);
+<i class="no-highlight">971</i>&nbsp;
+<i class="no-highlight">972</i>&nbsp;                /* Make changes durable. [#15254] */
+<b class="nc"><i class="no-highlight">973</i>&nbsp;                if (flushLog) {</b>
+<b class="nc"><i class="no-highlight">974</i>&nbsp;                    envImpl.getLogManager().flushSync();</b>
+<i class="no-highlight">975</i>&nbsp;                }
+<i class="no-highlight">976</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">977</i>&nbsp;        } catch (DiskLimitException e) {</b>
+<b class="nc"><i class="no-highlight">978</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">979</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">980</i>&nbsp;            LoggerUtils.traceAndLogException</b>
+<b class="nc"><i class="no-highlight">981</i>&nbsp;                (envImpl, &quot;Checkpointer&quot;, &quot;syncDatabase&quot;,</b>
+<b class="nc"><i class="no-highlight">982</i>&nbsp;                 &quot;of &quot; + dbImpl.getDebugName(), e);</b>
+<b class="nc"><i class="no-highlight">983</i>&nbsp;            throw e;</b>
+<i class="no-highlight">984</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">985</i>&nbsp;            dirtyMap.reset();</b>
+<b class="nc"><i class="no-highlight">986</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">987</i>&nbsp;    }</b>
+<i class="no-highlight">988</i>&nbsp;
+<i class="no-highlight">989</i>&nbsp;    /* For unit testing only. */
+<i class="no-highlight">990</i>&nbsp;    public static void setMaxFlushLevelHook(TestHook&lt;?&gt; hook) {
+<b class="nc"><i class="no-highlight">991</i>&nbsp;        maxFlushLevelHook = hook;</b>
+<b class="nc"><i class="no-highlight">992</i>&nbsp;    }</b>
+<i class="no-highlight">993</i>&nbsp;
+<i class="no-highlight">994</i>&nbsp;    /* For unit testing only. */
+<i class="no-highlight">995</i>&nbsp;    public static void setBeforeFlushHook(TestHook&lt;?&gt; hook) {
+<b class="nc"><i class="no-highlight">996</i>&nbsp;        beforeFlushHook = hook;</b>
+<b class="nc"><i class="no-highlight">997</i>&nbsp;    }</b>
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;    /**
+<i class="no-highlight">1000</i>&nbsp;     * Flush the nodes in order, from the lowest level to highest level.  As a
+<i class="no-highlight">1001</i>&nbsp;     * flush dirties its parent, add it to the dirty map, thereby cascading the
+<i class="no-highlight">1002</i>&nbsp;     * writes up the tree. If flushAll wasn&#39;t specified, we need only cascade
+<i class="no-highlight">1003</i>&nbsp;     * up to the highest level set at the start of checkpointing.
+<i class="no-highlight">1004</i>&nbsp;     *
+<i class="no-highlight">1005</i>&nbsp;     * Note that all but the top level INs are logged provisionally. That&#39;s
+<i class="no-highlight">1006</i>&nbsp;     * because we don&#39;t need to process lower INs during recovery because the
+<i class="no-highlight">1007</i>&nbsp;     * higher INs will end up pointing at them.
+<i class="no-highlight">1008</i>&nbsp;     */
+<i class="no-highlight">1009</i>&nbsp;    private static void flushDirtyNodes(EnvironmentImpl envImpl,
+<i class="no-highlight">1010</i>&nbsp;                                        DirtyINMap dirtyMap,
+<i class="no-highlight">1011</i>&nbsp;                                        long checkpointStart,
+<i class="no-highlight">1012</i>&nbsp;                                        boolean highPriority,
+<i class="no-highlight">1013</i>&nbsp;                                        FlushStats fstats) {
+<i class="no-highlight">1014</i>&nbsp;
+<b class="fc"><i class="no-highlight">1015</i>&nbsp;        final DbTree dbTree = envImpl.getDbTree();</b>
+<b class="fc"><i class="no-highlight">1016</i>&nbsp;        final Map&lt;DatabaseId, DatabaseImpl&gt; dbCache = new HashMap&lt;&gt;();</b>
+<i class="no-highlight">1017</i>&nbsp;
+<i class="no-highlight">1018</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">1019</i>&nbsp;            while (dirtyMap.getNumLevels() &gt; 0) {</b>
+<i class="no-highlight">1020</i>&nbsp;
+<i class="no-highlight">1021</i>&nbsp;                /*
+<i class="no-highlight">1022</i>&nbsp;                 * Work on one level&#39;s worth of nodes in ascending level order.
+<i class="no-highlight">1023</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">1024</i>&nbsp;                final Integer currentLevel = dirtyMap.getLowestLevelSet();</b>
+<b class="fc"><i class="no-highlight">1025</i>&nbsp;                final int currentLevelVal = currentLevel;</b>
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;                /*
+<i class="no-highlight">1028</i>&nbsp;                 * Flush MapLNs just prior to flushing the first level of the
+<i class="no-highlight">1029</i>&nbsp;                 * mapping tree.  Only flush a database if it has not already
+<i class="no-highlight">1030</i>&nbsp;                 * been flushed since checkpoint start.
+<i class="no-highlight">1031</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">1032</i>&nbsp;                if (currentLevelVal == IN.DBMAP_LEVEL) {</b>
+<b class="nc"><i class="no-highlight">1033</i>&nbsp;                    dirtyMap.flushMapLNs(checkpointStart);</b>
+<i class="no-highlight">1034</i>&nbsp;                }
+<i class="no-highlight">1035</i>&nbsp;
+<i class="no-highlight">1036</i>&nbsp;                /* Flush the nodes at the current level. */
+<i class="no-highlight">1037</i>&nbsp;                while (true) {
+<b class="fc"><i class="no-highlight">1038</i>&nbsp;                    final CheckpointReference targetRef =</b>
+<b class="fc"><i class="no-highlight">1039</i>&nbsp;                        dirtyMap.removeNextNode(currentLevel);</b>
+<i class="no-highlight">1040</i>&nbsp;
+<b class="fc"><i class="no-highlight">1041</i>&nbsp;                    if (targetRef == null) {</b>
+<b class="fc"><i class="no-highlight">1042</i>&nbsp;                        break;</b>
+<i class="no-highlight">1043</i>&nbsp;                    }
+<i class="no-highlight">1044</i>&nbsp;
+<b class="fc"><i class="no-highlight">1045</i>&nbsp;                    envImpl.checkDiskLimitViolation();</b>
+<i class="no-highlight">1046</i>&nbsp;
+<i class="no-highlight">1047</i>&nbsp;                    /*
+<i class="no-highlight">1048</i>&nbsp;                     * Check to make sure the DB was not deleted after putting
+<i class="no-highlight">1049</i>&nbsp;                     * it in the dirty map, and prevent the DB from being
+<i class="no-highlight">1050</i>&nbsp;                     * deleted while we&#39;re working with it.
+<i class="no-highlight">1051</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">1052</i>&nbsp;                    final DatabaseImpl db = dbTree.getDb(</b>
+<i class="no-highlight">1053</i>&nbsp;                        targetRef.dbId, -1 /*lockTimeout*/, dbCache);
+<i class="no-highlight">1054</i>&nbsp;
+<b class="fc"><i class="no-highlight">1055</i>&nbsp;                    if (db != null &amp;&amp; !db.isDeleted()) {</b>
+<i class="no-highlight">1056</i>&nbsp;
+<i class="no-highlight">1057</i>&nbsp;                        /* Flush if we&#39;re below maxFlushLevel. */
+<b class="fc"><i class="no-highlight">1058</i>&nbsp;                        final int maxFlushLevel =</b>
+<b class="fc"><i class="no-highlight">1059</i>&nbsp;                            dirtyMap.getHighestFlushLevel(db);</b>
+<i class="no-highlight">1060</i>&nbsp;
+<b class="fc"><i class="no-highlight">1061</i>&nbsp;                        if (currentLevelVal &lt;= maxFlushLevel) {</b>
+<i class="no-highlight">1062</i>&nbsp;
+<b class="fc"><i class="no-highlight">1063</i>&nbsp;                            flushIN(</b>
+<i class="no-highlight">1064</i>&nbsp;                                db, targetRef, dirtyMap, maxFlushLevel,
+<i class="no-highlight">1065</i>&nbsp;                                highPriority, fstats, true /*allowLogSubtree*/);
+<i class="no-highlight">1066</i>&nbsp;
+<i class="no-highlight">1067</i>&nbsp;                            /*
+<i class="no-highlight">1068</i>&nbsp;                             * Sleep if background read/write limit was
+<i class="no-highlight">1069</i>&nbsp;                             * exceeded.
+<i class="no-highlight">1070</i>&nbsp;                             */
+<b class="fc"><i class="no-highlight">1071</i>&nbsp;                            envImpl.sleepAfterBackgroundIO();</b>
+<i class="no-highlight">1072</i>&nbsp;                        }
+<i class="no-highlight">1073</i>&nbsp;                    }
+<i class="no-highlight">1074</i>&nbsp;
+<i class="no-highlight">1075</i>&nbsp;                    /*
+<i class="no-highlight">1076</i>&nbsp;                     * If the environment was invalidated by other activity,
+<i class="no-highlight">1077</i>&nbsp;                     * get out of this loop, and re-throw the invalidating
+<i class="no-highlight">1078</i>&nbsp;                     * exception to indicate that the checkpoint did not
+<i class="no-highlight">1079</i>&nbsp;                     * succeed.
+<i class="no-highlight">1080</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">1081</i>&nbsp;                    envImpl.checkIfInvalid();</b>
+<b class="fc"><i class="no-highlight">1082</i>&nbsp;                }</b>
+<i class="no-highlight">1083</i>&nbsp;
+<i class="no-highlight">1084</i>&nbsp;                /* We&#39;re done with this level. */
+<b class="fc"><i class="no-highlight">1085</i>&nbsp;                dirtyMap.removeLevel(currentLevel);</b>
+<b class="fc"><i class="no-highlight">1086</i>&nbsp;            }</b>
+<i class="no-highlight">1087</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">1088</i>&nbsp;            dbTree.releaseDbs(dbCache);</b>
+<b class="fc"><i class="no-highlight">1089</i>&nbsp;        }</b>
+<i class="no-highlight">1090</i>&nbsp;
+<i class="no-highlight">1091</i>&nbsp;        /*
+<i class="no-highlight">1092</i>&nbsp;         * Do not flush FileSummaryLNs/MapLNs (do not call
+<i class="no-highlight">1093</i>&nbsp;         * UtilizationProfile.flushLocalTracker) here because that flushing is
+<i class="no-highlight">1094</i>&nbsp;         * already done by the checkpoint.
+<i class="no-highlight">1095</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1096</i>&nbsp;    }</b>
+<i class="no-highlight">1097</i>&nbsp;
+<i class="no-highlight">1098</i>&nbsp;    /**
+<i class="no-highlight">1099</i>&nbsp;     * Flush the target IN.
+<i class="no-highlight">1100</i>&nbsp;     *
+<i class="no-highlight">1101</i>&nbsp;     * Where applicable, also attempt to flush the subtree that houses this
+<i class="no-highlight">1102</i>&nbsp;     * target, which means we flush the siblings of this target to promote
+<i class="no-highlight">1103</i>&nbsp;     * better cleaning throughput. The problem lies in the fact that
+<i class="no-highlight">1104</i>&nbsp;     * provisionally logged nodes are not available for log cleaning until
+<i class="no-highlight">1105</i>&nbsp;     * their parent is logged non-provisionally.  On the other hand, we want to
+<i class="no-highlight">1106</i>&nbsp;     * log nodes in provisional mode as much as possible, both for recovery
+<i class="no-highlight">1107</i>&nbsp;     * performance, and for correctness to avoid fetches against cleaned log
+<i class="no-highlight">1108</i>&nbsp;     * files. (See [#16037].) These conflicting goals are reconciled by
+<i class="no-highlight">1109</i>&nbsp;     * flushing nodes in subtree grouping, because writing the non-provisional
+<i class="no-highlight">1110</i>&nbsp;     * parent of a set of provisionally written nodes frees the cleaner to work
+<i class="no-highlight">1111</i>&nbsp;     * on that set of provisional nodes as soon as possible. For example, if a
+<i class="no-highlight">1112</i>&nbsp;     * tree consists of:
+<i class="no-highlight">1113</i>&nbsp;     *
+<i class="no-highlight">1114</i>&nbsp;     *             INa
+<i class="no-highlight">1115</i>&nbsp;     *       +------+-------+
+<i class="no-highlight">1116</i>&nbsp;     *      INb            INc
+<i class="no-highlight">1117</i>&nbsp;     * +-----+----+         +-----+
+<i class="no-highlight">1118</i>&nbsp;     * BINd BINe BINf      BINg BINh
+<i class="no-highlight">1119</i>&nbsp;     *
+<i class="no-highlight">1120</i>&nbsp;     * It is more efficient for cleaning throughput to log in this order:
+<i class="no-highlight">1121</i>&nbsp;     *       BINd, BINe, BINf, INb, BINg, BINh, INc, INa
+<i class="no-highlight">1122</i>&nbsp;     * rather than:
+<i class="no-highlight">1123</i>&nbsp;     *       BINd, BINe, BINf, BINg, BINh, INb, INc, INa
+<i class="no-highlight">1124</i>&nbsp;     *
+<i class="no-highlight">1125</i>&nbsp;     * Suppose the subtree in question is INb-&gt;{BINd, BINe, BINf}
+<i class="no-highlight">1126</i>&nbsp;     *
+<i class="no-highlight">1127</i>&nbsp;     * Suppose we see BINd in the dirty map first, before BINe and BINf.
+<i class="no-highlight">1128</i>&nbsp;     *  - flushIN(BINd) is called
+<i class="no-highlight">1129</i>&nbsp;     *  - we fetch and latch its parent, INb
+<i class="no-highlight">1130</i>&nbsp;     *
+<i class="no-highlight">1131</i>&nbsp;     * If this is a high priority checkpoint, we&#39;ll hold the INb latch across
+<i class="no-highlight">1132</i>&nbsp;     * the time it takes to flush all three children.  In flushIN(BINd), we
+<i class="no-highlight">1133</i>&nbsp;     * walk through INb, create a local map of all the siblings that can be
+<i class="no-highlight">1134</i>&nbsp;     * found in the dirty map, and then call logSiblings with that local map.
+<i class="no-highlight">1135</i>&nbsp;     * Then we&#39;ll write out INb.
+<i class="no-highlight">1136</i>&nbsp;     *
+<i class="no-highlight">1137</i>&nbsp;     * If high priority is false, we will not hold the INb latch across
+<i class="no-highlight">1138</i>&nbsp;     * multiple IOs. Instead, we
+<i class="no-highlight">1139</i>&nbsp;     *  - write BINd out, using logSiblings
+<i class="no-highlight">1140</i>&nbsp;     *  - while still holding the INb latch, we create a list of dirty siblings
+<i class="no-highlight">1141</i>&nbsp;     *  - release the INb latch
+<i class="no-highlight">1142</i>&nbsp;     *  - call flushIN() recursively on each entry in the local sibling map,
+<i class="no-highlight">1143</i>&nbsp;     *    which will result in a search and write of each sibling.  These
+<i class="no-highlight">1144</i>&nbsp;     *    recursive calls to flushIN are called with the allowLogSubtree
+<i class="no-highlight">1145</i>&nbsp;     *    parameter of false to halt the recursion and prevent a repeat of the
+<i class="no-highlight">1146</i>&nbsp;     *    sibling examination.
+<i class="no-highlight">1147</i>&nbsp;     *  - write INb
+<i class="no-highlight">1148</i>&nbsp;     */
+<i class="no-highlight">1149</i>&nbsp;    private static void flushIN(final DatabaseImpl db,
+<i class="no-highlight">1150</i>&nbsp;                                final CheckpointReference targetRef,
+<i class="no-highlight">1151</i>&nbsp;                                final DirtyINMap dirtyMap,
+<i class="no-highlight">1152</i>&nbsp;                                final int maxFlushLevel,
+<i class="no-highlight">1153</i>&nbsp;                                final boolean highPriority,
+<i class="no-highlight">1154</i>&nbsp;                                final FlushStats fstats,
+<i class="no-highlight">1155</i>&nbsp;                                final boolean allowLogSubtree) {
+<i class="no-highlight">1156</i>&nbsp;
+<b class="fc"><i class="no-highlight">1157</i>&nbsp;        final EnvironmentImpl envImpl = db.getEnv();</b>
+<b class="fc"><i class="no-highlight">1158</i>&nbsp;        final Tree tree = db.getTree();</b>
+<b class="fc"><i class="no-highlight">1159</i>&nbsp;        final int targetLevel = targetRef.nodeLevel;</b>
+<i class="no-highlight">1160</i>&nbsp;
+<i class="no-highlight">1161</i>&nbsp;        /* Call test hook when we reach the max level. */
+<b class="fc"><i class="no-highlight">1162</i>&nbsp;        assert (targetLevel &lt; maxFlushLevel) ||</b>
+<b class="nc"><i class="no-highlight">1163</i>&nbsp;            TestHookExecute.doHookIfSet(maxFlushLevelHook);</b>
+<i class="no-highlight">1164</i>&nbsp;
+<b class="fc"><i class="no-highlight">1165</i>&nbsp;        if (targetRef.isRoot) {</b>
+<i class="no-highlight">1166</i>&nbsp;
+<b class="fc"><i class="no-highlight">1167</i>&nbsp;            final RootFlusher flusher =</b>
+<i class="no-highlight">1168</i>&nbsp;                new RootFlusher(db, targetRef.nodeId);
+<i class="no-highlight">1169</i>&nbsp;
+<b class="fc"><i class="no-highlight">1170</i>&nbsp;            tree.withRootLatchedExclusive(flusher);</b>
+<i class="no-highlight">1171</i>&nbsp;
+<i class="no-highlight">1172</i>&nbsp;            /*
+<i class="no-highlight">1173</i>&nbsp;             * Update the tree&#39;s owner, whether it&#39;s the env root or the
+<i class="no-highlight">1174</i>&nbsp;             * db-mapping tree.
+<i class="no-highlight">1175</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1176</i>&nbsp;            if (flusher.getFlushed()) {</b>
+<b class="fc"><i class="no-highlight">1177</i>&nbsp;                DbTree dbTree = envImpl.getDbTree();</b>
+<b class="fc"><i class="no-highlight">1178</i>&nbsp;                dbTree.modifyDbRoot(db);</b>
+<b class="fc"><i class="no-highlight">1179</i>&nbsp;                fstats.nFullINFlushThisRun++;</b>
+<b class="fc"><i class="no-highlight">1180</i>&nbsp;                fstats.nFullINFlush++;</b>
+<i class="no-highlight">1181</i>&nbsp;            }
+<i class="no-highlight">1182</i>&nbsp;
+<i class="no-highlight">1183</i>&nbsp;            /*
+<i class="no-highlight">1184</i>&nbsp;             * If this target isn&#39;t the root anymore, we&#39;ll have to handle it
+<i class="no-highlight">1185</i>&nbsp;             * like a regular node.
+<i class="no-highlight">1186</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1187</i>&nbsp;            if (flusher.stillRoot()) {</b>
+<b class="fc"><i class="no-highlight">1188</i>&nbsp;                return;</b>
+<i class="no-highlight">1189</i>&nbsp;            }
+<i class="no-highlight">1190</i>&nbsp;        }
+<i class="no-highlight">1191</i>&nbsp;
+<i class="no-highlight">1192</i>&nbsp;        /*
+<i class="no-highlight">1193</i>&nbsp;         * The following applies to two cases:
+<i class="no-highlight">1194</i>&nbsp;         * (1) the target was not ever the root
+<i class="no-highlight">1195</i>&nbsp;         * (2) the target was the root, when the checkpoint dirty set was
+<i class="no-highlight">1196</i>&nbsp;         * assembled but is not the root now.
+<i class="no-highlight">1197</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1198</i>&nbsp;        final SearchResult result = tree.getParentINForChildIN(</b>
+<i class="no-highlight">1199</i>&nbsp;            -1 /*nodeId*/, targetRef.treeKey,
+<i class="no-highlight">1200</i>&nbsp;            targetRef.nodeLevel /*targetLevel*/,
+<i class="no-highlight">1201</i>&nbsp;            targetRef.nodeLevel + 1 /*exclusiveLevel*/,
+<i class="no-highlight">1202</i>&nbsp;            false  /*requireExactMatch*/, false /*doFetch*/,
+<i class="no-highlight">1203</i>&nbsp;            CacheMode.UNCHANGED, null /*trackingList*/);
+<i class="no-highlight">1204</i>&nbsp;
+<i class="no-highlight">1205</i>&nbsp;        /*
+<i class="no-highlight">1206</i>&nbsp;         * If no possible parent is found, the compressor may have deleted
+<i class="no-highlight">1207</i>&nbsp;         * this item before we got to processing it. (Although it seems this
+<i class="no-highlight">1208</i>&nbsp;         * cannot currently happen since we never delete the root node.)
+<i class="no-highlight">1209</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1210</i>&nbsp;        if (result.parent == null) {</b>
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;            return;</b>
+<i class="no-highlight">1212</i>&nbsp;        }
+<i class="no-highlight">1213</i>&nbsp;
+<b class="fc"><i class="no-highlight">1214</i>&nbsp;        final IN parent = result.parent;</b>
+<b class="fc"><i class="no-highlight">1215</i>&nbsp;        final int index = result.index;</b>
+<b class="fc"><i class="no-highlight">1216</i>&nbsp;        final int parentLevel = parent.getLevel();</b>
+<i class="no-highlight">1217</i>&nbsp;        final CheckpointReference parentRef;
+<i class="no-highlight">1218</i>&nbsp;
+<i class="no-highlight">1219</i>&nbsp;        /* List of siblings to log after releasing the parent latch. */
+<i class="no-highlight">1220</i>&nbsp;        final List&lt;CheckpointReference&gt; logSiblingsSeparately;
+<i class="no-highlight">1221</i>&nbsp;
+<i class="no-highlight">1222</i>&nbsp;        try {
+<i class="no-highlight">1223</i>&nbsp;            /*
+<i class="no-highlight">1224</i>&nbsp;             * If bottomLevelTarget is true, the parent IN contains bottom
+<i class="no-highlight">1225</i>&nbsp;             * level BINs.  The masking is used to normalize the level for
+<i class="no-highlight">1226</i>&nbsp;             * ordinary DBs and the mapping tree DB.
+<i class="no-highlight">1227</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1228</i>&nbsp;            final boolean bottomLevelTarget =</b>
+<i class="no-highlight">1229</i>&nbsp;                ((parentLevel &amp; IN.LEVEL_MASK) == 2);
+<i class="no-highlight">1230</i>&nbsp;
+<i class="no-highlight">1231</i>&nbsp;            /*
+<i class="no-highlight">1232</i>&nbsp;             * INs at the max flush level are always non-provisional and
+<i class="no-highlight">1233</i>&nbsp;             * INs at the bottom level (when this is not also the max flush
+<i class="no-highlight">1234</i>&nbsp;             * level) are always provisional.  In between INs are
+<i class="no-highlight">1235</i>&nbsp;             * provisional BEFORE_CKPT_END (see Provisional).
+<i class="no-highlight">1236</i>&nbsp;             */
+<i class="no-highlight">1237</i>&nbsp;            final Provisional provisional;
+<b class="fc"><i class="no-highlight">1238</i>&nbsp;            if (targetLevel &gt;= maxFlushLevel) {</b>
+<b class="nc"><i class="no-highlight">1239</i>&nbsp;                provisional = Provisional.NO;</b>
+<b class="fc"><i class="no-highlight">1240</i>&nbsp;            } else if (bottomLevelTarget) {</b>
+<b class="fc"><i class="no-highlight">1241</i>&nbsp;                provisional = Provisional.YES;</b>
+<i class="no-highlight">1242</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">1243</i>&nbsp;                provisional = Provisional.BEFORE_CKPT_END;</b>
+<i class="no-highlight">1244</i>&nbsp;            }
+<i class="no-highlight">1245</i>&nbsp;
+<i class="no-highlight">1246</i>&nbsp;            /*
+<i class="no-highlight">1247</i>&nbsp;             * If we didn&#39;t reach the target level, a child wasn&#39;t resident
+<i class="no-highlight">1248</i>&nbsp;             * and there is nothing to log at this level. To be on the safe
+<i class="no-highlight">1249</i>&nbsp;             * side, we&#39;ll put the parent into the dirty set to be logged when
+<i class="no-highlight">1250</i>&nbsp;             * that level is processed.
+<i class="no-highlight">1251</i>&nbsp;             *
+<i class="no-highlight">1252</i>&nbsp;             * Only do this if the parent we found is at a higher level than
+<i class="no-highlight">1253</i>&nbsp;             * the child.  This ensures that the non-exact search does not
+<i class="no-highlight">1254</i>&nbsp;             * find a sibling rather than a parent. [#11555]
+<i class="no-highlight">1255</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1256</i>&nbsp;            if (!result.exactParentFound) {</b>
+<b class="nc"><i class="no-highlight">1257</i>&nbsp;                if (parentLevel &gt; targetLevel) {</b>
+<b class="nc"><i class="no-highlight">1258</i>&nbsp;                    dirtyMap.addIN(</b>
+<i class="no-highlight">1259</i>&nbsp;                        parent, -1 /*index*/,
+<i class="no-highlight">1260</i>&nbsp;                        false /*updateFlushLevels*/,
+<i class="no-highlight">1261</i>&nbsp;                        true /*updateMemoryBudget*/);
+<i class="no-highlight">1262</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1263</i>&nbsp;                return;</b>
+<i class="no-highlight">1264</i>&nbsp;            }
+<i class="no-highlight">1265</i>&nbsp;
+<i class="no-highlight">1266</i>&nbsp;            /*
+<i class="no-highlight">1267</i>&nbsp;             * We found the parent. Add it unconditionally to the dirty map. We
+<i class="no-highlight">1268</i>&nbsp;             * must make sure that every IN that was selected for the
+<i class="no-highlight">1269</i>&nbsp;             * checkpointer&#39;s dirty IN set at the beginning of checkpoint is
+<i class="no-highlight">1270</i>&nbsp;             * written into the log and can be properly accessed from
+<i class="no-highlight">1271</i>&nbsp;             * ancestors. Eviction or a split may have written out a member of
+<i class="no-highlight">1272</i>&nbsp;             * this dirty set before the checkpointer got to it. See [#10249].
+<i class="no-highlight">1273</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1274</i>&nbsp;            assert parentLevel == targetLevel + 1;</b>
+<i class="no-highlight">1275</i>&nbsp;
+<b class="fc"><i class="no-highlight">1276</i>&nbsp;            dirtyMap.addIN(</b>
+<i class="no-highlight">1277</i>&nbsp;                parent, -1 /*index*/,
+<i class="no-highlight">1278</i>&nbsp;                false /*updateFlushLevels*/,
+<i class="no-highlight">1279</i>&nbsp;                true /*updateMemoryBudget*/);
+<i class="no-highlight">1280</i>&nbsp;
+<i class="no-highlight">1281</i>&nbsp;            /*
+<i class="no-highlight">1282</i>&nbsp;             * Determine whether our search found the IN identified by either
+<i class="no-highlight">1283</i>&nbsp;             * targetRef.nodeId or targetRef.lsn. If there is not a match, then
+<i class="no-highlight">1284</i>&nbsp;             * the node was deleted, logged or split since creating the
+<i class="no-highlight">1285</i>&nbsp;             * reference.
+<i class="no-highlight">1286</i>&nbsp;             *
+<i class="no-highlight">1287</i>&nbsp;             * For a non-DW DB, targetRef.lsn will be not null and we match on
+<i class="no-highlight">1288</i>&nbsp;             * it. If the LSN has changed then of course the node was logged,
+<i class="no-highlight">1289</i>&nbsp;             * and possibly split, and we will not log this target here.
+<i class="no-highlight">1290</i>&nbsp;             *
+<i class="no-highlight">1291</i>&nbsp;             * For a DW DB we also match on LSN if it is non-null. If the LSN
+<i class="no-highlight">1292</i>&nbsp;             * is null then the reference was created for a never-logged IN and
+<i class="no-highlight">1293</i>&nbsp;             * targetRef.nodeId &gt;= 0. In that case we match on the nodeId. If
+<i class="no-highlight">1294</i>&nbsp;             * the LSN or nodeId doesn&#39;t match, there must have been a split,
+<i class="no-highlight">1295</i>&nbsp;             * and we will not log this target here. However, because splits
+<i class="no-highlight">1296</i>&nbsp;             * are not logged for DW, this is not sufficient to cause both
+<i class="no-highlight">1297</i>&nbsp;             * siblings that were part of split to be logged, when one node was
+<i class="no-highlight">1298</i>&nbsp;             * added to the dirty map. We account for this when the parent is
+<i class="no-highlight">1299</i>&nbsp;             * logged by calling logDirtyChildren. This approach relies on the
+<i class="no-highlight">1300</i>&nbsp;             * fact that a split will dirty the parent.
+<i class="no-highlight">1301</i>&nbsp;             *
+<i class="no-highlight">1302</i>&nbsp;             * TODO:
+<i class="no-highlight">1303</i>&nbsp;             * Why not always call logDirtyIN for a DW IN, whether or not the
+<i class="no-highlight">1304</i>&nbsp;             * LSN or nodeId matches? logDirtyChildren is going to log it
+<i class="no-highlight">1305</i>&nbsp;             * anyway if it is dirty.
+<i class="no-highlight">1306</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1307</i>&nbsp;            if (targetRef.lsn != DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">1308</i>&nbsp;
+<b class="fc"><i class="no-highlight">1309</i>&nbsp;                if (targetRef.lsn != parent.getLsn(index)) {</b>
+<b class="fc"><i class="no-highlight">1310</i>&nbsp;                    return;</b>
+<i class="no-highlight">1311</i>&nbsp;                }
+<i class="no-highlight">1312</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1313</i>&nbsp;                assert targetRef.nodeId &gt;= 0;</b>
+<b class="nc"><i class="no-highlight">1314</i>&nbsp;                assert db.isDeferredWriteMode();</b>
+<i class="no-highlight">1315</i>&nbsp;
+<b class="nc"><i class="no-highlight">1316</i>&nbsp;                final IN target = (IN) parent.getTarget(index);</b>
+<i class="no-highlight">1317</i>&nbsp;
+<b class="nc"><i class="no-highlight">1318</i>&nbsp;                if (target == null ||</b>
+<b class="nc"><i class="no-highlight">1319</i>&nbsp;                    targetRef.nodeId != target.getNodeId()) {</b>
+<b class="nc"><i class="no-highlight">1320</i>&nbsp;                    return;</b>
+<i class="no-highlight">1321</i>&nbsp;                }
+<i class="no-highlight">1322</i>&nbsp;            }
+<i class="no-highlight">1323</i>&nbsp;
+<i class="no-highlight">1324</i>&nbsp;            /* Log the target, if dirty. */
+<b class="fc"><i class="no-highlight">1325</i>&nbsp;            logDirtyIN(envImpl, parent, index, provisional, fstats);</b>
+<i class="no-highlight">1326</i>&nbsp;
+<i class="no-highlight">1327</i>&nbsp;            /*
+<i class="no-highlight">1328</i>&nbsp;             * We will log a sub-tree when the target is at the bottom level
+<i class="no-highlight">1329</i>&nbsp;             * and this is not a recursive call to flushIN during sub-tree
+<i class="no-highlight">1330</i>&nbsp;             * logging. Return if we are only logging the target node here.
+<i class="no-highlight">1331</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1332</i>&nbsp;            if (!bottomLevelTarget || !allowLogSubtree) {</b>
+<b class="fc"><i class="no-highlight">1333</i>&nbsp;                return;</b>
+<i class="no-highlight">1334</i>&nbsp;            }
+<i class="no-highlight">1335</i>&nbsp;
+<i class="no-highlight">1336</i>&nbsp;            /*
+<i class="no-highlight">1337</i>&nbsp;             * Log sub-tree siblings with the latch held when highPriority
+<i class="no-highlight">1338</i>&nbsp;             * is configured and this is not a DW DB. For a DW DB, dirty LNs
+<i class="no-highlight">1339</i>&nbsp;             * are logged for each BIN.  If we were to log a DW sub-tree with
+<i class="no-highlight">1340</i>&nbsp;             * the parent latch held, the amount of logging may cause the latch
+<i class="no-highlight">1341</i>&nbsp;             * to be held for too long a period.
+<i class="no-highlight">1342</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1343</i>&nbsp;            if (highPriority &amp;&amp; !db.isDurableDeferredWrite()) {</b>
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;                logSiblingsSeparately = null;</b>
+<i class="no-highlight">1345</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">1346</i>&nbsp;                logSiblingsSeparately = new ArrayList&lt;&gt;();</b>
+<i class="no-highlight">1347</i>&nbsp;            }
+<i class="no-highlight">1348</i>&nbsp;
+<b class="fc"><i class="no-highlight">1349</i>&nbsp;            for (int i = 0; i &lt; parent.getNEntries(); i += 1) {</b>
+<i class="no-highlight">1350</i>&nbsp;
+<b class="fc"><i class="no-highlight">1351</i>&nbsp;                if (i == index) {</b>
+<b class="fc"><i class="no-highlight">1352</i>&nbsp;                    continue;</b>
+<i class="no-highlight">1353</i>&nbsp;                }
+<i class="no-highlight">1354</i>&nbsp;
+<b class="fc"><i class="no-highlight">1355</i>&nbsp;                final IN child = (IN) parent.getTarget(i);</b>
+<b class="fc"><i class="no-highlight">1356</i>&nbsp;                final long childId = (child != null) ? child.getNodeId() : -1;</b>
+<b class="fc"><i class="no-highlight">1357</i>&nbsp;                final long childLsn = parent.getLsn(i);</b>
+<i class="no-highlight">1358</i>&nbsp;
+<b class="fc"><i class="no-highlight">1359</i>&nbsp;                final CheckpointReference childRef =</b>
+<b class="fc"><i class="no-highlight">1360</i>&nbsp;                    dirtyMap.removeNode(targetLevel, childLsn, childId);</b>
+<i class="no-highlight">1361</i>&nbsp;
+<b class="fc"><i class="no-highlight">1362</i>&nbsp;                if (childRef == null) {</b>
+<b class="fc"><i class="no-highlight">1363</i>&nbsp;                    continue;</b>
+<i class="no-highlight">1364</i>&nbsp;                }
+<i class="no-highlight">1365</i>&nbsp;
+<b class="fc"><i class="no-highlight">1366</i>&nbsp;                if (logSiblingsSeparately != null) {</b>
+<b class="fc"><i class="no-highlight">1367</i>&nbsp;                    logSiblingsSeparately.add(childRef);</b>
+<i class="no-highlight">1368</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1369</i>&nbsp;                    logDirtyIN(envImpl, parent, i, provisional, fstats);</b>
+<i class="no-highlight">1370</i>&nbsp;                }
+<i class="no-highlight">1371</i>&nbsp;            }
+<i class="no-highlight">1372</i>&nbsp;
+<i class="no-highlight">1373</i>&nbsp;            /* Get parentRef before releasing the latch. */
+<b class="fc"><i class="no-highlight">1374</i>&nbsp;            if (parentLevel &lt;= maxFlushLevel) {</b>
+<b class="fc"><i class="no-highlight">1375</i>&nbsp;                parentRef = dirtyMap.removeNode(</b>
+<b class="fc"><i class="no-highlight">1376</i>&nbsp;                    parentLevel, parent.getLastLoggedLsn(),</b>
+<b class="fc"><i class="no-highlight">1377</i>&nbsp;                    parent.getNodeId());</b>
+<i class="no-highlight">1378</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1379</i>&nbsp;                parentRef = null;</b>
+<i class="no-highlight">1380</i>&nbsp;            }
+<i class="no-highlight">1381</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">1382</i>&nbsp;            parent.releaseLatch();</b>
+<b class="fc"><i class="no-highlight">1383</i>&nbsp;        }</b>
+<i class="no-highlight">1384</i>&nbsp;
+<i class="no-highlight">1385</i>&nbsp;        /*
+<i class="no-highlight">1386</i>&nbsp;         * If highPriority is false, we don&#39;t hold the latch while logging
+<i class="no-highlight">1387</i>&nbsp;         * the bottom level siblings.  We log them here with flushIN,
+<i class="no-highlight">1388</i>&nbsp;         * performing a separate search for each one, after releasing the
+<i class="no-highlight">1389</i>&nbsp;         * parent latch above.
+<i class="no-highlight">1390</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1391</i>&nbsp;        if (logSiblingsSeparately != null) {</b>
+<b class="fc"><i class="no-highlight">1392</i>&nbsp;            for (final CheckpointReference childRef : logSiblingsSeparately) {</b>
+<b class="fc"><i class="no-highlight">1393</i>&nbsp;                flushIN(</b>
+<i class="no-highlight">1394</i>&nbsp;                    db, childRef, dirtyMap, maxFlushLevel, highPriority,
+<i class="no-highlight">1395</i>&nbsp;                    fstats, false /*allowLogSubtree*/);
+<b class="fc"><i class="no-highlight">1396</i>&nbsp;            }</b>
+<i class="no-highlight">1397</i>&nbsp;        }
+<i class="no-highlight">1398</i>&nbsp;
+<i class="no-highlight">1399</i>&nbsp;        /*
+<i class="no-highlight">1400</i>&nbsp;         * Log the sub-tree parent, which will be logged non-provisionally,
+<i class="no-highlight">1401</i>&nbsp;         * in order to update cleaner utilization. This must be done with
+<i class="no-highlight">1402</i>&nbsp;         * flushIN after releasing the parent latch above, since we must search
+<i class="no-highlight">1403</i>&nbsp;         * and acquire the grandparent latch.
+<i class="no-highlight">1404</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1405</i>&nbsp;        if (parentRef != null) {</b>
+<b class="fc"><i class="no-highlight">1406</i>&nbsp;            flushIN(</b>
+<i class="no-highlight">1407</i>&nbsp;                db, parentRef, dirtyMap, maxFlushLevel, highPriority, fstats,
+<i class="no-highlight">1408</i>&nbsp;                false /*allowLogSubtree*/);
+<i class="no-highlight">1409</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1410</i>&nbsp;    }</b>
+<i class="no-highlight">1411</i>&nbsp;
+<i class="no-highlight">1412</i>&nbsp;    /**
+<i class="no-highlight">1413</i>&nbsp;     * Note that if this method is called, the parent must also be logged. This
+<i class="no-highlight">1414</i>&nbsp;     * is true even if this method finds that the child is not dirty. In that
+<i class="no-highlight">1415</i>&nbsp;     * case the child has already been flushed (e.g., by eviction) and the
+<i class="no-highlight">1416</i>&nbsp;     * parent must be logged according to the rule for max flush level.
+<i class="no-highlight">1417</i>&nbsp;     */
+<i class="no-highlight">1418</i>&nbsp;    private static void logDirtyIN(
+<i class="no-highlight">1419</i>&nbsp;        final EnvironmentImpl envImpl,
+<i class="no-highlight">1420</i>&nbsp;        final IN parent,
+<i class="no-highlight">1421</i>&nbsp;        final int index,
+<i class="no-highlight">1422</i>&nbsp;        final Provisional provisional,
+<i class="no-highlight">1423</i>&nbsp;        final FlushStats fstats) {
+<i class="no-highlight">1424</i>&nbsp;
+<b class="fc"><i class="no-highlight">1425</i>&nbsp;        final IN child = (IN) parent.getTarget(index);</b>
+<i class="no-highlight">1426</i>&nbsp;        final long newLsn;
+<i class="no-highlight">1427</i>&nbsp;        final boolean isBIN;
+<i class="no-highlight">1428</i>&nbsp;        final boolean isDelta;
+<i class="no-highlight">1429</i>&nbsp;
+<b class="fc"><i class="no-highlight">1430</i>&nbsp;        if (child != null) {</b>
+<b class="fc"><i class="no-highlight">1431</i>&nbsp;            child.latch(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">1432</i>&nbsp;            try {
+<b class="fc"><i class="no-highlight">1433</i>&nbsp;                if (!child.getDirty()) {</b>
+<b class="nc"><i class="no-highlight">1434</i>&nbsp;                    return;</b>
+<i class="no-highlight">1435</i>&nbsp;                }
+<i class="no-highlight">1436</i>&nbsp;
+<b class="fc"><i class="no-highlight">1437</i>&nbsp;                if (child.getDatabase().isDurableDeferredWrite()) {</b>
+<i class="no-highlight">1438</i>&nbsp;
+<i class="no-highlight">1439</i>&nbsp;                    /*
+<i class="no-highlight">1440</i>&nbsp;                     * Find dirty descendants to avoid logging nodes with
+<i class="no-highlight">1441</i>&nbsp;                     * never-logged children. See [#13936] and
+<i class="no-highlight">1442</i>&nbsp;                     * IN.logDirtyChildren for description of the case.
+<i class="no-highlight">1443</i>&nbsp;                     *
+<i class="no-highlight">1444</i>&nbsp;                     * Note that we must log both dirty and never-logged
+<i class="no-highlight">1445</i>&nbsp;                     * descendants to be sure to have a consistent view of
+<i class="no-highlight">1446</i>&nbsp;                     * the split. If we didn&#39;t, we could end up with the
+<i class="no-highlight">1447</i>&nbsp;                     * post-split version of a new sibling and the
+<i class="no-highlight">1448</i>&nbsp;                     * pre-split version of an split sibling in the log,
+<i class="no-highlight">1449</i>&nbsp;                     * which could result in a recovery where descendants
+<i class="no-highlight">1450</i>&nbsp;                     * are incorrectly duplicated, because they are in both
+<i class="no-highlight">1451</i>&nbsp;                     * the pre-split split sibling, and the post-split
+<i class="no-highlight">1452</i>&nbsp;                     * version of the new sibling.
+<i class="no-highlight">1453</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1454</i>&nbsp;                    child.logDirtyChildren();</b>
+<i class="no-highlight">1455</i>&nbsp;                }
+<i class="no-highlight">1456</i>&nbsp;
+<b class="fc"><i class="no-highlight">1457</i>&nbsp;                newLsn = child.log(</b>
+<i class="no-highlight">1458</i>&nbsp;                    true /*allowDeltas*/, provisional,
+<i class="no-highlight">1459</i>&nbsp;                    true /*backgroundIO*/, parent);
+<i class="no-highlight">1460</i>&nbsp;
+<b class="fc"><i class="no-highlight">1461</i>&nbsp;                assert (newLsn != DbLsn.NULL_LSN);</b>
+<i class="no-highlight">1462</i>&nbsp;
+<b class="fc"><i class="no-highlight">1463</i>&nbsp;                isBIN = child.isBIN();</b>
+<b class="fc"><i class="no-highlight">1464</i>&nbsp;                isDelta = (newLsn == child.getLastDeltaLsn());</b>
+<i class="no-highlight">1465</i>&nbsp;            } finally {
+<b class="fc"><i class="no-highlight">1466</i>&nbsp;                child.releaseLatch();</b>
+<b class="fc"><i class="no-highlight">1467</i>&nbsp;            }</b>
+<i class="no-highlight">1468</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1469</i>&nbsp;            final OffHeapCache ohCache = envImpl.getOffHeapCache();</b>
+<i class="no-highlight">1470</i>&nbsp;
+<b class="nc"><i class="no-highlight">1471</i>&nbsp;            final INLogEntry&lt;BIN&gt; logEntry =</b>
+<b class="nc"><i class="no-highlight">1472</i>&nbsp;                ohCache.createBINLogEntryForCheckpoint(parent, index);</b>
+<i class="no-highlight">1473</i>&nbsp;
+<b class="nc"><i class="no-highlight">1474</i>&nbsp;            if (logEntry == null) {</b>
+<b class="nc"><i class="no-highlight">1475</i>&nbsp;                return;</b>
+<i class="no-highlight">1476</i>&nbsp;            }
+<i class="no-highlight">1477</i>&nbsp;
+<b class="nc"><i class="no-highlight">1478</i>&nbsp;            isBIN = true;</b>
+<b class="nc"><i class="no-highlight">1479</i>&nbsp;            isDelta = logEntry.isBINDelta();</b>
+<i class="no-highlight">1480</i>&nbsp;
+<b class="nc"><i class="no-highlight">1481</i>&nbsp;            newLsn = IN.logEntry(</b>
+<i class="no-highlight">1482</i>&nbsp;                logEntry, provisional, true /*backgroundIO*/, parent);
+<i class="no-highlight">1483</i>&nbsp;
+<b class="nc"><i class="no-highlight">1484</i>&nbsp;            ohCache.postBINLog(parent, index, logEntry, newLsn);</b>
+<i class="no-highlight">1485</i>&nbsp;        }
+<i class="no-highlight">1486</i>&nbsp;
+<b class="fc"><i class="no-highlight">1487</i>&nbsp;        parent.updateEntry(index, newLsn, VLSN.NULL_VLSN_SEQUENCE, 0);</b>
+<i class="no-highlight">1488</i>&nbsp;
+<b class="fc"><i class="no-highlight">1489</i>&nbsp;        if (isDelta) {</b>
+<b class="fc"><i class="no-highlight">1490</i>&nbsp;            fstats.nDeltaINFlushThisRun++;</b>
+<b class="fc"><i class="no-highlight">1491</i>&nbsp;            fstats.nDeltaINFlush++;</b>
+<i class="no-highlight">1492</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">1493</i>&nbsp;            fstats.nFullINFlushThisRun++;</b>
+<b class="fc"><i class="no-highlight">1494</i>&nbsp;            fstats.nFullINFlush++;</b>
+<b class="fc"><i class="no-highlight">1495</i>&nbsp;            if (isBIN) {</b>
+<b class="fc"><i class="no-highlight">1496</i>&nbsp;                fstats.nFullBINFlush++;</b>
+<b class="fc"><i class="no-highlight">1497</i>&nbsp;                fstats.nFullBINFlushThisRun++;</b>
+<i class="no-highlight">1498</i>&nbsp;            }
+<i class="no-highlight">1499</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1500</i>&nbsp;    }</b>
+<i class="no-highlight">1501</i>&nbsp;
+<i class="no-highlight">1502</i>&nbsp;    /*
+<i class="no-highlight">1503</i>&nbsp;     * RootFlusher lets us write out the root IN within the root latch.
+<i class="no-highlight">1504</i>&nbsp;     */
+<i class="no-highlight">1505</i>&nbsp;    private static class RootFlusher implements WithRootLatched {
+<i class="no-highlight">1506</i>&nbsp;        private final DatabaseImpl db;
+<i class="no-highlight">1507</i>&nbsp;        private boolean flushed;
+<i class="no-highlight">1508</i>&nbsp;        private boolean stillRoot;
+<i class="no-highlight">1509</i>&nbsp;        private final long targetNodeId;
+<i class="no-highlight">1510</i>&nbsp;
+<i class="no-highlight">1511</i>&nbsp;        RootFlusher(final DatabaseImpl db,
+<b class="fc"><i class="no-highlight">1512</i>&nbsp;                    final long targetNodeId) {</b>
+<b class="fc"><i class="no-highlight">1513</i>&nbsp;            this.db = db;</b>
+<b class="fc"><i class="no-highlight">1514</i>&nbsp;            flushed = false;</b>
+<b class="fc"><i class="no-highlight">1515</i>&nbsp;            this.targetNodeId = targetNodeId;</b>
+<b class="fc"><i class="no-highlight">1516</i>&nbsp;            stillRoot = false;</b>
+<b class="fc"><i class="no-highlight">1517</i>&nbsp;        }</b>
+<i class="no-highlight">1518</i>&nbsp;
+<i class="no-highlight">1519</i>&nbsp;        /**
+<i class="no-highlight">1520</i>&nbsp;         * Flush the rootIN if dirty.
+<i class="no-highlight">1521</i>&nbsp;         */
+<i class="no-highlight">1522</i>&nbsp;        @Override
+<i class="no-highlight">1523</i>&nbsp;        public IN doWork(ChildReference root) {
+<i class="no-highlight">1524</i>&nbsp;
+<b class="fc"><i class="no-highlight">1525</i>&nbsp;            if (root == null) {</b>
+<b class="nc"><i class="no-highlight">1526</i>&nbsp;                return null;</b>
+<i class="no-highlight">1527</i>&nbsp;            }
+<i class="no-highlight">1528</i>&nbsp;
+<b class="fc"><i class="no-highlight">1529</i>&nbsp;            IN rootIN = (IN) root.fetchTarget(db, null);</b>
+<b class="fc"><i class="no-highlight">1530</i>&nbsp;            rootIN.latch(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">1531</i>&nbsp;            try {
+<b class="fc"><i class="no-highlight">1532</i>&nbsp;                if (rootIN.getNodeId() == targetNodeId) {</b>
+<i class="no-highlight">1533</i>&nbsp;
+<i class="no-highlight">1534</i>&nbsp;                    /*
+<i class="no-highlight">1535</i>&nbsp;                     * Find dirty descendants to avoid logging nodes with
+<i class="no-highlight">1536</i>&nbsp;                     * never-logged children. See [#13936]
+<i class="no-highlight">1537</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">1538</i>&nbsp;                    if (rootIN.getDatabase().isDurableDeferredWrite()) {</b>
+<b class="nc"><i class="no-highlight">1539</i>&nbsp;                        rootIN.logDirtyChildren();</b>
+<i class="no-highlight">1540</i>&nbsp;                    }
+<i class="no-highlight">1541</i>&nbsp;
+<i class="no-highlight">1542</i>&nbsp;                    /*
+<i class="no-highlight">1543</i>&nbsp;                     * stillRoot handles the situation where the root was split
+<i class="no-highlight">1544</i>&nbsp;                     * after it was placed in the checkpointer&#39;s dirty set.
+<i class="no-highlight">1545</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">1546</i>&nbsp;                    stillRoot = true;</b>
+<i class="no-highlight">1547</i>&nbsp;
+<b class="fc"><i class="no-highlight">1548</i>&nbsp;                    if (rootIN.getDirty()) {</b>
+<b class="fc"><i class="no-highlight">1549</i>&nbsp;                        long newLsn = rootIN.log();</b>
+<b class="fc"><i class="no-highlight">1550</i>&nbsp;                        root.setLsn(newLsn);</b>
+<b class="fc"><i class="no-highlight">1551</i>&nbsp;                        flushed = true;</b>
+<i class="no-highlight">1552</i>&nbsp;                    }
+<i class="no-highlight">1553</i>&nbsp;                }
+<i class="no-highlight">1554</i>&nbsp;            } finally {
+<b class="fc"><i class="no-highlight">1555</i>&nbsp;                rootIN.releaseLatch();</b>
+<b class="fc"><i class="no-highlight">1556</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">1557</i>&nbsp;            return null;</b>
+<i class="no-highlight">1558</i>&nbsp;        }
+<i class="no-highlight">1559</i>&nbsp;
+<i class="no-highlight">1560</i>&nbsp;        boolean getFlushed() {
+<b class="fc"><i class="no-highlight">1561</i>&nbsp;            return flushed;</b>
+<i class="no-highlight">1562</i>&nbsp;        }
+<i class="no-highlight">1563</i>&nbsp;
+<i class="no-highlight">1564</i>&nbsp;        boolean stillRoot() {
+<b class="fc"><i class="no-highlight">1565</i>&nbsp;            return stillRoot;</b>
+<i class="no-highlight">1566</i>&nbsp;        }
+<i class="no-highlight">1567</i>&nbsp;    }
+<i class="no-highlight">1568</i>&nbsp;
+<i class="no-highlight">1569</i>&nbsp;    /*
+<i class="no-highlight">1570</i>&nbsp;     * CheckpointReferences are used to identify nodes that must be flushed as
+<i class="no-highlight">1571</i>&nbsp;     * part of the checkpoint. We don&#39;t keep an actual reference to the node
+<i class="no-highlight">1572</i>&nbsp;     * because that prevents nodes from being GC&#39;ed during checkpoint.
+<i class="no-highlight">1573</i>&nbsp;     *
+<i class="no-highlight">1574</i>&nbsp;     * Using a checkpointReference introduces a window between the point when
+<i class="no-highlight">1575</i>&nbsp;     * the checkpoint dirty set is created and when the node is flushed. Some
+<i class="no-highlight">1576</i>&nbsp;     * of the fields saved in the reference are immutable: db, nodeId.  The
+<i class="no-highlight">1577</i>&nbsp;     * others are not and we have to handle potential change:
+<i class="no-highlight">1578</i>&nbsp;     *
+<i class="no-highlight">1579</i>&nbsp;     * isRoot: it&#39;s possible for isRoot to go from true-&gt;false, but not
+<i class="no-highlight">1580</i>&nbsp;     *         false-&gt;true. True-&gt;false is handled by the flushIN method
+<i class="no-highlight">1581</i>&nbsp;     *         by finding the root and checking if it is the target.
+<i class="no-highlight">1582</i>&nbsp;     * treeKey: This can change only in the event of a split. If it does, there
+<i class="no-highlight">1583</i>&nbsp;     *         is the chance that the checkpointer will find the wrong node to
+<i class="no-highlight">1584</i>&nbsp;     *         flush, but that&#39;s okay because the split guarantees flushing to
+<i class="no-highlight">1585</i>&nbsp;     *         the root, so the target will be properly logged within the
+<i class="no-highlight">1586</i>&nbsp;     *         checkpoint period.
+<i class="no-highlight">1587</i>&nbsp;     *
+<i class="no-highlight">1588</i>&nbsp;     * The class and ctor are public for the Sizeof program.
+<i class="no-highlight">1589</i>&nbsp;     */
+<i class="no-highlight">1590</i>&nbsp;    public static class CheckpointReference {
+<i class="no-highlight">1591</i>&nbsp;        final DatabaseId dbId;
+<i class="no-highlight">1592</i>&nbsp;        final long nodeId;
+<i class="no-highlight">1593</i>&nbsp;        final int nodeLevel;
+<i class="no-highlight">1594</i>&nbsp;        final boolean isRoot;
+<i class="no-highlight">1595</i>&nbsp;        final byte[] treeKey;
+<i class="no-highlight">1596</i>&nbsp;        final long lsn;
+<i class="no-highlight">1597</i>&nbsp;
+<i class="no-highlight">1598</i>&nbsp;        CheckpointReference(final DatabaseId dbId,
+<i class="no-highlight">1599</i>&nbsp;                            final long nodeId,
+<i class="no-highlight">1600</i>&nbsp;                            final int nodeLevel,
+<i class="no-highlight">1601</i>&nbsp;                            final boolean isRoot,
+<i class="no-highlight">1602</i>&nbsp;                            final byte[] treeKey,
+<b class="fc"><i class="no-highlight">1603</i>&nbsp;                            final long lsn) {</b>
+<b class="fc"><i class="no-highlight">1604</i>&nbsp;            this.dbId = dbId;</b>
+<b class="fc"><i class="no-highlight">1605</i>&nbsp;            this.nodeId = nodeId;</b>
+<b class="fc"><i class="no-highlight">1606</i>&nbsp;            this.nodeLevel = nodeLevel;</b>
+<b class="fc"><i class="no-highlight">1607</i>&nbsp;            this.isRoot = isRoot;</b>
+<b class="fc"><i class="no-highlight">1608</i>&nbsp;            this.treeKey = treeKey;</b>
+<b class="fc"><i class="no-highlight">1609</i>&nbsp;            this.lsn = lsn;</b>
+<b class="fc"><i class="no-highlight">1610</i>&nbsp;        }</b>
+<i class="no-highlight">1611</i>&nbsp;
+<i class="no-highlight">1612</i>&nbsp;        @Override
+<i class="no-highlight">1613</i>&nbsp;        public boolean equals(Object o) {
+<b class="nc"><i class="no-highlight">1614</i>&nbsp;            if (!(o instanceof CheckpointReference)) {</b>
+<b class="nc"><i class="no-highlight">1615</i>&nbsp;                return false;</b>
+<i class="no-highlight">1616</i>&nbsp;            }
+<i class="no-highlight">1617</i>&nbsp;
+<b class="nc"><i class="no-highlight">1618</i>&nbsp;            CheckpointReference other = (CheckpointReference) o;</b>
+<b class="nc"><i class="no-highlight">1619</i>&nbsp;            return nodeId == other.nodeId;</b>
+<i class="no-highlight">1620</i>&nbsp;        }
+<i class="no-highlight">1621</i>&nbsp;
+<i class="no-highlight">1622</i>&nbsp;        @Override
+<i class="no-highlight">1623</i>&nbsp;        public int hashCode() {
+<b class="nc"><i class="no-highlight">1624</i>&nbsp;            return (int) nodeId;</b>
+<i class="no-highlight">1625</i>&nbsp;        }
+<i class="no-highlight">1626</i>&nbsp;
+<i class="no-highlight">1627</i>&nbsp;        @Override
+<i class="no-highlight">1628</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">1629</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1630</i>&nbsp;            sb.append(&quot;db=&quot;).append(dbId);</b>
+<b class="nc"><i class="no-highlight">1631</i>&nbsp;            sb.append(&quot; nodeId=&quot;).append(nodeId);</b>
+<b class="nc"><i class="no-highlight">1632</i>&nbsp;            return sb.toString();</b>
+<i class="no-highlight">1633</i>&nbsp;        }
+<i class="no-highlight">1634</i>&nbsp;    }
+<i class="no-highlight">1635</i>&nbsp;
+<i class="no-highlight">1636</i>&nbsp;    /**
+<i class="no-highlight">1637</i>&nbsp;     * A struct to hold log flushing stats for checkpoint and database sync.
+<i class="no-highlight">1638</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">1639</i>&nbsp;    public static class FlushStats {</b>
+<i class="no-highlight">1640</i>&nbsp;
+<i class="no-highlight">1641</i>&nbsp;        public long nFullINFlush;
+<i class="no-highlight">1642</i>&nbsp;        public long nFullBINFlush;
+<i class="no-highlight">1643</i>&nbsp;        public long nDeltaINFlush;
+<i class="no-highlight">1644</i>&nbsp;        long nFullINFlushThisRun;
+<i class="no-highlight">1645</i>&nbsp;        long nFullBINFlushThisRun;
+<i class="no-highlight">1646</i>&nbsp;        long nDeltaINFlushThisRun;
+<i class="no-highlight">1647</i>&nbsp;
+<i class="no-highlight">1648</i>&nbsp;        /* For future addition to stats:
+<i class="no-highlight">1649</i>&nbsp;           private int nAlreadyEvictedThisRun;
+<i class="no-highlight">1650</i>&nbsp;        */
+<i class="no-highlight">1651</i>&nbsp;
+<i class="no-highlight">1652</i>&nbsp;        /* Reset per-run counters. */
+<i class="no-highlight">1653</i>&nbsp;        void resetPerRunCounters() {
+<b class="fc"><i class="no-highlight">1654</i>&nbsp;            nFullINFlushThisRun = 0;</b>
+<b class="fc"><i class="no-highlight">1655</i>&nbsp;            nFullBINFlushThisRun = 0;</b>
+<b class="fc"><i class="no-highlight">1656</i>&nbsp;            nDeltaINFlushThisRun = 0;</b>
+<i class="no-highlight">1657</i>&nbsp;            /* nAlreadyEvictedThisRun = 0; -- for future */
+<b class="fc"><i class="no-highlight">1658</i>&nbsp;        }</b>
+<i class="no-highlight">1659</i>&nbsp;    }
+<i class="no-highlight">1660</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

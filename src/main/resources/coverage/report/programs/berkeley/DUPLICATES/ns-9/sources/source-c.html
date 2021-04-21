@@ -1,0 +1,557 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FileSummary</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: FileSummary (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FileSummary</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    31.8%
+  </span>
+  <span class="absValue">
+    (7/22)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    26.1%
+  </span>
+  <span class="absValue">
+    (42/161)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.log.LogUtils;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.log.Loggable;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;/**
+<i class="no-highlight">23</i>&nbsp; * Per-file utilization counters.  The UtilizationProfile stores a persistent
+<i class="no-highlight">24</i>&nbsp; * map of file number to FileSummary.
+<i class="no-highlight">25</i>&nbsp; */
+<i class="no-highlight">26</i>&nbsp;public class FileSummary implements Loggable, Cloneable {
+<i class="no-highlight">27</i>&nbsp;
+<i class="no-highlight">28</i>&nbsp;    /* Persistent fields. */
+<i class="no-highlight">29</i>&nbsp;    public int totalCount;      // Total # of log entries
+<i class="no-highlight">30</i>&nbsp;    public int totalSize;       // Total bytes in log file
+<i class="no-highlight">31</i>&nbsp;    public int totalINCount;    // Number of IN log entries
+<i class="no-highlight">32</i>&nbsp;    public int totalINSize;     // Byte size of IN log entries
+<i class="no-highlight">33</i>&nbsp;    public int totalLNCount;    // Number of LN log entries
+<i class="no-highlight">34</i>&nbsp;    public int totalLNSize;     // Byte size of LN log entries
+<i class="no-highlight">35</i>&nbsp;    public int maxLNSize;       // Byte size of largest LN log entry
+<i class="no-highlight">36</i>&nbsp;    public int obsoleteINCount; // Number of obsolete IN log entries
+<i class="no-highlight">37</i>&nbsp;    public int obsoleteLNCount; // Number of obsolete LN log entries
+<i class="no-highlight">38</i>&nbsp;    public int obsoleteLNSize;  // Byte size of obsolete LN log entries
+<i class="no-highlight">39</i>&nbsp;    public int obsoleteLNSizeCounted;  // Number obsolete LNs with size counted
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;    /**
+<i class="no-highlight">42</i>&nbsp;     * Creates an empty summary.
+<i class="no-highlight">43</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">44</i>&nbsp;    public FileSummary() {</b>
+<b class="fc"><i class="no-highlight">45</i>&nbsp;    }</b>
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;    public FileSummary clone() {
+<i class="no-highlight">48</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">49</i>&nbsp;            return (FileSummary) super.clone();</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        } catch (CloneNotSupportedException willNeverOccur) {</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;            return null;</b>
+<i class="no-highlight">52</i>&nbsp;        }
+<i class="no-highlight">53</i>&nbsp;    }
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    /**
+<i class="no-highlight">56</i>&nbsp;     * Returns whether this summary contains any non-zero totals.
+<i class="no-highlight">57</i>&nbsp;     */
+<i class="no-highlight">58</i>&nbsp;    public boolean isEmpty() {
+<i class="no-highlight">59</i>&nbsp;
+<b class="fc"><i class="no-highlight">60</i>&nbsp;        return totalCount == 0 &amp;&amp;</b>
+<i class="no-highlight">61</i>&nbsp;               totalSize == 0 &amp;&amp;
+<i class="no-highlight">62</i>&nbsp;               obsoleteINCount == 0 &amp;&amp;
+<i class="no-highlight">63</i>&nbsp;               obsoleteLNCount == 0;
+<i class="no-highlight">64</i>&nbsp;    }
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /**
+<i class="no-highlight">67</i>&nbsp;     * Returns the approximate byte size of all obsolete LN entries, using the
+<i class="no-highlight">68</i>&nbsp;     * average LN size for LN sizes that were not counted.
+<i class="no-highlight">69</i>&nbsp;     */
+<i class="no-highlight">70</i>&nbsp;    public int getObsoleteLNSize() {
+<i class="no-highlight">71</i>&nbsp;
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        if (totalLNCount == 0) {</b>
+<b class="nc"><i class="no-highlight">73</i>&nbsp;            return 0;</b>
+<i class="no-highlight">74</i>&nbsp;        }
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;        /* Normalize obsolete amounts to account for double-counting. */
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        final int obsLNCount = Math.min(obsoleteLNCount, totalLNCount);</b>
+<b class="nc"><i class="no-highlight">78</i>&nbsp;        final int obsLNSize = Math.min(obsoleteLNSize, totalLNSize);</b>
+<b class="nc"><i class="no-highlight">79</i>&nbsp;        final int obsLNSizeCounted = Math.min(obsoleteLNSizeCounted,</b>
+<i class="no-highlight">80</i>&nbsp;                                              obsLNCount);
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;        /*
+<i class="no-highlight">83</i>&nbsp;         * Use the tracked obsolete size for all entries for which the size was
+<i class="no-highlight">84</i>&nbsp;         * counted, plus the average size for all obsolete entries whose size
+<i class="no-highlight">85</i>&nbsp;         * was not counted.
+<i class="no-highlight">86</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">87</i>&nbsp;        long obsSize = obsLNSize;</b>
+<b class="nc"><i class="no-highlight">88</i>&nbsp;        final int obsCountNotCounted = obsLNCount - obsLNSizeCounted;</b>
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        if (obsCountNotCounted &gt; 0) {</b>
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;            /*
+<i class="no-highlight">92</i>&nbsp;             * When there are any obsolete LNs with sizes uncounted, we add an
+<i class="no-highlight">93</i>&nbsp;             * obsolete amount that is the product of the number of LNs
+<i class="no-highlight">94</i>&nbsp;             * uncounted and the average LN size.
+<i class="no-highlight">95</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">96</i>&nbsp;            final float avgLNSizeNotCounted = getAvgObsoleteLNSizeNotCounted();</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;            if (!Float.isNaN(avgLNSizeNotCounted)) {</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                obsSize += (int) (obsCountNotCounted * avgLNSizeNotCounted);</b>
+<i class="no-highlight">99</i>&nbsp;            }
+<i class="no-highlight">100</i>&nbsp;        }
+<i class="no-highlight">101</i>&nbsp;
+<i class="no-highlight">102</i>&nbsp;        /* Don&#39;t return an impossibly large estimate. */
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        return (obsSize &gt; totalLNSize) ? totalLNSize : (int) obsSize;</b>
+<i class="no-highlight">104</i>&nbsp;    }
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;    /**
+<i class="no-highlight">107</i>&nbsp;     * Returns the average size for LNs with sizes not counted, or NaN if
+<i class="no-highlight">108</i>&nbsp;     * there are no such LNs.
+<i class="no-highlight">109</i>&nbsp;     *
+<i class="no-highlight">110</i>&nbsp;     * In FileSummaryLN version 3 and greater the obsolete size is normally
+<i class="no-highlight">111</i>&nbsp;     * counted, but not in exceptional circumstances such as recovery.  If it
+<i class="no-highlight">112</i>&nbsp;     * is not counted, obsoleteLNSizeCounted will be less than obsoleteLNCount.
+<i class="no-highlight">113</i>&nbsp;     *
+<i class="no-highlight">114</i>&nbsp;     * In log version 8 and greater, we don&#39;t count the size when the LN is not
+<i class="no-highlight">115</i>&nbsp;     * resident in cache during update/delete, and CLEANER_FETCH_OBSOLETE_SIZE
+<i class="no-highlight">116</i>&nbsp;     * is false (the default setting).
+<i class="no-highlight">117</i>&nbsp;     *
+<i class="no-highlight">118</i>&nbsp;     * We added maxLNSize in version 8 for use in estimating obsolete LN sizes.
+<i class="no-highlight">119</i>&nbsp;     *
+<i class="no-highlight">120</i>&nbsp;     * To compute the average LN size, we only consider the LNs (both obsolete
+<i class="no-highlight">121</i>&nbsp;     * and non-obsolete) for which the size has not been counted.  This
+<i class="no-highlight">122</i>&nbsp;     * increases accuracy when counted and uncounted LN sizes are not uniform.
+<i class="no-highlight">123</i>&nbsp;     * An example is when large LNs are inserted and deleted.  The size of the
+<i class="no-highlight">124</i>&nbsp;     * deleted LN log entry (which is small) is always counted, but the
+<i class="no-highlight">125</i>&nbsp;     * previous version (which has a large size) may not be counted.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    public float getAvgObsoleteLNSizeNotCounted() {
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;        /* Normalize obsolete amounts to account for double-counting. */
+<b class="nc"><i class="no-highlight">130</i>&nbsp;        final int obsLNCount = Math.min(obsoleteLNCount, totalLNCount);</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        final int obsLNSize = Math.min(obsoleteLNSize, totalLNSize);</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        final int obsLNSizeCounted = Math.min(obsoleteLNSizeCounted,</b>
+<i class="no-highlight">133</i>&nbsp;                                              obsLNCount);
+<i class="no-highlight">134</i>&nbsp;
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        final int obsCountNotCounted = obsLNCount - obsLNSizeCounted;</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        if (obsCountNotCounted &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            return Float.NaN;</b>
+<i class="no-highlight">138</i>&nbsp;        }
+<i class="no-highlight">139</i>&nbsp;
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        final int totalSizeNotCounted = totalLNSize - obsLNSize;</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        final int totalCountNotCounted = totalLNCount - obsLNSizeCounted;</b>
+<i class="no-highlight">142</i>&nbsp;
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        if (totalSizeNotCounted &lt;= 0 || totalCountNotCounted &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;            return Float.NaN;</b>
+<i class="no-highlight">145</i>&nbsp;        }
+<i class="no-highlight">146</i>&nbsp;
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        return totalSizeNotCounted / ((float) totalCountNotCounted);</b>
+<i class="no-highlight">148</i>&nbsp;    }
+<i class="no-highlight">149</i>&nbsp;
+<i class="no-highlight">150</i>&nbsp;    /**
+<i class="no-highlight">151</i>&nbsp;     * Returns the maximum possible obsolete LN size, using the maximum LN size
+<i class="no-highlight">152</i>&nbsp;     * for LN sizes that were not counted.
+<i class="no-highlight">153</i>&nbsp;     */
+<i class="no-highlight">154</i>&nbsp;    public int getMaxObsoleteLNSize() {
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;        /*
+<i class="no-highlight">157</i>&nbsp;         * In log version 7 and earlier the maxLNSize is not available.  It is
+<i class="no-highlight">158</i>&nbsp;         * safe to use getObsoleteLNSize in that case, because LSN locking was
+<i class="no-highlight">159</i>&nbsp;         * not used and the obsolete size was counted for updates and deletes.
+<i class="no-highlight">160</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        if (maxLNSize == 0) {</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            return getObsoleteLNSize();</b>
+<i class="no-highlight">163</i>&nbsp;        }
+<i class="no-highlight">164</i>&nbsp;
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        if (totalLNCount == 0) {</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;            return 0;</b>
+<i class="no-highlight">167</i>&nbsp;        }
+<i class="no-highlight">168</i>&nbsp;
+<i class="no-highlight">169</i>&nbsp;        /* Normalize obsolete amounts to account for double-counting. */
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        final int obsLNCount = Math.min(obsoleteLNCount, totalLNCount);</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        final int obsLNSize = Math.min(obsoleteLNSize, totalLNSize);</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        final int obsLNSizeCounted = Math.min(obsoleteLNSizeCounted,</b>
+<i class="no-highlight">173</i>&nbsp;                                              obsLNCount);
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;        /*
+<i class="no-highlight">176</i>&nbsp;         * Use the tracked obsolete size for all entries for which the size was
+<i class="no-highlight">177</i>&nbsp;         * counted, plus the maximum possible size for all obsolete entries
+<i class="no-highlight">178</i>&nbsp;         * whose size was not counted.
+<i class="no-highlight">179</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        long obsSize = obsLNSize;</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;        final long obsCountNotCounted = obsLNCount - obsLNSizeCounted;</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        if (obsCountNotCounted &gt; 0) {</b>
+<i class="no-highlight">183</i>&nbsp;
+<i class="no-highlight">184</i>&nbsp;            /*
+<i class="no-highlight">185</i>&nbsp;             * When there are any obsolete LNs with sizes uncounted, we add an
+<i class="no-highlight">186</i>&nbsp;             * obsolete amount that is the minimum of two values.  Either value
+<i class="no-highlight">187</i>&nbsp;             * may be much higher than the true obsolete amount, but by taking
+<i class="no-highlight">188</i>&nbsp;             * their minimum we use a much more realistic obsolete amount.
+<i class="no-highlight">189</i>&nbsp;             *
+<i class="no-highlight">190</i>&nbsp;             * maxLNSizeNotCounted is the maximum obsolete not counted, based
+<i class="no-highlight">191</i>&nbsp;             * on the multiplying maxLNSize and the number of obsolete LNs not
+<i class="no-highlight">192</i>&nbsp;             * counted.
+<i class="no-highlight">193</i>&nbsp;             *
+<i class="no-highlight">194</i>&nbsp;             * maxObsSizeNotCounted is also an upper bound on the obsolete size
+<i class="no-highlight">195</i>&nbsp;             * not not counted.  The (totalLNSize - obsLNSize) gives the amount
+<i class="no-highlight">196</i>&nbsp;             * non-obsolete plus the obsolete amount not counted.  From this we
+<i class="no-highlight">197</i>&nbsp;             * subtract the minimum non-obsolete size, based on the minimum
+<i class="no-highlight">198</i>&nbsp;             * size of any LN.  This leaves the maximum obsolete size not
+<i class="no-highlight">199</i>&nbsp;             * counted.
+<i class="no-highlight">200</i>&nbsp;             *
+<i class="no-highlight">201</i>&nbsp;             * Note that the mutiplication immediately below would overflow if
+<i class="no-highlight">202</i>&nbsp;             * type &#39;int&#39; instead of &#39;long&#39; were used for the operands.  This
+<i class="no-highlight">203</i>&nbsp;             * was fixed in [#21106].
+<i class="no-highlight">204</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">205</i>&nbsp;            final long maxLNSizeNotCounted = obsCountNotCounted * maxLNSize;</b>
+<i class="no-highlight">206</i>&nbsp;
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            final long maxObsSizeNotCounted = totalLNSize - obsLNSize -</b>
+<i class="no-highlight">208</i>&nbsp;                ((totalLNCount - obsLNCount) * LNLogEntry.MIN_LOG_SIZE);
+<i class="no-highlight">209</i>&nbsp;
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            obsSize += Math.min(maxLNSizeNotCounted, maxObsSizeNotCounted);</b>
+<i class="no-highlight">211</i>&nbsp;        }
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;        /* Don&#39;t return an impossibly large estimate. */
+<b class="nc"><i class="no-highlight">214</i>&nbsp;        return (obsSize &gt; totalLNSize) ? totalLNSize : (int) obsSize;</b>
+<i class="no-highlight">215</i>&nbsp;    }
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    /**
+<i class="no-highlight">218</i>&nbsp;     * Returns the approximate byte size of all obsolete IN entries.
+<i class="no-highlight">219</i>&nbsp;     */
+<i class="no-highlight">220</i>&nbsp;    public int getObsoleteINSize() {
+<i class="no-highlight">221</i>&nbsp;
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        if (totalINCount == 0) {</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            return 0;</b>
+<i class="no-highlight">224</i>&nbsp;        }
+<i class="no-highlight">225</i>&nbsp;
+<i class="no-highlight">226</i>&nbsp;        /* Normalize obsolete amounts to account for double-counting. */
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        final int obsINCount = Math.min(obsoleteINCount, totalINCount);</b>
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;        /* Use average IN size to compute total. */
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        final float size = totalINSize;</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        final float avgSizePerIN = size / totalINCount;</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;        return (int) (obsINCount * avgSizePerIN);</b>
+<i class="no-highlight">233</i>&nbsp;    }
+<i class="no-highlight">234</i>&nbsp;
+<i class="no-highlight">235</i>&nbsp;    /**
+<i class="no-highlight">236</i>&nbsp;     * Returns an estimate of the total bytes that are obsolete, using
+<i class="no-highlight">237</i>&nbsp;     * getObsoleteLNSize instead of getMaxObsoleteLNSize.
+<i class="no-highlight">238</i>&nbsp;     */
+<i class="no-highlight">239</i>&nbsp;    public int getObsoleteSize() {
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        return calculateObsoleteSize(getObsoleteLNSize());</b>
+<i class="no-highlight">241</i>&nbsp;    }
+<i class="no-highlight">242</i>&nbsp;
+<i class="no-highlight">243</i>&nbsp;    /**
+<i class="no-highlight">244</i>&nbsp;     * Returns an estimate of the total bytes that are obsolete, using
+<i class="no-highlight">245</i>&nbsp;     * getMaxObsoleteLNSize instead of getObsoleteLNSize.
+<i class="no-highlight">246</i>&nbsp;     */
+<i class="no-highlight">247</i>&nbsp;    public int getMaxObsoleteSize() {
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        return calculateObsoleteSize(getMaxObsoleteLNSize());</b>
+<i class="no-highlight">249</i>&nbsp;    }
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;    private int calculateObsoleteSize(int lnObsoleteSize) {
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        if (totalSize &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;            return 0;</b>
+<i class="no-highlight">254</i>&nbsp;        }
+<i class="no-highlight">255</i>&nbsp;            /* Leftover (non-IN non-LN) space is considered obsolete. */
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        final int leftoverSize = totalSize - (totalINSize + totalLNSize);</b>
+<i class="no-highlight">257</i>&nbsp;
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        int obsoleteSize = lnObsoleteSize +</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;            getObsoleteINSize() +</b>
+<i class="no-highlight">260</i>&nbsp;            leftoverSize;
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;        /*
+<i class="no-highlight">263</i>&nbsp;         * Don&#39;t report more obsolete bytes than the total.  We may
+<i class="no-highlight">264</i>&nbsp;         * calculate more than the total because of (intentional)
+<i class="no-highlight">265</i>&nbsp;         * double-counting during recovery.
+<i class="no-highlight">266</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">267</i>&nbsp;        if (obsoleteSize &gt; totalSize) {</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;            obsoleteSize = totalSize;</b>
+<i class="no-highlight">269</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">270</i>&nbsp;        return obsoleteSize;</b>
+<i class="no-highlight">271</i>&nbsp;    }
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;    /**
+<i class="no-highlight">274</i>&nbsp;     * Returns the total number of entries counted.  This value is guaranteed
+<i class="no-highlight">275</i>&nbsp;     * to increase whenever the tracking information about a file changes.  It
+<i class="no-highlight">276</i>&nbsp;     * is used a key discriminator for FileSummaryLN records.
+<i class="no-highlight">277</i>&nbsp;     */
+<i class="no-highlight">278</i>&nbsp;    int getEntriesCounted() {
+<b class="fc"><i class="no-highlight">279</i>&nbsp;        return totalCount + obsoleteLNCount + obsoleteINCount;</b>
+<i class="no-highlight">280</i>&nbsp;    }
+<i class="no-highlight">281</i>&nbsp;
+<i class="no-highlight">282</i>&nbsp;    /**
+<i class="no-highlight">283</i>&nbsp;     * Calculates utilization percentage using average LN sizes.
+<i class="no-highlight">284</i>&nbsp;     */
+<i class="no-highlight">285</i>&nbsp;    public int utilization() {
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        return utilization(getObsoleteSize(), totalSize);</b>
+<i class="no-highlight">287</i>&nbsp;    }
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    /**
+<i class="no-highlight">290</i>&nbsp;     * Calculates a utilization percentage.
+<i class="no-highlight">291</i>&nbsp;     */
+<i class="no-highlight">292</i>&nbsp;    public static int utilization(long obsoleteSize, long totalSize) {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        if (totalSize == 0) {</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;            return 0;</b>
+<i class="no-highlight">295</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        return Math.round(((100.0F * (totalSize - obsoleteSize)) / totalSize));</b>
+<i class="no-highlight">297</i>&nbsp;    }
+<i class="no-highlight">298</i>&nbsp;
+<i class="no-highlight">299</i>&nbsp;    /**
+<i class="no-highlight">300</i>&nbsp;     * Reset all totals to zero.
+<i class="no-highlight">301</i>&nbsp;     */
+<i class="no-highlight">302</i>&nbsp;    public void reset() {
+<i class="no-highlight">303</i>&nbsp;
+<b class="fc"><i class="no-highlight">304</i>&nbsp;        totalCount = 0;</b>
+<b class="fc"><i class="no-highlight">305</i>&nbsp;        totalSize = 0;</b>
+<b class="fc"><i class="no-highlight">306</i>&nbsp;        totalINCount = 0;</b>
+<b class="fc"><i class="no-highlight">307</i>&nbsp;        totalINSize = 0;</b>
+<b class="fc"><i class="no-highlight">308</i>&nbsp;        totalLNCount = 0;</b>
+<b class="fc"><i class="no-highlight">309</i>&nbsp;        totalLNSize = 0;</b>
+<b class="fc"><i class="no-highlight">310</i>&nbsp;        maxLNSize = 0;</b>
+<b class="fc"><i class="no-highlight">311</i>&nbsp;        obsoleteINCount = 0;</b>
+<b class="fc"><i class="no-highlight">312</i>&nbsp;        obsoleteLNCount = 0;</b>
+<b class="fc"><i class="no-highlight">313</i>&nbsp;        obsoleteLNSize = 0;</b>
+<b class="fc"><i class="no-highlight">314</i>&nbsp;        obsoleteLNSizeCounted = 0;</b>
+<b class="fc"><i class="no-highlight">315</i>&nbsp;    }</b>
+<i class="no-highlight">316</i>&nbsp;
+<i class="no-highlight">317</i>&nbsp;    /**
+<i class="no-highlight">318</i>&nbsp;     * Add the totals of the given summary object to the totals of this object.
+<i class="no-highlight">319</i>&nbsp;     */
+<i class="no-highlight">320</i>&nbsp;    public void add(FileSummary o) {
+<i class="no-highlight">321</i>&nbsp;
+<b class="fc"><i class="no-highlight">322</i>&nbsp;        totalCount += o.totalCount;</b>
+<b class="fc"><i class="no-highlight">323</i>&nbsp;        totalSize += o.totalSize;</b>
+<b class="fc"><i class="no-highlight">324</i>&nbsp;        totalINCount += o.totalINCount;</b>
+<b class="fc"><i class="no-highlight">325</i>&nbsp;        totalINSize += o.totalINSize;</b>
+<b class="fc"><i class="no-highlight">326</i>&nbsp;        totalLNCount += o.totalLNCount;</b>
+<b class="fc"><i class="no-highlight">327</i>&nbsp;        totalLNSize += o.totalLNSize;</b>
+<b class="fc"><i class="no-highlight">328</i>&nbsp;        if (maxLNSize &lt; o.maxLNSize) {</b>
+<b class="fc"><i class="no-highlight">329</i>&nbsp;            maxLNSize = o.maxLNSize;</b>
+<i class="no-highlight">330</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">331</i>&nbsp;        obsoleteINCount += o.obsoleteINCount;</b>
+<b class="fc"><i class="no-highlight">332</i>&nbsp;        obsoleteLNCount += o.obsoleteLNCount;</b>
+<b class="fc"><i class="no-highlight">333</i>&nbsp;        obsoleteLNSize += o.obsoleteLNSize;</b>
+<b class="fc"><i class="no-highlight">334</i>&nbsp;        obsoleteLNSizeCounted += o.obsoleteLNSizeCounted;</b>
+<b class="fc"><i class="no-highlight">335</i>&nbsp;    }</b>
+<i class="no-highlight">336</i>&nbsp;
+<i class="no-highlight">337</i>&nbsp;    public int getLogSize() {
+<i class="no-highlight">338</i>&nbsp;
+<b class="fc"><i class="no-highlight">339</i>&nbsp;        return 11 * LogUtils.getIntLogSize();</b>
+<i class="no-highlight">340</i>&nbsp;    }
+<i class="no-highlight">341</i>&nbsp;
+<i class="no-highlight">342</i>&nbsp;    public void writeToLog(ByteBuffer buf) {
+<i class="no-highlight">343</i>&nbsp;
+<b class="fc"><i class="no-highlight">344</i>&nbsp;        LogUtils.writeInt(buf, totalCount);</b>
+<b class="fc"><i class="no-highlight">345</i>&nbsp;        LogUtils.writeInt(buf, totalSize);</b>
+<b class="fc"><i class="no-highlight">346</i>&nbsp;        LogUtils.writeInt(buf, totalINCount);</b>
+<b class="fc"><i class="no-highlight">347</i>&nbsp;        LogUtils.writeInt(buf, totalINSize);</b>
+<b class="fc"><i class="no-highlight">348</i>&nbsp;        LogUtils.writeInt(buf, totalLNCount);</b>
+<b class="fc"><i class="no-highlight">349</i>&nbsp;        LogUtils.writeInt(buf, totalLNSize);</b>
+<b class="fc"><i class="no-highlight">350</i>&nbsp;        LogUtils.writeInt(buf, maxLNSize);</b>
+<b class="fc"><i class="no-highlight">351</i>&nbsp;        LogUtils.writeInt(buf, obsoleteINCount);</b>
+<b class="fc"><i class="no-highlight">352</i>&nbsp;        LogUtils.writeInt(buf, obsoleteLNCount);</b>
+<b class="fc"><i class="no-highlight">353</i>&nbsp;        LogUtils.writeInt(buf, obsoleteLNSize);</b>
+<b class="fc"><i class="no-highlight">354</i>&nbsp;        LogUtils.writeInt(buf, obsoleteLNSizeCounted);</b>
+<b class="fc"><i class="no-highlight">355</i>&nbsp;    }</b>
+<i class="no-highlight">356</i>&nbsp;
+<i class="no-highlight">357</i>&nbsp;    public void readFromLog(ByteBuffer buf, int entryVersion) {
+<i class="no-highlight">358</i>&nbsp;
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        totalCount = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;        totalSize = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        totalINCount = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">362</i>&nbsp;        totalINSize = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;        totalLNCount = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">364</i>&nbsp;        totalLNSize = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        if (entryVersion &gt;= 8) {</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;            maxLNSize = LogUtils.readInt(buf);</b>
+<i class="no-highlight">367</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">368</i>&nbsp;        obsoleteINCount = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        if (obsoleteINCount == -1) {</b>
+<i class="no-highlight">370</i>&nbsp;
+<i class="no-highlight">371</i>&nbsp;            /*
+<i class="no-highlight">372</i>&nbsp;             * If INs were not counted in an older log file written by 1.5.3 or
+<i class="no-highlight">373</i>&nbsp;             * earlier, consider all INs to be obsolete.  This causes the file
+<i class="no-highlight">374</i>&nbsp;             * to be cleaned, and then IN counting will be accurate.
+<i class="no-highlight">375</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">376</i>&nbsp;            obsoleteINCount = totalINCount;</b>
+<i class="no-highlight">377</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        obsoleteLNCount = LogUtils.readInt(buf);</b>
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;        /*
+<i class="no-highlight">381</i>&nbsp;         * obsoleteLNSize and obsoleteLNSizeCounted were added in FileSummaryLN
+<i class="no-highlight">382</i>&nbsp;         * version 3.
+<i class="no-highlight">383</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">384</i>&nbsp;        if (entryVersion &gt;= 3) {</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;            obsoleteLNSize = LogUtils.readInt(buf);</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            obsoleteLNSizeCounted = LogUtils.readInt(buf);</b>
+<i class="no-highlight">387</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            obsoleteLNSize = 0;</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;            obsoleteLNSizeCounted = 0;</b>
+<i class="no-highlight">390</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">391</i>&nbsp;    }</b>
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;    public void dumpLog(StringBuilder buf, boolean verbose) {
+<i class="no-highlight">394</i>&nbsp;
+<b class="nc"><i class="no-highlight">395</i>&nbsp;        buf.append(&quot;&lt;summary totalCount=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;        buf.append(totalCount);</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;        buf.append(&quot;\&quot; totalSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">398</i>&nbsp;        buf.append(totalSize);</b>
+<b class="nc"><i class="no-highlight">399</i>&nbsp;        buf.append(&quot;\&quot; totalINCount=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;        buf.append(totalINCount);</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;        buf.append(&quot;\&quot; totalINSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;        buf.append(totalINSize);</b>
+<b class="nc"><i class="no-highlight">403</i>&nbsp;        buf.append(&quot;\&quot; totalLNCount=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">404</i>&nbsp;        buf.append(totalLNCount);</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;        buf.append(&quot;\&quot; totalLNSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        buf.append(totalLNSize);</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;        buf.append(&quot;\&quot; maxLNSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;        buf.append(maxLNSize);</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;        buf.append(&quot;\&quot; obsoleteINCount=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        buf.append(obsoleteINCount);</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        buf.append(&quot;\&quot; obsoleteLNCount=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        buf.append(obsoleteLNCount);</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;        buf.append(&quot;\&quot; obsoleteLNSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;        buf.append(obsoleteLNSize);</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        buf.append(&quot;\&quot; obsoleteLNSizeCounted=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;        buf.append(obsoleteLNSizeCounted);</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;        buf.append(&quot;\&quot; getObsoleteSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;        buf.append(getObsoleteSize());</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;        buf.append(&quot;\&quot; getObsoleteINSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;        buf.append(getObsoleteINSize());</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;        buf.append(&quot;\&quot; getObsoleteLNSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;        buf.append(getObsoleteLNSize());</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;        buf.append(&quot;\&quot; getMaxObsoleteSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">424</i>&nbsp;        buf.append(getMaxObsoleteSize());</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;        buf.append(&quot;\&quot; getMaxObsoleteLNSize=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        buf.append(getMaxObsoleteLNSize());</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        buf.append(&quot;\&quot; getAvgObsoleteLNSizeNotCounted=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;        buf.append(getAvgObsoleteLNSizeNotCounted());</b>
+<b class="nc"><i class="no-highlight">429</i>&nbsp;        buf.append(&quot;\&quot;/&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;    }</b>
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;    /**
+<i class="no-highlight">433</i>&nbsp;     * Never called.
+<i class="no-highlight">434</i>&nbsp;     */
+<i class="no-highlight">435</i>&nbsp;    public long getTransactionId() {
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        return 0;</b>
+<i class="no-highlight">437</i>&nbsp;    }
+<i class="no-highlight">438</i>&nbsp;
+<i class="no-highlight">439</i>&nbsp;    /**
+<i class="no-highlight">440</i>&nbsp;     * Always return false, this item should never be compared.
+<i class="no-highlight">441</i>&nbsp;     */
+<i class="no-highlight">442</i>&nbsp;    public boolean logicalEquals(Loggable other) {
+<b class="nc"><i class="no-highlight">443</i>&nbsp;        return false;</b>
+<i class="no-highlight">444</i>&nbsp;    }
+<i class="no-highlight">445</i>&nbsp;
+<i class="no-highlight">446</i>&nbsp;    @Override
+<i class="no-highlight">447</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">448</i>&nbsp;        StringBuilder buf = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;        dumpLog(buf, true);</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;        return buf.toString();</b>
+<i class="no-highlight">451</i>&nbsp;    }
+<i class="no-highlight">452</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

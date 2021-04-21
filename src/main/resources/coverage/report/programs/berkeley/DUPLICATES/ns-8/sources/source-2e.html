@@ -1,0 +1,449 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LockMode</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: LockMode (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LockMode</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (2/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    75%
+  </span>
+  <span class="absValue">
+    (6/8)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;/**
+<i class="no-highlight">17</i>&nbsp; * Record lock modes for read operations. Lock mode parameters may be specified
+<i class="no-highlight">18</i>&nbsp; * for all operations that retrieve data.
+<i class="no-highlight">19</i>&nbsp; *
+<i class="no-highlight">20</i>&nbsp; * &lt;p&gt;&lt;strong&gt;Locking Rules&lt;/strong&gt;&lt;/p&gt;
+<i class="no-highlight">21</i>&nbsp; *
+<i class="no-highlight">22</i>&nbsp; * &lt;p&gt;Together with {@link CursorConfig}, {@link TransactionConfig} and {@link
+<i class="no-highlight">23</i>&nbsp; * EnvironmentConfig} settings, lock mode parameters determine how records are
+<i class="no-highlight">24</i>&nbsp; * locked during read operations.  Record locking is used to enforce the
+<i class="no-highlight">25</i>&nbsp; * isolation modes that are configured.  Record locking is summarized below for
+<i class="no-highlight">26</i>&nbsp; * read and write operations.  For more information on isolation levels and
+<i class="no-highlight">27</i>&nbsp; * transactions, see &lt;a
+<i class="no-highlight">28</i>&nbsp; * href=&quot;{@docRoot}/../TransactionGettingStarted/index.html&quot;
+<i class="no-highlight">29</i>&nbsp; * target=&quot;_top&quot;&gt;Writing Transactional Applications&lt;/a&gt;.&lt;/p&gt;
+<i class="no-highlight">30</i>&nbsp; *
+<i class="no-highlight">31</i>&nbsp; * &lt;p&gt;With one exception, a record lock is always acquired when a record is
+<i class="no-highlight">32</i>&nbsp; * read or written, and a cursor will always hold the lock as long as it is
+<i class="no-highlight">33</i>&nbsp; * positioned on the record.  The exception is when {@link #READ_UNCOMMITTED}
+<i class="no-highlight">34</i>&nbsp; * is specified, which allows a record to be read without any locking.&lt;/p&gt;
+<i class="no-highlight">35</i>&nbsp; *
+<i class="no-highlight">36</i>&nbsp; * &lt;p&gt;Both read (shared) and write (exclusive) locks are used.  Read locks are
+<i class="no-highlight">37</i>&nbsp; * normally acquired on read ({@code get} method) operations and write locks on
+<i class="no-highlight">38</i>&nbsp; * write ({@code put} method) operations.  The only exception is that a write
+<i class="no-highlight">39</i>&nbsp; * lock will be acquired on a read operation if {@link #RMW} is specified.&lt;/p&gt;
+<i class="no-highlight">40</i>&nbsp; *
+<i class="no-highlight">41</i>&nbsp; * &lt;p&gt;Because read locks are shared, multiple accessors may read the same
+<i class="no-highlight">42</i>&nbsp; * record.  Because write locks are exclusive, if a record is written by one
+<i class="no-highlight">43</i>&nbsp; * accessor it may not be read or written by another accessor.  An accessor is
+<i class="no-highlight">44</i>&nbsp; * either a transaction or a thread (for non-transactional operations).&lt;/p&gt;
+<i class="no-highlight">45</i>&nbsp; *
+<i class="no-highlight">46</i>&nbsp; * &lt;p&gt;Whether additional locking is performed and how locks are released depend
+<i class="no-highlight">47</i>&nbsp; * on whether the operation is transactional and other configuration
+<i class="no-highlight">48</i>&nbsp; * settings.&lt;/p&gt;
+<i class="no-highlight">49</i>&nbsp; *
+<i class="no-highlight">50</i>&nbsp; * &lt;p&gt;&lt;strong&gt;Transactional Locking&lt;/strong&gt;&lt;/p&gt;
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * &lt;p&gt;Transactional operations include all write operations for a transactional
+<i class="no-highlight">53</i>&nbsp; * database, and read operations when a non-null {@link Transaction} parameter
+<i class="no-highlight">54</i>&nbsp; * is passed.  When a null transaction parameter is passed for a write
+<i class="no-highlight">55</i>&nbsp; * operation for a transactional database, an auto-commit transaction is
+<i class="no-highlight">56</i>&nbsp; * automatically used.&lt;/p&gt;
+<i class="no-highlight">57</i>&nbsp; *
+<i class="no-highlight">58</i>&nbsp; * &lt;p&gt;With transactions, read and write locks are normally held until the end
+<i class="no-highlight">59</i>&nbsp; * of the transaction (commit or abort).  Write locks are always held until the
+<i class="no-highlight">60</i>&nbsp; * end of the transaction.  However, if {@link #READ_COMMITTED} is configured,
+<i class="no-highlight">61</i>&nbsp; * then read locks for cursor operations are only held during the operation and
+<i class="no-highlight">62</i>&nbsp; * while the cursor is positioned on the record.  The read lock is released
+<i class="no-highlight">63</i>&nbsp; * when the cursor is moved to a different record or closed.  When {@link
+<i class="no-highlight">64</i>&nbsp; * #READ_COMMITTED} is used for a database (non-cursor) operation, the read
+<i class="no-highlight">65</i>&nbsp; * lock is released before the method returns.&lt;/p&gt;
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; * &lt;p&gt;When neither {@link #READ_UNCOMMITTED} nor {@link #READ_COMMITTED} is
+<i class="no-highlight">68</i>&nbsp; * specified, read and write locking as described above provide Repeatable Read
+<i class="no-highlight">69</i>&nbsp; * isolation, which is the default transactional isolation level.  If
+<i class="no-highlight">70</i>&nbsp; * Serializable isolation is configured, additional &quot;next key&quot; locking is
+<i class="no-highlight">71</i>&nbsp; * performed to prevent &quot;phantoms&quot; -- records that are not visible at one point
+<i class="no-highlight">72</i>&nbsp; * in a transaction but that become visible at a later point after being
+<i class="no-highlight">73</i>&nbsp; * inserted by another transaction.  Serializable isolation is configured via
+<i class="no-highlight">74</i>&nbsp; * {@link TransactionConfig#setSerializableIsolation} or {@link
+<i class="no-highlight">75</i>&nbsp; * EnvironmentConfig#setTxnSerializableIsolation}.&lt;/p&gt;
+<i class="no-highlight">76</i>&nbsp; *
+<i class="no-highlight">77</i>&nbsp; * &lt;p&gt;&lt;strong&gt;Non-Transactional Locking&lt;/strong&gt;&lt;/p&gt;
+<i class="no-highlight">78</i>&nbsp; *
+<i class="no-highlight">79</i>&nbsp; * &lt;p&gt;Non-transactional operations include all operations for a
+<i class="no-highlight">80</i>&nbsp; * non-transactional database (including a Deferred Write database), and read
+<i class="no-highlight">81</i>&nbsp; * operations for a transactional database when a null {@link Transaction}
+<i class="no-highlight">82</i>&nbsp; * parameter is passed.&lt;/p&gt;
+<i class="no-highlight">83</i>&nbsp; *
+<i class="no-highlight">84</i>&nbsp; * &lt;p&gt;For non-transactional operations, both read and write locks are only held
+<i class="no-highlight">85</i>&nbsp; * while a cursor is positioned on the record, and are released when the cursor
+<i class="no-highlight">86</i>&nbsp; * is moved to a different record or closed.  For database (non-cursor)
+<i class="no-highlight">87</i>&nbsp; * operations, the read or write lock is released before the method
+<i class="no-highlight">88</i>&nbsp; * returns.&lt;/p&gt;
+<i class="no-highlight">89</i>&nbsp; * 
+<i class="no-highlight">90</i>&nbsp; * &lt;p&gt;This behavior is similar to {@link #READ_COMMITTED}, except that both
+<i class="no-highlight">91</i>&nbsp; * read and write locks are released.  Configuring {@link #READ_COMMITTED} for
+<i class="no-highlight">92</i>&nbsp; * a non-transactional database cursor has no effect.&lt;/p&gt;
+<i class="no-highlight">93</i>&nbsp; *
+<i class="no-highlight">94</i>&nbsp; * &lt;p&gt;Because the current thread is the accessor (locker) for non-transactional
+<i class="no-highlight">95</i>&nbsp; * operations, a single thread may have multiple cursors open without locking
+<i class="no-highlight">96</i>&nbsp; * conflicts.  Two non-transactional cursors in the same thread may access the
+<i class="no-highlight">97</i>&nbsp; * same record via write or read operations without conflicts, and the changes
+<i class="no-highlight">98</i>&nbsp; * make by one cursor will be visible to the other cursor.&lt;/p&gt;
+<i class="no-highlight">99</i>&nbsp; *
+<i class="no-highlight">100</i>&nbsp; * &lt;p&gt;However, a non-transactional operation will conflict with a transactional
+<i class="no-highlight">101</i>&nbsp; * operation for the same record even when performed in the same thread.  When
+<i class="no-highlight">102</i>&nbsp; * using a transaction in a particular thread for a particular database, to
+<i class="no-highlight">103</i>&nbsp; * avoid conflicts you should use that transaction for all access to that
+<i class="no-highlight">104</i>&nbsp; * database in that thread.  In other words, to avoid conflicts always pass the
+<i class="no-highlight">105</i>&nbsp; * transaction parameter, not null, for all operations.  If you don&#39;t wish to
+<i class="no-highlight">106</i>&nbsp; * hold the read lock for the duration of the transaction, specify {@link
+<i class="no-highlight">107</i>&nbsp; * #READ_COMMITTED}.&lt;/p&gt;
+<i class="no-highlight">108</i>&nbsp; *
+<i class="no-highlight">109</i>&nbsp; * &lt;p&gt;&lt;strong&gt;Read Uncommitted (Dirty-Read)&lt;/strong&gt;&lt;/string&gt;&lt;/p&gt;
+<i class="no-highlight">110</i>&nbsp; *
+<i class="no-highlight">111</i>&nbsp; * &lt;p&gt;When {@link #READ_UNCOMMITTED} is configured, no locking is performed
+<i class="no-highlight">112</i>&nbsp; * by a read operation.  {@code READ_UNCOMMITTED} does not apply to write
+<i class="no-highlight">113</i>&nbsp; * operations.&lt;/p&gt;
+<i class="no-highlight">114</i>&nbsp; *
+<i class="no-highlight">115</i>&nbsp; * &lt;p&gt;{@code READ_UNCOMMITTED} is sometimes called dirty-read because records
+<i class="no-highlight">116</i>&nbsp; * are visible to the caller in their current state in the Btree at the time of
+<i class="no-highlight">117</i>&nbsp; * the read, even when that state is due to operations performed using a
+<i class="no-highlight">118</i>&nbsp; * transaction that has not yet committed.  In addition, because no lock is
+<i class="no-highlight">119</i>&nbsp; * acquired by the dirty read operation, the record&#39;s state may change at any
+<i class="no-highlight">120</i>&nbsp; * time, even while a cursor used to do the dirty-read is still positioned on
+<i class="no-highlight">121</i>&nbsp; * the record.&lt;/p&gt;
+<i class="no-highlight">122</i>&nbsp; *
+<i class="no-highlight">123</i>&nbsp; * &lt;p&gt;To illustrate this, let&#39;s say a record is read with dirty-read
+<i class="no-highlight">124</i>&nbsp; * ({@code READ_UNCOMMITTED}) by calling {@link Cursor#getNext Cursor.getNext}
+<i class="no-highlight">125</i>&nbsp; * with a cursor C, and changes to the record are also being made in another
+<i class="no-highlight">126</i>&nbsp; * thread using transaction T. When a locking (non-dirty-read) call to {@link
+<i class="no-highlight">127</i>&nbsp; * Cursor#getCurrent Cursor.getCurrent} is subsequently made to read the same
+<i class="no-highlight">128</i>&nbsp; * record again with C at the current position, a result may be returned that
+<i class="no-highlight">129</i>&nbsp; * is different than the result returned by the earlier call to {@code
+<i class="no-highlight">130</i>&nbsp; * getNext}. For example:
+<i class="no-highlight">131</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">132</i>&nbsp; *     &lt;li&gt;If the record is updated by T after the dirty-read {@code getNext}
+<i class="no-highlight">133</i>&nbsp; *     call, and T is committed, a subsequent call to {@code getCurrent} will
+<i class="no-highlight">134</i>&nbsp; *     return the data updated by T.&lt;/li&gt;
+<i class="no-highlight">135</i>&nbsp; *
+<i class="no-highlight">136</i>&nbsp; *     &lt;li&gt;If the record is updated by T before the dirty-read {@code getNext}
+<i class="no-highlight">137</i>&nbsp; *     call, the {@code getNext} will returned the data updated by T.  But if
+<i class="no-highlight">138</i>&nbsp; *     call, the {@code getNext} will return the data updated by T.  But if
+<i class="no-highlight">139</i>&nbsp; *     T is then aborted, a subsequent call to {@code getCurrent} will return
+<i class="no-highlight">140</i>&nbsp; *     the version of the data before it was updated by T.&lt;/li&gt;
+<i class="no-highlight">141</i>&nbsp; *
+<i class="no-highlight">142</i>&nbsp; *     &lt;li&gt;If the record was inserted by T before the dirty-read {@code
+<i class="no-highlight">143</i>&nbsp; *     getNext} call, the {@code getNext} call will return the inserted record.
+<i class="no-highlight">144</i>&nbsp; *     But if T is aborted, a subsequent call to {@code getCurrent} will return
+<i class="no-highlight">145</i>&nbsp; *     {@link OperationStatus#KEYEMPTY}.&lt;/li&gt;
+<i class="no-highlight">146</i>&nbsp; *
+<i class="no-highlight">147</i>&nbsp; *     &lt;li&gt;If the record is deleted by T after the dirty-read {@code getNext}
+<i class="no-highlight">148</i>&nbsp; *     call, and T is committed, a subsequent call to {@code getCurrent} will
+<i class="no-highlight">149</i>&nbsp; *     return {@link OperationStatus#KEYEMPTY}.&lt;/li&gt;
+<i class="no-highlight">150</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">151</i>&nbsp; * &lt;/p&gt;
+<i class="no-highlight">152</i>&nbsp; *
+<i class="no-highlight">153</i>&nbsp; * &lt;p&gt;Note that deleted records are handled specially in JE. Deleted records
+<i class="no-highlight">154</i>&nbsp; * remain in the Btree until after the deleting transaction is committed, and
+<i class="no-highlight">155</i>&nbsp; * they are removed from the Btree asynchronously (not immediately at commit
+<i class="no-highlight">156</i>&nbsp; * time). When using {@code #READ_UNCOMMITTED}, any record encountered in the
+<i class="no-highlight">157</i>&nbsp; * Btree that was previously deleted, whether or not the deleting transaction
+<i class="no-highlight">158</i>&nbsp; * has been committed, will be ignored (skipped over) by the read operation.
+<i class="no-highlight">159</i>&nbsp; * Of course, if the deleting transaction is aborted, the record will no longer
+<i class="no-highlight">160</i>&nbsp; * be deleted.  If the application is scanning records, for example, this means
+<i class="no-highlight">161</i>&nbsp; * that such records may be skipped by the scan. If this behavior is not
+<i class="no-highlight">162</i>&nbsp; * desirable, {@link #READ_UNCOMMITTED_ALL} may be used instead. This mode
+<i class="no-highlight">163</i>&nbsp; * ensures that records deleted by a transaction that is later aborted will not
+<i class="no-highlight">164</i>&nbsp; * be skipped by a read operation.  This is accomplished in two different ways
+<i class="no-highlight">165</i>&nbsp; * depending on the type of database and whether the record&#39;s data is requested
+<i class="no-highlight">166</i>&nbsp; * by the operation.
+<i class="no-highlight">167</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">168</i>&nbsp; *     &lt;li&gt;If the DB is configured for duplicates or the record&#39;s data
+<i class="no-highlight">169</i>&nbsp; *     is not requested, then a record that has been deleted by an open
+<i class="no-highlight">170</i>&nbsp; *     transaction is returned by the read operation.&lt;/li&gt;
+<i class="no-highlight">171</i>&nbsp; *
+<i class="no-highlight">172</i>&nbsp; *     &lt;li&gt;If the DB is not configured for duplicates and the record&#39;s data is
+<i class="no-highlight">173</i>&nbsp; *     requested, then the read operation must wait for the deleting
+<i class="no-highlight">174</i>&nbsp; *     transaction to close (commit or abort).  After the transaction is
+<i class="no-highlight">175</i>&nbsp; *     closed, the record will be returned if it is actually not deleted and
+<i class="no-highlight">176</i>&nbsp; *     otherwise will be skipped.&lt;/li&gt;
+<i class="no-highlight">177</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">178</i>&nbsp; *
+<i class="no-highlight">179</i>&nbsp; * &lt;p&gt;By &quot;record data&quot; we mean both the {@code data} parameter for a regular or
+<i class="no-highlight">180</i>&nbsp; * primary DB, and the {@code pKey} parameter for a secondary DB. By &quot;record
+<i class="no-highlight">181</i>&nbsp; * data requested&quot; we mean that all or part of the {@code DatabaseEntry} will
+<i class="no-highlight">182</i>&nbsp; * be returned by the read operation.  Unless explicitly &lt;em&gt;not&lt;/em&gt;
+<i class="no-highlight">183</i>&nbsp; * requested, the complete {@code DatabaseEntry} is returned.  See
+<i class="no-highlight">184</i>&nbsp; * &lt;a href=&quot;Cursor.html#partialEntry&quot;&gt;Using Partial DatabaseEntry
+<i class="no-highlight">185</i>&nbsp; * Parameters&lt;/a&gt; for more information.&lt;/p&gt;
+<i class="no-highlight">186</i>&nbsp; *
+<i class="no-highlight">187</i>&nbsp; * &lt;p&gt;Because of this difference in behavior, although {@code
+<i class="no-highlight">188</i>&nbsp; * #READ_UNCOMMITTED} is fully non-blocking, {@code #READ_UNCOMMITTED_ALL} is
+<i class="no-highlight">189</i>&nbsp; * not (under the conditions described). As a result, when using {@code
+<i class="no-highlight">190</i>&nbsp; * #READ_UNCOMMITTED_ALL} under these conditions, a {@link
+<i class="no-highlight">191</i>&nbsp; * LockConflictException} will be thrown when blocking results in a deadlock or
+<i class="no-highlight">192</i>&nbsp; * lock timeout.&lt;/p&gt;
+<i class="no-highlight">193</i>&nbsp; *
+<i class="no-highlight">194</i>&nbsp; * &lt;p&gt;To summarize, callers that use {@code READ_UNCOMMITTED} or {@code
+<i class="no-highlight">195</i>&nbsp; * #READ_UNCOMMITTED_ALL} should be prepared for the following behaviors.
+<i class="no-highlight">196</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">197</i>&nbsp; *     &lt;li&gt;After a successful dirty-read operation, because no lock is acquired
+<i class="no-highlight">198</i>&nbsp; *     the record can be changed by another transaction, even when the cursor
+<i class="no-highlight">199</i>&nbsp; *     used to perform the dirty-read operation is still positioned on the
+<i class="no-highlight">200</i>&nbsp; *     record.&lt;/li&gt;
+<i class="no-highlight">201</i>&nbsp; *
+<i class="no-highlight">202</i>&nbsp; *     &lt;li&gt;After a successful dirty-read operation using a cursor C, say that
+<i class="no-highlight">203</i>&nbsp; *     another transaction T deletes the record, and T is committed. In this
+<i class="no-highlight">204</i>&nbsp; *     case, {@link OperationStatus#KEYEMPTY} will be returned by the following
+<i class="no-highlight">205</i>&nbsp; *     methods if they are called while C is still positioned on the deleted
+<i class="no-highlight">206</i>&nbsp; *     record: {@link Cursor#getCurrent Cursor.getCurrent}, {@link
+<i class="no-highlight">207</i>&nbsp; *     Cursor#putCurrent Cursor.putCurrent} and {@link Cursor#delete
+<i class="no-highlight">208</i>&nbsp; *     Cursor.delete}.&lt;/li&gt;
+<i class="no-highlight">209</i>&nbsp; *
+<i class="no-highlight">210</i>&nbsp; *     &lt;li&gt;When using {@code READ_UNCOMMITTED}, deleted records will be skipped
+<i class="no-highlight">211</i>&nbsp; *     even when the deleting transaction is still open. No blocking will occur
+<i class="no-highlight">212</i>&nbsp; *     and {@link LockConflictException} is never thrown when using this
+<i class="no-highlight">213</i>&nbsp; *     mode.&lt;/li&gt;
+<i class="no-highlight">214</i>&nbsp; *
+<i class="no-highlight">215</i>&nbsp; *     &lt;li&gt;When using {@code #READ_UNCOMMITTED_ALL}, deleted records will not
+<i class="no-highlight">216</i>&nbsp; *     be skipped even when the deleting transaction is open. If the DB is a
+<i class="no-highlight">217</i>&nbsp; *     duplicates DB or the record&#39;s data is not requested, the deleted record
+<i class="no-highlight">218</i>&nbsp; *     will be returned.  If the DB is not a duplicates DB and the record&#39;s
+<i class="no-highlight">219</i>&nbsp; *     data is requested, blocking will occur until the deleting transaction is
+<i class="no-highlight">220</i>&nbsp; *     closed. In the latter case, {@link LockConflictException} will be thrown
+<i class="no-highlight">221</i>&nbsp; *     when this blocking results in a deadlock or a lock timeout.&lt;/li&gt;
+<i class="no-highlight">222</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">223</i>&nbsp; * &lt;/p&gt;
+<i class="no-highlight">224</i>&nbsp; */
+<b class="fc"><i class="no-highlight">225</i>&nbsp;public enum LockMode {</b>
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * Uses the default lock mode and is equivalent to passing {@code null} for
+<i class="no-highlight">229</i>&nbsp;     * the lock mode parameter.
+<i class="no-highlight">230</i>&nbsp;     *
+<i class="no-highlight">231</i>&nbsp;     * &lt;p&gt;The default lock mode is {@link #READ_UNCOMMITTED} when this lock
+<i class="no-highlight">232</i>&nbsp;     * mode is configured via {@link CursorConfig#setReadUncommitted} or {@link
+<i class="no-highlight">233</i>&nbsp;     * TransactionConfig#setReadUncommitted}, or when using a {@link
+<i class="no-highlight">234</i>&nbsp;     * DiskOrderedCursor}.  The Read Uncommitted mode overrides any other
+<i class="no-highlight">235</i>&nbsp;     * configuration settings.&lt;/p&gt;
+<i class="no-highlight">236</i>&nbsp;     *
+<i class="no-highlight">237</i>&nbsp;     * &lt;p&gt;Otherwise, the default lock mode is {@link #READ_COMMITTED} when this
+<i class="no-highlight">238</i>&nbsp;     * lock mode is configured via {@link CursorConfig#setReadCommitted} or
+<i class="no-highlight">239</i>&nbsp;     * {@link TransactionConfig#setReadCommitted}.  The Read Committed mode
+<i class="no-highlight">240</i>&nbsp;     * overrides other configuration settings except for {@link
+<i class="no-highlight">241</i>&nbsp;     * #READ_UNCOMMITTED}.&lt;/p&gt;
+<i class="no-highlight">242</i>&nbsp;     *
+<i class="no-highlight">243</i>&nbsp;     * &lt;p&gt;Otherwise, the default lock mode is to acquire read locks and release
+<i class="no-highlight">244</i>&nbsp;     * them according to the {@link LockMode default locking rules} for
+<i class="no-highlight">245</i>&nbsp;     * transactional and non-transactional operations.&lt;/p&gt;
+<i class="no-highlight">246</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">247</i>&nbsp;    DEFAULT,</b>
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * Reads modified but not yet committed data.
+<i class="no-highlight">251</i>&nbsp;     *
+<i class="no-highlight">252</i>&nbsp;     * &lt;p&gt;The Read Uncommitted mode is used if this lock mode is explicitly
+<i class="no-highlight">253</i>&nbsp;     * passed for the lock mode parameter, or if null or {@link #DEFAULT} is
+<i class="no-highlight">254</i>&nbsp;     * passed and Read Uncommitted is the default -- see {@link #DEFAULT} for
+<i class="no-highlight">255</i>&nbsp;     * details.&lt;/p&gt;
+<i class="no-highlight">256</i>&nbsp;     *
+<i class="no-highlight">257</i>&nbsp;     * &lt;p&gt;Unlike {@link #READ_UNCOMMITTED_ALL}, deleted records will be skipped
+<i class="no-highlight">258</i>&nbsp;     * even when the deleting transaction is still open. No blocking will occur
+<i class="no-highlight">259</i>&nbsp;     * and {@link LockConflictException} is never thrown when using this
+<i class="no-highlight">260</i>&nbsp;     * mode.&lt;/p&gt;
+<i class="no-highlight">261</i>&nbsp;     *
+<i class="no-highlight">262</i>&nbsp;     * &lt;p&gt;See the {@link LockMode locking rules} for information on how Read
+<i class="no-highlight">263</i>&nbsp;     * Uncommitted impacts transactional and non-transactional locking.&lt;/p&gt;
+<i class="no-highlight">264</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">265</i>&nbsp;    READ_UNCOMMITTED,</b>
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;    /**
+<i class="no-highlight">268</i>&nbsp;     * Reads modified but not yet committed data, ensuring that records are not
+<i class="no-highlight">269</i>&nbsp;     * skipped due to transaction aborts.
+<i class="no-highlight">270</i>&nbsp;     *
+<i class="no-highlight">271</i>&nbsp;     * &lt;p&gt;The Read Uncommitted mode is used only when this lock mode is
+<i class="no-highlight">272</i>&nbsp;     * explicitly passed for the lock mode parameter.&lt;/p&gt;
+<i class="no-highlight">273</i>&nbsp;     *
+<i class="no-highlight">274</i>&nbsp;     * &lt;p&gt;Unlike {@link #READ_UNCOMMITTED}, deleted records will not be skipped
+<i class="no-highlight">275</i>&nbsp;     * even when the deleting transaction is open. If the DB is a duplicates DB
+<i class="no-highlight">276</i>&nbsp;     * or the record&#39;s data is not requested, the deleted record will be
+<i class="no-highlight">277</i>&nbsp;     * returned.  If the DB is not a duplicates DB and the record&#39;s data is
+<i class="no-highlight">278</i>&nbsp;     * requested, blocking will occur until the deleting transaction is closed.
+<i class="no-highlight">279</i>&nbsp;     * In the latter case, {@link LockConflictException} will be thrown when
+<i class="no-highlight">280</i>&nbsp;     * this blocking results in a deadlock or a lock timeout.&lt;/p&gt;
+<i class="no-highlight">281</i>&nbsp;     *
+<i class="no-highlight">282</i>&nbsp;     * &lt;p&gt;See the {@link LockMode locking rules} for information on how Read
+<i class="no-highlight">283</i>&nbsp;     * Uncommitted impacts transactional and non-transactional locking.&lt;/p&gt;
+<i class="no-highlight">284</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">285</i>&nbsp;    READ_UNCOMMITTED_ALL,</b>
+<i class="no-highlight">286</i>&nbsp;
+<i class="no-highlight">287</i>&nbsp;    /**
+<i class="no-highlight">288</i>&nbsp;     * Read committed isolation provides for cursor stability but not
+<i class="no-highlight">289</i>&nbsp;     * repeatable reads.  Data items which have been previously read by this
+<i class="no-highlight">290</i>&nbsp;     * transaction may be deleted or modified by other transactions before the
+<i class="no-highlight">291</i>&nbsp;     * cursor is closed or the transaction completes.
+<i class="no-highlight">292</i>&nbsp;     *
+<i class="no-highlight">293</i>&nbsp;     * &lt;p&gt;Note that this LockMode may only be passed to {@link Database} get
+<i class="no-highlight">294</i>&nbsp;     * methods, not to {@link Cursor} methods.  To configure a cursor for Read
+<i class="no-highlight">295</i>&nbsp;     * Committed isolation, use {@link CursorConfig#setReadCommitted}.&lt;/p&gt;
+<i class="no-highlight">296</i>&nbsp;     *
+<i class="no-highlight">297</i>&nbsp;     * &lt;p&gt;See the {@link LockMode locking rules} for information on how Read
+<i class="no-highlight">298</i>&nbsp;     * Committed impacts transactional and non-transactional locking.&lt;/p&gt;
+<i class="no-highlight">299</i>&nbsp;     *
+<i class="no-highlight">300</i>&nbsp;     * @see &lt;a href=&quot;EnvironmentStats.html#cacheUnexpectedSizes&quot;&gt;Cache
+<i class="no-highlight">301</i>&nbsp;     * Statistics: Unexpected Sizes&lt;/a&gt;
+<i class="no-highlight">302</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">303</i>&nbsp;    READ_COMMITTED,</b>
+<i class="no-highlight">304</i>&nbsp;
+<i class="no-highlight">305</i>&nbsp;    /**
+<i class="no-highlight">306</i>&nbsp;     * Acquire write locks instead of read locks when doing the retrieval.
+<i class="no-highlight">307</i>&nbsp;     *
+<i class="no-highlight">308</i>&nbsp;     * &lt;p&gt;Because it causes a write lock to be acquired, specifying this lock
+<i class="no-highlight">309</i>&nbsp;     * mode as a {@link Cursor} or {@link Database} {@code get} (read) method
+<i class="no-highlight">310</i>&nbsp;     * parameter will override the Read Committed or Read Uncommitted isolation
+<i class="no-highlight">311</i>&nbsp;     * mode that is configured using {@link CursorConfig} or {@link
+<i class="no-highlight">312</i>&nbsp;     * TransactionConfig}.  The write lock will acquired and held until the end
+<i class="no-highlight">313</i>&nbsp;     * of the transaction.  For non-transactional use, the write lock will be
+<i class="no-highlight">314</i>&nbsp;     * released when the cursor is moved to a new position or closed.&lt;/p&gt;
+<i class="no-highlight">315</i>&nbsp;     *
+<i class="no-highlight">316</i>&nbsp;     * &lt;p&gt;Setting this flag can eliminate deadlock during a read-modify-write
+<i class="no-highlight">317</i>&nbsp;     * cycle by acquiring the write lock during the read part of the cycle so
+<i class="no-highlight">318</i>&nbsp;     * that another thread of control acquiring a read lock for the same item,
+<i class="no-highlight">319</i>&nbsp;     * in its own read-modify-write cycle, will not result in deadlock.&lt;/p&gt;
+<i class="no-highlight">320</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">321</i>&nbsp;    RMW;</b>
+<i class="no-highlight">322</i>&nbsp;
+<i class="no-highlight">323</i>&nbsp;    private final ReadOptions readOptions;
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;    LockMode() {
+<i class="no-highlight">326</i>&nbsp;        readOptions = new ReadOptions().setLockMode(this);
+<i class="no-highlight">327</i>&nbsp;    }
+<i class="no-highlight">328</i>&nbsp;
+<i class="no-highlight">329</i>&nbsp;    /**
+<i class="no-highlight">330</i>&nbsp;     * Returns a ReadOptions with this LockMode property, and default values
+<i class="no-highlight">331</i>&nbsp;     * for all other properties.
+<i class="no-highlight">332</i>&nbsp;     *
+<i class="no-highlight">333</i>&nbsp;     * &lt;p&gt;WARNING: Do not modify the returned object, since it is a singleton.
+<i class="no-highlight">334</i>&nbsp;     *
+<i class="no-highlight">335</i>&nbsp;     * @since 7.0
+<i class="no-highlight">336</i>&nbsp;     */
+<i class="no-highlight">337</i>&nbsp;    public ReadOptions toReadOptions() {
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        return readOptions;</b>
+<i class="no-highlight">339</i>&nbsp;    }
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        return &quot;LockMode.&quot; + name();</b>
+<i class="no-highlight">343</i>&nbsp;    }
+<i class="no-highlight">344</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

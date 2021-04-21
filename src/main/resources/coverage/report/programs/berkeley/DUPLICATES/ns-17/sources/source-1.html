@@ -1,0 +1,282 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ArbBinaryStateService</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.arbiter.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: ArbBinaryStateService (com.sleepycat.je.rep.arbiter.impl)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ArbBinaryStateService</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ArbBinaryStateService$NodeStateServiceRunnable</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/41)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/49)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.arbiter.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.JEVersion;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.rep.impl.BinaryNodeStateProtocol;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.rep.impl.BinaryNodeStateProtocol.BinaryNodeStateRequest;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.rep.impl.BinaryNodeStateProtocol.BinaryNodeStateResponse;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.ProtocolException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher.ExecutingService;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.utilint.JVMSystemUtils;
+<i class="no-highlight">31</i>&nbsp;
+<i class="no-highlight">32</i>&nbsp;/**
+<i class="no-highlight">33</i>&nbsp; * The service registered by an Arbiter to answer the state request.
+<i class="no-highlight">34</i>&nbsp; *
+<i class="no-highlight">35</i>&nbsp; * To support the new BinaryStateProtocol, we introduce this new
+<i class="no-highlight">36</i>&nbsp; * BinaryNodeStateService, it&#39;s used by &quot;Ping&quot; command.
+<i class="no-highlight">37</i>&nbsp; *
+<i class="no-highlight">38</i>&nbsp; */
+<b class="nc"><i class="no-highlight">39</i>&nbsp;public class ArbBinaryStateService extends ExecutingService {</b>
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;    private final ArbiterImpl arbImpl;
+<i class="no-highlight">42</i>&nbsp;    private final ServiceDispatcher dispatcher;
+<i class="no-highlight">43</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">44</i>&nbsp;
+<i class="no-highlight">45</i>&nbsp;    /* Identifies the Node State querying Service. */
+<i class="no-highlight">46</i>&nbsp;    public static final String SERVICE_NAME = &quot;BinaryNodeState&quot;;
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    public ArbBinaryStateService(ServiceDispatcher dispatcher,
+<i class="no-highlight">49</i>&nbsp;                                 ArbiterImpl arbImpl) {
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        super(SERVICE_NAME, dispatcher);</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;        this.arbImpl = arbImpl;;</b>
+<b class="nc"><i class="no-highlight">52</i>&nbsp;        this.dispatcher = dispatcher;</b>
+<b class="nc"><i class="no-highlight">53</i>&nbsp;        this.logger = LoggerUtils.getLogger(getClass());</b>
+<i class="no-highlight">54</i>&nbsp;
+<b class="nc"><i class="no-highlight">55</i>&nbsp;        dispatcher.register(this);</b>
+<i class="no-highlight">56</i>&nbsp;    }
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    public void shutdown() {
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        dispatcher.cancel(SERVICE_NAME);</b>
+<i class="no-highlight">60</i>&nbsp;    }
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    @Override
+<i class="no-highlight">63</i>&nbsp;    public Runnable getRunnable(DataChannel dataChannel) {
+<b class="nc"><i class="no-highlight">64</i>&nbsp;        return new NodeStateServiceRunnable(dataChannel);</b>
+<i class="no-highlight">65</i>&nbsp;    }
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    class NodeStateServiceRunnable implements Runnable {
+<i class="no-highlight">68</i>&nbsp;        private final DataChannel channel;
+<i class="no-highlight">69</i>&nbsp;
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        NodeStateServiceRunnable(DataChannel channel) {</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;            this.channel = channel;</b>
+<i class="no-highlight">72</i>&nbsp;        }
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;        /* Create the NodeState for the request. */
+<i class="no-highlight">75</i>&nbsp;        private BinaryNodeStateResponse createResponse
+<i class="no-highlight">76</i>&nbsp;            (BinaryNodeStateProtocol protocol) {
+<i class="no-highlight">77</i>&nbsp;
+<b class="nc"><i class="no-highlight">78</i>&nbsp;            long joinTime = arbImpl.getJoinGroupTime();</b>
+<b class="nc"><i class="no-highlight">79</i>&nbsp;            long vlsnValue = (arbImpl.getArbiterVLSNTracker().get() == null ?</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;                    0L : arbImpl.getArbiterVLSNTracker().get().getSequence());</b>
+<i class="no-highlight">81</i>&nbsp;
+<b class="nc"><i class="no-highlight">82</i>&nbsp;            return protocol.new BinaryNodeStateResponse(</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;                arbImpl.getNameIdPair().getName(),</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;                arbImpl.getGroupName(),</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;                arbImpl.getMasterStatus().getNodeMasterNameId().getName(),</b>
+<i class="no-highlight">86</i>&nbsp;                JEVersion.CURRENT_VERSION, joinTime,
+<b class="nc"><i class="no-highlight">87</i>&nbsp;                arbImpl.getNodeState(),</b>
+<i class="no-highlight">88</i>&nbsp;                vlsnValue, vlsnValue,
+<i class="no-highlight">89</i>&nbsp;                0, LogEntryType.LOG_VERSION,
+<b class="nc"><i class="no-highlight">90</i>&nbsp;                null, JVMSystemUtils.getSystemLoad());</b>
+<i class="no-highlight">91</i>&nbsp;        }
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;        @Override
+<i class="no-highlight">94</i>&nbsp;        public void run() {
+<b class="nc"><i class="no-highlight">95</i>&nbsp;            BinaryNodeStateProtocol protocol = null;</b>
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                protocol = new BinaryNodeStateProtocol(NameIdPair.NOCHECK,</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;                                                       arbImpl.getRepImpl());</b>
+<i class="no-highlight">100</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">101</i>&nbsp;                    channel.getSocketChannel().configureBlocking(true);</b>
+<i class="no-highlight">102</i>&nbsp;
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                    BinaryNodeStateRequest msg =</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                        protocol.read(channel, BinaryNodeStateRequest.class);</b>
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;                    /*
+<i class="no-highlight">107</i>&nbsp;                     * Response a protocol error if the group name doesn&#39;t
+<i class="no-highlight">108</i>&nbsp;                     * match.
+<i class="no-highlight">109</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                    final String groupName = msg.getGroupName();</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                    if (!arbImpl.getGroupName().equals(groupName) ||</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                        !arbImpl.getNameIdPair().getName().</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                            equals(msg.getNodeName())) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                        throw new ProtocolException(&quot;Sending the request to&quot; +</b>
+<i class="no-highlight">115</i>&nbsp;                                &quot; a wrong group or a wrong node.&quot;);
+<i class="no-highlight">116</i>&nbsp;                    }
+<i class="no-highlight">117</i>&nbsp;
+<i class="no-highlight">118</i>&nbsp;                    /* Write the response the requested node. */
+<b class="nc"><i class="no-highlight">119</i>&nbsp;                    BinaryNodeStateResponse response =</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;                        createResponse(protocol);</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;                    protocol.write(response, channel);</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;                    LoggerUtils.finest(logger, arbImpl.getRepImpl(),</b>
+<i class="no-highlight">123</i>&nbsp;                            &quot;Deal with a node state request successfully.&quot;);
+<b class="nc"><i class="no-highlight">124</i>&nbsp;                } catch (ProtocolException e) {</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;                    LoggerUtils.info(logger, arbImpl.getRepImpl(),</b>
+<i class="no-highlight">126</i>&nbsp;                            &quot;Get a ProtocolException with message: &quot; +
+<b class="nc"><i class="no-highlight">127</i>&nbsp;                            LoggerUtils.exceptionTypeAndMsg(e) +</b>
+<i class="no-highlight">128</i>&nbsp;                            &quot; while dealing with a node state request.&quot;);
+<b class="nc"><i class="no-highlight">129</i>&nbsp;                    protocol.write</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;                        (protocol.new ProtocolError(e.getMessage()), channel);</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;                } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;                    LoggerUtils.info(logger, arbImpl.getRepImpl(),</b>
+<i class="no-highlight">133</i>&nbsp;                            &quot;Unexpected exception: &quot; +
+<b class="nc"><i class="no-highlight">134</i>&nbsp;                             LoggerUtils.exceptionTypeAndMsg(e));</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;                    protocol.write</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;                        (protocol.new ProtocolError(e.getMessage()), channel);</b>
+<i class="no-highlight">137</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">138</i>&nbsp;                    if (channel.isOpen()) {</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;                        channel.close();</b>
+<i class="no-highlight">140</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">141</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;                /*
+<i class="no-highlight">145</i>&nbsp;                 * Channel has already been closed, or the close itself
+<i class="no-highlight">146</i>&nbsp;                 * failed.
+<i class="no-highlight">147</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            }</b>
+<i class="no-highlight">149</i>&nbsp;        }
+<i class="no-highlight">150</i>&nbsp;    }
+<i class="no-highlight">151</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

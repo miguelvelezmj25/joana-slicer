@@ -1,0 +1,669 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DupConvert</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.tree.dupConvert</a>
+</div>
+
+<h1>Coverage Summary for Class: DupConvert (com.sleepycat.je.tree.dupConvert)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DupConvert</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    14.3%
+  </span>
+  <span class="absValue">
+    (2/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    1.1%
+  </span>
+  <span class="absValue">
+    (2/179)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.tree.dupConvert;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.CacheMode;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.PreloadConfig;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.cleaner.LocalUtilizationTracker;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.DupKeyData;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.tree.ChildReference;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.tree.Key;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.tree.Node;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.txn.BasicLocker;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.txn.LockGrantType;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.txn.LockResult;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.txn.LockType;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;/**
+<i class="no-highlight">42</i>&nbsp; * Performs post-recovery conversion of all dup DBs during Environment
+<i class="no-highlight">43</i>&nbsp; * construction, when upgrading from JE 4.1 and earlier.  In JE 5.0, duplicates
+<i class="no-highlight">44</i>&nbsp; * are represented by a two-part (key + data) key, and empty data.  In JE 4.1
+<i class="no-highlight">45</i>&nbsp; * and earlier, the key and data were separate as with non-dup DBs.
+<i class="no-highlight">46</i>&nbsp; *
+<i class="no-highlight">47</i>&nbsp; * Uses the DbTree.DUPS_CONVERTED_BIT to determine whether conversion of the
+<i class="no-highlight">48</i>&nbsp; * environment is necessary.  When all databases are successfully converted,
+<i class="no-highlight">49</i>&nbsp; * this bit is set and the mapping tree is flushed.  See
+<i class="no-highlight">50</i>&nbsp; * EnvironmentImpl.convertDupDatabases.
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * Uses DatabaseImpl.DUPS_CONVERTED to determine whether an individual database
+<i class="no-highlight">53</i>&nbsp; * has been converted, to handle the case where the conversion crashes and is
+<i class="no-highlight">54</i>&nbsp; * restarted later.  When a database is successfully converted, this bit is set
+<i class="no-highlight">55</i>&nbsp; * and the entire database is flushed using Database.sync.
+<i class="no-highlight">56</i>&nbsp; *
+<i class="no-highlight">57</i>&nbsp; * The conversion of each database is atomic -- either all INs or none are
+<i class="no-highlight">58</i>&nbsp; * converted and made durable.  This is accomplished by putting the database
+<i class="no-highlight">59</i>&nbsp; * into Deferred Write mode so that splits won&#39;t log and eviction will be
+<i class="no-highlight">60</i>&nbsp; * provisional (eviction will not flush the root IN if it is dirty).  The
+<i class="no-highlight">61</i>&nbsp; * Deferred Write mode is cleared after conversion is complete and
+<i class="no-highlight">62</i>&nbsp; * Database.sync has been called.
+<i class="no-highlight">63</i>&nbsp; *
+<i class="no-highlight">64</i>&nbsp; * The memory budget is updated during conversion and daemon eviction is
+<i class="no-highlight">65</i>&nbsp; * invoked periodically.  This provides support for arbitrarily large DBs.
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; * Uses preload to load all dup trees (DINs/DBINs) prior to conversion, to
+<i class="no-highlight">68</i>&nbsp; * minimize random I/O.  See EnvironmentConfig.ENV_DUP_CONVERT_PRELOAD_ALL.
+<i class="no-highlight">69</i>&nbsp; *
+<i class="no-highlight">70</i>&nbsp; * The preload config does not specify loading of LNs, because we do not need
+<i class="no-highlight">71</i>&nbsp; * to load LNs from DBINs.  The fact that DBIN LNs are not loaded is the main
+<i class="no-highlight">72</i>&nbsp; * reason that conversion is quick.  LNs are converted lazily instead; see
+<i class="no-highlight">73</i>&nbsp; * LNLogEntry.postFetchInit.  The DBIN LNs do not need to be loaded because the
+<i class="no-highlight">74</i>&nbsp; * DBIN slot key contains the LN &#39;data&#39; that is needed to create the two-part
+<i class="no-highlight">75</i>&nbsp; * key.
+<i class="no-highlight">76</i>&nbsp; *
+<i class="no-highlight">77</i>&nbsp; * Even when LN loading is not configured, it turns out that preload does load
+<i class="no-highlight">78</i>&nbsp; * BIN (not DBIN) LNs in a dup DB, which is what we want.  The singleton LNs
+<i class="no-highlight">79</i>&nbsp; * must be loaded in order to get the LN data to create the two-part key.  When
+<i class="no-highlight">80</i>&nbsp; * preload has not loaded a singleton LN, it will be fetched during conversion.
+<i class="no-highlight">81</i>&nbsp; *
+<i class="no-highlight">82</i>&nbsp; * The DIN, DBIN and DupCount LSN are counted obsolete during conversion using
+<i class="no-highlight">83</i>&nbsp; * a local utilization tracker.  The tracker must not be flushed until the
+<i class="no-highlight">84</i>&nbsp; * conversion of a database is complete.  Inexact counting can be used, because
+<i class="no-highlight">85</i>&nbsp; * DIN/DBIN/DupCountLN entries are automatically considered obsolete by the
+<i class="no-highlight">86</i>&nbsp; * cleaner.  Since only totals are tracked, the memory overhead of the local
+<i class="no-highlight">87</i>&nbsp; * tracker is not substantial.
+<i class="no-highlight">88</i>&nbsp; *
+<i class="no-highlight">89</i>&nbsp; * Database Conversion Algorithm
+<i class="no-highlight">90</i>&nbsp; * -----------------------------
+<i class="no-highlight">91</i>&nbsp; * 1. Set Deferred Write mode for the database. Preload the database, including
+<i class="no-highlight">92</i>&nbsp; *    INs/BINs/DINs/DBINs, but not LNs except for singleton LNs (LNs with a BIN
+<i class="no-highlight">93</i>&nbsp; *    parent).
+<i class="no-highlight">94</i>&nbsp; *
+<i class="no-highlight">95</i>&nbsp; * 2. Convert all IN/BIN keys to &quot;prefix keys&quot;, which are defined by the
+<i class="no-highlight">96</i>&nbsp; *    DupKeyData class.  This allows tree searches and slot insertions to work
+<i class="no-highlight">97</i>&nbsp; *    correctly as the conversion is performed.
+<i class="no-highlight">98</i>&nbsp; *
+<i class="no-highlight">99</i>&nbsp; * 3. Traverse through the BIN slots in forward order.
+<i class="no-highlight">100</i>&nbsp; *
+<i class="no-highlight">101</i>&nbsp; * 4. If a singleton LN is encountered, ensure it is loaded. IN.fetchLN()
+<i class="no-highlight">102</i>&nbsp; *    automatically updates the slot key if the LNLogEntry&#39;s key is different
+<i class="no-highlight">103</i>&nbsp; *    from the one already in the slot.  Because LNLogEntry&#39;s key is converted
+<i class="no-highlight">104</i>&nbsp; *    on the fly, a two-part key is set in the slot as a side effect of
+<i class="no-highlight">105</i>&nbsp; *    fetching the LN.
+<i class="no-highlight">106</i>&nbsp; *
+<i class="no-highlight">107</i>&nbsp; * 5. If a DIN is encountered, first delete the BIN slot containing the DIN.
+<i class="no-highlight">108</i>&nbsp; *    Then iterate through all LNs in the DBINs of this dup tree, assign each
+<i class="no-highlight">109</i>&nbsp; *    a two-part key, and insert the slot into a BIN.  The LSN and state flags
+<i class="no-highlight">110</i>&nbsp; *    of the DBIN slot are copied to the new BIN slot.
+<i class="no-highlight">111</i>&nbsp; *
+<i class="no-highlight">112</i>&nbsp; * 6. If a deleted singleton (BIN) LN is encountered, delete the slot rather
+<i class="no-highlight">113</i>&nbsp; *    than converting the key.  If a deleted DBIN LN is encountered, simply
+<i class="no-highlight">114</i>&nbsp; *    discard it.
+<i class="no-highlight">115</i>&nbsp; *
+<i class="no-highlight">116</i>&nbsp; * 7. Count the DIN and DupCount LSN obsolete for each DIN encountered, using
+<i class="no-highlight">117</i>&nbsp; *    a local utilization tracker.
+<i class="no-highlight">118</i>&nbsp; *
+<i class="no-highlight">119</i>&nbsp; * 8. When all BIN slots have been processed, set the
+<i class="no-highlight">120</i>&nbsp; *    DatabaseImpl.DUPS_CONVERTED flag, call Database.sync to flush all INs and
+<i class="no-highlight">121</i>&nbsp; *    the MapLN, clear Deferred Write mode, and flush the local utilization
+<i class="no-highlight">122</i>&nbsp; *    tracker.
+<i class="no-highlight">123</i>&nbsp; */
+<b class="fc"><i class="no-highlight">124</i>&nbsp;public class DupConvert {</b>
+<i class="no-highlight">125</i>&nbsp;    private final static boolean DEBUG = false;
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">128</i>&nbsp;    private final DbTree dbTree;
+<i class="no-highlight">129</i>&nbsp;    private final boolean preloadAll;
+<i class="no-highlight">130</i>&nbsp;    private final PreloadConfig preloadConfig;
+<i class="no-highlight">131</i>&nbsp;    private LocalUtilizationTracker localTracker;
+<i class="no-highlight">132</i>&nbsp;    private long nConverted; // for debugging
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    /* Current working tree position. */
+<i class="no-highlight">135</i>&nbsp;    private BIN bin;
+<i class="no-highlight">136</i>&nbsp;    private int index;
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /**
+<i class="no-highlight">139</i>&nbsp;     * Creates a conversion object.
+<i class="no-highlight">140</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">141</i>&nbsp;    public DupConvert(final EnvironmentImpl envImpl, final DbTree dbTree) {</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        this.dbTree = dbTree;</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        this.preloadAll = envImpl.getConfigManager().getBoolean</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;            (EnvironmentParams.ENV_DUP_CONVERT_PRELOAD_ALL);</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        this.preloadConfig = (envImpl.getDupConvertPreloadConfig() != null) ?</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;            envImpl.getDupConvertPreloadConfig() : (new PreloadConfig());</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;    }</b>
+<i class="no-highlight">149</i>&nbsp;
+<i class="no-highlight">150</i>&nbsp;    /**
+<i class="no-highlight">151</i>&nbsp;     * Converts all dup DBs that need conversion.
+<i class="no-highlight">152</i>&nbsp;     */
+<i class="no-highlight">153</i>&nbsp;    public void convertDatabases() {
+<i class="no-highlight">154</i>&nbsp;        if (DEBUG) {
+<i class="no-highlight">155</i>&nbsp;            System.out.println(&quot;DupConvert.convertDatabases&quot;);
+<i class="no-highlight">156</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        if (preloadAll) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            preloadAllDatabases();</b>
+<i class="no-highlight">159</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">160</i>&nbsp;        for (DatabaseId dbId : dbTree.getDbNamesAndIds().keySet()) {</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;            final DatabaseImpl dbImpl = dbTree.getDb(dbId);</b>
+<i class="no-highlight">162</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                if (!needsConversion(dbImpl)) {</b>
+<i class="no-highlight">164</i>&nbsp;                    continue;
+<i class="no-highlight">165</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                convertDatabase(dbImpl);</b>
+<i class="no-highlight">167</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">168</i>&nbsp;                dbTree.releaseDb(dbImpl);</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        }</b>
+<i class="no-highlight">171</i>&nbsp;
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        assert noDupNodesPresent();</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;    }</b>
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;    private boolean noDupNodesPresent() {
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        for (IN in : envImpl.getInMemoryINs()) {</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;            if (in instanceof DIN || in instanceof DBIN) {</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;                System.out.println(in.toString());</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                return false;</b>
+<i class="no-highlight">180</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">181</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        return true;</b>
+<i class="no-highlight">183</i>&nbsp;    }
+<i class="no-highlight">184</i>&nbsp;
+<i class="no-highlight">185</i>&nbsp;    /**
+<i class="no-highlight">186</i>&nbsp;     * Preload all dup DBs to be converted.
+<i class="no-highlight">187</i>&nbsp;     */
+<i class="no-highlight">188</i>&nbsp;    private void preloadAllDatabases() {
+<i class="no-highlight">189</i>&nbsp;
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        final ArrayList&lt;DatabaseImpl&gt; dbsToConvert =</b>
+<i class="no-highlight">191</i>&nbsp;            new ArrayList&lt;DatabaseImpl&gt;();
+<i class="no-highlight">192</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            for (DatabaseId dbId : dbTree.getDbNamesAndIds().keySet()) {</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;                final DatabaseImpl dbImpl = dbTree.getDb(dbId);</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                boolean releaseDbImpl = true;</b>
+<i class="no-highlight">196</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                    if (!needsConversion(dbImpl)) {</b>
+<i class="no-highlight">198</i>&nbsp;                        continue;
+<i class="no-highlight">199</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">200</i>&nbsp;                    dbsToConvert.add(dbImpl);</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                    releaseDbImpl = false;</b>
+<i class="no-highlight">202</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                    if (releaseDbImpl) {</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                        dbTree.releaseDb(dbImpl);</b>
+<i class="no-highlight">205</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            }</b>
+<i class="no-highlight">208</i>&nbsp;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;            if (dbsToConvert.size() == 0) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                return;</b>
+<i class="no-highlight">211</i>&nbsp;            }
+<i class="no-highlight">212</i>&nbsp;
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            final DatabaseImpl[] dbArray =</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                new DatabaseImpl[dbsToConvert.size()];</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            dbsToConvert.toArray(dbArray);</b>
+<i class="no-highlight">216</i>&nbsp;
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            envImpl.preload(dbArray, preloadConfig);</b>
+<i class="no-highlight">218</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">219</i>&nbsp;            for (DatabaseImpl dbImpl : dbsToConvert) {</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                dbTree.releaseDb(dbImpl);</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;    }</b>
+<i class="no-highlight">224</i>&nbsp;
+<i class="no-highlight">225</i>&nbsp;    /**
+<i class="no-highlight">226</i>&nbsp;     * Returns whether the given DB needs conversion.
+<i class="no-highlight">227</i>&nbsp;     */
+<i class="no-highlight">228</i>&nbsp;    public static boolean needsConversion(final DatabaseImpl dbImpl) {
+<b class="fc"><i class="no-highlight">229</i>&nbsp;        return (dbImpl.getSortedDuplicates() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                !dbImpl.getDupsConverted() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;                !dbImpl.isDeleted());</b>
+<i class="no-highlight">232</i>&nbsp;    }
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /**
+<i class="no-highlight">235</i>&nbsp;     * Converts a single database.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    private void convertDatabase(final DatabaseImpl dbImpl) {
+<i class="no-highlight">238</i>&nbsp;        if (DEBUG) {
+<i class="no-highlight">239</i>&nbsp;            System.out.println(&quot;DupConvert.convertDatabase &quot; +
+<i class="no-highlight">240</i>&nbsp;                               dbImpl.getId());
+<i class="no-highlight">241</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        final boolean saveDeferredWrite = dbImpl.isDurableDeferredWrite();</b>
+<i class="no-highlight">243</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">244</i>&nbsp;            localTracker = new LocalUtilizationTracker(envImpl);</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            dbImpl.setDeferredWrite(true);</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            dbImpl.setKeyPrefixing();</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            if (!preloadAll) {</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;                dbImpl.preload(preloadConfig);</b>
+<i class="no-highlight">249</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            bin = dbImpl.getTree().getFirstNode(CacheMode.UNCHANGED);</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;            if (bin == null) {</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;                return;</b>
+<i class="no-highlight">253</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            index = -1;</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            while (getNextBinSlot()) {</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;                convertBinSlot();</b>
+<i class="no-highlight">257</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            dbImpl.setDupsConverted();</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;            dbImpl.sync(false /*flushLog*/);</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            envImpl.getUtilizationProfile().flushLocalTracker(localTracker);</b>
+<i class="no-highlight">261</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">262</i>&nbsp;            dbImpl.setDeferredWrite(saveDeferredWrite);</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;    }</b>
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;    /**
+<i class="no-highlight">267</i>&nbsp;     * Advances the bin/index fields to the next BIN slot.  When moving past
+<i class="no-highlight">268</i>&nbsp;     * the last BIN slot, the bin field is set to null and false is returned.
+<i class="no-highlight">269</i>&nbsp;     *
+<i class="no-highlight">270</i>&nbsp;     * Enter/leave with bin field latched.
+<i class="no-highlight">271</i>&nbsp;     */
+<i class="no-highlight">272</i>&nbsp;    private boolean getNextBinSlot() {
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        index += 1;</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        if (index &lt; bin.getNEntries()) {</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            return true;</b>
+<i class="no-highlight">276</i>&nbsp;        }
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;        /* Compact keys after finishing with a BIN. */
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        bin.compactMemory();</b>
+<i class="no-highlight">280</i>&nbsp;
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        assert bin.verifyMemorySize();</b>
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;        /* Cannot evict between BINs here, because a latch is held. */
+<i class="no-highlight">284</i>&nbsp;
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        bin = bin.getDatabase().getTree().getNextBin(bin, CacheMode.UNCHANGED);</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        if (bin == null) {</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;            return false;</b>
+<i class="no-highlight">288</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">289</i>&nbsp;        index = 0;</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        return true;</b>
+<i class="no-highlight">291</i>&nbsp;    }
+<i class="no-highlight">292</i>&nbsp;
+<i class="no-highlight">293</i>&nbsp;    /**
+<i class="no-highlight">294</i>&nbsp;     * Converts the bin/index slot, whether a singleton LN or a DIN root.
+<i class="no-highlight">295</i>&nbsp;     *
+<i class="no-highlight">296</i>&nbsp;     * Enter/leave with bin field latched, although bin field may change.
+<i class="no-highlight">297</i>&nbsp;     *
+<i class="no-highlight">298</i>&nbsp;     * When a singleton LN is converted, leaves with bin/index fields
+<i class="no-highlight">299</i>&nbsp;     * unchanged.
+<i class="no-highlight">300</i>&nbsp;     *
+<i class="no-highlight">301</i>&nbsp;     * When a dup tree is converted, leaves with bin/index fields set to last
+<i class="no-highlight">302</i>&nbsp;     * inserted slot.  This is the slot of the highest key in the dup tree.
+<i class="no-highlight">303</i>&nbsp;     */
+<i class="no-highlight">304</i>&nbsp;    private void convertBinSlot() {
+<i class="no-highlight">305</i>&nbsp;        if (DEBUG) {
+<i class="no-highlight">306</i>&nbsp;            System.out.println(&quot;DupConvert BIN LSN &quot; +
+<i class="no-highlight">307</i>&nbsp;                               DbLsn.getNoFormatString(bin.getLsn(index)) +
+<i class="no-highlight">308</i>&nbsp;                               &quot; index &quot; + index +
+<i class="no-highlight">309</i>&nbsp;                               &quot; nEntries &quot; + bin.getNEntries());
+<i class="no-highlight">310</i>&nbsp;        }
+<i class="no-highlight">311</i>&nbsp;        /* Delete slot if LN is deleted. */
+<b class="nc"><i class="no-highlight">312</i>&nbsp;        if (isLNDeleted(bin, index)) {</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;            deleteSlot();</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;            return;</b>
+<i class="no-highlight">315</i>&nbsp;        }
+<i class="no-highlight">316</i>&nbsp;
+<b class="nc"><i class="no-highlight">317</i>&nbsp;        final Node node = bin.fetchLNOrDIN(index, CacheMode.DEFAULT);</b>
+<i class="no-highlight">318</i>&nbsp;
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        if (!node.containsDuplicates()) {</b>
+<i class="no-highlight">320</i>&nbsp;            if (DEBUG) {
+<i class="no-highlight">321</i>&nbsp;                System.out.println(&quot;DupConvert BIN LN &quot; +
+<i class="no-highlight">322</i>&nbsp;                                   Key.dumpString(bin.getKey(index), 0));
+<i class="no-highlight">323</i>&nbsp;            }
+<i class="no-highlight">324</i>&nbsp;            /* Fetching a non-deleted LN updates the slot key; we&#39;re done. */
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            assert node instanceof LN;</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            nConverted += 1;</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;            return;</b>
+<i class="no-highlight">328</i>&nbsp;        }
+<i class="no-highlight">329</i>&nbsp;
+<i class="no-highlight">330</i>&nbsp;        /*
+<i class="no-highlight">331</i>&nbsp;         * Delete the slot containing the DIN before re-inserting the dup tree,
+<i class="no-highlight">332</i>&nbsp;         * so that the DIN slot key doesn&#39;t interfere with insertions.
+<i class="no-highlight">333</i>&nbsp;         *
+<i class="no-highlight">334</i>&nbsp;         * The DIN is evicted and memory usage is decremented. This is not
+<i class="no-highlight">335</i>&nbsp;         * exactly correct because we keep a local reference to the DIN until
+<i class="no-highlight">336</i>&nbsp;         * the dup tree is converted, but we tolerate this temporary
+<i class="no-highlight">337</i>&nbsp;         * inaccuracy.
+<i class="no-highlight">338</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        final byte[] binKey = bin.getKey(index);</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        final DIN din = (DIN) node;</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        deleteSlot();</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        convertDin(din, binKey);</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;    }</b>
+<i class="no-highlight">344</i>&nbsp;    
+<i class="no-highlight">345</i>&nbsp;    /**
+<i class="no-highlight">346</i>&nbsp;     * Returns true if the LN at the given bin/index slot is permanently
+<i class="no-highlight">347</i>&nbsp;     * deleted.  Returns false if it is not deleted, or if it is deleted but
+<i class="no-highlight">348</i>&nbsp;     * part of an unclosed, resurrected txn.
+<i class="no-highlight">349</i>&nbsp;     *
+<i class="no-highlight">350</i>&nbsp;     * Enter/leave with bin field latched.
+<i class="no-highlight">351</i>&nbsp;     */
+<i class="no-highlight">352</i>&nbsp;    private boolean isLNDeleted(BIN checkBin, int checkIndex) {
+<i class="no-highlight">353</i>&nbsp;
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        if (!checkBin.isEntryKnownDeleted(checkIndex) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            !checkBin.isEntryPendingDeleted(checkIndex)) {</b>
+<i class="no-highlight">356</i>&nbsp;            /* Not deleted. */
+<b class="nc"><i class="no-highlight">357</i>&nbsp;            return false;</b>
+<i class="no-highlight">358</i>&nbsp;        }
+<i class="no-highlight">359</i>&nbsp;
+<b class="nc"><i class="no-highlight">360</i>&nbsp;        final long lsn = checkBin.getLsn(checkIndex);</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        if (lsn == DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">362</i>&nbsp;            /* Can discard a NULL_LSN entry without locking. */
+<b class="nc"><i class="no-highlight">363</i>&nbsp;            return true;</b>
+<i class="no-highlight">364</i>&nbsp;        }
+<i class="no-highlight">365</i>&nbsp;
+<i class="no-highlight">366</i>&nbsp;        /* Lock LSN to guarantee deletedness. */
+<b class="nc"><i class="no-highlight">367</i>&nbsp;        final BasicLocker lockingTxn = BasicLocker.createBasicLocker(envImpl);</b>
+<i class="no-highlight">368</i>&nbsp;        /* Don&#39;t allow this short-lived lock to be preempted/stolen. */
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        lockingTxn.setPreemptable(false);</b>
+<i class="no-highlight">370</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">371</i>&nbsp;            final LockResult lockRet = lockingTxn.nonBlockingLock</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;                (lsn, LockType.READ, false /*jumpAheadOfWaiters*/,</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;                 checkBin.getDatabase());</b>
+<b class="nc"><i class="no-highlight">374</i>&nbsp;            if (lockRet.getLockGrant() == LockGrantType.DENIED) {</b>
+<i class="no-highlight">375</i>&nbsp;                /* Is locked by a resurrected txn. */
+<b class="nc"><i class="no-highlight">376</i>&nbsp;                return false;</b>
+<i class="no-highlight">377</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">378</i>&nbsp;            return true;</b>
+<i class="no-highlight">379</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">380</i>&nbsp;            lockingTxn.operationEnd();</b>
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        }</b>
+<i class="no-highlight">382</i>&nbsp;    }
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;    /**
+<i class="no-highlight">385</i>&nbsp;     * Deletes the bin/index slot, assigned a new identifier key if needed.
+<i class="no-highlight">386</i>&nbsp;     *
+<i class="no-highlight">387</i>&nbsp;     * Enter/leave with bin field latched.
+<i class="no-highlight">388</i>&nbsp;     */
+<i class="no-highlight">389</i>&nbsp;    private void deleteSlot() {
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        bin.deleteEntry(index);</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;        if (index == 0 &amp;&amp; bin.getNEntries() != 0) {</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;            bin.setIdentifierKey(bin.getKey(0), true /*makeDirty*/);</b>
+<i class="no-highlight">393</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">394</i>&nbsp;        index -= 1;</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;    }</b>
+<i class="no-highlight">396</i>&nbsp;
+<i class="no-highlight">397</i>&nbsp;    /**
+<i class="no-highlight">398</i>&nbsp;     * Converts the given DIN and its descendants.
+<i class="no-highlight">399</i>&nbsp;     *
+<i class="no-highlight">400</i>&nbsp;     * Enter/leave with bin field latched, although bin field will change to
+<i class="no-highlight">401</i>&nbsp;     * last inserted slot.
+<i class="no-highlight">402</i>&nbsp;     */
+<i class="no-highlight">403</i>&nbsp;    private void convertDin(final DIN din, final byte[] binKey) {
+<b class="nc"><i class="no-highlight">404</i>&nbsp;        din.latch();</b>
+<i class="no-highlight">405</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">406</i>&nbsp;            for (int i = 0; i &lt; din.getNEntries(); i += 1) {</b>
+<i class="no-highlight">407</i>&nbsp;
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                final IN child = din.fetchIN(i, CacheMode.DEFAULT);</b>
+<i class="no-highlight">409</i>&nbsp;
+<b class="nc"><i class="no-highlight">410</i>&nbsp;                assert(!child.isBINDelta(false));</b>
+<i class="no-highlight">411</i>&nbsp;
+<b class="nc"><i class="no-highlight">412</i>&nbsp;                if (child instanceof DBIN) {</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;                    final DBIN dbin = (DBIN) child;</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;                    dbin.latch();</b>
+<i class="no-highlight">415</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">416</i>&nbsp;                        for (int j = 0; j &lt; dbin.getNEntries(); j += 1) {</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;                            if (!isLNDeleted(dbin, j)) {</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;                                convertDbinSlot(dbin, j, binKey);</b>
+<i class="no-highlight">419</i>&nbsp;                            }
+<i class="no-highlight">420</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                        assert dbin.verifyMemorySize();</b>
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;                        /* Count DBIN obsolete. */
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                        if (dbin.getLastLoggedLsn() != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;                            localTracker.countObsoleteNodeInexact</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;                                (dbin.getLastLoggedLsn(),</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;                                 dbin.getLogType(), 0, dbin.getDatabase());</b>
+<i class="no-highlight">428</i>&nbsp;                        }
+<i class="no-highlight">429</i>&nbsp;                    } finally {
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                        dbin.releaseLatch();</b>
+<b class="nc"><i class="no-highlight">431</i>&nbsp;                    }</b>
+<b class="nc"><i class="no-highlight">432</i>&nbsp;                } else {</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                    convertDin((DIN) child, binKey);</b>
+<i class="no-highlight">434</i>&nbsp;                }
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;                /* Evict DIN child. */
+<b class="nc"><i class="no-highlight">437</i>&nbsp;                din.detachNode(i, false/*updateLsn*/, -1/*lsn*/);</b>
+<i class="no-highlight">438</i>&nbsp;            }
+<i class="no-highlight">439</i>&nbsp;
+<b class="nc"><i class="no-highlight">440</i>&nbsp;            assert din.verifyMemorySize();</b>
+<i class="no-highlight">441</i>&nbsp;
+<i class="no-highlight">442</i>&nbsp;            /* Count DIN and DupCountLN obsolete. */
+<b class="nc"><i class="no-highlight">443</i>&nbsp;            if (din.getLastLoggedLsn() != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                localTracker.countObsoleteNodeInexact</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;                    (din.getLastLoggedLsn(), din.getLogType(), 0,</b>
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                     din.getDatabase());</b>
+<i class="no-highlight">447</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">448</i>&nbsp;            final ChildReference dupCountRef = din.getDupCountLNRef();</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;            if (dupCountRef != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;                dupCountRef.getLsn() != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;                localTracker.countObsoleteNodeInexact</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;                    (dupCountRef.getLsn(), LogEntryType.LOG_DUPCOUNTLN, 0,</b>
+<b class="nc"><i class="no-highlight">453</i>&nbsp;                     din.getDatabase());</b>
+<i class="no-highlight">454</i>&nbsp;            }
+<i class="no-highlight">455</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">456</i>&nbsp;            din.releaseLatch();</b>
+<b class="nc"><i class="no-highlight">457</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">458</i>&nbsp;    }</b>
+<i class="no-highlight">459</i>&nbsp;
+<i class="no-highlight">460</i>&nbsp;    /**
+<i class="no-highlight">461</i>&nbsp;     * Converts the given DBIN slot, leaving bin/index set to the inserted
+<i class="no-highlight">462</i>&nbsp;     * BIN slot.
+<i class="no-highlight">463</i>&nbsp;     *
+<i class="no-highlight">464</i>&nbsp;     * Enter/leave with bin field latched, although bin field may change.
+<i class="no-highlight">465</i>&nbsp;     *
+<i class="no-highlight">466</i>&nbsp;     * If slot is inserted into current bin, leave bin field unchanged and
+<i class="no-highlight">467</i>&nbsp;     * set index field to inserted slot.
+<i class="no-highlight">468</i>&nbsp;     *
+<i class="no-highlight">469</i>&nbsp;     * If slot is inserted into a different bin, set bin/index fields to
+<i class="no-highlight">470</i>&nbsp;     * inserted slot.
+<i class="no-highlight">471</i>&nbsp;     */
+<i class="no-highlight">472</i>&nbsp;    private void convertDbinSlot(
+<i class="no-highlight">473</i>&nbsp;        final DBIN dbin,
+<i class="no-highlight">474</i>&nbsp;        final int dbinIndex,
+<i class="no-highlight">475</i>&nbsp;        final byte[] binKey) {
+<i class="no-highlight">476</i>&nbsp;        
+<b class="nc"><i class="no-highlight">477</i>&nbsp;        final byte[] newKey =</b>
+<b class="nc"><i class="no-highlight">478</i>&nbsp;            DupKeyData.replaceData(binKey, dbin.getKey(dbinIndex));</b>
+<i class="no-highlight">479</i>&nbsp;
+<i class="no-highlight">480</i>&nbsp;        if (DEBUG) {
+<i class="no-highlight">481</i>&nbsp;            System.out.println(&quot;DupConvert DBIN LN &quot; +
+<i class="no-highlight">482</i>&nbsp;                               Key.dumpString(newKey, 0));
+<i class="no-highlight">483</i>&nbsp;        }
+<i class="no-highlight">484</i>&nbsp;
+<i class="no-highlight">485</i>&nbsp;        /*
+<i class="no-highlight">486</i>&nbsp;         * If the current BIN can hold the new slot, don&#39;t bother to do a
+<i class="no-highlight">487</i>&nbsp;         * search to find it.
+<i class="no-highlight">488</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">489</i>&nbsp;        if (bin.needsSplitting() || !bin.isKeyInBounds(newKey)) {</b>
+<i class="no-highlight">490</i>&nbsp;
+<i class="no-highlight">491</i>&nbsp;            /* Compact keys after finishing with a BIN. */
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            bin.compactMemory();</b>
+<i class="no-highlight">493</i>&nbsp;
+<i class="no-highlight">494</i>&nbsp;            /* Evict without latches, before moving to a new BIN. */
+<b class="nc"><i class="no-highlight">495</i>&nbsp;            bin.releaseLatch();</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;            envImpl.daemonEviction(false /*backgroundIO*/);</b>
+<i class="no-highlight">497</i>&nbsp;
+<i class="no-highlight">498</i>&nbsp;            /* Find a BIN for insertion, split if necessary. */
+<b class="nc"><i class="no-highlight">499</i>&nbsp;            bin = dbin.getDatabase().getTree().searchSplitsAllowed(</b>
+<i class="no-highlight">500</i>&nbsp;                newKey, CacheMode.UNCHANGED);
+<i class="no-highlight">501</i>&nbsp;        }
+<i class="no-highlight">502</i>&nbsp;
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        final int newIndex = bin.insertEntry1(</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;            null/*ln*/, newKey, null/*data*/, dbin.getLsn(dbinIndex),</b>
+<b class="nc"><i class="no-highlight">505</i>&nbsp;            dbin.getState(dbinIndex), false);</b>
+<i class="no-highlight">506</i>&nbsp;
+<b class="nc"><i class="no-highlight">507</i>&nbsp;        if ((newIndex &amp; IN.INSERT_SUCCESS) == 0) {</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                (&quot;Key not inserted: &quot; + Key.dumpString(newKey, 0) +</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                 &quot; DB: &quot; + dbin.getDatabase().getId());</b>
+<i class="no-highlight">511</i>&nbsp;        }
+<i class="no-highlight">512</i>&nbsp;
+<b class="nc"><i class="no-highlight">513</i>&nbsp;        index = newIndex &amp; ~IN.INSERT_SUCCESS;</b>
+<i class="no-highlight">514</i>&nbsp;
+<i class="no-highlight">515</i>&nbsp;        /*
+<i class="no-highlight">516</i>&nbsp;         * Evict LN from DBIN slot. Although we don&#39;t explicitly load DBIN LNs,
+<i class="no-highlight">517</i>&nbsp;         * it may have been loaded by recovery.
+<i class="no-highlight">518</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">519</i>&nbsp;        dbin.detachNode(dbinIndex, false/*updateLsn*/, -1/*lsn*/);</b>
+<i class="no-highlight">520</i>&nbsp;
+<b class="nc"><i class="no-highlight">521</i>&nbsp;        nConverted += 1;</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;    }</b>
+<i class="no-highlight">523</i>&nbsp;
+<i class="no-highlight">524</i>&nbsp;    /**
+<i class="no-highlight">525</i>&nbsp;     * Changes all keys to &quot;prefix keys&quot; in the given IN.  Called after reading
+<i class="no-highlight">526</i>&nbsp;     * an IN from disk via IN.postFetchInit.
+<i class="no-highlight">527</i>&nbsp;     *
+<i class="no-highlight">528</i>&nbsp;     * The conversion of IN keys is invoked from the IN class when an IN is
+<i class="no-highlight">529</i>&nbsp;     * fetched, rather than invoked from the DupConvert class directly, for
+<i class="no-highlight">530</i>&nbsp;     * performance and simplicity.  If it were invoked from the DupConvert
+<i class="no-highlight">531</i>&nbsp;     * class, we would have to iterate over all INs in a separate initial pass.
+<i class="no-highlight">532</i>&nbsp;     * This is both more time consuming, and more complex to implement properly
+<i class="no-highlight">533</i>&nbsp;     * so that eviction is possible.  Instead, conversion occurs when an old
+<i class="no-highlight">534</i>&nbsp;     * format IN is loaded.
+<i class="no-highlight">535</i>&nbsp;     *
+<i class="no-highlight">536</i>&nbsp;     * Enter/leave with &#39;in&#39; unlatched.
+<i class="no-highlight">537</i>&nbsp;     */
+<i class="no-highlight">538</i>&nbsp;    public static void convertInKeys(final DatabaseImpl dbImpl, final IN in) {
+<i class="no-highlight">539</i>&nbsp;
+<i class="no-highlight">540</i>&nbsp;        /* Nothing to convert for non-duplicates DB. */
+<b class="nc"><i class="no-highlight">541</i>&nbsp;        if (!dbImpl.getSortedDuplicates()) {</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;            return;</b>
+<i class="no-highlight">543</i>&nbsp;        }
+<i class="no-highlight">544</i>&nbsp;
+<i class="no-highlight">545</i>&nbsp;        /* DIN/DBIN do not need conversion either. */
+<b class="nc"><i class="no-highlight">546</i>&nbsp;        if (in instanceof DIN || in instanceof DBIN) {</b>
+<b class="nc"><i class="no-highlight">547</i>&nbsp;            return;</b>
+<i class="no-highlight">548</i>&nbsp;        }
+<i class="no-highlight">549</i>&nbsp;
+<b class="nc"><i class="no-highlight">550</i>&nbsp;        for (int i = 0; i &lt; in.getNEntries(); i += 1) {</b>
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            byte[] oldKey = in.getKey(i);</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;            byte[] newKey =</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;                DupKeyData.makePrefixKey(oldKey, 0, oldKey.length);</b>
+<i class="no-highlight">554</i>&nbsp;
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            in.convertKey(i, newKey);</b>
+<i class="no-highlight">556</i>&nbsp;        }
+<i class="no-highlight">557</i>&nbsp;
+<b class="nc"><i class="no-highlight">558</i>&nbsp;        byte[] oldKey = in.getIdentifierKey();</b>
+<b class="nc"><i class="no-highlight">559</i>&nbsp;        byte[] newKey = DupKeyData.makePrefixKey(oldKey, 0, oldKey.length);</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        in.setIdentifierKey(newKey, true /*makeDirty*/);</b>
+<i class="no-highlight">561</i>&nbsp;
+<b class="nc"><i class="no-highlight">562</i>&nbsp;        assert in.verifyMemorySize();</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;    }</b>
+<i class="no-highlight">564</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

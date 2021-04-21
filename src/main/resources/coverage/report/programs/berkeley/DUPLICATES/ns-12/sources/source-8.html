@@ -1,0 +1,655 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FSyncManager</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: FSyncManager (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FSyncManager</td>
+<td class="coverageStat">
+  <span class="percent">
+    37.5%
+  </span>
+  <span class="absValue">
+    (3/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    54.1%
+  </span>
+  <span class="absValue">
+    (59/109)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">FSyncManager$FSyncGroup</td>
+<td class="coverageStat">
+  <span class="percent">
+    75%
+  </span>
+  <span class="absValue">
+    (6/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    40.9%
+  </span>
+  <span class="absValue">
+    (18/44)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    56.2%
+  </span>
+  <span class="absValue">
+    (9/16)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50.3%
+  </span>
+  <span class="absValue">
+    (77/153)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.FSYNCMGR_FSYNCS;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.FSYNCMGR_FSYNC_REQUESTS;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.FSYNCMGR_TIMEOUTS;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.GRPCMGR_N_GROUP_COMMIT_REQUESTS;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.GRPCMGR_N_GROUP_COMMIT_WAITS;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.GRPCMGR_N_LOG_INTERVAL_EXCEEDED;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.log.LogStatDefinition.GRPCMGR_N_LOG_MAX_GROUP_COMMIT;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;import java.util.concurrent.CountDownLatch;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.utilint.AtomicLongStat;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;/*
+<i class="no-highlight">38</i>&nbsp; * The FsyncManager ensures that only one file fsync is issued at a time, for
+<i class="no-highlight">39</i>&nbsp; * performance optimization. The goal is to reduce the number of fsyncs issued
+<i class="no-highlight">40</i>&nbsp; * by the system by issuing 1 fsync on behalf of a number of threads.
+<i class="no-highlight">41</i>&nbsp; *
+<i class="no-highlight">42</i>&nbsp; * For example, suppose these writes happen which all need to be fsynced to
+<i class="no-highlight">43</i>&nbsp; * disk:
+<i class="no-highlight">44</i>&nbsp; *
+<i class="no-highlight">45</i>&nbsp; *  thread 1 writes a commit record
+<i class="no-highlight">46</i>&nbsp; *  thread 2 writes a checkpoint
+<i class="no-highlight">47</i>&nbsp; *  thread 3 writes a commit record
+<i class="no-highlight">48</i>&nbsp; *  thread 4 writes a commit record
+<i class="no-highlight">49</i>&nbsp; *  thread 5 writes a checkpoint
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * Rather than executing 5 fsyncs, which all must happen synchronously, we hope
+<i class="no-highlight">52</i>&nbsp; * to issue fewer. How many fewer depend on timing. Note that the writes
+<i class="no-highlight">53</i>&nbsp; * themselves are serialized and are guaranteed to run in order.
+<i class="no-highlight">54</i>&nbsp; *
+<i class="no-highlight">55</i>&nbsp; * For example:
+<i class="no-highlight">56</i>&nbsp; *    thread 1 wants to fsync first, no other fsync going on, will issue fsync
+<i class="no-highlight">57</i>&nbsp; *    thread 2 waits
+<i class="no-highlight">58</i>&nbsp; *    thread 3 waits
+<i class="no-highlight">59</i>&nbsp; *    thread 4 waits
+<i class="no-highlight">60</i>&nbsp; *     - before thread 5 comes, thread 1 finishes fsyncing and returns to
+<i class="no-highlight">61</i>&nbsp; *     the caller. Now another fsync can be issued that will cover threads
+<i class="no-highlight">62</i>&nbsp; *     2,3,4. One of those threads (2, 3, 4} issues the fsync, the others
+<i class="no-highlight">63</i>&nbsp; *     block.
+<i class="no-highlight">64</i>&nbsp; *    thread 5 wants to fsync, but sees one going on, so will wait.
+<i class="no-highlight">65</i>&nbsp; *     - the fsync issued for 2,3,4 can&#39;t cover thread 5 because we&#39;re not sure
+<i class="no-highlight">66</i>&nbsp; *      if thread 5&#39;s write finished before that fsync call. Thread 5 will have
+<i class="no-highlight">67</i>&nbsp; *      to issue its own fsync.
+<i class="no-highlight">68</i>&nbsp; *
+<i class="no-highlight">69</i>&nbsp; * Target file
+<i class="no-highlight">70</i>&nbsp; * -----------
+<i class="no-highlight">71</i>&nbsp; * Note that when the buffer pool starts a new file, we fsync the previous file
+<i class="no-highlight">72</i>&nbsp; * under the log write latch. Therefore, at any time we only have one target
+<i class="no-highlight">73</i>&nbsp; * file to fsync, which is the current write buffer. We do this so that we
+<i class="no-highlight">74</i>&nbsp; * don&#39;t have to coordinate between files.  For example, suppose log files have
+<i class="no-highlight">75</i>&nbsp; * 1000 bytes and a commit record is 10 bytes.  An LSN of value 6/990 is in
+<i class="no-highlight">76</i>&nbsp; * file 6 at offset 990.
+<i class="no-highlight">77</i>&nbsp; *
+<i class="no-highlight">78</i>&nbsp; * thread 1: logWriteLatch.acquire()
+<i class="no-highlight">79</i>&nbsp; *         write commit record to LSN 6/980
+<i class="no-highlight">80</i>&nbsp; *         logWriteLatch.release()
+<i class="no-highlight">81</i>&nbsp; * thread 2: logWriteLatch.acquire()
+<i class="no-highlight">82</i>&nbsp; *         write commit record to LSN 6/990
+<i class="no-highlight">83</i>&nbsp; *         logWriteLatch.release
+<i class="no-highlight">84</i>&nbsp; * thread 3: logWriteLatch.acquire()
+<i class="no-highlight">85</i>&nbsp; *         gets 7/000 as the next LSN to use
+<i class="no-highlight">86</i>&nbsp; *          see that we flipped to a new file, so call fsync on file 6
+<i class="no-highlight">87</i>&nbsp; *         write commit record to LSN 7/000
+<i class="no-highlight">88</i>&nbsp; *         logWriteLatch.release()
+<i class="no-highlight">89</i>&nbsp; *
+<i class="no-highlight">90</i>&nbsp; * Thread 3 will fsync file 6 within the log write latch. That way, at any
+<i class="no-highlight">91</i>&nbsp; * time, any non-latched fsyncs should only fsync the latest file.  If we
+<i class="no-highlight">92</i>&nbsp; * didn&#39;t do, there&#39;s the chance that thread 3 would fsync file 7 and return to
+<i class="no-highlight">93</i>&nbsp; * its caller before the thread 1 and 2 got an fsync for file 6. That wouldn&#39;t
+<i class="no-highlight">94</i>&nbsp; * be correct, because thread 3&#39;s commit might depend on file 6.
+<i class="no-highlight">95</i>&nbsp; *
+<i class="no-highlight">96</i>&nbsp; * Note that the FileManager keeps a file descriptor that corresponds to the
+<i class="no-highlight">97</i>&nbsp; * current end of file, and that is what we fsync.
+<i class="no-highlight">98</i>&nbsp; */
+<i class="no-highlight">99</i>&nbsp;class FSyncManager {
+<i class="no-highlight">100</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">101</i>&nbsp;    private final long timeout;
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    /* Use as the target for a synchronization block. */
+<i class="no-highlight">104</i>&nbsp;    private final Object mgrMutex;
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;    private volatile boolean workInProgress;
+<i class="no-highlight">107</i>&nbsp;    private FSyncGroup nextFSyncWaiters;
+<i class="no-highlight">108</i>&nbsp;    private int numNextWaiters;
+<i class="no-highlight">109</i>&nbsp;    private long startNextWait;
+<i class="no-highlight">110</i>&nbsp;    /* Number of waiters that prevents a group commit wait */
+<i class="no-highlight">111</i>&nbsp;    private final int grpcThreshold;
+<i class="no-highlight">112</i>&nbsp;    private final long grpcInterval;
+<i class="no-highlight">113</i>&nbsp;    private final boolean grpWaitOn;
+<i class="no-highlight">114</i>&nbsp;
+<i class="no-highlight">115</i>&nbsp;    /* stats */
+<i class="no-highlight">116</i>&nbsp;    private final StatGroup stats;
+<i class="no-highlight">117</i>&nbsp;    private final LongStat nFSyncRequests;
+<i class="no-highlight">118</i>&nbsp;    private final AtomicLongStat nFSyncs;
+<i class="no-highlight">119</i>&nbsp;    private final LongStat nTimeouts;
+<i class="no-highlight">120</i>&nbsp;    private final LongStat nRequests;
+<i class="no-highlight">121</i>&nbsp;    private final LongStat nWaitersExceeded;
+<i class="no-highlight">122</i>&nbsp;    private final LongStat nTimeExceeded;
+<i class="no-highlight">123</i>&nbsp;    private final LongStat nWaits;
+<i class="no-highlight">124</i>&nbsp;
+<i class="no-highlight">125</i>&nbsp;    /* For unit tests. */
+<i class="no-highlight">126</i>&nbsp;    private TestHook&lt;CountDownLatch&gt; flushHook;
+<i class="no-highlight">127</i>&nbsp;
+<b class="fc"><i class="no-highlight">128</i>&nbsp;    FSyncManager(EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">129</i>&nbsp;        timeout = envImpl.getConfigManager().getDuration</b>
+<b class="fc"><i class="no-highlight">130</i>&nbsp;            (EnvironmentParams.LOG_FSYNC_TIMEOUT);</b>
+<b class="fc"><i class="no-highlight">131</i>&nbsp;        grpcInterval = envImpl.getConfigManager().getDurationNS(</b>
+<i class="no-highlight">132</i>&nbsp;            EnvironmentParams.LOG_GROUP_COMMIT_INTERVAL);
+<b class="fc"><i class="no-highlight">133</i>&nbsp;        grpcThreshold =</b>
+<b class="fc"><i class="no-highlight">134</i>&nbsp;            envImpl.getConfigManager().getInt(</b>
+<i class="no-highlight">135</i>&nbsp;                EnvironmentParams.LOG_GROUP_COMMIT_THRESHOLD);
+<b class="fc"><i class="no-highlight">136</i>&nbsp;        if (grpcInterval == 0 || grpcThreshold == 0) {</b>
+<b class="fc"><i class="no-highlight">137</i>&nbsp;            grpWaitOn = false;</b>
+<i class="no-highlight">138</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            grpWaitOn = true;</b>
+<i class="no-highlight">140</i>&nbsp;        }
+<i class="no-highlight">141</i>&nbsp;
+<b class="fc"><i class="no-highlight">142</i>&nbsp;        this.envImpl = envImpl;</b>
+<i class="no-highlight">143</i>&nbsp;
+<b class="fc"><i class="no-highlight">144</i>&nbsp;        mgrMutex = new Object();</b>
+<b class="fc"><i class="no-highlight">145</i>&nbsp;        workInProgress = false;</b>
+<b class="fc"><i class="no-highlight">146</i>&nbsp;        nextFSyncWaiters = new FSyncGroup(timeout, envImpl);</b>
+<i class="no-highlight">147</i>&nbsp;
+<b class="fc"><i class="no-highlight">148</i>&nbsp;        stats = new StatGroup(LogStatDefinition.FSYNCMGR_GROUP_NAME,</b>
+<i class="no-highlight">149</i>&nbsp;                              LogStatDefinition.FSYNCMGR_GROUP_DESC);
+<b class="fc"><i class="no-highlight">150</i>&nbsp;        nFSyncRequests = new LongStat(stats, FSYNCMGR_FSYNC_REQUESTS);</b>
+<b class="fc"><i class="no-highlight">151</i>&nbsp;        nFSyncs = new AtomicLongStat(stats, FSYNCMGR_FSYNCS);</b>
+<b class="fc"><i class="no-highlight">152</i>&nbsp;        nTimeouts = new LongStat(stats, FSYNCMGR_TIMEOUTS);</b>
+<b class="fc"><i class="no-highlight">153</i>&nbsp;        nRequests = new LongStat(stats, GRPCMGR_N_GROUP_COMMIT_REQUESTS);</b>
+<b class="fc"><i class="no-highlight">154</i>&nbsp;        nTimeExceeded =</b>
+<i class="no-highlight">155</i>&nbsp;            new LongStat(stats, GRPCMGR_N_LOG_INTERVAL_EXCEEDED);
+<b class="fc"><i class="no-highlight">156</i>&nbsp;        nWaitersExceeded =</b>
+<i class="no-highlight">157</i>&nbsp;            new LongStat(stats, GRPCMGR_N_LOG_MAX_GROUP_COMMIT);
+<b class="fc"><i class="no-highlight">158</i>&nbsp;        nWaits =</b>
+<i class="no-highlight">159</i>&nbsp;            new LongStat(stats, GRPCMGR_N_GROUP_COMMIT_WAITS);
+<b class="fc"><i class="no-highlight">160</i>&nbsp;        numNextWaiters = 0;</b>
+<b class="fc"><i class="no-highlight">161</i>&nbsp;    }</b>
+<i class="no-highlight">162</i>&nbsp;
+<i class="no-highlight">163</i>&nbsp;    /**
+<i class="no-highlight">164</i>&nbsp;     * Request to flush the log buffer and optionally fsync to disk.
+<i class="no-highlight">165</i>&nbsp;     * This thread may or may not actually execute the flush/fsync,
+<i class="no-highlight">166</i>&nbsp;     * but will not return until a flush/fsync has been
+<i class="no-highlight">167</i>&nbsp;     * issued and executed on behalf of its write. There is a timeout period
+<i class="no-highlight">168</i>&nbsp;     * specified by EnvironmentParam.LOG_FSYNC_TIMEOUT that ensures that no
+<i class="no-highlight">169</i>&nbsp;     * thread gets stuck here indefinitely.
+<i class="no-highlight">170</i>&nbsp;     *
+<i class="no-highlight">171</i>&nbsp;     * When a thread comes in, it will find one of two things.
+<i class="no-highlight">172</i>&nbsp;     * 1. There is no work going on right now. This thread should go
+<i class="no-highlight">173</i>&nbsp;     *    ahead and become the group leader. The leader may wait and
+<i class="no-highlight">174</i>&nbsp;     *    executes the flush/fsync.
+<i class="no-highlight">175</i>&nbsp;     * 2. There is work going on, wait on the next group commit.
+<i class="no-highlight">176</i>&nbsp;     *
+<i class="no-highlight">177</i>&nbsp;     * When a work is going on, all those threads that come along are grouped
+<i class="no-highlight">178</i>&nbsp;     * together as the nextFsyncWaiters. When the current work is finished,
+<i class="no-highlight">179</i>&nbsp;     * one of those nextFsyncWaiters will be selected as a leader to issue the
+<i class="no-highlight">180</i>&nbsp;     * next flush/fsync. The other members of the group will merely wait until
+<i class="no-highlight">181</i>&nbsp;     * the flush/fsync done on their behalf is finished.
+<i class="no-highlight">182</i>&nbsp;     *
+<i class="no-highlight">183</i>&nbsp;     * When a thread finishes a flush/fsync, it has to:
+<i class="no-highlight">184</i>&nbsp;     * 1. wake up all the threads that were waiting in the group.
+<i class="no-highlight">185</i>&nbsp;     * 2. wake up one member of the next group of waiting threads (the
+<i class="no-highlight">186</i>&nbsp;     *    nextFsyncWaiters) so that thread can become the new leader
+<i class="no-highlight">187</i>&nbsp;     *    and issue the next flush/fysnc call.
+<i class="no-highlight">188</i>&nbsp;     *
+<i class="no-highlight">189</i>&nbsp;     * If a non-leader member of the nextFsyncWaiters times out, it will issue
+<i class="no-highlight">190</i>&nbsp;     * its own flush/fsync anyway, in case something happened to the leader.
+<i class="no-highlight">191</i>&nbsp;     *
+<i class="no-highlight">192</i>&nbsp;     * @param fsyncRequired true if fsync is required
+<i class="no-highlight">193</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">194</i>&nbsp;     */
+<i class="no-highlight">195</i>&nbsp;    void flushAndSync(boolean fsyncRequired)
+<i class="no-highlight">196</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">197</i>&nbsp;
+<i class="no-highlight">198</i>&nbsp;        long interval;
+<b class="fc"><i class="no-highlight">199</i>&nbsp;        boolean doWork = false;</b>
+<b class="fc"><i class="no-highlight">200</i>&nbsp;        boolean isLeader = false;</b>
+<b class="fc"><i class="no-highlight">201</i>&nbsp;        boolean needToWait = false;</b>
+<b class="fc"><i class="no-highlight">202</i>&nbsp;        FSyncGroup inProgressGroup = null;</b>
+<b class="fc"><i class="no-highlight">203</i>&nbsp;        FSyncGroup myGroup = null;</b>
+<i class="no-highlight">204</i>&nbsp;
+<b class="fc"><i class="no-highlight">205</i>&nbsp;        synchronized (mgrMutex) {</b>
+<b class="fc"><i class="no-highlight">206</i>&nbsp;            nRequests.increment();</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;            if (fsyncRequired) {</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;                nFSyncRequests.increment();</b>
+<i class="no-highlight">209</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">210</i>&nbsp;            myGroup = nextFSyncWaiters;</b>
+<b class="fc"><i class="no-highlight">211</i>&nbsp;            myGroup.setDoFsync(fsyncRequired);</b>
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;            /* Figure out if we&#39;re calling fsync or waiting. */
+<b class="fc"><i class="no-highlight">214</i>&nbsp;            if (workInProgress) {</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;                needToWait = true;</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                numNextWaiters++;</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                if (grpWaitOn &amp;&amp; numNextWaiters == 1) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                    startNextWait = System.nanoTime();</b>
+<i class="no-highlight">219</i>&nbsp;                }
+<i class="no-highlight">220</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">221</i>&nbsp;                isLeader = true;</b>
+<b class="fc"><i class="no-highlight">222</i>&nbsp;                doWork = true;</b>
+<b class="fc"><i class="no-highlight">223</i>&nbsp;                workInProgress = true;</b>
+<b class="fc"><i class="no-highlight">224</i>&nbsp;                if (grpWaitOn) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                    if (numNextWaiters &lt; grpcThreshold) {</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;                        interval = System.nanoTime() - startNextWait;</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;                        if (interval &lt; grpcInterval) {</b>
+<i class="no-highlight">228</i>&nbsp;                            try {
+<b class="nc"><i class="no-highlight">229</i>&nbsp;                                nWaits.increment();</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                                mgrMutex.wait(interval/1000000,</b>
+<i class="no-highlight">231</i>&nbsp;                                              (int) interval%1000000);
+<b class="nc"><i class="no-highlight">232</i>&nbsp;                            } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                                throw new ThreadInterruptedException(</b>
+<i class="no-highlight">234</i>&nbsp;                                    envImpl,
+<i class="no-highlight">235</i>&nbsp;                                    &quot;Unexpected interrupt while &quot; +
+<i class="no-highlight">236</i>&nbsp;                                    &quot;waiting for write or fsync&quot;,
+<i class="no-highlight">237</i>&nbsp;                                    e);
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                            }</b>
+<i class="no-highlight">239</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                        nTimeExceeded.increment();</b>
+<i class="no-highlight">241</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                        nWaitersExceeded.increment();</b>
+<i class="no-highlight">243</i>&nbsp;                    }
+<i class="no-highlight">244</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">245</i>&nbsp;                inProgressGroup = nextFSyncWaiters;</b>
+<b class="fc"><i class="no-highlight">246</i>&nbsp;                nextFSyncWaiters = new FSyncGroup(timeout, envImpl);</b>
+<b class="fc"><i class="no-highlight">247</i>&nbsp;                numNextWaiters = 0;</b>
+<i class="no-highlight">248</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">249</i>&nbsp;        }</b>
+<i class="no-highlight">250</i>&nbsp;
+<b class="fc"><i class="no-highlight">251</i>&nbsp;        if (needToWait) {</b>
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;            /*
+<i class="no-highlight">254</i>&nbsp;             * Note that there&#39;s no problem if we miss the notify on this set
+<i class="no-highlight">255</i>&nbsp;             * of waiters. We can check state in the FSyncGroup before we begin
+<i class="no-highlight">256</i>&nbsp;             * to wait.
+<i class="no-highlight">257</i>&nbsp;             *
+<i class="no-highlight">258</i>&nbsp;             * All members of the group may return from their waitForFSync()
+<i class="no-highlight">259</i>&nbsp;             * call with the need to do a fsync, because of timeout. Only one
+<i class="no-highlight">260</i>&nbsp;             * will return as the leader.
+<i class="no-highlight">261</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">262</i>&nbsp;            int waitStatus = myGroup.waitForEvent();</b>
+<i class="no-highlight">263</i>&nbsp;
+<b class="nc"><i class="no-highlight">264</i>&nbsp;            if (waitStatus == FSyncGroup.DO_LEADER_FSYNC) {</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;                synchronized (mgrMutex) {</b>
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;                    /*
+<i class="no-highlight">268</i>&nbsp;                     * Check if there&#39;s a fsync in progress; this might happen
+<i class="no-highlight">269</i>&nbsp;                     * even if you were designated the leader if a new thread
+<i class="no-highlight">270</i>&nbsp;                     * came in between the point when the old leader woke you
+<i class="no-highlight">271</i>&nbsp;                     * up and now. This new thread may have found that there
+<i class="no-highlight">272</i>&nbsp;                     * was no fsync in progress, and may have started a fsync.
+<i class="no-highlight">273</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">274</i>&nbsp;                    if (workInProgress) {</b>
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;                        /*
+<i class="no-highlight">277</i>&nbsp;                         * Ensure that an fsync is done before returning by
+<i class="no-highlight">278</i>&nbsp;                         * forcing an fsync in this thread. [#20717]
+<i class="no-highlight">279</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">280</i>&nbsp;                        doWork = true;</b>
+<i class="no-highlight">281</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                        isLeader = true;</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                        doWork = true;</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;                        workInProgress = true;</b>
+<i class="no-highlight">285</i>&nbsp;
+<b class="nc"><i class="no-highlight">286</i>&nbsp;                        if (grpWaitOn) {</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;                            if (numNextWaiters &lt; grpcThreshold) {</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                                interval = System.nanoTime() - startNextWait;</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                                if (interval &lt; grpcInterval) {</b>
+<i class="no-highlight">290</i>&nbsp;                                    try {
+<b class="nc"><i class="no-highlight">291</i>&nbsp;                                        nWaits.increment();</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                                        mgrMutex.wait(interval/1000000,</b>
+<i class="no-highlight">293</i>&nbsp;                                                      (int) interval%1000000);
+<b class="nc"><i class="no-highlight">294</i>&nbsp;                                    } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                                        throw new ThreadInterruptedException(</b>
+<i class="no-highlight">296</i>&nbsp;                                            envImpl,
+<i class="no-highlight">297</i>&nbsp;                                            &quot;Unexpected interrupt while &quot; +
+<i class="no-highlight">298</i>&nbsp;                                            &quot;waiting for write or fsync&quot;,
+<i class="no-highlight">299</i>&nbsp;                                            e);
+<b class="nc"><i class="no-highlight">300</i>&nbsp;                                    }</b>
+<i class="no-highlight">301</i>&nbsp;                                }
+<b class="nc"><i class="no-highlight">302</i>&nbsp;                                nTimeExceeded.increment();</b>
+<i class="no-highlight">303</i>&nbsp;                            } else {
+<b class="nc"><i class="no-highlight">304</i>&nbsp;                                nWaitersExceeded.increment();</b>
+<i class="no-highlight">305</i>&nbsp;                            }
+<i class="no-highlight">306</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">307</i>&nbsp;                        inProgressGroup = myGroup;</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;                        nextFSyncWaiters = new FSyncGroup(timeout, envImpl);</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;                        numNextWaiters = 0;</b>
+<i class="no-highlight">310</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            } else if (waitStatus == FSyncGroup.DO_TIMEOUT_FSYNC) {</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;                doWork = true;</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;                synchronized (mgrMutex) {</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;                    nTimeouts.increment();</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;                }</b>
+<i class="no-highlight">317</i>&nbsp;            }
+<i class="no-highlight">318</i>&nbsp;        }
+<i class="no-highlight">319</i>&nbsp;
+<b class="fc"><i class="no-highlight">320</i>&nbsp;        if (doWork) {</b>
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;            /*
+<i class="no-highlight">323</i>&nbsp;             * There are 3 ways that this fsync gets called:
+<i class="no-highlight">324</i>&nbsp;             *
+<i class="no-highlight">325</i>&nbsp;             * 1. A thread calls sync and there is not a sync call already in
+<i class="no-highlight">326</i>&nbsp;             * progress.  That thread executes fsync for itself only.  Other
+<i class="no-highlight">327</i>&nbsp;             * threads requesting sync form a group of waiters.
+<i class="no-highlight">328</i>&nbsp;             *
+<i class="no-highlight">329</i>&nbsp;             * 2. A sync finishes and wakes up a group of waiters.  The first
+<i class="no-highlight">330</i>&nbsp;             * waiter in the group to wake up becomes the leader.  It executes
+<i class="no-highlight">331</i>&nbsp;             * sync for it&#39;s group of waiters.  As above, other threads
+<i class="no-highlight">332</i>&nbsp;             * requesting sync form a new group of waiters.
+<i class="no-highlight">333</i>&nbsp;             *
+<i class="no-highlight">334</i>&nbsp;             * 3. If members of a group of waiters have timed out, they&#39;ll all
+<i class="no-highlight">335</i>&nbsp;             * just go and do their own sync for themselves.
+<i class="no-highlight">336</i>&nbsp;             */
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;            /* flush the log buffer */
+<b class="fc"><i class="no-highlight">339</i>&nbsp;            if (myGroup.getDoFsync()) {</b>
+<b class="fc"><i class="no-highlight">340</i>&nbsp;                envImpl.getLogManager().flushBeforeSync();</b>
+<i class="no-highlight">341</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">342</i>&nbsp;                envImpl.getLogManager().flushNoSync();</b>
+<i class="no-highlight">343</i>&nbsp;            }
+<i class="no-highlight">344</i>&nbsp;
+<b class="fc"><i class="no-highlight">345</i>&nbsp;            TestHookExecute.doHookIfSet(flushHook);</b>
+<i class="no-highlight">346</i>&nbsp;
+<i class="no-highlight">347</i>&nbsp;            /* execute fsync */
+<b class="fc"><i class="no-highlight">348</i>&nbsp;            if (myGroup.getDoFsync()) {</b>
+<b class="fc"><i class="no-highlight">349</i>&nbsp;                executeFSync();</b>
+<b class="fc"><i class="no-highlight">350</i>&nbsp;                nFSyncs.increment();</b>
+<i class="no-highlight">351</i>&nbsp;            }
+<i class="no-highlight">352</i>&nbsp;
+<b class="fc"><i class="no-highlight">353</i>&nbsp;            synchronized (mgrMutex) {</b>
+<b class="fc"><i class="no-highlight">354</i>&nbsp;                if (isLeader) {</b>
+<i class="no-highlight">355</i>&nbsp;
+<i class="no-highlight">356</i>&nbsp;                    /*
+<i class="no-highlight">357</i>&nbsp;                     * Wake up the group that requested the fsync before you
+<i class="no-highlight">358</i>&nbsp;                     * started. They&#39;ve piggybacked off your fsync.
+<i class="no-highlight">359</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">360</i>&nbsp;                    inProgressGroup.wakeupAll();</b>
+<i class="no-highlight">361</i>&nbsp;
+<i class="no-highlight">362</i>&nbsp;                    /*
+<i class="no-highlight">363</i>&nbsp;                     * Wake up a single waiter, who will become the next
+<i class="no-highlight">364</i>&nbsp;                     * leader.
+<i class="no-highlight">365</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">366</i>&nbsp;                    nextFSyncWaiters.wakeupOne();</b>
+<b class="fc"><i class="no-highlight">367</i>&nbsp;                    workInProgress = false;</b>
+<i class="no-highlight">368</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">369</i>&nbsp;            }</b>
+<i class="no-highlight">370</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">371</i>&nbsp;    }</b>
+<i class="no-highlight">372</i>&nbsp;
+<i class="no-highlight">373</i>&nbsp;    /*
+<i class="no-highlight">374</i>&nbsp;     * Stats.
+<i class="no-highlight">375</i>&nbsp;     */
+<i class="no-highlight">376</i>&nbsp;    long getNFSyncRequests() {
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        return nFSyncRequests.get();</b>
+<i class="no-highlight">378</i>&nbsp;    }
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;    long getNFSyncs() {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        return nFSyncs.get();</b>
+<i class="no-highlight">382</i>&nbsp;    }
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;    long getNTimeouts() {
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        return nTimeouts.get();</b>
+<i class="no-highlight">386</i>&nbsp;    }
+<i class="no-highlight">387</i>&nbsp;
+<i class="no-highlight">388</i>&nbsp;    StatGroup loadStats(StatsConfig config) {
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        return stats.cloneGroup(config.getClear());</b>
+<i class="no-highlight">390</i>&nbsp;    }
+<i class="no-highlight">391</i>&nbsp;
+<i class="no-highlight">392</i>&nbsp;    /**
+<i class="no-highlight">393</i>&nbsp;     * Put the fsync execution into this method so it can be overridden for
+<i class="no-highlight">394</i>&nbsp;     * testing purposes.
+<i class="no-highlight">395</i>&nbsp;     */
+<i class="no-highlight">396</i>&nbsp;    protected void executeFSync()
+<i class="no-highlight">397</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">398</i>&nbsp;
+<b class="fc"><i class="no-highlight">399</i>&nbsp;        envImpl.getFileManager().syncLogEnd();</b>
+<b class="fc"><i class="no-highlight">400</i>&nbsp;    }</b>
+<i class="no-highlight">401</i>&nbsp;
+<i class="no-highlight">402</i>&nbsp;    /* For unit testing only. */
+<i class="no-highlight">403</i>&nbsp;    public void setFlushLogHook(TestHook&lt;CountDownLatch&gt; hook) {
+<b class="nc"><i class="no-highlight">404</i>&nbsp;        flushHook = hook;</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;    }</b>
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;    /*
+<i class="no-highlight">408</i>&nbsp;     * Embodies a group of threads waiting for a common fsync. Note that
+<i class="no-highlight">409</i>&nbsp;     * there&#39;s no collection here; group membership is merely that the threads
+<i class="no-highlight">410</i>&nbsp;     * are all waiting on the same monitor.
+<i class="no-highlight">411</i>&nbsp;     */
+<i class="no-highlight">412</i>&nbsp;    static class FSyncGroup {
+<b class="fc"><i class="no-highlight">413</i>&nbsp;        static int DO_TIMEOUT_FSYNC = 0;</b>
+<b class="fc"><i class="no-highlight">414</i>&nbsp;        static int DO_LEADER_FSYNC = 1;</b>
+<b class="fc"><i class="no-highlight">415</i>&nbsp;        static int NO_FSYNC_NEEDED = 2;</b>
+<i class="no-highlight">416</i>&nbsp;
+<b class="fc"><i class="no-highlight">417</i>&nbsp;        private volatile boolean doFsync = false;</b>
+<i class="no-highlight">418</i>&nbsp;        private volatile boolean workDone;
+<i class="no-highlight">419</i>&nbsp;        private final long fsyncTimeout;
+<i class="no-highlight">420</i>&nbsp;        private boolean leaderExists;
+<i class="no-highlight">421</i>&nbsp;        private final EnvironmentImpl envImpl;
+<i class="no-highlight">422</i>&nbsp;
+<b class="fc"><i class="no-highlight">423</i>&nbsp;        FSyncGroup(long fsyncTimeout, EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">424</i>&nbsp;            this.fsyncTimeout = fsyncTimeout;</b>
+<b class="fc"><i class="no-highlight">425</i>&nbsp;            workDone = false;</b>
+<b class="fc"><i class="no-highlight">426</i>&nbsp;            leaderExists = false;</b>
+<b class="fc"><i class="no-highlight">427</i>&nbsp;            this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">428</i>&nbsp;        }</b>
+<i class="no-highlight">429</i>&nbsp;
+<i class="no-highlight">430</i>&nbsp;        synchronized boolean getLeader() {
+<b class="nc"><i class="no-highlight">431</i>&nbsp;            if (workDone) {</b>
+<b class="nc"><i class="no-highlight">432</i>&nbsp;                return false;</b>
+<i class="no-highlight">433</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">434</i>&nbsp;                if (leaderExists) {</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;                    return false;</b>
+<i class="no-highlight">436</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">437</i>&nbsp;                    leaderExists = true;</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;                    return true;</b>
+<i class="no-highlight">439</i>&nbsp;                }
+<i class="no-highlight">440</i>&nbsp;            }
+<i class="no-highlight">441</i>&nbsp;        }
+<i class="no-highlight">442</i>&nbsp;
+<i class="no-highlight">443</i>&nbsp;        /**
+<i class="no-highlight">444</i>&nbsp;         * Wait for either a turn to execute a fsync, or to find out that a
+<i class="no-highlight">445</i>&nbsp;         * fsync was done on your behalf.
+<i class="no-highlight">446</i>&nbsp;         *
+<i class="no-highlight">447</i>&nbsp;         * @return true if the fsync wasn&#39;t done, and this thread needs to
+<i class="no-highlight">448</i>&nbsp;         * execute a fsync when it wakes up. This may be true because it&#39;s the
+<i class="no-highlight">449</i>&nbsp;         * leader of its group, or because the wait timed out.
+<i class="no-highlight">450</i>&nbsp;         */
+<i class="no-highlight">451</i>&nbsp;        synchronized int waitForEvent()
+<i class="no-highlight">452</i>&nbsp;            throws ThreadInterruptedException {
+<i class="no-highlight">453</i>&nbsp;
+<b class="nc"><i class="no-highlight">454</i>&nbsp;            int status = NO_FSYNC_NEEDED;</b>
+<i class="no-highlight">455</i>&nbsp;
+<b class="nc"><i class="no-highlight">456</i>&nbsp;            if (!workDone) {</b>
+<b class="nc"><i class="no-highlight">457</i>&nbsp;                long startTime = System.currentTimeMillis();</b>
+<i class="no-highlight">458</i>&nbsp;                while (true) {
+<i class="no-highlight">459</i>&nbsp;
+<i class="no-highlight">460</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">461</i>&nbsp;                        wait(fsyncTimeout);</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;                    } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">463</i>&nbsp;                        throw new ThreadInterruptedException(envImpl,</b>
+<i class="no-highlight">464</i>&nbsp;                           &quot;Unexpected interrupt while waiting &quot;+
+<i class="no-highlight">465</i>&nbsp;                           &quot;for write or fsync&quot;, e);
+<b class="nc"><i class="no-highlight">466</i>&nbsp;                    }</b>
+<i class="no-highlight">467</i>&nbsp;
+<i class="no-highlight">468</i>&nbsp;                    /*
+<i class="no-highlight">469</i>&nbsp;                     * This thread was awoken either by a timeout, by a notify,
+<i class="no-highlight">470</i>&nbsp;                     * or by an interrupt. Is the fsync done?
+<i class="no-highlight">471</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">472</i>&nbsp;                    if (workDone) {</b>
+<i class="no-highlight">473</i>&nbsp;                        /* The fsync we&#39;re waiting on is done, leave. */
+<b class="nc"><i class="no-highlight">474</i>&nbsp;                        status = NO_FSYNC_NEEDED;</b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;                        break;</b>
+<i class="no-highlight">476</i>&nbsp;                    } else {
+<i class="no-highlight">477</i>&nbsp;
+<i class="no-highlight">478</i>&nbsp;                        /*
+<i class="no-highlight">479</i>&nbsp;                         * The fsync is not done -- were we woken up to become
+<i class="no-highlight">480</i>&nbsp;                         * the leader?
+<i class="no-highlight">481</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                        if (!leaderExists) {</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                            leaderExists = true;</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;                            status = DO_LEADER_FSYNC;</b>
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                            break;</b>
+<i class="no-highlight">486</i>&nbsp;                        } else {
+<i class="no-highlight">487</i>&nbsp;
+<i class="no-highlight">488</i>&nbsp;                            /*
+<i class="no-highlight">489</i>&nbsp;                             * We&#39;re just a waiter. See if we&#39;re timed out or
+<i class="no-highlight">490</i>&nbsp;                             * have more to wait.
+<i class="no-highlight">491</i>&nbsp;                             */
+<b class="nc"><i class="no-highlight">492</i>&nbsp;                            long now = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">493</i>&nbsp;                            if ((now - startTime) &gt; fsyncTimeout) {</b>
+<i class="no-highlight">494</i>&nbsp;                                /* we timed out. */
+<b class="nc"><i class="no-highlight">495</i>&nbsp;                                status = DO_TIMEOUT_FSYNC;</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;                                break;</b>
+<i class="no-highlight">497</i>&nbsp;                            }
+<b class="nc"><i class="no-highlight">498</i>&nbsp;                        }</b>
+<i class="no-highlight">499</i>&nbsp;                    }
+<i class="no-highlight">500</i>&nbsp;                }
+<i class="no-highlight">501</i>&nbsp;            }
+<i class="no-highlight">502</i>&nbsp;
+<b class="nc"><i class="no-highlight">503</i>&nbsp;            return status;</b>
+<i class="no-highlight">504</i>&nbsp;        }
+<i class="no-highlight">505</i>&nbsp;
+<i class="no-highlight">506</i>&nbsp;        synchronized void setDoFsync(boolean doSync) {
+<b class="fc"><i class="no-highlight">507</i>&nbsp;            this.doFsync |= doSync;</b>
+<b class="fc"><i class="no-highlight">508</i>&nbsp;        }</b>
+<i class="no-highlight">509</i>&nbsp;
+<i class="no-highlight">510</i>&nbsp;        synchronized boolean getDoFsync() {
+<b class="fc"><i class="no-highlight">511</i>&nbsp;            return doFsync;</b>
+<i class="no-highlight">512</i>&nbsp;        }
+<i class="no-highlight">513</i>&nbsp;
+<i class="no-highlight">514</i>&nbsp;        synchronized void wakeupAll() {
+<b class="fc"><i class="no-highlight">515</i>&nbsp;            workDone = true;</b>
+<b class="fc"><i class="no-highlight">516</i>&nbsp;            notifyAll();</b>
+<b class="fc"><i class="no-highlight">517</i>&nbsp;        }</b>
+<i class="no-highlight">518</i>&nbsp;
+<i class="no-highlight">519</i>&nbsp;        synchronized void wakeupOne() {
+<i class="no-highlight">520</i>&nbsp;            /* FindBugs whines here. */
+<b class="fc"><i class="no-highlight">521</i>&nbsp;            notify();</b>
+<b class="fc"><i class="no-highlight">522</i>&nbsp;        }</b>
+<i class="no-highlight">523</i>&nbsp;    }
+<i class="no-highlight">524</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

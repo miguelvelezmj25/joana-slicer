@@ -1,0 +1,429 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Provisional</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: Provisional (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Provisional</td>
+<td class="coverageStat">
+  <span class="percent">
+    66.7%
+  </span>
+  <span class="absValue">
+    (2/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    33.3%
+  </span>
+  <span class="absValue">
+    (4/12)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Provisional$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (2/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    30.8%
+  </span>
+  <span class="absValue">
+    (4/13)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;/**
+<i class="no-highlight">19</i>&nbsp; * Specifies whether to log an entry provisionally.
+<i class="no-highlight">20</i>&nbsp; *
+<i class="no-highlight">21</i>&nbsp; * Provisional log entries:
+<i class="no-highlight">22</i>&nbsp; * 
+<i class="no-highlight">23</i>&nbsp; * What are provisional log entries?
+<i class="no-highlight">24</i>&nbsp; *
+<i class="no-highlight">25</i>&nbsp; *    Provisional log entries are those tagged with the provisional attribute
+<i class="no-highlight">26</i>&nbsp; *    in the log entry header. The provisional attribute can be applied to any
+<i class="no-highlight">27</i>&nbsp; *    type of log entry, and is implemented in
+<i class="no-highlight">28</i>&nbsp; *    com.sleepycat.je.log.LogEntryHeader as two stolen bits in the 8 bit
+<i class="no-highlight">29</i>&nbsp; *    version field.
+<i class="no-highlight">30</i>&nbsp; *
+<i class="no-highlight">31</i>&nbsp; * When is the provisional attribute used?
+<i class="no-highlight">32</i>&nbsp; * 
+<i class="no-highlight">33</i>&nbsp; *    The provisional attribute is used only during recovery. It very simply
+<i class="no-highlight">34</i>&nbsp; *    indicates that recovery will ignore and skip over this log entry.
+<i class="no-highlight">35</i>&nbsp; * 
+<i class="no-highlight">36</i>&nbsp; * When is the provisional attribute set?
+<i class="no-highlight">37</i>&nbsp; * 
+<i class="no-highlight">38</i>&nbsp; *    The provisional attribute started out as a way to create atomicity among
+<i class="no-highlight">39</i>&nbsp; *    different log entries. Child pointers in the JE Btree are physical LSNs,
+<i class="no-highlight">40</i>&nbsp; *    so each Btree node&#39;s children must be logged before it in the log. On
+<i class="no-highlight">41</i>&nbsp; *    the other hand, one fundamental assumption of the JE log is that each
+<i class="no-highlight">42</i>&nbsp; *    Btree node found in the log can be replayed and placed in the in-memory
+<i class="no-highlight">43</i>&nbsp; *    tree. To do so, each Btree node must have a parent node that will house
+<i class="no-highlight">44</i>&nbsp; *    it. The grouping of multiple log entries into one atomic group is often
+<i class="no-highlight">45</i>&nbsp; *    used to fulfiil this requirement.
+<i class="no-highlight">46</i>&nbsp; * 
+<i class="no-highlight">47</i>&nbsp; *     * Atomic log entries:
+<i class="no-highlight">48</i>&nbsp; *
+<i class="no-highlight">49</i>&nbsp; *           + When a btree is first created, we bootstrap tree creation by
+<i class="no-highlight">50</i>&nbsp; *           logging the first BIN provisionally, then creating a parent IN
+<i class="no-highlight">51</i>&nbsp; *           which is the Btree root IN, which points to this first BIN.
+<i class="no-highlight">52</i>&nbsp; *
+<i class="no-highlight">53</i>&nbsp; *           + When we split a Btree node, we create a new IN, which is the
+<i class="no-highlight">54</i>&nbsp; *           sibling of the split node. We log the old sibling and the new
+<i class="no-highlight">55</i>&nbsp; *           sibling provisionally, and then log the parent, so that any
+<i class="no-highlight">56</i>&nbsp; *           crashes in the middle of this triumvirate which result in the
+<i class="no-highlight">57</i>&nbsp; *           failure to log the parent will skip over the orphaned siblings.
+<i class="no-highlight">58</i>&nbsp; *
+<i class="no-highlight">59</i>&nbsp; *           + Splitting the Btree root is just a special case of a split.
+<i class="no-highlight">60</i>&nbsp; *
+<i class="no-highlight">61</i>&nbsp; *           + Creating a duplicate subtree to hang in the middle of a btree is
+<i class="no-highlight">62</i>&nbsp; *           just a special case of a split and btree first creation.
+<i class="no-highlight">63</i>&nbsp; *
+<i class="no-highlight">64</i>&nbsp; *     * Entries not meant to be recovered
+<i class="no-highlight">65</i>&nbsp; *
+<i class="no-highlight">66</i>&nbsp; *           Temp DBs are not meant to be recovered and we log their LN
+<i class="no-highlight">67</i>&nbsp; *           and IN nodes in a very lax fashion, purely as a way of evicting
+<i class="no-highlight">68</i>&nbsp; *           them out of the cache temporarily. There is no guarantee that a
+<i class="no-highlight">69</i>&nbsp; *           consistent set has been logged to disk. We skip over them for both
+<i class="no-highlight">70</i>&nbsp; *           recovery performance and the &quot;each-node-must-have-a-parent&quot; rule.
+<i class="no-highlight">71</i>&nbsp; *
+<i class="no-highlight">72</i>&nbsp; *     * Durable deferred-write entries
+<i class="no-highlight">73</i>&nbsp; *
+<i class="no-highlight">74</i>&nbsp; *           Deferred-write INs are logged provisionally for the same reasons
+<i class="no-highlight">75</i>&nbsp; *           as for temp DBs (above): for recovery performance and the
+<i class="no-highlight">76</i>&nbsp; *           &quot;each-node-must-have-a-parent&quot; rule.
+<i class="no-highlight">77</i>&nbsp; *
+<i class="no-highlight">78</i>&nbsp; *           Deferred-write LNs are logged non-provisionally to support
+<i class="no-highlight">79</i>&nbsp; *           obsolete LSN counting.  It would be nice to log them provisionally
+<i class="no-highlight">80</i>&nbsp; *           for recovery performance and to allow LN deletion without logging;
+<i class="no-highlight">81</i>&nbsp; *           however, that is not currently practical if obsolete counting is
+<i class="no-highlight">82</i>&nbsp; *           to be supported.  See [#16864].
+<i class="no-highlight">83</i>&nbsp; *
+<i class="no-highlight">84</i>&nbsp; *     * Checkpoint performance
+<i class="no-highlight">85</i>&nbsp; *
+<i class="no-highlight">86</i>&nbsp; *           When we flush a series of nodes, it&#39;s a waste to replay nodes
+<i class="no-highlight">87</i>&nbsp; *           which are referenced by higher levels. For example, if we
+<i class="no-highlight">88</i>&nbsp; *           checkpoint this btree:
+<i class="no-highlight">89</i>&nbsp; * 
+<i class="no-highlight">90</i>&nbsp; *           INA -&gt; INb -&gt; BINc (dirty)-&gt; LNd
+<i class="no-highlight">91</i>&nbsp; * 
+<i class="no-highlight">92</i>&nbsp; *           we log them in this order:
+<i class="no-highlight">93</i>&nbsp; * 
+<i class="no-highlight">94</i>&nbsp; *           BINc
+<i class="no-highlight">95</i>&nbsp; *           INb
+<i class="no-highlight">96</i>&nbsp; * 
+<i class="no-highlight">97</i>&nbsp; *           And there&#39;s no point to replaying BINc, because it&#39;s referenced by
+<i class="no-highlight">98</i>&nbsp; *           INb.  We skip over BINc, which we do by logging it provisionally.
+<i class="no-highlight">99</i>&nbsp; *
+<i class="no-highlight">100</i>&nbsp; *           In addition, BEFORE_CKPT_END is used to improve cleaner
+<i class="no-highlight">101</i>&nbsp; *           performance by keeping utilization information up-to-date during
+<i class="no-highlight">102</i>&nbsp; *           the checkpoint.  See below for details.
+<i class="no-highlight">103</i>&nbsp; * 
+<i class="no-highlight">104</i>&nbsp; *     * Log cleaning - removing references to deleted files.
+<i class="no-highlight">105</i>&nbsp; * 
+<i class="no-highlight">106</i>&nbsp; *       When we delete a file for log cleaning we guarantee that no active log
+<i class="no-highlight">107</i>&nbsp; *       entries refer to any log entry in the deleted file. Suppose our
+<i class="no-highlight">108</i>&nbsp; *       checkpoint looks like this:
+<i class="no-highlight">109</i>&nbsp; * 
+<i class="no-highlight">110</i>&nbsp; *         5/100 LNa
+<i class="no-highlight">111</i>&nbsp; *         5/200 Ckpt start
+<i class="no-highlight">112</i>&nbsp; *         5/300 INs
+<i class="no-highlight">113</i>&nbsp; *         ...
+<i class="no-highlight">114</i>&nbsp; *         5/500 Ckpt end
+<i class="no-highlight">115</i>&nbsp; *         ...
+<i class="no-highlight">116</i>&nbsp; *         5/800 last entry in log
+<i class="no-highlight">117</i>&nbsp; * 
+<i class="no-highlight">118</i>&nbsp; *       Because we do not delete a file until the Ckpt end after processing
+<i class="no-highlight">119</i>&nbsp; *       (cleaning) it, nothing from 5/500 to 5/800 can refer to a file deleted
+<i class="no-highlight">120</i>&nbsp; *       due to the Ckpt end in 5/500.
+<i class="no-highlight">121</i>&nbsp; *
+<i class="no-highlight">122</i>&nbsp; *       BEFORE_CKPT_END is motivated in part (see below for a complete
+<i class="no-highlight">123</i>&nbsp; *       description) by the fact that while log entries between 5/100
+<i class="no-highlight">124</i>&nbsp; *       (first active lsn) and 5/500 (ckpt end) will not in of themselves
+<i class="no-highlight">125</i>&nbsp; *       contain a LSN for a cleaned, deleted file, the act of processing them
+<i class="no-highlight">126</i>&nbsp; *       during recovery could require fetching a node from a deleted file. For
+<i class="no-highlight">127</i>&nbsp; *       example, the IN at 5/300 could have an in-memory parent which has a
+<i class="no-highlight">128</i>&nbsp; *       reference to an older, cleaned version of that IN.  Treating the span
+<i class="no-highlight">129</i>&nbsp; *       between 5/200 and 5/500 as provisional is both optimal, because only
+<i class="no-highlight">130</i>&nbsp; *       the high level INs need to be processed, and required, in order not to
+<i class="no-highlight">131</i>&nbsp; *       fetch from a cleaned file.
+<i class="no-highlight">132</i>&nbsp; *
+<i class="no-highlight">133</i>&nbsp; *       The correctness issue is described in [#16037] comment 151, where we
+<i class="no-highlight">134</i>&nbsp; *       attempted to log non-provisionally below maxFlushLevel.  It is
+<i class="no-highlight">135</i>&nbsp; *       repeated below.
+<i class="no-highlight">136</i>&nbsp; *
+<i class="no-highlight">137</i>&nbsp; *       IN-A
+<i class="no-highlight">138</i>&nbsp; *        \
+<i class="no-highlight">139</i>&nbsp; *        IN-B
+<i class="no-highlight">140</i>&nbsp; *         \
+<i class="no-highlight">141</i>&nbsp; *         IN-C
+<i class="no-highlight">142</i>&nbsp; *          \
+<i class="no-highlight">143</i>&nbsp; *          BIN-D
+<i class="no-highlight">144</i>&nbsp; *
+<i class="no-highlight">145</i>&nbsp; *       1/100 CkptStart
+<i class="no-highlight">146</i>&nbsp; *       1/200 BIN-D provisional
+<i class="no-highlight">147</i>&nbsp; *       1/300 IN-C non-provisional
+<i class="no-highlight">148</i>&nbsp; *       2/100 IN-B non-provisional
+<i class="no-highlight">149</i>&nbsp; *       2/200 IN-A non-provisional
+<i class="no-highlight">150</i>&nbsp; *       2/300 MapLN refers to IN-A
+<i class="no-highlight">151</i>&nbsp; *       2/400 CkptEnd
+<i class="no-highlight">152</i>&nbsp; *       5/100 cleaner processes file 1
+<i class="no-highlight">153</i>&nbsp; *             BIN-D and IN-C are dirty
+<i class="no-highlight">154</i>&nbsp; *       5/200 CkptStart
+<i class="no-highlight">155</i>&nbsp; *       5/300 BIN-D provisional
+<i class="no-highlight">156</i>&nbsp; *       5/400 IN-C non-provisional
+<i class="no-highlight">157</i>&nbsp; *       5/500 IN-B non-provisional (must log one extra level)
+<i class="no-highlight">158</i>&nbsp; *             IN-A is not logged
+<i class="no-highlight">159</i>&nbsp; *             MapLN still refers to IN-A at 2/200
+<i class="no-highlight">160</i>&nbsp; *       5/600 CkptEnd
+<i class="no-highlight">161</i>&nbsp; *             file 1 is deleted
+<i class="no-highlight">162</i>&nbsp; *       6/100 Start recovery
+<i class="no-highlight">163</i>&nbsp; *
+<i class="no-highlight">164</i>&nbsp; *       Note that only the bottom level BINs are logged provisionally because
+<i class="no-highlight">165</i>&nbsp; *       we&#39;re logging level 2 and up non-provisionally in this experiment.
+<i class="no-highlight">166</i>&nbsp; *
+<i class="no-highlight">167</i>&nbsp; *       Recovery replays IN-C at 5/400 because it is non-provisional.
+<i class="no-highlight">168</i>&nbsp; *
+<i class="no-highlight">169</i>&nbsp; *       When it does the tree lookup (getParentINForChildIN) it uses the root
+<i class="no-highlight">170</i>&nbsp; *       IN-A at 2/200. This search fetches IN-B at 2/100 and then fails
+<i class="no-highlight">171</i>&nbsp; *       fetching IN-C at 1/300 because file 1 has been deleted.
+<i class="no-highlight">172</i>&nbsp; *
+<i class="no-highlight">173</i>&nbsp; *       In reality we log provisionally below maxFlushLevel, so that IN-C at
+<i class="no-highlight">174</i>&nbsp; *       5/400 is not replayed. IN-B at 5/500 is at the maxFlushLevel and is
+<i class="no-highlight">175</i>&nbsp; *       non-provisional and is replayed.  The search succeeds because nothing
+<i class="no-highlight">176</i>&nbsp; *       in file 1 needs to be fetched to find the parent.
+<i class="no-highlight">177</i>&nbsp; *
+<i class="no-highlight">178</i>&nbsp; *       TODO: Could we instead replay INs in reverse order?
+<i class="no-highlight">179</i>&nbsp; *       Then IN-B at 5/500 would be replayed first. Unfortunately this would
+<i class="no-highlight">180</i>&nbsp; *       probably break something else. For example, the utilization tracking
+<i class="no-highlight">181</i>&nbsp; *       replay for INs currently depends on reading forward.  This is worth
+<i class="no-highlight">182</i>&nbsp; *       exploring, however, since reducing logging during checkpoints would be
+<i class="no-highlight">183</i>&nbsp; *       extremely beneficial.
+<i class="no-highlight">184</i>&nbsp; *
+<i class="no-highlight">185</i>&nbsp; * Provisional.BEFORE_CKPT_END
+<i class="no-highlight">186</i>&nbsp; * ---------------------------
+<i class="no-highlight">187</i>&nbsp; * This property was added to solve a specific problem that occurs in earlier
+<i class="no-highlight">188</i>&nbsp; * versions of JE:  When a long checkpoint runs, the BINs are not counted
+<i class="no-highlight">189</i>&nbsp; * obsolete until after the entire BIN level has been logged.  Specifically,
+<i class="no-highlight">190</i>&nbsp; * they are counted obsolete when their ancestor is logged non-provisionally.
+<i class="no-highlight">191</i>&nbsp; * Most INs logged by a checkpoint are BINs.  This means that during a very
+<i class="no-highlight">192</i>&nbsp; * long checkpoint, cleaning of the files containing those old BINs is delayed,
+<i class="no-highlight">193</i>&nbsp; * and more importantly the calculated utilization is much higher than it
+<i class="no-highlight">194</i>&nbsp; * actually is.  The correction in utilization does not occur until the end of
+<i class="no-highlight">195</i>&nbsp; * the checkpoint, when the higher level INs are logged.  This manifests as a
+<i class="no-highlight">196</i>&nbsp; * lull in cleaning during the checkpoint, because calculated utilization is
+<i class="no-highlight">197</i>&nbsp; * artificially high, and a spike in cleaning at the end of the checkpoint.  In
+<i class="no-highlight">198</i>&nbsp; * some cases, the cleaner cannot recover from the backlog that is created by
+<i class="no-highlight">199</i>&nbsp; * the spike.
+<i class="no-highlight">200</i>&nbsp; *
+<i class="no-highlight">201</i>&nbsp; * The provisional property effects obsolete counting as follows:
+<i class="no-highlight">202</i>&nbsp; *
+<i class="no-highlight">203</i>&nbsp; *  + If an IN is logged with Provisional.YES, the old version of the IN is not
+<i class="no-highlight">204</i>&nbsp; *    counted obsolete immediately.  Instead, the offset of the old version of
+<i class="no-highlight">205</i>&nbsp; *    the IN is added to a list in its parent IN.  The offsets migrate upward
+<i class="no-highlight">206</i>&nbsp; *    in the tree in this manner until an ancestor IN is logged
+<i class="no-highlight">207</i>&nbsp; *    non-provisionally.
+<i class="no-highlight">208</i>&nbsp; *
+<i class="no-highlight">209</i>&nbsp; *  + If an IN is logged with Provisional.NO or BEFORE_CKPT_END, the old
+<i class="no-highlight">210</i>&nbsp; *    version of the IN is counted obsolete immediately (and offsets
+<i class="no-highlight">211</i>&nbsp; *    accumulated from provisional child INs are counted).  This means
+<i class="no-highlight">212</i>&nbsp; *    that the obsolete offset is added to the UtilizationTracker, and may be
+<i class="no-highlight">213</i>&nbsp; *    flushed in a FileSummaryLN any time after that.  At the latest, it is
+<i class="no-highlight">214</i>&nbsp; *    flushed at the end of the checkpoint.
+<i class="no-highlight">215</i>&nbsp; *
+<i class="no-highlight">216</i>&nbsp; * Because subtree logging is now used for checkpoints and the parent IN of
+<i class="no-highlight">217</i>&nbsp; * each logged sub-tree is logged with BEFORE_CKPT_END, the prior version of
+<i class="no-highlight">218</i>&nbsp; * all INs in the sub-tree will be counted obsolete at that time.  This keeps
+<i class="no-highlight">219</i>&nbsp; * the calculated utilization accurate throughout the checkpoint, and prevents
+<i class="no-highlight">220</i>&nbsp; * the large per-checkpoint lull and spike in log cleaning.
+<i class="no-highlight">221</i>&nbsp; *
+<i class="no-highlight">222</i>&nbsp; * For the intermediate levels, Provisional.BEFORE_CKPT_END must be used rather
+<i class="no-highlight">223</i>&nbsp; * than Provisional.NO, which is reserved for the highest level only.  During
+<i class="no-highlight">224</i>&nbsp; * recovery, the Provisional values are treated as follows (this is from the
+<i class="no-highlight">225</i>&nbsp; * Provisional javadoc):
+<i class="no-highlight">226</i>&nbsp; *  + NO:  The entry is non-provisional and is always processed by recovery.
+<i class="no-highlight">227</i>&nbsp; *  + YES: The entry is provisional and is never processed by recovery.
+<i class="no-highlight">228</i>&nbsp; *  + BEFORE_CKPT_END: The entry is provisional (not processed by recovery) if
+<i class="no-highlight">229</i>&nbsp; *    it occurs before the CkptEnd in the recovery interval, or is
+<i class="no-highlight">230</i>&nbsp; *    non-provisional (is processed) if it occurs after CkptEnd.
+<i class="no-highlight">231</i>&nbsp; *
+<i class="no-highlight">232</i>&nbsp; * The key to BEFORE_CKPT_END is that it is treated as provisional if a CkptEnd
+<i class="no-highlight">233</i>&nbsp; * is logged, i.e., if we do not crash before completing the checkpoint.
+<i class="no-highlight">234</i>&nbsp; * Because the checkpoint completed, we may have deleted log files that
+<i class="no-highlight">235</i>&nbsp; * would be necessary to replay the IN.  So we cannot safely replay it.
+<i class="no-highlight">236</i>&nbsp; *
+<i class="no-highlight">237</i>&nbsp; * Note the difference in the treatment of BEFORE_CKPT_END for obsolete
+<i class="no-highlight">238</i>&nbsp; * counting and recovery:
+<i class="no-highlight">239</i>&nbsp; *  + For obsolete counting, BEFORE_CKPT_END is treated as non-provisional.
+<i class="no-highlight">240</i>&nbsp; *  + For recovery, when the IN occurs before CkptEnd, BEFORE_CKPT_END is
+<i class="no-highlight">241</i>&nbsp; *    treated as provisional.
+<i class="no-highlight">242</i>&nbsp; * This difference is the reason for the existence of BEFORE_CKPT_END.
+<i class="no-highlight">243</i>&nbsp; *
+<i class="no-highlight">244</i>&nbsp; * TODO: Improvement to tracking of obsolete data.
+<i class="no-highlight">245</i>&nbsp; * When we checkpoint INs, why can&#39;t we always count the previous version
+<i class="no-highlight">246</i>&nbsp; * obsolete immediately, irrespective of whether it is logged provisionally?
+<i class="no-highlight">247</i>&nbsp; * The previous version file can&#39;t be deleted until after a complete
+<i class="no-highlight">248</i>&nbsp; * checkpoint. If we do not complete the next checkpoint, recovery will
+<i class="no-highlight">249</i>&nbsp; * replay the INs logged with BEFORE_CKPT_END. So the previous version will be
+<i class="no-highlight">250</i>&nbsp; * obsolete. This would avoid storing a list of obsolete child LSNs in each
+<i class="no-highlight">251</i>&nbsp; * parent IN, and would make the utilization summary more up-to-date. The
+<i class="no-highlight">252</i>&nbsp; * motivation for sub-tree logging was to keep the utilization info up-to-date,
+<i class="no-highlight">253</i>&nbsp; * so we may be able to remove sub-tree logging as well. Additionally, I think
+<i class="no-highlight">254</i>&nbsp; * we can remove BEFORE_CKPT_END and log provisionally (YES) instead, because
+<i class="no-highlight">255</i>&nbsp; * recovery will replay the actions that dirtied the INs, and the ckpt at the
+<i class="no-highlight">256</i>&nbsp; * end of recovery will flush the dirty nodes, making the previous version
+<i class="no-highlight">257</i>&nbsp; * obsolete; however, this would duplicate the provisional INs, so perhaps it
+<i class="no-highlight">258</i>&nbsp; * is best to continue to use BEFORE_CKPT_END.
+<i class="no-highlight">259</i>&nbsp; */
+<b class="fc"><i class="no-highlight">260</i>&nbsp;public enum Provisional {</b>
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;    /**
+<i class="no-highlight">263</i>&nbsp;     * The entry is non-provisional and is always processed by recovery.
+<i class="no-highlight">264</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">265</i>&nbsp;    NO,</b>
+<i class="no-highlight">266</i>&nbsp;    
+<i class="no-highlight">267</i>&nbsp;    /**
+<i class="no-highlight">268</i>&nbsp;     * The entry is provisional and is never processed by recovery.
+<i class="no-highlight">269</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">270</i>&nbsp;    YES,</b>
+<i class="no-highlight">271</i>&nbsp;    
+<i class="no-highlight">272</i>&nbsp;    /**
+<i class="no-highlight">273</i>&nbsp;     * The entry is provisional (not processed by recovery) if it occurs before
+<i class="no-highlight">274</i>&nbsp;     * the CkptEnd in the recovery interval, or is non-provisional (is
+<i class="no-highlight">275</i>&nbsp;     * processed) if it occurs after CkptEnd.
+<i class="no-highlight">276</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">277</i>&nbsp;    BEFORE_CKPT_END;</b>
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;    /**
+<i class="no-highlight">280</i>&nbsp;     * Determines whether a given log entry should be processed during
+<i class="no-highlight">281</i>&nbsp;     * recovery.
+<i class="no-highlight">282</i>&nbsp;     */
+<i class="no-highlight">283</i>&nbsp;    public boolean isProvisional(long logEntryLsn, long ckptEndLsn) {
+<b class="nc"><i class="no-highlight">284</i>&nbsp;        assert logEntryLsn != DbLsn.NULL_LSN;</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        switch (this) {</b>
+<i class="no-highlight">286</i>&nbsp;        case NO:
+<b class="nc"><i class="no-highlight">287</i>&nbsp;            return false;</b>
+<i class="no-highlight">288</i>&nbsp;        case YES:
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            return true;</b>
+<i class="no-highlight">290</i>&nbsp;        case BEFORE_CKPT_END:
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            return ckptEndLsn != DbLsn.NULL_LSN &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                   DbLsn.compareTo(logEntryLsn, ckptEndLsn) &lt; 0;</b>
+<i class="no-highlight">293</i>&nbsp;        default:
+<b class="nc"><i class="no-highlight">294</i>&nbsp;            assert false;</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;            return false;</b>
+<i class="no-highlight">296</i>&nbsp;        }
+<i class="no-highlight">297</i>&nbsp;    }
+<i class="no-highlight">298</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

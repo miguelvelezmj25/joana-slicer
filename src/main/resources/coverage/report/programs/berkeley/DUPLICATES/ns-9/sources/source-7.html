@@ -1,0 +1,697 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ExpirationProfile</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: ExpirationProfile (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ExpirationProfile</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (6/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    42.3%
+  </span>
+  <span class="absValue">
+    (77/182)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ExpirationProfile$ExpInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    42.9%
+  </span>
+  <span class="absValue">
+    (6/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    40.7%
+  </span>
+  <span class="absValue">
+    (77/189)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">18</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">20</i>&nbsp;import java.util.List;
+<i class="no-highlight">21</i>&nbsp;import java.util.Map;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.bind.tuple.SortedPackedLongBinding;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.Get;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.LockMode;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.ProgressListener;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.Put;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.RecoveryProgress;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.dbi.DbType;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.dbi.StartupTracker;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.txn.BasicLocker;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.utilint.Pair;
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;/**
+<i class="no-highlight">43</i>&nbsp; * A cache of the histograms for all files, except for the last file. Also
+<i class="no-highlight">44</i>&nbsp; * caches the number of bytes expired in the current interval.
+<i class="no-highlight">45</i>&nbsp; *
+<i class="no-highlight">46</i>&nbsp; * No memory budgeting is performed because the size of these data structures
+<i class="no-highlight">47</i>&nbsp; * is small compared to the Btree they represent. The serialized form of the
+<i class="no-highlight">48</i>&nbsp; * histogram is cached, which is a small number of bytes per file. If no data
+<i class="no-highlight">49</i>&nbsp; * in a file expires, it will not have a cache entry.
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * Possible future optimization: If there is contention on this data structure,
+<i class="no-highlight">52</i>&nbsp; * the refresh method could create a read-only map containing the current number
+<i class="no-highlight">53</i>&nbsp; * of expired bytes, for access by getExpiredBytes without synchronization.
+<i class="no-highlight">54</i>&nbsp; */
+<b class="fc"><i class="no-highlight">55</i>&nbsp;public class ExpirationProfile {</b>
+<i class="no-highlight">56</i>&nbsp;
+<b class="fc"><i class="no-highlight">57</i>&nbsp;    private static Pair&lt;Integer, Integer&gt; PAIR_OF_ZEROS = new Pair&lt;&gt;(0, 0);</b>
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    private final EnvironmentImpl env;
+<i class="no-highlight">60</i>&nbsp;
+<i class="no-highlight">61</i>&nbsp;    /*
+<i class="no-highlight">62</i>&nbsp;     * The &#39;map&#39; of file number to Histogram, protected by its own mutex.
+<i class="no-highlight">63</i>&nbsp;     *
+<i class="no-highlight">64</i>&nbsp;     * Note that if the map and completedTrackers mutexes are both held, they
+<i class="no-highlight">65</i>&nbsp;     * must be acquired in that order.
+<i class="no-highlight">66</i>&nbsp;     */
+<i class="no-highlight">67</i>&nbsp;    private final Map&lt;Long, ExpInfo&gt; map;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /*
+<i class="no-highlight">70</i>&nbsp;     * The the expiration times in days and hours of last refresh, i.e, the
+<i class="no-highlight">71</i>&nbsp;     * cached bytes in each Histogram are those that were expired on this
+<i class="no-highlight">72</i>&nbsp;     * day/hour. Both fields are protected by the &#39;map&#39; mutex.
+<i class="no-highlight">73</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">74</i>&nbsp;    private int lastRefreshHour = -1;</b>
+<b class="fc"><i class="no-highlight">75</i>&nbsp;    private int lastRefreshDay = -1;</b>
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;    /*
+<i class="no-highlight">78</i>&nbsp;     * Whether any expiration times are in hours. If false, all intervals are
+<i class="no-highlight">79</i>&nbsp;     * in days. Protected by the &#39;map&#39; mutex.
+<i class="no-highlight">80</i>&nbsp;     */
+<i class="no-highlight">81</i>&nbsp;    private boolean anyExpirationInHours;
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;    /*
+<i class="no-highlight">84</i>&nbsp;     * Map of file number to completed tracker. Protected by its own mutex.
+<i class="no-highlight">85</i>&nbsp;     *
+<i class="no-highlight">86</i>&nbsp;     * Note that if the map and completedTrackers mutexes are both held, they
+<i class="no-highlight">87</i>&nbsp;     * must be acquired in that order.
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    private final Map&lt;Long, ExpirationTracker&gt; completedTrackers;
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;    /*
+<i class="no-highlight">92</i>&nbsp;     * The expiration summary DB. Its key is the file number, a long. Its data
+<i class="no-highlight">93</i>&nbsp;     * is the serialized form of the histogram, or is empty (zero length) if
+<i class="no-highlight">94</i>&nbsp;     * the file has no expired data. The latter case includes files created
+<i class="no-highlight">95</i>&nbsp;     * before the TTL feature was added.
+<i class="no-highlight">96</i>&nbsp;     */
+<i class="no-highlight">97</i>&nbsp;    private DatabaseImpl db;
+<i class="no-highlight">98</i>&nbsp;
+<b class="fc"><i class="no-highlight">99</i>&nbsp;    public ExpirationProfile(final EnvironmentImpl env) {</b>
+<b class="fc"><i class="no-highlight">100</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">101</i>&nbsp;        map = new HashMap&lt;&gt;();</b>
+<b class="fc"><i class="no-highlight">102</i>&nbsp;        completedTrackers = new HashMap&lt;&gt;();</b>
+<b class="fc"><i class="no-highlight">103</i>&nbsp;    }</b>
+<i class="no-highlight">104</i>&nbsp;
+<i class="no-highlight">105</i>&nbsp;    /** Make a copy for used in utilities, etc. */
+<b class="nc"><i class="no-highlight">106</i>&nbsp;    public ExpirationProfile(final ExpirationProfile other) {</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        env = other.env;</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        db = other.db;</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        synchronized (other.map) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;            map = new HashMap&lt;&gt;(other.map);</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        completedTrackers = Collections.emptyMap();</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;    }</b>
+<i class="no-highlight">114</i>&nbsp;
+<i class="no-highlight">115</i>&nbsp;    /**
+<i class="no-highlight">116</i>&nbsp;     * Called at the end of recovery to open the expiration DB, and cache its
+<i class="no-highlight">117</i>&nbsp;     * records in the profile&#39;s map.
+<i class="no-highlight">118</i>&nbsp;     *
+<i class="no-highlight">119</i>&nbsp;     * Also collects expiration info for any complete file having expiration
+<i class="no-highlight">120</i>&nbsp;     * info that was not written to the DB earlier, due to a crash for example.
+<i class="no-highlight">121</i>&nbsp;     *
+<i class="no-highlight">122</i>&nbsp;     * Also initializes the tracker for the current file in the log manager,
+<i class="no-highlight">123</i>&nbsp;     * reading/tracking the existing entries in that file.
+<i class="no-highlight">124</i>&nbsp;     */
+<i class="no-highlight">125</i>&nbsp;    public void populateCache(
+<i class="no-highlight">126</i>&nbsp;        final StartupTracker.Counter counter,
+<i class="no-highlight">127</i>&nbsp;        final ProgressListener&lt;RecoveryProgress&gt; listener) {
+<i class="no-highlight">128</i>&nbsp;
+<b class="fc"><i class="no-highlight">129</i>&nbsp;        synchronized (map) {</b>
+<i class="no-highlight">130</i>&nbsp;
+<b class="fc"><i class="no-highlight">131</i>&nbsp;            assert db == null;</b>
+<b class="fc"><i class="no-highlight">132</i>&nbsp;            assert completedTrackers.isEmpty();</b>
+<i class="no-highlight">133</i>&nbsp;
+<b class="fc"><i class="no-highlight">134</i>&nbsp;            db = env.getDbTree().openNonRepInternalDB(DbType.EXPIRATION);</b>
+<i class="no-highlight">135</i>&nbsp;
+<b class="fc"><i class="no-highlight">136</i>&nbsp;            if (db == null) {</b>
+<i class="no-highlight">137</i>&nbsp;                /* Read-only env with no expiration summary DB. */
+<b class="nc"><i class="no-highlight">138</i>&nbsp;                return;</b>
+<i class="no-highlight">139</i>&nbsp;            }
+<i class="no-highlight">140</i>&nbsp;
+<b class="fc"><i class="no-highlight">141</i>&nbsp;            final DatabaseEntry key = new DatabaseEntry();</b>
+<b class="fc"><i class="no-highlight">142</i>&nbsp;            final DatabaseEntry data = new DatabaseEntry();</b>
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;            /* Ordered array of file numbers. */
+<b class="fc"><i class="no-highlight">145</i>&nbsp;            final Long[] existingFiles =</b>
+<b class="fc"><i class="no-highlight">146</i>&nbsp;                env.getFileManager().getAllFileNumbers();</b>
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;            /* Parallel array to existingFiles. */
+<b class="fc"><i class="no-highlight">149</i>&nbsp;            final boolean[] filesHaveRecords =</b>
+<i class="no-highlight">150</i>&nbsp;                new boolean[existingFiles.length];
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;            /*
+<i class="no-highlight">153</i>&nbsp;             * For the last file we must always get its expiration info and
+<i class="no-highlight">154</i>&nbsp;             * then initialize the log manager&#39;s tracker. Note that its DB
+<i class="no-highlight">155</i>&nbsp;             * record, if any, is deleted below.
+<i class="no-highlight">156</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">157</i>&nbsp;            final FileProcessor processor = env.getCleaner().createProcessor();</b>
+<b class="fc"><i class="no-highlight">158</i>&nbsp;            final long lastFileNum = env.getFileManager().getCurrentFileNum();</b>
+<i class="no-highlight">159</i>&nbsp;
+<b class="fc"><i class="no-highlight">160</i>&nbsp;            if (!env.isReadOnly()) {</b>
+<b class="fc"><i class="no-highlight">161</i>&nbsp;                if (existingFiles.length &gt; 0) {</b>
+<i class="no-highlight">162</i>&nbsp;
+<i class="no-highlight">163</i>&nbsp;                    /* Flush to ensure the cleaner can read all entries. */
+<b class="fc"><i class="no-highlight">164</i>&nbsp;                    env.flushLog(false /*fsync*/);</b>
+<i class="no-highlight">165</i>&nbsp;
+<b class="fc"><i class="no-highlight">166</i>&nbsp;                    final ExpirationTracker tracker =</b>
+<b class="fc"><i class="no-highlight">167</i>&nbsp;                        processor.countExpiration(lastFileNum);</b>
+<i class="no-highlight">168</i>&nbsp;
+<b class="fc"><i class="no-highlight">169</i>&nbsp;                    env.getLogManager().initExpirationTracker(tracker);</b>
+<b class="fc"><i class="no-highlight">170</i>&nbsp;                } else {</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                    env.getLogManager().initExpirationTracker(</b>
+<i class="no-highlight">172</i>&nbsp;                        new ExpirationTracker(0));
+<i class="no-highlight">173</i>&nbsp;                }
+<i class="no-highlight">174</i>&nbsp;            }
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;            /*
+<i class="no-highlight">177</i>&nbsp;             * Populate map with existing records in the DB that correspond to
+<i class="no-highlight">178</i>&nbsp;             * existing files. Delete records in the DB that do not correspond
+<i class="no-highlight">179</i>&nbsp;             * to existing files, to clean-up past errors. Also delete the
+<i class="no-highlight">180</i>&nbsp;             * record for the last file, if it exists.
+<i class="no-highlight">181</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">182</i>&nbsp;            final Locker locker = BasicLocker.createBasicLocker(</b>
+<i class="no-highlight">183</i>&nbsp;                env, false /*noWait*/);
+<i class="no-highlight">184</i>&nbsp;
+<b class="fc"><i class="no-highlight">185</i>&nbsp;            try (final Cursor cursor =</b>
+<b class="fc"><i class="no-highlight">186</i>&nbsp;                 DbInternal.makeCursor(db, locker, null)) {</b>
+<i class="no-highlight">187</i>&nbsp;
+<b class="fc"><i class="no-highlight">188</i>&nbsp;                while (cursor.get(key, data, Get.NEXT, null) != null) {</b>
+<i class="no-highlight">189</i>&nbsp;
+<b class="nc"><i class="no-highlight">190</i>&nbsp;                    counter.incNumRead();</b>
+<i class="no-highlight">191</i>&nbsp;
+<b class="nc"><i class="no-highlight">192</i>&nbsp;                    final long fileNum =</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;                        SortedPackedLongBinding.entryToLong(key);</b>
+<i class="no-highlight">194</i>&nbsp;
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                    final int i = Arrays.binarySearch(existingFiles, fileNum);</b>
+<i class="no-highlight">196</i>&nbsp;
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                    if (i &gt;= 0 &amp;&amp; existingFiles[i] &lt; lastFileNum) {</b>
+<i class="no-highlight">198</i>&nbsp;
+<b class="nc"><i class="no-highlight">199</i>&nbsp;                        filesHaveRecords[i] = true;</b>
+<i class="no-highlight">200</i>&nbsp;
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                        final byte[] serializedForm = data.getData();</b>
+<i class="no-highlight">202</i>&nbsp;
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                        if (serializedForm.length &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                            counter.incNumProcessed();</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                            map.put(</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                                fileNum,</b>
+<i class="no-highlight">207</i>&nbsp;                                new ExpInfo(serializedForm, 0));
+<i class="no-highlight">208</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">209</i>&nbsp;                    } else if (!env.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                        counter.incNumDeleted();</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                        cursor.delete();</b>
+<i class="no-highlight">212</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                }</b>
+<b class="fc"><i class="no-highlight">214</i>&nbsp;            } finally {</b>
+<b class="fc"><i class="no-highlight">215</i>&nbsp;                locker.operationEnd();</b>
+<b class="fc"><i class="no-highlight">216</i>&nbsp;            }</b>
+<i class="no-highlight">217</i>&nbsp;
+<i class="no-highlight">218</i>&nbsp;            /*
+<i class="no-highlight">219</i>&nbsp;             * If a record is missing for an existing file, use the cleaner to
+<i class="no-highlight">220</i>&nbsp;             * get the expiration info for the file, and then add a record to
+<i class="no-highlight">221</i>&nbsp;             * the DB and to the map. Note that the last file is not processed.
+<i class="no-highlight">222</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">223</i>&nbsp;            for (int i = 0;</b>
+<b class="fc"><i class="no-highlight">224</i>&nbsp;                 i &lt; existingFiles.length &amp;&amp; existingFiles[i] &lt; lastFileNum;</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                 i += 1) {</b>
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;                if (filesHaveRecords[i]) {</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;                    continue;</b>
+<i class="no-highlight">229</i>&nbsp;                }
+<i class="no-highlight">230</i>&nbsp;
+<b class="nc"><i class="no-highlight">231</i>&nbsp;                final long fileNum = existingFiles[i];</b>
+<i class="no-highlight">232</i>&nbsp;
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                counter.incNumAux();</b>
+<i class="no-highlight">234</i>&nbsp;
+<b class="nc"><i class="no-highlight">235</i>&nbsp;                if (listener != null) {</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                    listener.progress(</b>
+<i class="no-highlight">237</i>&nbsp;                        RecoveryProgress.POPULATE_EXPIRATION_PROFILE,
+<i class="no-highlight">238</i>&nbsp;                        1, -1);
+<i class="no-highlight">239</i>&nbsp;                }
+<i class="no-highlight">240</i>&nbsp;
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                final ExpirationTracker tracker =</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                    processor.countExpiration(fileNum);</b>
+<i class="no-highlight">243</i>&nbsp;
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                putFile(tracker, 0);</b>
+<i class="no-highlight">245</i>&nbsp;
+<b class="nc"><i class="no-highlight">246</i>&nbsp;                LoggerUtils.info(</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;                    env.getLogger(), env,</b>
+<i class="no-highlight">248</i>&nbsp;                    &quot;Loaded missing expiration data from file 0x&quot; +
+<b class="nc"><i class="no-highlight">249</i>&nbsp;                        Long.toHexString(fileNum));</b>
+<i class="no-highlight">250</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">251</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">252</i>&nbsp;    }</b>
+<i class="no-highlight">253</i>&nbsp;
+<i class="no-highlight">254</i>&nbsp;    /**
+<i class="no-highlight">255</i>&nbsp;     * Writes a record in the expiration summary DB for the given tracker,
+<i class="no-highlight">256</i>&nbsp;     * and (if there is any data with an expiration time) adds it to the map.
+<i class="no-highlight">257</i>&nbsp;     *
+<i class="no-highlight">258</i>&nbsp;     * Because this method and {@link #removeFile} perform Btree operations
+<i class="no-highlight">259</i>&nbsp;     * while synchronized on the &#39;map&#39;, it is important that an IN is not
+<i class="no-highlight">260</i>&nbsp;     * latched when calling these methods, which could cause a deadlock. Also,
+<i class="no-highlight">261</i>&nbsp;     * an IN latch should not be held while calling a method that synchronizes
+<i class="no-highlight">262</i>&nbsp;     * on {@link FileSelector}, since methods in this class are called while
+<i class="no-highlight">263</i>&nbsp;     * synchronized on FileSelector, and this could cause a 3-way deadlock
+<i class="no-highlight">264</i>&nbsp;     * [#25613].
+<i class="no-highlight">265</i>&nbsp;     */
+<i class="no-highlight">266</i>&nbsp;    void putFile(final ExpirationTracker tracker, final int expiredSize) {
+<i class="no-highlight">267</i>&nbsp;
+<b class="fc"><i class="no-highlight">268</i>&nbsp;        final long fileNum = tracker.getFileNum();</b>
+<b class="fc"><i class="no-highlight">269</i>&nbsp;        final byte[] serializedForm = tracker.serialize();</b>
+<i class="no-highlight">270</i>&nbsp;
+<b class="fc"><i class="no-highlight">271</i>&nbsp;        synchronized (map) {</b>
+<i class="no-highlight">272</i>&nbsp;
+<b class="fc"><i class="no-highlight">273</i>&nbsp;            if (db != null &amp;&amp; !env.isReadOnly()) {</b>
+<b class="fc"><i class="no-highlight">274</i>&nbsp;                final DatabaseEntry key = new DatabaseEntry();</b>
+<b class="fc"><i class="no-highlight">275</i>&nbsp;                final DatabaseEntry data = new DatabaseEntry();</b>
+<i class="no-highlight">276</i>&nbsp;
+<b class="fc"><i class="no-highlight">277</i>&nbsp;                SortedPackedLongBinding.longToEntry(fileNum, key);</b>
+<i class="no-highlight">278</i>&nbsp;
+<b class="fc"><i class="no-highlight">279</i>&nbsp;                data.setData(serializedForm);</b>
+<i class="no-highlight">280</i>&nbsp;
+<b class="fc"><i class="no-highlight">281</i>&nbsp;                final Locker locker = BasicLocker.createBasicLocker(</b>
+<i class="no-highlight">282</i>&nbsp;                    env, false /*noWait*/);
+<i class="no-highlight">283</i>&nbsp;
+<b class="fc"><i class="no-highlight">284</i>&nbsp;                try (final Cursor cursor =</b>
+<b class="fc"><i class="no-highlight">285</i>&nbsp;                         DbInternal.makeCursor(db, locker, null)) {</b>
+<i class="no-highlight">286</i>&nbsp;
+<b class="fc"><i class="no-highlight">287</i>&nbsp;                    cursor.put(key, data, Put.OVERWRITE, null);</b>
+<i class="no-highlight">288</i>&nbsp;
+<b class="fc"><i class="no-highlight">289</i>&nbsp;                } finally {</b>
+<b class="fc"><i class="no-highlight">290</i>&nbsp;                    locker.operationEnd();</b>
+<b class="fc"><i class="no-highlight">291</i>&nbsp;                }</b>
+<i class="no-highlight">292</i>&nbsp;            }
+<i class="no-highlight">293</i>&nbsp;
+<b class="fc"><i class="no-highlight">294</i>&nbsp;            if (serializedForm.length &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                map.put(</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;                    fileNum,</b>
+<i class="no-highlight">297</i>&nbsp;                    new ExpInfo(serializedForm, expiredSize));
+<i class="no-highlight">298</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">299</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">300</i>&nbsp;    }</b>
+<i class="no-highlight">301</i>&nbsp;
+<i class="no-highlight">302</i>&nbsp;    /**
+<i class="no-highlight">303</i>&nbsp;     * Remove entry for a file from the map and DB, when the file is deleted.
+<i class="no-highlight">304</i>&nbsp;     */
+<i class="no-highlight">305</i>&nbsp;    void removeFile(final long fileNum) {
+<i class="no-highlight">306</i>&nbsp;
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        if (db == null || env.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            return;</b>
+<i class="no-highlight">309</i>&nbsp;        }
+<i class="no-highlight">310</i>&nbsp;
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        synchronized (map) {</b>
+<i class="no-highlight">312</i>&nbsp;
+<b class="nc"><i class="no-highlight">313</i>&nbsp;            map.remove(fileNum);</b>
+<i class="no-highlight">314</i>&nbsp;
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            final DatabaseEntry key = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            SortedPackedLongBinding.longToEntry(fileNum, key);</b>
+<i class="no-highlight">317</i>&nbsp;
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            final Locker locker = BasicLocker.createBasicLocker(</b>
+<i class="no-highlight">319</i>&nbsp;                env, false /*noWait*/);
+<i class="no-highlight">320</i>&nbsp;
+<b class="nc"><i class="no-highlight">321</i>&nbsp;            try (final Cursor cursor =</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;                 DbInternal.makeCursor(db, locker, null)) {</b>
+<i class="no-highlight">323</i>&nbsp;
+<b class="nc"><i class="no-highlight">324</i>&nbsp;                if (cursor.get(</b>
+<i class="no-highlight">325</i>&nbsp;                    key, null, Get.SEARCH,
+<b class="nc"><i class="no-highlight">326</i>&nbsp;                    LockMode.RMW.toReadOptions()) != null) {</b>
+<i class="no-highlight">327</i>&nbsp;
+<b class="nc"><i class="no-highlight">328</i>&nbsp;                    cursor.delete(null);</b>
+<i class="no-highlight">329</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">330</i>&nbsp;            } finally {</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;                locker.operationEnd();</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">334</i>&nbsp;    }</b>
+<i class="no-highlight">335</i>&nbsp;
+<i class="no-highlight">336</i>&nbsp;    /**
+<i class="no-highlight">337</i>&nbsp;     * Called after a file flip. The tracker is completed in the sense that the
+<i class="no-highlight">338</i>&nbsp;     * file is completely written, but there may be pending calls to
+<i class="no-highlight">339</i>&nbsp;     * {@link ExpirationTracker#track(int, boolean, int)} for some writing
+<i class="no-highlight">340</i>&nbsp;     * threads. This is because track is not called under the LWL.
+<i class="no-highlight">341</i>&nbsp;     */
+<i class="no-highlight">342</i>&nbsp;    public void addCompletedTracker(final ExpirationTracker tracker) {
+<i class="no-highlight">343</i>&nbsp;
+<b class="fc"><i class="no-highlight">344</i>&nbsp;        if (db == null) {</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            return;</b>
+<i class="no-highlight">346</i>&nbsp;        }
+<i class="no-highlight">347</i>&nbsp;
+<b class="fc"><i class="no-highlight">348</i>&nbsp;        final long fileNum = tracker.getFileNum();</b>
+<i class="no-highlight">349</i>&nbsp;
+<b class="fc"><i class="no-highlight">350</i>&nbsp;        synchronized (completedTrackers) {</b>
+<b class="fc"><i class="no-highlight">351</i>&nbsp;            assert !completedTrackers.containsKey(fileNum);</b>
+<i class="no-highlight">352</i>&nbsp;
+<b class="fc"><i class="no-highlight">353</i>&nbsp;            completedTrackers.put(fileNum, tracker);</b>
+<b class="fc"><i class="no-highlight">354</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">355</i>&nbsp;    }</b>
+<i class="no-highlight">356</i>&nbsp;
+<i class="no-highlight">357</i>&nbsp;    /**
+<i class="no-highlight">358</i>&nbsp;     * Periodically, and when refreshing the profile, we process completed
+<i class="no-highlight">359</i>&nbsp;     * trackers that were added to the completedTrackers queue at the time of a
+<i class="no-highlight">360</i>&nbsp;     * file flip. If truly complete, they are added to the profile DB and map.
+<i class="no-highlight">361</i>&nbsp;     */
+<i class="no-highlight">362</i>&nbsp;    void processCompletedTrackers() {
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;        /* Only one thread at a time should process them. */
+<b class="fc"><i class="no-highlight">365</i>&nbsp;        synchronized (map) {</b>
+<i class="no-highlight">366</i>&nbsp;
+<i class="no-highlight">367</i>&nbsp;            /*
+<i class="no-highlight">368</i>&nbsp;             * Make a copy in order to process them without holding their
+<i class="no-highlight">369</i>&nbsp;             * mutex, to avoid blocking addCompletedTracker, which is in the
+<i class="no-highlight">370</i>&nbsp;             * main write path.
+<i class="no-highlight">371</i>&nbsp;             */
+<i class="no-highlight">372</i>&nbsp;            final List&lt;ExpirationTracker&gt; trackers;
+<i class="no-highlight">373</i>&nbsp;
+<b class="fc"><i class="no-highlight">374</i>&nbsp;            synchronized (completedTrackers) {</b>
+<b class="fc"><i class="no-highlight">375</i>&nbsp;                trackers = new ArrayList&lt;&gt;(completedTrackers.values());</b>
+<b class="fc"><i class="no-highlight">376</i>&nbsp;            }</b>
+<i class="no-highlight">377</i>&nbsp;
+<b class="fc"><i class="no-highlight">378</i>&nbsp;            for (final ExpirationTracker tracker : trackers) {</b>
+<i class="no-highlight">379</i>&nbsp;
+<b class="fc"><i class="no-highlight">380</i>&nbsp;                if (tracker.hasPendingTrackCalls()) {</b>
+<i class="no-highlight">381</i>&nbsp;                    /* Not quite completed. */
+<b class="nc"><i class="no-highlight">382</i>&nbsp;                    continue;</b>
+<i class="no-highlight">383</i>&nbsp;                }
+<i class="no-highlight">384</i>&nbsp;
+<b class="fc"><i class="no-highlight">385</i>&nbsp;                putFile(tracker, 0);</b>
+<i class="no-highlight">386</i>&nbsp;
+<b class="fc"><i class="no-highlight">387</i>&nbsp;                synchronized (completedTrackers) {</b>
+<b class="fc"><i class="no-highlight">388</i>&nbsp;                    completedTrackers.remove(tracker.getFileNum());</b>
+<b class="fc"><i class="no-highlight">389</i>&nbsp;                }</b>
+<b class="fc"><i class="no-highlight">390</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">391</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">392</i>&nbsp;    }</b>
+<i class="no-highlight">393</i>&nbsp;
+<i class="no-highlight">394</i>&nbsp;    /**
+<i class="no-highlight">395</i>&nbsp;     * Updates the expired bytes in the expiration profile according to the
+<i class="no-highlight">396</i>&nbsp;     * data that has expired at the given time. Should be called periodically,
+<i class="no-highlight">397</i>&nbsp;     * and before calling {@link #getExpiredBytes}.
+<i class="no-highlight">398</i>&nbsp;     *
+<i class="no-highlight">399</i>&nbsp;     * Also processes any completed trackers by adding them to the DB and to
+<i class="no-highlight">400</i>&nbsp;     * the histogram map.
+<i class="no-highlight">401</i>&nbsp;     *
+<i class="no-highlight">402</i>&nbsp;     * This method only does any real work once per hour, on hour boundaries,
+<i class="no-highlight">403</i>&nbsp;     * since data expires on (at most) hour boundaries.
+<i class="no-highlight">404</i>&nbsp;     */
+<i class="no-highlight">405</i>&nbsp;    public void refresh(final long time) {
+<i class="no-highlight">406</i>&nbsp;
+<b class="nc"><i class="no-highlight">407</i>&nbsp;        if (db == null) {</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;            return;</b>
+<i class="no-highlight">409</i>&nbsp;        }
+<i class="no-highlight">410</i>&nbsp;
+<i class="no-highlight">411</i>&nbsp;        /* Synchronize to protect map and the lastRefreshXxx fields. */
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        synchronized (map) {</b>
+<i class="no-highlight">413</i>&nbsp;
+<i class="no-highlight">414</i>&nbsp;            /*
+<i class="no-highlight">415</i>&nbsp;             * Get last hour boundary, rounding down to the closest hour. If
+<i class="no-highlight">416</i>&nbsp;             * an hour has not passed (and this is not the first time called),
+<i class="no-highlight">417</i>&nbsp;             * then return and expect that we&#39;ll try again later.
+<i class="no-highlight">418</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">419</i>&nbsp;            final int hourLimit =</b>
+<i class="no-highlight">420</i>&nbsp;                (int) (time / TTL.MILLIS_PER_HOUR);
+<i class="no-highlight">421</i>&nbsp;
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            if (hourLimit == lastRefreshHour) {</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;                return;</b>
+<i class="no-highlight">424</i>&nbsp;            }
+<i class="no-highlight">425</i>&nbsp;
+<b class="nc"><i class="no-highlight">426</i>&nbsp;            final int dayLimit = hourLimit / 24;</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;            final boolean newDayLimit = (dayLimit != lastRefreshDay);</b>
+<i class="no-highlight">428</i>&nbsp;
+<b class="nc"><i class="no-highlight">429</i>&nbsp;            processCompletedTrackers();</b>
+<i class="no-highlight">430</i>&nbsp;
+<b class="nc"><i class="no-highlight">431</i>&nbsp;            lastRefreshHour = hourLimit;</b>
+<b class="nc"><i class="no-highlight">432</i>&nbsp;            lastRefreshDay = dayLimit;</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            anyExpirationInHours = false;</b>
+<i class="no-highlight">434</i>&nbsp;
+<b class="nc"><i class="no-highlight">435</i>&nbsp;            for (final ExpInfo info : map.values()) {</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;                if (ExpirationTracker.isExpirationInHours(</b>
+<i class="no-highlight">437</i>&nbsp;                    info.serializedForm)) {
+<b class="nc"><i class="no-highlight">438</i>&nbsp;                    anyExpirationInHours = true;</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;                    break;</b>
+<i class="no-highlight">440</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">441</i>&nbsp;            }</b>
+<i class="no-highlight">442</i>&nbsp;
+<i class="no-highlight">443</i>&nbsp;            /*
+<i class="no-highlight">444</i>&nbsp;             * If all expiration times are on day boundaries, and we have not
+<i class="no-highlight">445</i>&nbsp;             * started a new day, there is nothing more to do.
+<i class="no-highlight">446</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">447</i>&nbsp;            if (!newDayLimit &amp;&amp; !anyExpirationInHours) {</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                return;</b>
+<i class="no-highlight">449</i>&nbsp;            }
+<i class="no-highlight">450</i>&nbsp;
+<i class="no-highlight">451</i>&nbsp;            /*
+<i class="no-highlight">452</i>&nbsp;             * Recalculate expired bytes for the current day/hour, saving the
+<i class="no-highlight">453</i>&nbsp;             * previous value.
+<i class="no-highlight">454</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">455</i>&nbsp;            for (final ExpInfo info : map.values()) {</b>
+<i class="no-highlight">456</i>&nbsp;
+<b class="nc"><i class="no-highlight">457</i>&nbsp;                info.previousExpiredBytes = info.currentExpiredBytes;</b>
+<i class="no-highlight">458</i>&nbsp;
+<b class="nc"><i class="no-highlight">459</i>&nbsp;                info.currentExpiredBytes = ExpirationTracker.getExpiredBytes(</b>
+<i class="no-highlight">460</i>&nbsp;                    info.serializedForm, dayLimit, hourLimit);
+<b class="nc"><i class="no-highlight">461</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">463</i>&nbsp;    }</b>
+<i class="no-highlight">464</i>&nbsp;
+<i class="no-highlight">465</i>&nbsp;    /**
+<i class="no-highlight">466</i>&nbsp;     * Returns the number of expired bytes for the given file. Uses the value
+<i class="no-highlight">467</i>&nbsp;     * calculated by the last call to {@link #refresh}.
+<i class="no-highlight">468</i>&nbsp;     */
+<i class="no-highlight">469</i>&nbsp;    public int getExpiredBytes(final long fileNum) {
+<b class="nc"><i class="no-highlight">470</i>&nbsp;        synchronized (map) {</b>
+<b class="nc"><i class="no-highlight">471</i>&nbsp;            final ExpInfo info = map.get(fileNum);</b>
+<b class="nc"><i class="no-highlight">472</i>&nbsp;            return (info != null) ? info.currentExpiredBytes : 0;</b>
+<b class="nc"><i class="no-highlight">473</i>&nbsp;        }</b>
+<i class="no-highlight">474</i>&nbsp;    }
+<i class="no-highlight">475</i>&nbsp;
+<i class="no-highlight">476</i>&nbsp;    /**
+<i class="no-highlight">477</i>&nbsp;     * Returns the number of expired bytes for the given file. Two values are
+<i class="no-highlight">478</i>&nbsp;     * returned: the total expired at the given time, and a potentially smaller
+<i class="no-highlight">479</i>&nbsp;     * amount that gradually expires over the current hour or day interval.
+<i class="no-highlight">480</i>&nbsp;     * Uses the values calculated by the last call to {@link #refresh}.
+<i class="no-highlight">481</i>&nbsp;     *
+<i class="no-highlight">482</i>&nbsp;     * The amount that gradually expires is the amount that expires in the
+<i class="no-highlight">483</i>&nbsp;     * current time interval, which is one day if all data in the profile
+<i class="no-highlight">484</i>&nbsp;     * expires on day boundaries, and otherwise is one hour. If this is the
+<i class="no-highlight">485</i>&nbsp;     * first interval for the file (after a restart or a revisal run), all
+<i class="no-highlight">486</i>&nbsp;     * expired bytes are considered expired in the current interval and expire
+<i class="no-highlight">487</i>&nbsp;     * gradually.
+<i class="no-highlight">488</i>&nbsp;     *
+<i class="no-highlight">489</i>&nbsp;     * @return pair of {allExpiredBytes, gradualExpiredBytes}.
+<i class="no-highlight">490</i>&nbsp;     */
+<i class="no-highlight">491</i>&nbsp;    public Pair&lt;Integer, Integer&gt; getExpiredBytes(
+<i class="no-highlight">492</i>&nbsp;        final long fileNum,
+<i class="no-highlight">493</i>&nbsp;        final long time) {
+<i class="no-highlight">494</i>&nbsp;
+<b class="nc"><i class="no-highlight">495</i>&nbsp;        synchronized (map) {</b>
+<i class="no-highlight">496</i>&nbsp;
+<b class="nc"><i class="no-highlight">497</i>&nbsp;            final ExpInfo info = map.get(fileNum);</b>
+<i class="no-highlight">498</i>&nbsp;
+<b class="nc"><i class="no-highlight">499</i>&nbsp;            if (info == null) {</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;                return PAIR_OF_ZEROS;</b>
+<i class="no-highlight">501</i>&nbsp;            }
+<i class="no-highlight">502</i>&nbsp;
+<b class="nc"><i class="no-highlight">503</i>&nbsp;            final int newlyExpiredBytes =</b>
+<i class="no-highlight">504</i>&nbsp;                info.currentExpiredBytes - info.previousExpiredBytes;
+<i class="no-highlight">505</i>&nbsp;
+<b class="nc"><i class="no-highlight">506</i>&nbsp;            if (newlyExpiredBytes == 0) {</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;                return new Pair&lt;&gt;(</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;                    info.currentExpiredBytes, info.currentExpiredBytes);</b>
+<i class="no-highlight">509</i>&nbsp;            }
+<i class="no-highlight">510</i>&nbsp;
+<b class="nc"><i class="no-highlight">511</i>&nbsp;            final long intervalMs = anyExpirationInHours ?</b>
+<i class="no-highlight">512</i>&nbsp;                TTL.MILLIS_PER_HOUR : TTL.MILLIS_PER_DAY;
+<i class="no-highlight">513</i>&nbsp;
+<b class="nc"><i class="no-highlight">514</i>&nbsp;            final long currentMs = time % intervalMs;</b>
+<i class="no-highlight">515</i>&nbsp;
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            final int gradualBytes = info.previousExpiredBytes +</b>
+<i class="no-highlight">517</i>&nbsp;                ((int) ((newlyExpiredBytes * currentMs) / intervalMs));
+<i class="no-highlight">518</i>&nbsp;
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            return new Pair&lt;&gt;(info.currentExpiredBytes, gradualBytes);</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;        }</b>
+<i class="no-highlight">521</i>&nbsp;    }
+<i class="no-highlight">522</i>&nbsp;
+<i class="no-highlight">523</i>&nbsp;    public String toString(final long fileNum) {
+<b class="nc"><i class="no-highlight">524</i>&nbsp;        synchronized (map) {</b>
+<b class="nc"><i class="no-highlight">525</i>&nbsp;            final ExpInfo info = map.get(fileNum);</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;            return (info != null) ? info.toString() : &quot;NoExpInfo&quot;;</b>
+<b class="nc"><i class="no-highlight">527</i>&nbsp;        }</b>
+<i class="no-highlight">528</i>&nbsp;    }
+<i class="no-highlight">529</i>&nbsp;
+<i class="no-highlight">530</i>&nbsp;    /**
+<i class="no-highlight">531</i>&nbsp;     * Contains cached information about expiration for a data file.
+<i class="no-highlight">532</i>&nbsp;     */
+<i class="no-highlight">533</i>&nbsp;    private static class ExpInfo {
+<i class="no-highlight">534</i>&nbsp;
+<i class="no-highlight">535</i>&nbsp;        /**
+<i class="no-highlight">536</i>&nbsp;         * Cached serialized form, use to recompute the current expired bytes
+<i class="no-highlight">537</i>&nbsp;         * for a given expiration time.
+<i class="no-highlight">538</i>&nbsp;         */
+<i class="no-highlight">539</i>&nbsp;        final byte[] serializedForm;
+<i class="no-highlight">540</i>&nbsp;
+<i class="no-highlight">541</i>&nbsp;        /**
+<i class="no-highlight">542</i>&nbsp;         * The number of expired bytes for the given file. This is the value
+<i class="no-highlight">543</i>&nbsp;         * calculated by the last call to {@link ExpirationProfile#refresh}.
+<i class="no-highlight">544</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">545</i>&nbsp;        int currentExpiredBytes = 0;</b>
+<i class="no-highlight">546</i>&nbsp;
+<i class="no-highlight">547</i>&nbsp;        /**
+<i class="no-highlight">548</i>&nbsp;         * The number of bytes that expired prior to the current interval.
+<i class="no-highlight">549</i>&nbsp;         * Calculated by the previous refresh for which the interval changed.
+<i class="no-highlight">550</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">551</i>&nbsp;        int previousExpiredBytes = 0;</b>
+<i class="no-highlight">552</i>&nbsp;
+<i class="no-highlight">553</i>&nbsp;        ExpInfo(final byte[] serializedForm,
+<b class="nc"><i class="no-highlight">554</i>&nbsp;                final int currentExpiredBytes) {</b>
+<i class="no-highlight">555</i>&nbsp;
+<b class="nc"><i class="no-highlight">556</i>&nbsp;            this.serializedForm = serializedForm;</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            this.currentExpiredBytes = currentExpiredBytes;</b>
+<i class="no-highlight">558</i>&nbsp;        }
+<i class="no-highlight">559</i>&nbsp;
+<i class="no-highlight">560</i>&nbsp;        @Override
+<i class="no-highlight">561</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">562</i>&nbsp;            return &quot;{ExpInfo currentBytes = &quot; + currentExpiredBytes +</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;                &quot; &quot; + ExpirationTracker.toString(serializedForm) + &#39;}&#39;;</b>
+<i class="no-highlight">564</i>&nbsp;        }
+<i class="no-highlight">565</i>&nbsp;    }
+<i class="no-highlight">566</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

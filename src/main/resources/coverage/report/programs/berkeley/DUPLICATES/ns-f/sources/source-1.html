@@ -1,0 +1,423 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > JEDiagnostics</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.jmx</a>
+</div>
+
+<h1>Coverage Summary for Class: JEDiagnostics (com.sleepycat.je.jmx)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">JEDiagnostics</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/13)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/89)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.jmx;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import javax.management.Attribute;
+<i class="no-highlight">20</i>&nbsp;import javax.management.AttributeList;
+<i class="no-highlight">21</i>&nbsp;import javax.management.AttributeNotFoundException;
+<i class="no-highlight">22</i>&nbsp;import javax.management.DynamicMBean;
+<i class="no-highlight">23</i>&nbsp;import javax.management.InvalidAttributeValueException;
+<i class="no-highlight">24</i>&nbsp;import javax.management.MBeanAttributeInfo;
+<i class="no-highlight">25</i>&nbsp;import javax.management.MBeanException;
+<i class="no-highlight">26</i>&nbsp;import javax.management.MBeanOperationInfo;
+<i class="no-highlight">27</i>&nbsp;import javax.management.MBeanParameterInfo;
+<i class="no-highlight">28</i>&nbsp;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;/**
+<i class="no-highlight">36</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">37</i>&nbsp; * JEDiagnostics is a debugging mbean for a non replicated JE Environment.
+<i class="no-highlight">38</i>&nbsp; * This is intended as a locus of field support functionality. While it may be
+<i class="no-highlight">39</i>&nbsp; * used by the application developer, the primary use case is for a support
+<i class="no-highlight">40</i>&nbsp; * situation. Currently much of this functionality is also available through
+<i class="no-highlight">41</i>&nbsp; * the standard java.util.logging MBean.
+<i class="no-highlight">42</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">43</i>&nbsp; * It is a concrete MBean created by registering a JE Environment as an MBean
+<i class="no-highlight">44</i>&nbsp; * through setting the JEDiagnostics system property. It only works on an
+<i class="no-highlight">45</i>&nbsp; * active JE Environment, and one Environment can only have one JEDiagnostics
+<i class="no-highlight">46</i>&nbsp; * instance. There are two attributes and one operation:
+<i class="no-highlight">47</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">48</i>&nbsp; * &lt;u&gt;Attributes:&lt;/u&gt;
+<i class="no-highlight">49</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">50</i>&nbsp; * &lt;li&gt; consoleHandlerLevel: which sets the console handler level.
+<i class="no-highlight">51</i>&nbsp; * &lt;li&gt; fileHandlerLevel: which sets the file handler level.
+<i class="no-highlight">52</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">53</i>&nbsp; * &lt;u&gt;Operations:&lt;/u&gt;
+<i class="no-highlight">54</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">55</i>&nbsp; * &lt;li&gt; resetLoggingLevel: which sets the level for the current loggers in
+<i class="no-highlight">56</i>&nbsp; *      the LogManager.
+<i class="no-highlight">57</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">58</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">59</i>&nbsp; * We can use these attributes and operations to dynamically change the
+<i class="no-highlight">60</i>&nbsp; * logging level for debugging purposes.
+<i class="no-highlight">61</i>&nbsp; */
+<i class="no-highlight">62</i>&nbsp;public class JEDiagnostics extends JEMBean implements DynamicMBean {
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;    /* --------------------- Attributes -------------------------- */
+<i class="no-highlight">65</i>&nbsp;    protected static final String CONSOLEHANDLER_LEVEL = &quot;consoleHandlerLevel&quot;;
+<i class="no-highlight">66</i>&nbsp;    protected static final String FILEHANDLER_LEVEL = &quot;fileHandlerLevel&quot;;
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    /* ConsoleHandler. */
+<b class="nc"><i class="no-highlight">69</i>&nbsp;    protected static final MBeanAttributeInfo ATT_CONSOLEHANDLER_LEVEL =</b>
+<i class="no-highlight">70</i>&nbsp;        new MBeanAttributeInfo
+<i class="no-highlight">71</i>&nbsp;        (CONSOLEHANDLER_LEVEL, &quot;java.lang.String&quot;, &quot;ConsoleHandler level.&quot;,
+<i class="no-highlight">72</i>&nbsp;         true, true, false);
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /* FileHandler. */
+<b class="nc"><i class="no-highlight">75</i>&nbsp;    protected static final MBeanAttributeInfo ATT_FILEHANDLER_LEVEL =</b>
+<i class="no-highlight">76</i>&nbsp;        new MBeanAttributeInfo
+<i class="no-highlight">77</i>&nbsp;        (FILEHANDLER_LEVEL, &quot;java.lang.String&quot;, &quot;FileHandler level.&quot;,
+<i class="no-highlight">78</i>&nbsp;         true, true, false);
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /* --------------------- Operations -------------------------- */
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    /* Operation names */
+<i class="no-highlight">83</i>&nbsp;    protected static final String OP_RESET_LOGGING = &quot;resetLoggerLevel&quot;;
+<i class="no-highlight">84</i>&nbsp;    
+<i class="no-highlight">85</i>&nbsp;    /* Set the parameters and operation info for resetting logger&#39;s level. */
+<b class="nc"><i class="no-highlight">86</i>&nbsp;    protected static final MBeanParameterInfo[] resetLoggingParams = {</b>
+<i class="no-highlight">87</i>&nbsp;        new MBeanParameterInfo(&quot;Logger Name&quot;, &quot;java.lang.String&quot;,
+<i class="no-highlight">88</i>&nbsp;                               &quot;Specify the target logger.&quot;),
+<i class="no-highlight">89</i>&nbsp;        new MBeanParameterInfo(&quot;Logging Level&quot;, &quot;java.lang.String&quot;,
+<i class="no-highlight">90</i>&nbsp;                               &quot;The new logging level for the target logger.&quot;)
+<i class="no-highlight">91</i>&nbsp;    };
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /* Reset logger&#39;s level operation. */
+<b class="nc"><i class="no-highlight">94</i>&nbsp;    protected static final MBeanOperationInfo OP_RESET_LOGGING_LEVEL = </b>
+<i class="no-highlight">95</i>&nbsp;        new MBeanOperationInfo
+<i class="no-highlight">96</i>&nbsp;        (OP_RESET_LOGGING,
+<i class="no-highlight">97</i>&nbsp;         &quot;Change the logging level for the specified logger.&quot;,
+<i class="no-highlight">98</i>&nbsp;         resetLoggingParams, &quot;void&quot;, MBeanOperationInfo.UNKNOWN);
+<i class="no-highlight">99</i>&nbsp;    
+<i class="no-highlight">100</i>&nbsp;    protected JEDiagnostics(Environment env) {
+<b class="nc"><i class="no-highlight">101</i>&nbsp;        super(env);</b>
+<i class="no-highlight">102</i>&nbsp;    }
+<i class="no-highlight">103</i>&nbsp;
+<i class="no-highlight">104</i>&nbsp;    public JEDiagnostics() {
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        super();</b>
+<i class="no-highlight">106</i>&nbsp;    }
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    @Override
+<i class="no-highlight">109</i>&nbsp;    protected void initClassFields() {
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        currentClass = JEDiagnostics.class;</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        className = &quot;JEDiagnostics&quot;;</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        DESCRIPTION = &quot;Logging Monitor on an open Environment.&quot;;</b>
+<i class="no-highlight">113</i>&nbsp;    }
+<i class="no-highlight">114</i>&nbsp;
+<i class="no-highlight">115</i>&nbsp;    /**
+<i class="no-highlight">116</i>&nbsp;     * @see DynamicMBean#getAttribute
+<i class="no-highlight">117</i>&nbsp;     */
+<i class="no-highlight">118</i>&nbsp;    public Object getAttribute(String attributeName)
+<i class="no-highlight">119</i>&nbsp;        throws AttributeNotFoundException,
+<i class="no-highlight">120</i>&nbsp;               MBeanException {
+<i class="no-highlight">121</i>&nbsp;
+<b class="nc"><i class="no-highlight">122</i>&nbsp;        if (attributeName == null) {</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;            throw new AttributeNotFoundException</b>
+<i class="no-highlight">124</i>&nbsp;                (&quot;Attribute name can&#39;t be null.&quot;);
+<i class="no-highlight">125</i>&nbsp;        }
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">128</i>&nbsp;            EnvironmentImpl envImpl = DbInternal.getNonNullEnvImpl(env);</b>
+<i class="no-highlight">129</i>&nbsp;
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            if (attributeName.equals(CONSOLEHANDLER_LEVEL)) {</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;                return envImpl.getConsoleHandler().getLevel().toString();</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;            } else if (attributeName.equals(FILEHANDLER_LEVEL)) {</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;                return envImpl.getFileHandler().getLevel().toString();</b>
+<i class="no-highlight">134</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">135</i>&nbsp;                throw new AttributeNotFoundException</b>
+<i class="no-highlight">136</i>&nbsp;                    (&quot;Attributes &quot; + attributeName + &quot; is not valid.&quot;);
+<i class="no-highlight">137</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            throw new MBeanException(new RuntimeException(e.getMessage()));</b>
+<i class="no-highlight">140</i>&nbsp;        }
+<i class="no-highlight">141</i>&nbsp;    }
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /**
+<i class="no-highlight">144</i>&nbsp;     * @see DynamicMBean#setAttribute
+<i class="no-highlight">145</i>&nbsp;     */
+<i class="no-highlight">146</i>&nbsp;    public void setAttribute(Attribute attribute)
+<i class="no-highlight">147</i>&nbsp;        throws AttributeNotFoundException,
+<i class="no-highlight">148</i>&nbsp;               InvalidAttributeValueException,
+<i class="no-highlight">149</i>&nbsp;               MBeanException {
+<i class="no-highlight">150</i>&nbsp;
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        if (attribute == null) {</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;            throw new AttributeNotFoundException(&quot;Attribute can&#39;t be null.&quot;);</b>
+<i class="no-highlight">153</i>&nbsp;        }
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;        /* Sanity check parameters. */
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        String name = attribute.getName();</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        Object value = attribute.getValue();</b>
+<i class="no-highlight">158</i>&nbsp;
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        if (name == null) {</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            throw new AttributeNotFoundException</b>
+<i class="no-highlight">161</i>&nbsp;                (&quot;Attribute name can&#39;t be null.&quot;);
+<i class="no-highlight">162</i>&nbsp;        }
+<i class="no-highlight">163</i>&nbsp;
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        if (value == null) {</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;            throw new InvalidAttributeValueException</b>
+<i class="no-highlight">166</i>&nbsp;                (&quot;Attribute value for attribute &quot; + name + &quot; can&#39;t be null&quot;);
+<i class="no-highlight">167</i>&nbsp;        }
+<i class="no-highlight">168</i>&nbsp;
+<i class="no-highlight">169</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">170</i>&nbsp;            EnvironmentImpl envImpl = DbInternal.getNonNullEnvImpl(env);</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            Level level = Level.parse((String) value);</b>
+<i class="no-highlight">172</i>&nbsp;
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            if (name.equals(CONSOLEHANDLER_LEVEL)) {</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                envImpl.getConsoleHandler().setLevel(level);</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            } else if (name.equals(FILEHANDLER_LEVEL)) {</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                envImpl.getFileHandler().setLevel(level);</b>
+<i class="no-highlight">177</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">178</i>&nbsp;                throw new AttributeNotFoundException</b>
+<i class="no-highlight">179</i>&nbsp;                    (&quot;Attribute &quot; + name + &quot; is not valid.&quot;);
+<i class="no-highlight">180</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">181</i>&nbsp;        } catch (NullPointerException e) {</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;            throw new InvalidAttributeValueException</b>
+<i class="no-highlight">183</i>&nbsp;                (&quot;Setting value for attribute &quot; + name + 
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                 &quot;is invalid because of &quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        } catch (SecurityException e) {</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;            throw new MBeanException(e, e.getMessage());</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        }</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /* Parse and return the level represented by an object. */
+<i class="no-highlight">191</i>&nbsp;    private Level getLevel(Object level) {
+<i class="no-highlight">192</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            return Level.parse((String) level);</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;        } catch (NullPointerException e) {</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">196</i>&nbsp;                (&quot;Can&#39;t use null for level value.&quot;, e);
+<i class="no-highlight">197</i>&nbsp;        }
+<i class="no-highlight">198</i>&nbsp;    }
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;    /**
+<i class="no-highlight">201</i>&nbsp;     * @see DynamicMBean#getAttributes
+<i class="no-highlight">202</i>&nbsp;     */
+<i class="no-highlight">203</i>&nbsp;    public AttributeList getAttributes(String[] attributes) {
+<i class="no-highlight">204</i>&nbsp;
+<i class="no-highlight">205</i>&nbsp;        /* Sanity checking. */
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        if (attributes == null) {</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            throw new IllegalArgumentException(&quot;Attributes can&#39;t be null&quot;);</b>
+<i class="no-highlight">208</i>&nbsp;        }
+<i class="no-highlight">209</i>&nbsp;
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        AttributeList results = new AttributeList();</b>
+<i class="no-highlight">211</i>&nbsp;
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        for (int i = 0; i &lt; attributes.length; i++) {</b>
+<i class="no-highlight">213</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                Object value = getAttribute(attributes[i]);</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;                results.add(new Attribute(attributes[i], value));</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;            } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            }</b>
+<i class="no-highlight">219</i>&nbsp;        }
+<i class="no-highlight">220</i>&nbsp;
+<b class="nc"><i class="no-highlight">221</i>&nbsp;        return results;</b>
+<i class="no-highlight">222</i>&nbsp;    }
+<i class="no-highlight">223</i>&nbsp;
+<i class="no-highlight">224</i>&nbsp;    /**
+<i class="no-highlight">225</i>&nbsp;     * @see DynamicMBean#setAttributes
+<i class="no-highlight">226</i>&nbsp;     */
+<i class="no-highlight">227</i>&nbsp;    public AttributeList setAttributes(AttributeList attributes) {
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;        /* Sanity checking. */
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        if (attributes == null) {</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;            throw new IllegalArgumentException(&quot;Attribute list can&#39;t be null&quot;);</b>
+<i class="no-highlight">232</i>&nbsp;        }
+<i class="no-highlight">233</i>&nbsp;
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        AttributeList results = new AttributeList();</b>
+<i class="no-highlight">235</i>&nbsp;
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        for (int i = 0; i &lt; attributes.size(); i++) {</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            Attribute attr = (Attribute) attributes.get(i);</b>
+<i class="no-highlight">238</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                setAttribute(attr);</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                String name = attr.getName();</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                Object newValue = getAttribute(name);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                results.add(new Attribute(name, newValue));</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            }</b>
+<i class="no-highlight">246</i>&nbsp;        }
+<i class="no-highlight">247</i>&nbsp;
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        return results;</b>
+<i class="no-highlight">249</i>&nbsp;    }
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;    /**
+<i class="no-highlight">252</i>&nbsp;     * @see DynamicMBean#invoke
+<i class="no-highlight">253</i>&nbsp;     */
+<i class="no-highlight">254</i>&nbsp;    public Object invoke(String actionName,
+<i class="no-highlight">255</i>&nbsp;                         Object[] params,
+<i class="no-highlight">256</i>&nbsp;                         String[] signature)
+<i class="no-highlight">257</i>&nbsp;        throws MBeanException {
+<i class="no-highlight">258</i>&nbsp;
+<i class="no-highlight">259</i>&nbsp;        /* Sanity checking. */
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        if (actionName == null) {</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;            throw new IllegalArgumentException(&quot;ActionName can&#39;t be null.&quot;);</b>
+<i class="no-highlight">262</i>&nbsp;        }
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">265</i>&nbsp;            EnvironmentImpl envImpl = DbInternal.getNonNullEnvImpl(env);</b>
+<i class="no-highlight">266</i>&nbsp;
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            if (actionName.equals(OP_RESET_LOGGING)) {</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;                if (params == null || params.length != 2) {</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;                    return new IllegalArgumentException</b>
+<i class="no-highlight">270</i>&nbsp;                        (&quot;Parameter is not valid&quot;);
+<i class="no-highlight">271</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">272</i>&nbsp;                envImpl.resetLoggingLevel(((String) params[0]).trim(), </b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                                          Level.parse((String) params[1]));</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;                return null;</b>
+<i class="no-highlight">275</i>&nbsp;            } 
+<i class="no-highlight">276</i>&nbsp;
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            return new IllegalArgumentException</b>
+<i class="no-highlight">278</i>&nbsp;                (&quot;ActionName: &quot; + actionName + &quot; is not valid.&quot;);
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        } catch (DatabaseException e) {</b>
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;            /*
+<i class="no-highlight">282</i>&nbsp;             * Add the message for easiest deciphering of the problem. Since 
+<i class="no-highlight">283</i>&nbsp;             * the original exception cannot be transferred, send the exception
+<i class="no-highlight">284</i>&nbsp;             * stack.
+<i class="no-highlight">285</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">286</i>&nbsp;             throw new MBeanException(new RuntimeException</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;                                      (e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                                       LoggerUtils.getStackTrace(e)));</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;        } catch (NullPointerException e) {</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;            throw new MBeanException(e, e.getMessage());</b>
+<i class="no-highlight">291</i>&nbsp;        }
+<i class="no-highlight">292</i>&nbsp;    }
+<i class="no-highlight">293</i>&nbsp;
+<i class="no-highlight">294</i>&nbsp;    @Override
+<i class="no-highlight">295</i>&nbsp;    protected void doRegisterMBean(Environment env)
+<i class="no-highlight">296</i>&nbsp;        throws Exception {
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        server.registerMBean(new JEDiagnostics(env), jeName);</b>
+<i class="no-highlight">299</i>&nbsp;    }
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;    @Override
+<i class="no-highlight">302</i>&nbsp;    protected MBeanAttributeInfo[] getAttributeList() {
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        ArrayList&lt;MBeanAttributeInfo&gt; attrList =</b>
+<i class="no-highlight">304</i>&nbsp;            new ArrayList&lt;MBeanAttributeInfo&gt;();
+<i class="no-highlight">305</i>&nbsp;
+<b class="nc"><i class="no-highlight">306</i>&nbsp;        attrList.add(ATT_CONSOLEHANDLER_LEVEL);</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        if (DbInternal.getNonNullEnvImpl(env).getFileHandler() != null) {</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            attrList.add(ATT_FILEHANDLER_LEVEL);</b>
+<i class="no-highlight">309</i>&nbsp;        }
+<i class="no-highlight">310</i>&nbsp;
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        return attrList.toArray(new MBeanAttributeInfo[attrList.size()]);</b>
+<i class="no-highlight">312</i>&nbsp;    }
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;    @Override
+<i class="no-highlight">315</i>&nbsp;    protected void addOperations() {
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        operationList.add(OP_RESET_LOGGING_LEVEL);</b>
+<i class="no-highlight">317</i>&nbsp;    }
+<i class="no-highlight">318</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

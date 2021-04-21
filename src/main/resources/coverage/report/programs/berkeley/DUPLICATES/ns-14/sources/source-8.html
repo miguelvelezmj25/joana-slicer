@@ -1,0 +1,1251 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > RollbackTracker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.recovery</a>
+</div>
+
+<h1>Coverage Summary for Class: RollbackTracker (com.sleepycat.je.recovery)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">RollbackTracker</td>
+<td class="coverageStat">
+  <span class="percent">
+    5.6%
+  </span>
+  <span class="absValue">
+    (1/18)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    8.4%
+  </span>
+  <span class="absValue">
+    (7/83)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">RollbackTracker$BackwardScanner</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/23)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">RollbackTracker$RollbackPeriod</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/32)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/138)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">RollbackTracker$Scanner</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/22)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">RollbackTracker$UnderConstructionScanner</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    1.7%
+  </span>
+  <span class="absValue">
+    (1/58)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    2.5%
+  </span>
+  <span class="absValue">
+    (7/276)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.recovery;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">20</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">21</i>&nbsp;import java.util.List;
+<i class="no-highlight">22</i>&nbsp;import java.util.Map;
+<i class="no-highlight">23</i>&nbsp;import java.util.Set;
+<i class="no-highlight">24</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.cleaner.RecoveryUtilizationTracker;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.log.FileManager;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.log.LNFileReader;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.tree.TreeLocation;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.txn.RollbackEnd;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.txn.RollbackStart;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.txn.TxnChain;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.txn.TxnManager;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.txn.UndoReader;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.txn.TxnChain.RevertInfo;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;/**
+<i class="no-highlight">43</i>&nbsp; * RollbackTracker is used to detect rollback periods in the log that are the
+<i class="no-highlight">44</i>&nbsp; * result of HA replica syncups. These rollback periods affect how LNs should
+<i class="no-highlight">45</i>&nbsp; * be processed at recovery. Rollbacks differ from aborts in that a rollback
+<i class="no-highlight">46</i>&nbsp; * returns a LN to its previous version, whether intra or inter-txnal, while an
+<i class="no-highlight">47</i>&nbsp; * abort always returns an LN to its pre-txn version.
+<i class="no-highlight">48</i>&nbsp; * 
+<i class="no-highlight">49</i>&nbsp; * What is a Rollback Period?
+<i class="no-highlight">50</i>&nbsp; * --------------------------
+<i class="no-highlight">51</i>&nbsp; * The rollback represents the logical truncation of the log. Any transactional
+<i class="no-highlight">52</i>&nbsp; * LNs in that rollback period should be undone, even if they are ultimately
+<i class="no-highlight">53</i>&nbsp; * part of a committed transaction. See the wiki page on Syncup Recovery for
+<i class="no-highlight">54</i>&nbsp; * the full design. See com.sleepycat.je.rep.impl.node.Replay.rollback for the
+<i class="no-highlight">55</i>&nbsp; * steps taken at the time of the rollback.
+<i class="no-highlight">56</i>&nbsp; * 
+<i class="no-highlight">57</i>&nbsp; * A RollbackStart record is logged at the start of any rollback, and a
+<i class="no-highlight">58</i>&nbsp; * RollbackEnd is logged at the completion of a rollback. RollbackStarts refer
+<i class="no-highlight">59</i>&nbsp; * to a matchpoint and the area between the matchpoint and the RollbackStart is
+<i class="no-highlight">60</i>&nbsp; * the rollback period.The RollbackTracker peruses RollbackStarts and Ends and
+<i class="no-highlight">61</i>&nbsp; * generates a map of the rollback periods.
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; * RollbackStarts and their starting Matchpoints can be nested or can be
+<i class="no-highlight">64</i>&nbsp; * distinct, but several invariants are in place and can be enforced. For
+<i class="no-highlight">65</i>&nbsp; * example:
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; *  LSN
+<i class="no-highlight">68</i>&nbsp; *  ---
+<i class="no-highlight">69</i>&nbsp; *  100  txnA commit
+<i class="no-highlight">70</i>&nbsp; *  
+<i class="no-highlight">71</i>&nbsp; *  200  txnB abort
+<i class="no-highlight">72</i>&nbsp; *  250  LN for txnC
+<i class="no-highlight">73</i>&nbsp; *  300  txnC abort
+<i class="no-highlight">74</i>&nbsp; *  ..
+<i class="no-highlight">75</i>&nbsp; *  400  RollbackStart A (starting matchpoint = 200)
+<i class="no-highlight">76</i>&nbsp; *  500  RollbackEnd A
+<i class="no-highlight">77</i>&nbsp; *  ...
+<i class="no-highlight">78</i>&nbsp; *  600  RollbackStart B (starting matchpoint = 200)
+<i class="no-highlight">79</i>&nbsp; *  700  RollbackStart C (starting matchpoint = 100)
+<i class="no-highlight">80</i>&nbsp; *  800  RollbackEnd C
+<i class="no-highlight">81</i>&nbsp; *  900  txnD abort
+<i class="no-highlight">82</i>&nbsp; * 1000  RollbackStart D (starting matchpoint = 900)
+<i class="no-highlight">83</i>&nbsp; *
+<i class="no-highlight">84</i>&nbsp; * This log creates four rollback periods 
+<i class="no-highlight">85</i>&nbsp; *   1) LSN 100 -&gt; 700 (defined by RollbackStart C). This has two rollback
+<i class="no-highlight">86</i>&nbsp; *      periods nested within.
+<i class="no-highlight">87</i>&nbsp; *   2) LSN 200 -&gt; 400, (defined by RollbackStart A) nested within B
+<i class="no-highlight">88</i>&nbsp; *   3) LSN 200 -&gt; 600, (defined by RollbackStart B) nested within C
+<i class="no-highlight">89</i>&nbsp; *   4) LSN 1000 -&gt; 900 (defined by RolbackStart D)
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp; * - There can be no commits or aborts within a rollback period, because we
+<i class="no-highlight">92</i>&nbsp; * shouldn&#39;t have executed a soft recovery that undid a commit or abort.  in
+<i class="no-highlight">93</i>&nbsp; * the rollback period.
+<i class="no-highlight">94</i>&nbsp; *
+<i class="no-highlight">95</i>&nbsp; * - There can be no LN_TXs between a RollbackStart and its matching
+<i class="no-highlight">96</i>&nbsp; * RollbackEnd (should be no LN write operations happening during the syncup.)
+<i class="no-highlight">97</i>&nbsp; * However, there might be INs written by a checkpoint, and eviction.
+<i class="no-highlight">98</i>&nbsp; *
+<i class="no-highlight">99</i>&nbsp; * - The recovery period should never see a RollbackEnd without its matching
+<i class="no-highlight">100</i>&nbsp; * RollbackStart record, though it is possible to see a RollbackStart that has
+<i class="no-highlight">101</i>&nbsp; * no RollbackEnd.
+<i class="no-highlight">102</i>&nbsp; *
+<i class="no-highlight">103</i>&nbsp; *  - There can never be any overlapping, or intersection of periods, because a
+<i class="no-highlight">104</i>&nbsp; * rollback period is supposed to be like a truncation of the log. Since that
+<i class="no-highlight">105</i>&nbsp; * log is &quot;gone&quot;, a subsequent rollback shouldn&#39;t find a matchpoint inside
+<i class="no-highlight">106</i>&nbsp; * another rollback period.
+<i class="no-highlight">107</i>&nbsp; *
+<i class="no-highlight">108</i>&nbsp; * - A child period must be wholly contained between the parent&#39;s matchpoint
+<i class="no-highlight">109</i>&nbsp; * and RollbackStart. This is simply due to the way rollbacks occur.  A parent
+<i class="no-highlight">110</i>&nbsp; * rollback has a Matchpoint &lt;= the child&#39;s Matchpoint or it wouldn&#39;t be
+<i class="no-highlight">111</i>&nbsp; * nested.  The parent&#39;s RollbackStart &gt; the child&#39;s RollbackEnd, since the
+<i class="no-highlight">112</i>&nbsp; * parent occurs after the child in time.
+<i class="no-highlight">113</i>&nbsp; *
+<i class="no-highlight">114</i>&nbsp; * The Rollback tracker keeps a list of all the rollback periods. Some are
+<i class="no-highlight">115</i>&nbsp; * distinct, some are nested. 
+<i class="no-highlight">116</i>&nbsp; *
+<i class="no-highlight">117</i>&nbsp; * Recovery processing and rollback periods
+<i class="no-highlight">118</i>&nbsp; * ----------------------------------------
+<i class="no-highlight">119</i>&nbsp; * The actions taken at a rollback may not have been made persistent to the
+<i class="no-highlight">120</i>&nbsp; * log, so at recovery, we literally mimic and replay these two steps: (a) make
+<i class="no-highlight">121</i>&nbsp; * sure invisible log entries have their invisible bit on and (b) make sure all
+<i class="no-highlight">122</i>&nbsp; * INs reflect the correct LNs. All use of the rollback periods and tracker
+<i class="no-highlight">123</i>&nbsp; * take place on the backwards scans. The RollbackStart and End entries are
+<i class="no-highlight">124</i>&nbsp; * read during the first recovery undo pass When a rollback period is found, a
+<i class="no-highlight">125</i>&nbsp; * transaction chain is constructed for each transaction that was active in the
+<i class="no-highlight">126</i>&nbsp; * period, to support a repeat of the actions taken originally.
+<i class="no-highlight">127</i>&nbsp; * 
+<i class="no-highlight">128</i>&nbsp; * The first undo pass, for the mapping tree, has to construct a map of
+<i class="no-highlight">129</i>&nbsp; * recovery periods. Since the mapping tree only has MapLNs, and we never write
+<i class="no-highlight">130</i>&nbsp; * any txnal MapLNs, that first pass does not encounter any txnal LNs.  The
+<i class="no-highlight">131</i>&nbsp; * next two undo passes consult the rollback period map to determine if an LN
+<i class="no-highlight">132</i>&nbsp; * needs to be rolledback, or just treated like other LNs.
+<i class="no-highlight">133</i>&nbsp; *
+<i class="no-highlight">134</i>&nbsp; * Rollback periods that precede the checkpoint start can be ignored, because
+<i class="no-highlight">135</i>&nbsp; * we can be assured that all the INs and LNs modified by that rollback were
+<i class="no-highlight">136</i>&nbsp; * made persistent by the checkpoint.  Ignoring such periods is required, and
+<i class="no-highlight">137</i>&nbsp; * is not just an optimization, because it guarantees that we will not need to
+<i class="no-highlight">138</i>&nbsp; * create a transaction chain that needs to traverse the log beyond the first
+<i class="no-highlight">139</i>&nbsp; * active lsn. A rollback period precedes the checkpoint if its RollbackEnd is
+<i class="no-highlight">140</i>&nbsp; * before the checkpoint start.
+<i class="no-highlight">141</i>&nbsp; *
+<i class="no-highlight">142</i>&nbsp; * When a rollback period overlaps CkptStart and we recover, we are guaranteed
+<i class="no-highlight">143</i>&nbsp; * that the undo passes will process all LNs in the rollback period, because
+<i class="no-highlight">144</i>&nbsp; * they are &gt;= to the firstActiveLEnd of the checkpoint.
+<i class="no-highlight">145</i>&nbsp; *
+<i class="no-highlight">146</i>&nbsp; * The lastActiveLSN for the checkpoint will be &lt;= the LSN of the first LN of
+<i class="no-highlight">147</i>&nbsp; * any transaction that is being rolled back at the time of CkptStart, since
+<i class="no-highlight">148</i>&nbsp; * these transactions were still active at that time.
+<i class="no-highlight">149</i>&nbsp; *
+<i class="no-highlight">150</i>&nbsp; * No file containing a transaction rolled back in the recovery interval, or a
+<i class="no-highlight">151</i>&nbsp; * file containing the abortLSN of such a transaction, will be deleted by the
+<i class="no-highlight">152</i>&nbsp; * cleaner. An active transaction prevents cleaning of its first logged entry
+<i class="no-highlight">153</i>&nbsp; * and beyond. The LN of the abortLSN will be locked, which prevents it from
+<i class="no-highlight">154</i>&nbsp; * being cleaned.
+<i class="no-highlight">155</i>&nbsp; *
+<i class="no-highlight">156</i>&nbsp; * All the work lies on the undo side. Recovery redo only needs to ignore
+<i class="no-highlight">157</i>&nbsp; * invisible log entries, because we know that the undo pass applied the
+<i class="no-highlight">158</i>&nbsp; * invisible bit where needed. Note that the undo pass must be sure to write 
+<i class="no-highlight">159</i>&nbsp; * the invisible bits after the pass, before redo attempts to read the log.
+<i class="no-highlight">160</i>&nbsp; *
+<i class="no-highlight">161</i>&nbsp; * Each rollback LN_TX belongs to a single rollback period. When periods are
+<i class="no-highlight">162</i>&nbsp; * nested, the LN_TX belongs to the closest rollback period that encompasses
+<i class="no-highlight">163</i>&nbsp; * it.  
+<i class="no-highlight">164</i>&nbsp; * Using the example above,
+<i class="no-highlight">165</i>&nbsp; *    a LN at lsn 350 belongs to rollback period A
+<i class="no-highlight">166</i>&nbsp; *    a LN at lsn 550 belongs to rollback period B
+<i class="no-highlight">167</i>&nbsp; *    a LN at lsn 650 belongs to rollback period C
+<i class="no-highlight">168</i>&nbsp; * It uses its rollback period&#39;s txn chain to find its previous version.
+<i class="no-highlight">169</i>&nbsp; */
+<b class="nc"><i class="no-highlight">170</i>&nbsp;public class RollbackTracker {</b>
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">173</i>&nbsp;    private long checkpointStart;
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;    /* for assertions. */
+<i class="no-highlight">176</i>&nbsp;    private boolean firstUndoPass; 
+<i class="no-highlight">177</i>&nbsp;
+<i class="no-highlight">178</i>&nbsp;    /* 
+<i class="no-highlight">179</i>&nbsp;     * List of lsns that were made invisible and need to be fsynced, from
+<i class="no-highlight">180</i>&nbsp;     * this recovery. 
+<i class="no-highlight">181</i>&nbsp;     *
+<i class="no-highlight">182</i>&nbsp;     * singlePassLsns are collected for a single recovery pass. After that
+<i class="no-highlight">183</i>&nbsp;     * pass, the lsns must be written to the log, so that the next redo
+<i class="no-highlight">184</i>&nbsp;     * recovery pass properly skips over invisible lsns, but it need not
+<i class="no-highlight">185</i>&nbsp;     * do a fsync. After each pass, the file numbers involved are added to 
+<i class="no-highlight">186</i>&nbsp;     * recoveryFilesToSync.
+<i class="no-highlight">187</i>&nbsp;     *
+<i class="no-highlight">188</i>&nbsp;     * After recovery is finished, all file that have re-flipped invisible bits
+<i class="no-highlight">189</i>&nbsp;     * are fsynced. Hopefully, the OS may have fsynced some, and waiting until
+<i class="no-highlight">190</i>&nbsp;     * the end to fsync will be an optimization.
+<i class="no-highlight">191</i>&nbsp;     */
+<i class="no-highlight">192</i>&nbsp;    private final Set&lt;Long&gt; recoveryFilesToSync;
+<i class="no-highlight">193</i>&nbsp;    private List&lt;Long&gt; singlePassInvisibleLsns;
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    /* 
+<i class="no-highlight">196</i>&nbsp;     * Used only for the first construction pass. This is the rollback 
+<i class="no-highlight">197</i>&nbsp;     * period that we have just found.
+<i class="no-highlight">198</i>&nbsp;     */
+<i class="no-highlight">199</i>&nbsp;    private RollbackPeriod underConstructionPeriod;
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    /* Top level list of rollback periods */
+<i class="no-highlight">202</i>&nbsp;    private final List&lt;RollbackPeriod&gt; periodList;
+<i class="no-highlight">203</i>&nbsp;
+<b class="fc"><i class="no-highlight">204</i>&nbsp;    RollbackTracker(EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">205</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        periodList = new ArrayList&lt;RollbackPeriod&gt;();</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;        checkpointStart = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;        recoveryFilesToSync = new HashSet&lt;Long&gt;();</b>
+<b class="fc"><i class="no-highlight">209</i>&nbsp;        singlePassInvisibleLsns = new ArrayList&lt;Long&gt;();</b>
+<b class="fc"><i class="no-highlight">210</i>&nbsp;    }</b>
+<i class="no-highlight">211</i>&nbsp;
+<i class="no-highlight">212</i>&nbsp;    /**
+<i class="no-highlight">213</i>&nbsp;     * Construction Pass: A RollbackEnd is seen, make new period.
+<i class="no-highlight">214</i>&nbsp;     */
+<i class="no-highlight">215</i>&nbsp;    void register(RollbackEnd rollbackEnd, long rollbackEndLSN) {
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        assertFirstPass(rollbackEndLSN);</b>
+<i class="no-highlight">217</i>&nbsp;
+<b class="nc"><i class="no-highlight">218</i>&nbsp;        if ((underConstructionPeriod != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;            (underConstructionPeriod.makeNestedPeriod(rollbackEnd,</b>
+<i class="no-highlight">220</i>&nbsp;                                                      rollbackEndLSN))) {
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            return;</b>
+<i class="no-highlight">222</i>&nbsp;        }
+<i class="no-highlight">223</i>&nbsp;
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        underConstructionPeriod = new RollbackPeriod(this,</b>
+<i class="no-highlight">225</i>&nbsp;                                                     rollbackEnd,
+<i class="no-highlight">226</i>&nbsp;                                                     rollbackEndLSN);
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        periodList.add(underConstructionPeriod);</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;    } </b>
+<i class="no-highlight">229</i>&nbsp;
+<i class="no-highlight">230</i>&nbsp;    /**
+<i class="no-highlight">231</i>&nbsp;     * Construction Pass: A RollbackStart is seen. Might be the matching
+<i class="no-highlight">232</i>&nbsp;     * one for the current period, or it might be a new period.
+<i class="no-highlight">233</i>&nbsp;     */
+<i class="no-highlight">234</i>&nbsp;    void register(RollbackStart rollbackStart, long rollbackStartLSN) {
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        assertFirstPass(rollbackStartLSN);</b>
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;        /* There&#39;s no rollback period going on, start a new one. */
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        if ((underConstructionPeriod != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            (underConstructionPeriod.makeNestedPeriod(rollbackStart, </b>
+<i class="no-highlight">240</i>&nbsp;                                                      rollbackStartLSN))) {
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            return;</b>
+<i class="no-highlight">242</i>&nbsp;        }
+<i class="no-highlight">243</i>&nbsp;            
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        underConstructionPeriod = new RollbackPeriod(this,</b>
+<i class="no-highlight">245</i>&nbsp;                                                     rollbackStart,
+<i class="no-highlight">246</i>&nbsp;                                                     rollbackStartLSN);
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        periodList.add(underConstructionPeriod);</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;    } </b>
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /**
+<i class="no-highlight">251</i>&nbsp;     * A TxnCommit showed up on the construction pass. If it&#39;s a replicated
+<i class="no-highlight">252</i>&nbsp;     * txn, check if it&#39;s in a valid place. It should not be within the
+<i class="no-highlight">253</i>&nbsp;     * rollback period.
+<i class="no-highlight">254</i>&nbsp;     *
+<i class="no-highlight">255</i>&nbsp;     * Omit commits for internal, non-replicated transactions from this check.
+<i class="no-highlight">256</i>&nbsp;     */
+<i class="no-highlight">257</i>&nbsp;    void checkCommit(long commitLSN, long txnId) {
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        assertFirstPass(commitLSN);</b>
+<i class="no-highlight">259</i>&nbsp;
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        if (!TxnManager.isReplicatedTxn(txnId)) {</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;            return;</b>
+<i class="no-highlight">262</i>&nbsp;        }
+<i class="no-highlight">263</i>&nbsp;        
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        if (underConstructionPeriod == null) {</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;            return;</b>
+<i class="no-highlight">266</i>&nbsp;        }
+<i class="no-highlight">267</i>&nbsp;
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        if (underConstructionPeriod.contains(commitLSN)) {</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;            underConstructionPeriod.fail(&quot;Commit at &quot; + </b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;                                         DbLsn.getNoFormatString(commitLSN) +</b>
+<i class="no-highlight">271</i>&nbsp;                                         &quot; is within rollback period.&quot;);
+<i class="no-highlight">272</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">273</i>&nbsp;    }</b>
+<i class="no-highlight">274</i>&nbsp;
+<i class="no-highlight">275</i>&nbsp;    /* 
+<i class="no-highlight">276</i>&nbsp;     * Set the checkpoint start before we begin marking rollback periods, so we
+<i class="no-highlight">277</i>&nbsp;     * know that we can ignore periods that are before the checkpoint start.
+<i class="no-highlight">278</i>&nbsp;     */
+<i class="no-highlight">279</i>&nbsp;    void setCheckpointStart(long lsn) {
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        checkpointStart = lsn;</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;    }</b>
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;    long getCheckpointStart() {
+<b class="nc"><i class="no-highlight">284</i>&nbsp;        return checkpointStart;</b>
+<i class="no-highlight">285</i>&nbsp;    }
+<i class="no-highlight">286</i>&nbsp;
+<i class="no-highlight">287</i>&nbsp;    EnvironmentImpl getEnvImpl() {
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        return envImpl;</b>
+<i class="no-highlight">289</i>&nbsp;    }
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;    /* For unit tests */
+<i class="no-highlight">292</i>&nbsp;    List&lt;RollbackPeriod&gt; getPeriodList() {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        return periodList;</b>
+<i class="no-highlight">294</i>&nbsp;    }
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;    void setFirstPass(boolean firstUndoPass) {
+<b class="nc"><i class="no-highlight">297</i>&nbsp;        this.firstUndoPass = firstUndoPass;</b>
+<b class="nc"><i class="no-highlight">298</i>&nbsp;    }</b>
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;    /** 
+<i class="no-highlight">301</i>&nbsp;     * A Scanner is a cursor over the tracker&#39;s rollback periods.
+<i class="no-highlight">302</i>&nbsp;     */
+<i class="no-highlight">303</i>&nbsp;    Scanner getScanner() {
+<b class="nc"><i class="no-highlight">304</i>&nbsp;        if (firstUndoPass) {</b>
+<i class="no-highlight">305</i>&nbsp;
+<i class="no-highlight">306</i>&nbsp;            /* 
+<i class="no-highlight">307</i>&nbsp;             * The RollbackTracker is being built, and we need a special
+<i class="no-highlight">308</i>&nbsp;             * scanner that can use the rollback period map while it is in an
+<i class="no-highlight">309</i>&nbsp;             * incomplete state. This is only needed for JE log versions that
+<i class="no-highlight">310</i>&nbsp;             * use MapLN_TXNAL, which are 2.0 and earlier.
+<i class="no-highlight">311</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            return new UnderConstructionScanner();</b>
+<i class="no-highlight">313</i>&nbsp;        }
+<i class="no-highlight">314</i>&nbsp;
+<b class="nc"><i class="no-highlight">315</i>&nbsp;        return new BackwardScanner();</b>
+<i class="no-highlight">316</i>&nbsp;    }
+<i class="no-highlight">317</i>&nbsp;
+<i class="no-highlight">318</i>&nbsp;    /**
+<i class="no-highlight">319</i>&nbsp;     * Flip the invisible bit for each lsn in rollbackLsns. Collect the 
+<i class="no-highlight">320</i>&nbsp;     * corresponding unique set of file numbers and add them to fileNums.
+<i class="no-highlight">321</i>&nbsp;     */
+<i class="no-highlight">322</i>&nbsp;    private static void setInvisible(EnvironmentImpl envImpl,
+<i class="no-highlight">323</i>&nbsp;                                     List&lt;Long&gt; rollbackLsns,
+<i class="no-highlight">324</i>&nbsp;                                     Set&lt;Long&gt; filesToFsync) {
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        if (rollbackLsns.size() == 0) {</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            return;</b>
+<i class="no-highlight">327</i>&nbsp;        }
+<i class="no-highlight">328</i>&nbsp;
+<i class="no-highlight">329</i>&nbsp;        /* 
+<i class="no-highlight">330</i>&nbsp;         * Sort so that the entries are made invisible in disk order for better
+<i class="no-highlight">331</i>&nbsp;         * efficiency.
+<i class="no-highlight">332</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">333</i>&nbsp;        FileManager fileManager = envImpl.getFileManager();</b>
+<i class="no-highlight">334</i>&nbsp;
+<b class="nc"><i class="no-highlight">335</i>&nbsp;        Collections.sort(rollbackLsns);</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        List&lt;Long&gt; perFileLsns = new ArrayList&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;        long currentFileNum = -1;</b>
+<i class="no-highlight">338</i>&nbsp;
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        for (Long lsn : rollbackLsns) {</b>
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;            /* See if we have moved to a new file. */
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            if (DbLsn.getFileNumber(lsn) != currentFileNum) {</b>
+<i class="no-highlight">343</i>&nbsp;                /*
+<i class="no-highlight">344</i>&nbsp;                 * We&#39;ve moved on to a new file. Make the previous set of
+<i class="no-highlight">345</i>&nbsp;                 * lsns invisible.
+<i class="no-highlight">346</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">347</i>&nbsp;                fileManager.makeInvisible(currentFileNum, perFileLsns);</b>
+<i class="no-highlight">348</i>&nbsp;
+<b class="nc"><i class="no-highlight">349</i>&nbsp;                currentFileNum = DbLsn.getFileNumber(lsn);</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;                filesToFsync.add(currentFileNum);</b>
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;                /* make a new set to house the lsns for the next file. */
+<b class="nc"><i class="no-highlight">353</i>&nbsp;                perFileLsns = new ArrayList&lt;Long&gt;();</b>
+<i class="no-highlight">354</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            perFileLsns.add(lsn);</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        }</b>
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;        /* Take care of the last set. */
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        fileManager.makeInvisible(currentFileNum, perFileLsns);</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;    }</b>
+<i class="no-highlight">361</i>&nbsp;
+<i class="no-highlight">362</i>&nbsp;    /* 
+<i class="no-highlight">363</i>&nbsp;     * Flip the invisible bit for the rollback set of lsns, in lsn order.
+<i class="no-highlight">364</i>&nbsp;     * Fsync the set of files represented in this collection of lsns. Used by
+<i class="no-highlight">365</i>&nbsp;     * syncup rollback.
+<i class="no-highlight">366</i>&nbsp;     */
+<i class="no-highlight">367</i>&nbsp;    public static void makeInvisible(EnvironmentImpl targetEnvImpl,
+<i class="no-highlight">368</i>&nbsp;                                     List&lt;Long&gt; rollbackLsns) {
+<i class="no-highlight">369</i>&nbsp;
+<b class="nc"><i class="no-highlight">370</i>&nbsp;        Set&lt;Long&gt; fsyncFiles = new HashSet&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;        setInvisible(targetEnvImpl, rollbackLsns, fsyncFiles);</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;        targetEnvImpl.getFileManager().force(fsyncFiles);</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;    }</b>
+<i class="no-highlight">374</i>&nbsp;
+<i class="no-highlight">375</i>&nbsp;    /**
+<i class="no-highlight">376</i>&nbsp;     * At the end of a recovery pass, write out all invisible bits, save
+<i class="no-highlight">377</i>&nbsp;     * a set of file numbers to fsync, and reinitialize the per-pass list
+<i class="no-highlight">378</i>&nbsp;     * for the next round.
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    void singlePassSetInvisible() {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        if (envImpl.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;            return;</b>
+<i class="no-highlight">383</i>&nbsp;        }
+<i class="no-highlight">384</i>&nbsp;
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        setInvisible(envImpl, </b>
+<i class="no-highlight">386</i>&nbsp;                     singlePassInvisibleLsns, 
+<i class="no-highlight">387</i>&nbsp;                     recoveryFilesToSync);
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        singlePassInvisibleLsns = new ArrayList&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;    }</b>
+<i class="no-highlight">390</i>&nbsp;
+<i class="no-highlight">391</i>&nbsp;    void recoveryEndFsyncInvisible() {
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        if (envImpl.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            return;</b>
+<i class="no-highlight">394</i>&nbsp;        }
+<i class="no-highlight">395</i>&nbsp;
+<b class="nc"><i class="no-highlight">396</i>&nbsp;        envImpl.getFileManager().force(recoveryFilesToSync);</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;    }</b>
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;    /**
+<i class="no-highlight">400</i>&nbsp;     * Count an LN obsolete that is being made invisble by rollback.
+<i class="no-highlight">401</i>&nbsp;     *
+<i class="no-highlight">402</i>&nbsp;     * Use inexact counting.  Since invisible entries are not processed by the
+<i class="no-highlight">403</i>&nbsp;     * cleaner, recording the obsolete offset would be a waste of resources.
+<i class="no-highlight">404</i>&nbsp;     * Since we don&#39;t count offsets, we don&#39;t need to worry about duplicate
+<i class="no-highlight">405</i>&nbsp;     * offsets.
+<i class="no-highlight">406</i>&nbsp;     *
+<i class="no-highlight">407</i>&nbsp;     * Some entries may be double counted if they were previously counted
+<i class="no-highlight">408</i>&nbsp;     * obsolete, for example, when multiple versions of an LN were logged.
+<i class="no-highlight">409</i>&nbsp;     * This is tolerated for an exceptional situation like rollback.
+<i class="no-highlight">410</i>&nbsp;     */
+<i class="no-highlight">411</i>&nbsp;    private void countObsolete(long undoLsn,
+<i class="no-highlight">412</i>&nbsp;                               UndoReader undo,
+<i class="no-highlight">413</i>&nbsp;                               RecoveryUtilizationTracker tracker) {
+<b class="nc"><i class="no-highlight">414</i>&nbsp;        tracker.countObsoleteUnconditional</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;            (undoLsn,</b>
+<i class="no-highlight">416</i>&nbsp;             null /*type*/,
+<i class="no-highlight">417</i>&nbsp;             undo.logEntrySize,
+<b class="nc"><i class="no-highlight">418</i>&nbsp;             undo.db.getId(),</b>
+<i class="no-highlight">419</i>&nbsp;             false /*countExact*/);
+<b class="nc"><i class="no-highlight">420</i>&nbsp;    }</b>
+<i class="no-highlight">421</i>&nbsp;
+<i class="no-highlight">422</i>&nbsp;    @Override
+<i class="no-highlight">423</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">424</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;        for (RollbackPeriod period : periodList) {</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;            sb.append(period).append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">429</i>&nbsp;    }
+<i class="no-highlight">430</i>&nbsp;
+<i class="no-highlight">431</i>&nbsp;    private void assertFirstPass(long logLSN) {
+<b class="nc"><i class="no-highlight">432</i>&nbsp;        if (!firstUndoPass) {</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            throw new EnvironmentFailureException</b>
+<i class="no-highlight">434</i>&nbsp;                (envImpl,
+<i class="no-highlight">435</i>&nbsp;                 EnvironmentFailureReason.UNEXPECTED_STATE,
+<b class="nc"><i class="no-highlight">436</i>&nbsp;                 &quot;Saw entry at &quot; + DbLsn.getNoFormatString(logLSN) +</b>
+<i class="no-highlight">437</i>&nbsp;                 &quot;Should only be building the tracker on the first pass&quot;);
+<i class="no-highlight">438</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">439</i>&nbsp;    }</b>
+<i class="no-highlight">440</i>&nbsp;
+<i class="no-highlight">441</i>&nbsp;    /**
+<i class="no-highlight">442</i>&nbsp;     * A Scanner is to process LNs during a recovery pass. It determines
+<i class="no-highlight">443</i>&nbsp;     * whether this log entry is within the rollback period, and should be
+<i class="no-highlight">444</i>&nbsp;     * accordingly undone or ignored. It serves as a sort of cursor or iterator
+<i class="no-highlight">445</i>&nbsp;     * that works with the rollback tracker.
+<i class="no-highlight">446</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">447</i>&nbsp;    abstract class Scanner {</b>
+<i class="no-highlight">448</i>&nbsp;
+<i class="no-highlight">449</i>&nbsp;        /* 
+<i class="no-highlight">450</i>&nbsp;         * The target period is the one which houses the LNs that will be
+<i class="no-highlight">451</i>&nbsp;         * rolled back. 
+<i class="no-highlight">452</i>&nbsp;         */
+<i class="no-highlight">453</i>&nbsp;        RollbackPeriod target;
+<i class="no-highlight">454</i>&nbsp;
+<i class="no-highlight">455</i>&nbsp;        /**
+<i class="no-highlight">456</i>&nbsp;         * Return true if this transactional log entry is something that should
+<i class="no-highlight">457</i>&nbsp;         * be rolled back in this rollback period. The Scanner&#39;s position can
+<i class="no-highlight">458</i>&nbsp;         * be changed by this call. Update the target field if necessary.
+<i class="no-highlight">459</i>&nbsp;         */
+<i class="no-highlight">460</i>&nbsp;        abstract boolean positionAndCheck(long lsn, long txnId);
+<i class="no-highlight">461</i>&nbsp;
+<i class="no-highlight">462</i>&nbsp;        /**
+<i class="no-highlight">463</i>&nbsp;         * Rollback the filereader&#39;s current LN_TX. This assumes that the the
+<i class="no-highlight">464</i>&nbsp;         * caller has ascertained that the LN is contained within this rollback
+<i class="no-highlight">465</i>&nbsp;         * period.
+<i class="no-highlight">466</i>&nbsp;         */
+<i class="no-highlight">467</i>&nbsp;        public void rollback(Long txnId,
+<i class="no-highlight">468</i>&nbsp;                             LNFileReader reader,
+<i class="no-highlight">469</i>&nbsp;                             RecoveryUtilizationTracker tracker) {
+<i class="no-highlight">470</i>&nbsp;
+<i class="no-highlight">471</i>&nbsp;            /* 
+<i class="no-highlight">472</i>&nbsp;             * If this period is before the checkpoint start, we need not
+<i class="no-highlight">473</i>&nbsp;             * repeat the partial rollback. 
+<i class="no-highlight">474</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">475</i>&nbsp;            if (target.beforeCheckpointStart()) {</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;                return;</b>
+<i class="no-highlight">477</i>&nbsp;            }
+<i class="no-highlight">478</i>&nbsp;
+<b class="nc"><i class="no-highlight">479</i>&nbsp;            long undoLsn = reader.getLastLsn();</b>
+<i class="no-highlight">480</i>&nbsp;
+<b class="nc"><i class="no-highlight">481</i>&nbsp;            DbTree dbTree = envImpl.getDbTree();</b>
+<i class="no-highlight">482</i>&nbsp;
+<b class="nc"><i class="no-highlight">483</i>&nbsp;            UndoReader undo = UndoReader.createForRecovery(reader, dbTree);</b>
+<i class="no-highlight">484</i>&nbsp;
+<b class="nc"><i class="no-highlight">485</i>&nbsp;            if (undo == null) {</b>
+<i class="no-highlight">486</i>&nbsp;                /* Database of LN has been deleted. [#22052] */
+<b class="nc"><i class="no-highlight">487</i>&nbsp;                return;</b>
+<i class="no-highlight">488</i>&nbsp;            }
+<i class="no-highlight">489</i>&nbsp;        
+<i class="no-highlight">490</i>&nbsp;            /* Get the TxnChain for this log entry. */
+<b class="nc"><i class="no-highlight">491</i>&nbsp;            TxnChain chain = target.getChain(txnId, undoLsn, envImpl);</b>
+<i class="no-highlight">492</i>&nbsp;
+<i class="no-highlight">493</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">494</i>&nbsp;                RevertInfo revertTo = chain.pop();</b>
+<i class="no-highlight">495</i>&nbsp;
+<i class="no-highlight">496</i>&nbsp;                /*
+<i class="no-highlight">497</i>&nbsp;                 * When we undo this log entry, we&#39;ve logically truncated it
+<i class="no-highlight">498</i>&nbsp;                 * from the log. Remove it from the btree and mark it obsolete.
+<i class="no-highlight">499</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">500</i>&nbsp;                RecoveryManager.rollbackUndo(</b>
+<b class="nc"><i class="no-highlight">501</i>&nbsp;                    envImpl.getLogger(), Level.FINER, new TreeLocation(),</b>
+<i class="no-highlight">502</i>&nbsp;                    undo.db, undo.logEntry, undoLsn, revertTo);
+<i class="no-highlight">503</i>&nbsp;
+<b class="nc"><i class="no-highlight">504</i>&nbsp;                if (!target.hasRollbackEnd()) {</b>
+<i class="no-highlight">505</i>&nbsp;
+<i class="no-highlight">506</i>&nbsp;                    /* 
+<i class="no-highlight">507</i>&nbsp;                     * We&#39;re not positive that the fsync of the invisible log
+<i class="no-highlight">508</i>&nbsp;                     * entries happened. Make it invisible again.  
+<i class="no-highlight">509</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                    if (!reader.isInvisible()) {</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                        singlePassInvisibleLsns.add(undoLsn);</b>
+<i class="no-highlight">512</i>&nbsp;                    }
+<i class="no-highlight">513</i>&nbsp;                }
+<i class="no-highlight">514</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">515</i>&nbsp;                dbTree.releaseDb(undo.db);</b>
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            }</b>
+<i class="no-highlight">517</i>&nbsp;
+<b class="nc"><i class="no-highlight">518</i>&nbsp;            countObsolete(undoLsn, undo, tracker);</b>
+<b class="nc"><i class="no-highlight">519</i>&nbsp;        }</b>
+<i class="no-highlight">520</i>&nbsp;
+<i class="no-highlight">521</i>&nbsp;        /* For unit tests */
+<i class="no-highlight">522</i>&nbsp;        boolean needsRollback() {
+<b class="nc"><i class="no-highlight">523</i>&nbsp;            if (target == null) {</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;                return false;</b>
+<i class="no-highlight">525</i>&nbsp;            }
+<i class="no-highlight">526</i>&nbsp;
+<b class="nc"><i class="no-highlight">527</i>&nbsp;            return !target.beforeCheckpointStart();</b>
+<i class="no-highlight">528</i>&nbsp;        }
+<i class="no-highlight">529</i>&nbsp;    }
+<i class="no-highlight">530</i>&nbsp;
+<b class="nc"><i class="no-highlight">531</i>&nbsp;    class UnderConstructionScanner extends Scanner {</b>
+<i class="no-highlight">532</i>&nbsp;
+<i class="no-highlight">533</i>&nbsp;        @Override
+<i class="no-highlight">534</i>&nbsp;        public boolean positionAndCheck(long lsn, long txnId) {
+<i class="no-highlight">535</i>&nbsp;
+<b class="nc"><i class="no-highlight">536</i>&nbsp;            if (underConstructionPeriod == null) {</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;                return false;</b>
+<i class="no-highlight">538</i>&nbsp;            }
+<i class="no-highlight">539</i>&nbsp;
+<b class="nc"><i class="no-highlight">540</i>&nbsp;            assert underConstructionPeriod.notInRollbackStartAndEnd</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;                (lsn, txnId) :</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;               underConstructionPeriod.bracketFailure(lsn);</b>
+<i class="no-highlight">543</i>&nbsp;
+<b class="nc"><i class="no-highlight">544</i>&nbsp;            target = underConstructionPeriod.getScannerTarget(lsn);</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;            if ((target != null) &amp;&amp; (target.containsLN(lsn, txnId))) {</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;                return true;</b>
+<i class="no-highlight">547</i>&nbsp;            }
+<i class="no-highlight">548</i>&nbsp;
+<b class="nc"><i class="no-highlight">549</i>&nbsp;            return false;</b>
+<i class="no-highlight">550</i>&nbsp;        }
+<i class="no-highlight">551</i>&nbsp;    }
+<i class="no-highlight">552</i>&nbsp;
+<i class="no-highlight">553</i>&nbsp;    /**
+<i class="no-highlight">554</i>&nbsp;     * In a backward scanner, the currentPeriod field is always pointing to the
+<i class="no-highlight">555</i>&nbsp;     * period that contains this lsn. If the lsn is not in a period, the
+<i class="no-highlight">556</i>&nbsp;     * currentPeriod is the period that is just before this lsn. If there is no
+<i class="no-highlight">557</i>&nbsp;     * period before this lsn, the currentPeriod field is null.
+<i class="no-highlight">558</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">559</i>&nbsp;    class BackwardScanner extends Scanner {</b>
+<i class="no-highlight">560</i>&nbsp;        private final Iterator&lt;RollbackPeriod&gt; iter;
+<i class="no-highlight">561</i>&nbsp;
+<i class="no-highlight">562</i>&nbsp;        /* 
+<i class="no-highlight">563</i>&nbsp;         * The current period is the period where the scanner is currently
+<i class="no-highlight">564</i>&nbsp;         * posed. It is one of the top level periods in the scanner.  When
+<i class="no-highlight">565</i>&nbsp;         * rollback periods are nested, currentPeriod may not equal target.
+<i class="no-highlight">566</i>&nbsp;         */
+<i class="no-highlight">567</i>&nbsp;        private RollbackPeriod currentPeriod;
+<i class="no-highlight">568</i>&nbsp;
+<b class="nc"><i class="no-highlight">569</i>&nbsp;        BackwardScanner() {</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;            this.iter = periodList.iterator();</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;            if (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">572</i>&nbsp;                currentPeriod = iter.next();</b>
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                currentPeriod.initChildIter();</b>
+<i class="no-highlight">574</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                currentPeriod = null;</b>
+<i class="no-highlight">576</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">577</i>&nbsp;        }</b>
+<i class="no-highlight">578</i>&nbsp;
+<i class="no-highlight">579</i>&nbsp;        @Override
+<i class="no-highlight">580</i>&nbsp;        public boolean positionAndCheck(long lsn, long txnId) {
+<b class="nc"><i class="no-highlight">581</i>&nbsp;            if (currentPeriod == null) {</b>
+<b class="nc"><i class="no-highlight">582</i>&nbsp;                return false;</b>
+<i class="no-highlight">583</i>&nbsp;            }
+<i class="no-highlight">584</i>&nbsp;
+<b class="nc"><i class="no-highlight">585</i>&nbsp;            if (currentPeriod.follows(lsn)) {</b>
+<i class="no-highlight">586</i>&nbsp;
+<i class="no-highlight">587</i>&nbsp;                /* 
+<i class="no-highlight">588</i>&nbsp;                 * We&#39;ve passed out of the currentPeriod. Look for a new one
+<i class="no-highlight">589</i>&nbsp;                 * that might cover this lsn.
+<i class="no-highlight">590</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">591</i>&nbsp;                if (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">592</i>&nbsp;                    currentPeriod = iter.next();</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;                    currentPeriod.initChildIter();</b>
+<i class="no-highlight">594</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">595</i>&nbsp;                    currentPeriod = null;</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                    return false;</b>
+<i class="no-highlight">597</i>&nbsp;                }
+<i class="no-highlight">598</i>&nbsp;            }
+<i class="no-highlight">599</i>&nbsp;
+<b class="nc"><i class="no-highlight">600</i>&nbsp;            assert currentPeriod.notInRollbackStartAndEnd(lsn, txnId) :</b>
+<b class="nc"><i class="no-highlight">601</i>&nbsp;               currentPeriod.bracketFailure(lsn);</b>
+<i class="no-highlight">602</i>&nbsp;
+<b class="nc"><i class="no-highlight">603</i>&nbsp;            if (currentPeriod.contains(lsn)) {</b>
+<i class="no-highlight">604</i>&nbsp;
+<i class="no-highlight">605</i>&nbsp;                /* 
+<i class="no-highlight">606</i>&nbsp;                 * Make the stack of periods point to the one that contains
+<i class="no-highlight">607</i>&nbsp;                 * this lsn, or which precedes this lsn.
+<i class="no-highlight">608</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">609</i>&nbsp;                currentPeriod.positionChildren(lsn);</b>
+<i class="no-highlight">610</i>&nbsp;
+<i class="no-highlight">611</i>&nbsp;                /* 
+<i class="no-highlight">612</i>&nbsp;                 * See if any period contains this lsn. There might not be a
+<i class="no-highlight">613</i>&nbsp;                 * target if the lsn was aborted or committed already at the
+<i class="no-highlight">614</i>&nbsp;                 * time of rollback.
+<i class="no-highlight">615</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">616</i>&nbsp;                target = currentPeriod.findTarget(lsn, txnId);</b>
+<b class="nc"><i class="no-highlight">617</i>&nbsp;                return (target != null);</b>
+<i class="no-highlight">618</i>&nbsp;            } 
+<i class="no-highlight">619</i>&nbsp;
+<b class="nc"><i class="no-highlight">620</i>&nbsp;            return false;</b>
+<i class="no-highlight">621</i>&nbsp;        }
+<i class="no-highlight">622</i>&nbsp;    }
+<i class="no-highlight">623</i>&nbsp; 
+<i class="no-highlight">624</i>&nbsp;    /**
+<i class="no-highlight">625</i>&nbsp;     * A RollbackPeriod describes a section of the log that is logically
+<i class="no-highlight">626</i>&nbsp;     * truncated.
+<i class="no-highlight">627</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">628</i>&nbsp;    static class RollbackPeriod {</b>
+<i class="no-highlight">629</i>&nbsp;        private final RollbackTracker tracker;
+<i class="no-highlight">630</i>&nbsp;        private final long matchpointLSN;    // start of period
+<i class="no-highlight">631</i>&nbsp;        private final long rollbackStartLSN; // end of period
+<i class="no-highlight">632</i>&nbsp;        private final long rollbackEndLSN;   // for debugging and sanity checks
+<i class="no-highlight">633</i>&nbsp;
+<i class="no-highlight">634</i>&nbsp;        /* 
+<i class="no-highlight">635</i>&nbsp;         * lsn of the checkpoint start, to  determine if this rollback period
+<i class="no-highlight">636</i>&nbsp;         * needs to be used.
+<i class="no-highlight">637</i>&nbsp;         */
+<i class="no-highlight">638</i>&nbsp;        private final boolean beforeCheckpointStart;
+<i class="no-highlight">639</i>&nbsp;
+<i class="no-highlight">640</i>&nbsp;        /* 
+<i class="no-highlight">641</i>&nbsp;         * The transactions that were rolled back for this rollback period,
+<i class="no-highlight">642</i>&nbsp;         * which were logged in the RollbackStart entry.
+<i class="no-highlight">643</i>&nbsp;         */
+<i class="no-highlight">644</i>&nbsp;        private Set&lt;Long&gt; activeTxnIds;
+<i class="no-highlight">645</i>&nbsp;
+<i class="no-highlight">646</i>&nbsp;        /*
+<i class="no-highlight">647</i>&nbsp;         * The txn chain constructed to support rollback to an earlier version.
+<i class="no-highlight">648</i>&nbsp;         */
+<i class="no-highlight">649</i>&nbsp;        private final Map&lt;Long, TxnChain&gt; txnChainMap;
+<i class="no-highlight">650</i>&nbsp;
+<i class="no-highlight">651</i>&nbsp;        /* Nested rollbacks. */
+<i class="no-highlight">652</i>&nbsp;        private final List&lt;RollbackPeriod&gt; children;
+<b class="nc"><i class="no-highlight">653</i>&nbsp;        private RollbackPeriod currentChild = null;</b>
+<i class="no-highlight">654</i>&nbsp;        private Iterator&lt;RollbackPeriod&gt; childIter;
+<i class="no-highlight">655</i>&nbsp;
+<i class="no-highlight">656</i>&nbsp;        RollbackPeriod(RollbackTracker tracker,
+<i class="no-highlight">657</i>&nbsp;                       RollbackEnd rollbackEnd, 
+<i class="no-highlight">658</i>&nbsp;                       long rollbackEndLSN) {
+<b class="nc"><i class="no-highlight">659</i>&nbsp;            this(tracker,</b>
+<b class="nc"><i class="no-highlight">660</i>&nbsp;                 rollbackEnd.getMatchpoint(),</b>
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                 rollbackEnd.getRollbackStart(),</b>
+<i class="no-highlight">662</i>&nbsp;                 rollbackEndLSN,
+<b class="nc"><i class="no-highlight">663</i>&nbsp;                 tracker.getCheckpointStart(),</b>
+<i class="no-highlight">664</i>&nbsp;                 null);   // activeTxnIds
+<i class="no-highlight">665</i>&nbsp;        }
+<i class="no-highlight">666</i>&nbsp;
+<i class="no-highlight">667</i>&nbsp;        RollbackPeriod(RollbackTracker tracker,
+<i class="no-highlight">668</i>&nbsp;                       RollbackStart rollbackStart, 
+<i class="no-highlight">669</i>&nbsp;                       long rollbackStartLSN) {
+<b class="nc"><i class="no-highlight">670</i>&nbsp;            this(tracker,</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                 rollbackStart.getMatchpoint(),</b>
+<i class="no-highlight">672</i>&nbsp;                 rollbackStartLSN,
+<i class="no-highlight">673</i>&nbsp;                 DbLsn.NULL_LSN,     // rollbackendLSN;
+<b class="nc"><i class="no-highlight">674</i>&nbsp;                 tracker.getCheckpointStart(),</b>
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                 rollbackStart.getActiveTxnIds());</b>
+<i class="no-highlight">676</i>&nbsp;        }
+<i class="no-highlight">677</i>&nbsp;
+<i class="no-highlight">678</i>&nbsp;        /* For unit testing only. */
+<i class="no-highlight">679</i>&nbsp;        RollbackPeriod(long matchpointLSN,
+<i class="no-highlight">680</i>&nbsp;                       long rollbackStartLSN,
+<i class="no-highlight">681</i>&nbsp;                       long rollbackEndLSN,
+<i class="no-highlight">682</i>&nbsp;                       long checkpointStart) {
+<b class="nc"><i class="no-highlight">683</i>&nbsp;            this(null, matchpointLSN, rollbackStartLSN, rollbackEndLSN, </b>
+<i class="no-highlight">684</i>&nbsp;                 checkpointStart, null /*activeTxnIds*/);
+<i class="no-highlight">685</i>&nbsp;        }
+<i class="no-highlight">686</i>&nbsp;
+<i class="no-highlight">687</i>&nbsp;
+<i class="no-highlight">688</i>&nbsp;        private RollbackPeriod(RollbackTracker tracker,
+<i class="no-highlight">689</i>&nbsp;                               long matchpointLSN,
+<i class="no-highlight">690</i>&nbsp;                               long rollbackStartLSN,
+<i class="no-highlight">691</i>&nbsp;                               long rollbackEndLSN,
+<i class="no-highlight">692</i>&nbsp;                               long checkpointStart,
+<b class="nc"><i class="no-highlight">693</i>&nbsp;                               Set&lt;Long&gt; activeTxnIds) {</b>
+<b class="nc"><i class="no-highlight">694</i>&nbsp;            this.tracker = tracker;</b>
+<b class="nc"><i class="no-highlight">695</i>&nbsp;            this.matchpointLSN = matchpointLSN;</b>
+<b class="nc"><i class="no-highlight">696</i>&nbsp;            this.rollbackStartLSN = rollbackStartLSN;</b>
+<b class="nc"><i class="no-highlight">697</i>&nbsp;            this.rollbackEndLSN = rollbackEndLSN;</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;            this.beforeCheckpointStart = calcBeforeCheckpoint(checkpointStart);</b>
+<b class="nc"><i class="no-highlight">699</i>&nbsp;            txnChainMap = new HashMap&lt;Long, TxnChain&gt;();</b>
+<b class="nc"><i class="no-highlight">700</i>&nbsp;            children = new ArrayList&lt;RollbackPeriod&gt;();</b>
+<b class="nc"><i class="no-highlight">701</i>&nbsp;            this.activeTxnIds = activeTxnIds;</b>
+<i class="no-highlight">702</i>&nbsp;        }
+<i class="no-highlight">703</i>&nbsp;
+<i class="no-highlight">704</i>&nbsp;        private boolean calcBeforeCheckpoint(long checkpointStart) {
+<b class="nc"><i class="no-highlight">705</i>&nbsp;            return ((checkpointStart != DbLsn.NULL_LSN) &amp;&amp;</b>
+<i class="no-highlight">706</i>&nbsp;                    (rollbackEndLSN != DbLsn.NULL_LSN) &amp;&amp;
+<b class="nc"><i class="no-highlight">707</i>&nbsp;                    (DbLsn.compareTo(rollbackEndLSN, checkpointStart) &lt; 0));</b>
+<i class="no-highlight">708</i>&nbsp;        }
+<i class="no-highlight">709</i>&nbsp;
+<i class="no-highlight">710</i>&nbsp;        /**
+<i class="no-highlight">711</i>&nbsp;         * A new RollbackEnd has been seen.
+<i class="no-highlight">712</i>&nbsp;         *
+<i class="no-highlight">713</i>&nbsp;         * @return true if the RollbackEnd belongs to a period nested within
+<i class="no-highlight">714</i>&nbsp;         * the current period. Return false if the RollbackEnd belongs to new,
+<i class="no-highlight">715</i>&nbsp;         * distinct, different period, and the current period is closed.
+<i class="no-highlight">716</i>&nbsp;         */
+<i class="no-highlight">717</i>&nbsp;        boolean makeNestedPeriod(RollbackEnd foundRBEnd, long foundLSN) {
+<b class="nc"><i class="no-highlight">718</i>&nbsp;            RollbackPeriod target = getNewPeriodTarget(foundRBEnd, foundLSN);</b>
+<b class="nc"><i class="no-highlight">719</i>&nbsp;            if (target != null) {</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;                target.makeChild(foundRBEnd, foundLSN);</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;                return true;</b>
+<i class="no-highlight">722</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">723</i>&nbsp;            return false;</b>
+<i class="no-highlight">724</i>&nbsp;        }
+<i class="no-highlight">725</i>&nbsp;
+<i class="no-highlight">726</i>&nbsp;        /**
+<i class="no-highlight">727</i>&nbsp;         * A new RollbackStart has been seen.
+<i class="no-highlight">728</i>&nbsp;         *
+<i class="no-highlight">729</i>&nbsp;         * @return true if the RollbackStart belongs to a period nested within
+<i class="no-highlight">730</i>&nbsp;         * the current period, or if it is the current period. Return false if
+<i class="no-highlight">731</i>&nbsp;         * the RollbackStart belongs to new, distinct, different period, and
+<i class="no-highlight">732</i>&nbsp;         * this current period is closed.
+<i class="no-highlight">733</i>&nbsp;         */
+<i class="no-highlight">734</i>&nbsp;        boolean makeNestedPeriod(RollbackStart foundRBStart, long foundLSN) {
+<b class="nc"><i class="no-highlight">735</i>&nbsp;            RollbackPeriod target = getNewPeriodTarget(foundRBStart, foundLSN);</b>
+<b class="nc"><i class="no-highlight">736</i>&nbsp;            if (target != null) {</b>
+<b class="nc"><i class="no-highlight">737</i>&nbsp;                if (target.isMatchingRollbackStart(foundLSN)) {</b>
+<b class="nc"><i class="no-highlight">738</i>&nbsp;                    assert target.activeTxnIds == null;</b>
+<b class="nc"><i class="no-highlight">739</i>&nbsp;                    target.activeTxnIds = foundRBStart.getActiveTxnIds();</b>
+<i class="no-highlight">740</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">741</i>&nbsp;                    target.makeChild(foundRBStart, foundLSN);</b>
+<i class="no-highlight">742</i>&nbsp;                }
+<i class="no-highlight">743</i>&nbsp;
+<i class="no-highlight">744</i>&nbsp;                /* 
+<i class="no-highlight">745</i>&nbsp;                 * Retrun true to let the caller know that it doesn&#39;t have to
+<i class="no-highlight">746</i>&nbsp;                 * make a new Rollback period. Either the RBStart did not
+<i class="no-highlight">747</i>&nbsp;                 * initiate a new period, or we made a nested child.
+<i class="no-highlight">748</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                return true;</b>
+<i class="no-highlight">750</i>&nbsp;            }
+<i class="no-highlight">751</i>&nbsp;            /* This period is closed. */
+<b class="nc"><i class="no-highlight">752</i>&nbsp;            return false;</b>
+<i class="no-highlight">753</i>&nbsp;        }
+<i class="no-highlight">754</i>&nbsp;
+<i class="no-highlight">755</i>&nbsp;        private boolean contained(RollbackEnd foundRBEnd, long foundLSN) {
+<i class="no-highlight">756</i>&nbsp;
+<i class="no-highlight">757</i>&nbsp;            /* 
+<i class="no-highlight">758</i>&nbsp;             * This RollbackEnd must either
+<i class="no-highlight">759</i>&nbsp;             * 1 - precede this period, in which case this period is closed, or
+<i class="no-highlight">760</i>&nbsp;             * 2 - be wholly contained within this period.
+<i class="no-highlight">761</i>&nbsp;             */
+<i class="no-highlight">762</i>&nbsp;
+<i class="no-highlight">763</i>&nbsp;            /* case 1 */
+<b class="nc"><i class="no-highlight">764</i>&nbsp;            if (DbLsn.compareTo(foundLSN, matchpointLSN) &lt; 0) {</b>
+<i class="no-highlight">765</i>&nbsp;                /* The found rollback end precedes this period. */
+<b class="nc"><i class="no-highlight">766</i>&nbsp;                return false;</b>
+<i class="no-highlight">767</i>&nbsp;            }
+<i class="no-highlight">768</i>&nbsp;
+<b class="nc"><i class="no-highlight">769</i>&nbsp;            if (DbLsn.compareTo(foundLSN, rollbackStartLSN) &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">770</i>&nbsp;                fail(&quot;Should not be two RollbackEnds in a row. &quot; +</b>
+<i class="no-highlight">771</i>&nbsp;                     &quot;New RollbackEnd at &quot; +
+<b class="nc"><i class="no-highlight">772</i>&nbsp;                     DbLsn.getNoFormatString(foundLSN) +</b>
+<i class="no-highlight">773</i>&nbsp;                     &quot; &quot; + foundRBEnd); 
+<i class="no-highlight">774</i>&nbsp;            }
+<i class="no-highlight">775</i>&nbsp;
+<i class="no-highlight">776</i>&nbsp;            /* 
+<i class="no-highlight">777</i>&nbsp;             * Check for compliance to the rule that this RollbackEnd does not
+<i class="no-highlight">778</i>&nbsp;             * intersect this rollback period.
+<i class="no-highlight">779</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">780</i>&nbsp;            if (!((DbLsn.compareTo(foundRBEnd.getMatchpoint(), </b>
+<i class="no-highlight">781</i>&nbsp;                                   matchpointLSN) &gt;= 0) &amp;&amp;
+<b class="nc"><i class="no-highlight">782</i>&nbsp;                  (DbLsn.compareTo(foundRBEnd.getRollbackStart(),</b>
+<i class="no-highlight">783</i>&nbsp;                                   rollbackStartLSN) &lt; 0))) {
+<b class="nc"><i class="no-highlight">784</i>&nbsp;                fail(&quot;RollbackEnd intersects current rollback period &quot; +</b>
+<b class="nc"><i class="no-highlight">785</i>&nbsp;                     foundRBEnd + &quot; at &quot; + DbLsn.getNoFormatString(foundLSN));</b>
+<i class="no-highlight">786</i>&nbsp;            }
+<i class="no-highlight">787</i>&nbsp;
+<i class="no-highlight">788</i>&nbsp;            /* case 2 */
+<b class="nc"><i class="no-highlight">789</i>&nbsp;            return true;</b>
+<i class="no-highlight">790</i>&nbsp;        }
+<i class="no-highlight">791</i>&nbsp;
+<i class="no-highlight">792</i>&nbsp;        /**
+<i class="no-highlight">793</i>&nbsp;         * @return true if the current rollback period is still open
+<i class="no-highlight">794</i>&nbsp;         */
+<i class="no-highlight">795</i>&nbsp;        private boolean contained(RollbackStart foundRBStart, long foundLSN) {
+<i class="no-highlight">796</i>&nbsp;
+<i class="no-highlight">797</i>&nbsp;            /* 
+<i class="no-highlight">798</i>&nbsp;             * This RollbackStart must:
+<i class="no-highlight">799</i>&nbsp;             *  1 - precede the current period, indicating the end of this
+<i class="no-highlight">800</i>&nbsp;             *      period.
+<i class="no-highlight">801</i>&nbsp;             *  2 - is the rolblack start that belongs to this period.
+<i class="no-highlight">802</i>&nbsp;             *  3 - be wholly contained within this period.
+<i class="no-highlight">803</i>&nbsp;             */
+<i class="no-highlight">804</i>&nbsp;
+<i class="no-highlight">805</i>&nbsp;            /* case 1 */
+<b class="nc"><i class="no-highlight">806</i>&nbsp;            if (DbLsn.compareTo(foundLSN, matchpointLSN) &lt; 0) {</b>
+<i class="no-highlight">807</i>&nbsp;                /* The found rollback start precedes this period. */
+<b class="nc"><i class="no-highlight">808</i>&nbsp;                return false;</b>
+<i class="no-highlight">809</i>&nbsp;            }
+<i class="no-highlight">810</i>&nbsp;
+<b class="nc"><i class="no-highlight">811</i>&nbsp;            if (isMatchingRollbackStart(foundLSN)) {</b>
+<b class="nc"><i class="no-highlight">812</i>&nbsp;                return true;</b>
+<i class="no-highlight">813</i>&nbsp;            }
+<i class="no-highlight">814</i>&nbsp;
+<i class="no-highlight">815</i>&nbsp;            /* Check for compliance with case 3. */
+<b class="nc"><i class="no-highlight">816</i>&nbsp;            if (!((DbLsn.compareTo(foundRBStart.getMatchpoint(), </b>
+<i class="no-highlight">817</i>&nbsp;                                   matchpointLSN) &gt;= 0) &amp;&amp;
+<b class="nc"><i class="no-highlight">818</i>&nbsp;                  (DbLsn.compareTo(foundLSN, rollbackStartLSN) &lt; 0))) {</b>
+<b class="nc"><i class="no-highlight">819</i>&nbsp;                fail(&quot;RollbackStart intersects current rollback period &quot; +</b>
+<i class="no-highlight">820</i>&nbsp;                     foundRBStart + &quot; at &quot; +
+<b class="nc"><i class="no-highlight">821</i>&nbsp;                     DbLsn.getNoFormatString(foundLSN));</b>
+<i class="no-highlight">822</i>&nbsp;            }
+<i class="no-highlight">823</i>&nbsp;
+<i class="no-highlight">824</i>&nbsp;            /* case 3. */
+<b class="nc"><i class="no-highlight">825</i>&nbsp;            return true;</b>
+<i class="no-highlight">826</i>&nbsp;        }
+<i class="no-highlight">827</i>&nbsp;
+<i class="no-highlight">828</i>&nbsp;        /**
+<i class="no-highlight">829</i>&nbsp;         * @return true if this RollbackStart entry is the one that is the
+<i class="no-highlight">830</i>&nbsp;         * RollbackStart for this open period.
+<i class="no-highlight">831</i>&nbsp;         */
+<i class="no-highlight">832</i>&nbsp;        private boolean isMatchingRollbackStart(long foundLSN) {
+<b class="nc"><i class="no-highlight">833</i>&nbsp;            return (DbLsn.compareTo(foundLSN, rollbackStartLSN) == 0);</b>
+<i class="no-highlight">834</i>&nbsp;        }
+<i class="no-highlight">835</i>&nbsp;
+<i class="no-highlight">836</i>&nbsp;        private void makeChild(RollbackEnd foundRBEnd, long foundLSN) {
+<b class="nc"><i class="no-highlight">837</i>&nbsp;            currentChild = new RollbackPeriod(tracker,</b>
+<i class="no-highlight">838</i>&nbsp;                                              foundRBEnd,  
+<i class="no-highlight">839</i>&nbsp;                                              foundLSN);
+<b class="nc"><i class="no-highlight">840</i>&nbsp;            children.add(currentChild);</b>
+<i class="no-highlight">841</i>&nbsp;        }
+<i class="no-highlight">842</i>&nbsp;
+<i class="no-highlight">843</i>&nbsp;        private void makeChild(RollbackStart foundRBStart, long foundLSN) {
+<b class="nc"><i class="no-highlight">844</i>&nbsp;            currentChild = new RollbackPeriod(tracker,</b>
+<i class="no-highlight">845</i>&nbsp;                                              foundRBStart,
+<i class="no-highlight">846</i>&nbsp;                                              foundLSN);
+<b class="nc"><i class="no-highlight">847</i>&nbsp;            children.add(currentChild);</b>
+<i class="no-highlight">848</i>&nbsp;        }
+<i class="no-highlight">849</i>&nbsp;
+<i class="no-highlight">850</i>&nbsp;        /**
+<i class="no-highlight">851</i>&nbsp;         * Return the period that should own this foundRBEnd. That may be
+<i class="no-highlight">852</i>&nbsp;         * either a nested period, or this period.
+<i class="no-highlight">853</i>&nbsp;         */
+<i class="no-highlight">854</i>&nbsp;        RollbackPeriod getNewPeriodTarget(RollbackEnd foundRBEnd,
+<i class="no-highlight">855</i>&nbsp;                                          long foundLSN) {
+<b class="nc"><i class="no-highlight">856</i>&nbsp;            if (currentChild != null) {</b>
+<b class="nc"><i class="no-highlight">857</i>&nbsp;                final RollbackPeriod target =</b>
+<b class="nc"><i class="no-highlight">858</i>&nbsp;                    currentChild.getNewPeriodTarget(foundRBEnd, foundLSN);</b>
+<b class="nc"><i class="no-highlight">859</i>&nbsp;                if (target != null) {</b>
+<b class="nc"><i class="no-highlight">860</i>&nbsp;                    return target;</b>
+<i class="no-highlight">861</i>&nbsp;                }
+<i class="no-highlight">862</i>&nbsp;            }
+<i class="no-highlight">863</i>&nbsp;
+<b class="nc"><i class="no-highlight">864</i>&nbsp;            if (contained(foundRBEnd, foundLSN)) {</b>
+<b class="nc"><i class="no-highlight">865</i>&nbsp;                return this;</b>
+<i class="no-highlight">866</i>&nbsp;            } 
+<b class="nc"><i class="no-highlight">867</i>&nbsp;            return null;</b>
+<i class="no-highlight">868</i>&nbsp;        }
+<i class="no-highlight">869</i>&nbsp;
+<i class="no-highlight">870</i>&nbsp;        /**
+<i class="no-highlight">871</i>&nbsp;         * Return the period that should own this foundRBStart. That may be
+<i class="no-highlight">872</i>&nbsp;         * either a nested period, or this period.
+<i class="no-highlight">873</i>&nbsp;         */
+<i class="no-highlight">874</i>&nbsp;        RollbackPeriod getNewPeriodTarget(RollbackStart foundRBStart,
+<i class="no-highlight">875</i>&nbsp;                                          long foundLSN) {
+<b class="nc"><i class="no-highlight">876</i>&nbsp;            if (currentChild != null) {</b>
+<b class="nc"><i class="no-highlight">877</i>&nbsp;                final RollbackPeriod target =</b>
+<b class="nc"><i class="no-highlight">878</i>&nbsp;                    currentChild.getNewPeriodTarget(foundRBStart, foundLSN);</b>
+<b class="nc"><i class="no-highlight">879</i>&nbsp;                if (target != null) {</b>
+<b class="nc"><i class="no-highlight">880</i>&nbsp;                    return target;</b>
+<i class="no-highlight">881</i>&nbsp;                }
+<i class="no-highlight">882</i>&nbsp;            }
+<i class="no-highlight">883</i>&nbsp;
+<b class="nc"><i class="no-highlight">884</i>&nbsp;            if (contained(foundRBStart, foundLSN)) {</b>
+<b class="nc"><i class="no-highlight">885</i>&nbsp;                return this;</b>
+<i class="no-highlight">886</i>&nbsp;            } 
+<b class="nc"><i class="no-highlight">887</i>&nbsp;            return null;</b>
+<i class="no-highlight">888</i>&nbsp;        }
+<i class="no-highlight">889</i>&nbsp;
+<i class="no-highlight">890</i>&nbsp;        RollbackPeriod getScannerTarget(long lsn) {
+<b class="nc"><i class="no-highlight">891</i>&nbsp;            if (currentChild != null)  {</b>
+<b class="nc"><i class="no-highlight">892</i>&nbsp;                RollbackPeriod target = currentChild.getScannerTarget(lsn);</b>
+<b class="nc"><i class="no-highlight">893</i>&nbsp;                if (target != null) {</b>
+<b class="nc"><i class="no-highlight">894</i>&nbsp;                    return target;</b>
+<i class="no-highlight">895</i>&nbsp;                }
+<i class="no-highlight">896</i>&nbsp;            }
+<i class="no-highlight">897</i>&nbsp;
+<b class="nc"><i class="no-highlight">898</i>&nbsp;            if (DbLsn.compareTo(lsn, matchpointLSN) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">899</i>&nbsp;                return this;</b>
+<i class="no-highlight">900</i>&nbsp;            } 
+<b class="nc"><i class="no-highlight">901</i>&nbsp;            return null;</b>
+<i class="no-highlight">902</i>&nbsp;        }
+<i class="no-highlight">903</i>&nbsp;
+<i class="no-highlight">904</i>&nbsp;        void initChildIter() {
+<b class="nc"><i class="no-highlight">905</i>&nbsp;            childIter = children.iterator();</b>
+<b class="nc"><i class="no-highlight">906</i>&nbsp;            if (childIter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">907</i>&nbsp;                currentChild = childIter.next();</b>
+<b class="nc"><i class="no-highlight">908</i>&nbsp;                currentChild.initChildIter();</b>
+<i class="no-highlight">909</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">910</i>&nbsp;                currentChild = null;</b>
+<i class="no-highlight">911</i>&nbsp;            }
+<i class="no-highlight">912</i>&nbsp;        }
+<i class="no-highlight">913</i>&nbsp;
+<i class="no-highlight">914</i>&nbsp;        void fail(String errorMessage) {
+<b class="nc"><i class="no-highlight">915</i>&nbsp;            throw new EnvironmentFailureException</b>
+<b class="nc"><i class="no-highlight">916</i>&nbsp;                (tracker.getEnvImpl(), </b>
+<i class="no-highlight">917</i>&nbsp;                 EnvironmentFailureReason.LOG_INTEGRITY,
+<i class="no-highlight">918</i>&nbsp;                 errorMessage + &quot;\ntracker contents=&quot; + tracker);
+<i class="no-highlight">919</i>&nbsp;        }
+<i class="no-highlight">920</i>&nbsp;
+<i class="no-highlight">921</i>&nbsp;        /**
+<i class="no-highlight">922</i>&nbsp;         * This log entry belongs to this rollback period if it lies between
+<i class="no-highlight">923</i>&nbsp;         * the matchpoint and the RollbackStart. We don&#39;t use RollbackEnd,
+<i class="no-highlight">924</i>&nbsp;         * because there may not be a RollbackEnd. Also, by definition,
+<i class="no-highlight">925</i>&nbsp;         * anything whose rollback fate is define by this period must have
+<i class="no-highlight">926</i>&nbsp;         * happened before the RollbackStart.
+<i class="no-highlight">927</i>&nbsp;         */
+<i class="no-highlight">928</i>&nbsp;        boolean contains(long lsn) {
+<b class="nc"><i class="no-highlight">929</i>&nbsp;            return (DbLsn.compareTo(matchpointLSN, lsn) &lt; 0) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">930</i>&nbsp;                (DbLsn.compareTo(rollbackStartLSN, lsn) &gt; 0);</b>
+<i class="no-highlight">931</i>&nbsp;        }
+<i class="no-highlight">932</i>&nbsp;
+<i class="no-highlight">933</i>&nbsp;        boolean containsLN(long lsn, long txnId) {
+<b class="nc"><i class="no-highlight">934</i>&nbsp;            return contains(lsn) &amp;&amp; activeTxnIds.contains(txnId);</b>
+<i class="no-highlight">935</i>&nbsp;        }
+<i class="no-highlight">936</i>&nbsp;
+<i class="no-highlight">937</i>&nbsp;        void positionChildren(long lsn) {
+<b class="nc"><i class="no-highlight">938</i>&nbsp;            if (currentChild == null)</b>
+<i class="no-highlight">939</i>&nbsp;                return;
+<i class="no-highlight">940</i>&nbsp;
+<b class="nc"><i class="no-highlight">941</i>&nbsp;            if (currentChild.follows(lsn)) {</b>
+<b class="nc"><i class="no-highlight">942</i>&nbsp;                if (childIter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">943</i>&nbsp;                    currentChild = childIter.next();</b>
+<b class="nc"><i class="no-highlight">944</i>&nbsp;                    currentChild.initChildIter();</b>
+<i class="no-highlight">945</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">946</i>&nbsp;                    currentChild = null;</b>
+<i class="no-highlight">947</i>&nbsp;                    return;
+<i class="no-highlight">948</i>&nbsp;                }
+<i class="no-highlight">949</i>&nbsp;            } 
+<i class="no-highlight">950</i>&nbsp;
+<b class="nc"><i class="no-highlight">951</i>&nbsp;            currentChild.positionChildren(lsn);</b>
+<i class="no-highlight">952</i>&nbsp;        }
+<i class="no-highlight">953</i>&nbsp;
+<i class="no-highlight">954</i>&nbsp;        RollbackPeriod findTarget(long lsn, long txnId) {
+<i class="no-highlight">955</i>&nbsp;            
+<b class="nc"><i class="no-highlight">956</i>&nbsp;            if (currentChild != null) {</b>
+<b class="nc"><i class="no-highlight">957</i>&nbsp;                final RollbackPeriod candidate = </b>
+<b class="nc"><i class="no-highlight">958</i>&nbsp;                    currentChild.findTarget(lsn, txnId);</b>
+<b class="nc"><i class="no-highlight">959</i>&nbsp;                if (candidate != null) {</b>
+<b class="nc"><i class="no-highlight">960</i>&nbsp;                    return candidate;</b>
+<i class="no-highlight">961</i>&nbsp;                }
+<i class="no-highlight">962</i>&nbsp;            } 
+<i class="no-highlight">963</i>&nbsp;             
+<b class="nc"><i class="no-highlight">964</i>&nbsp;            if (containsLN(lsn, txnId)) {</b>
+<b class="nc"><i class="no-highlight">965</i>&nbsp;                return this;</b>
+<i class="no-highlight">966</i>&nbsp;            } 
+<b class="nc"><i class="no-highlight">967</i>&nbsp;            return null;</b>
+<i class="no-highlight">968</i>&nbsp;        }
+<i class="no-highlight">969</i>&nbsp;
+<i class="no-highlight">970</i>&nbsp;        /**
+<i class="no-highlight">971</i>&nbsp;         * There should not be any txnal LNs between a rollback start and
+<i class="no-highlight">972</i>&nbsp;         * rollback end log entry.
+<i class="no-highlight">973</i>&nbsp;         */
+<i class="no-highlight">974</i>&nbsp;        boolean notInRollbackStartAndEnd(long lsn, long txnId) {
+<b class="nc"><i class="no-highlight">975</i>&nbsp;            if (!TxnManager.isReplicatedTxn(txnId)) {</b>
+<i class="no-highlight">976</i>&nbsp;                /* Don&#39;t bother checking a non-replicated txn. */
+<b class="nc"><i class="no-highlight">977</i>&nbsp;                return true;</b>
+<i class="no-highlight">978</i>&nbsp;            }
+<i class="no-highlight">979</i>&nbsp;
+<b class="nc"><i class="no-highlight">980</i>&nbsp;            if (rollbackEndLSN == DbLsn.NULL_LSN)</b>
+<b class="nc"><i class="no-highlight">981</i>&nbsp;                return true;</b>
+<i class="no-highlight">982</i>&nbsp;            
+<b class="nc"><i class="no-highlight">983</i>&nbsp;            return (!((DbLsn.compareTo(rollbackStartLSN, lsn) &lt; 0) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">984</i>&nbsp;                      (DbLsn.compareTo(rollbackEndLSN, lsn) &gt; 0)));</b>
+<i class="no-highlight">985</i>&nbsp;        }
+<i class="no-highlight">986</i>&nbsp;
+<i class="no-highlight">987</i>&nbsp;        String bracketFailure(long lsn) {
+<b class="nc"><i class="no-highlight">988</i>&nbsp;            return lsn + &quot; [&quot; + DbLsn.getNoFormatString(lsn) + </b>
+<i class="no-highlight">989</i>&nbsp;                &quot;] should not be within rollbackStart &quot; + rollbackStartLSN +
+<b class="nc"><i class="no-highlight">990</i>&nbsp;                &quot; [&quot; + DbLsn.getNoFormatString(rollbackStartLSN) +</b>
+<i class="no-highlight">991</i>&nbsp;                &quot;] and rollbackEnd &quot; + rollbackEndLSN + &quot; [&quot; +
+<b class="nc"><i class="no-highlight">992</i>&nbsp;                DbLsn.getNoFormatString(rollbackEndLSN) + &quot;]&quot;;</b>
+<i class="no-highlight">993</i>&nbsp;        }
+<i class="no-highlight">994</i>&nbsp;
+<i class="no-highlight">995</i>&nbsp;        /**
+<i class="no-highlight">996</i>&nbsp;         * @return true if this rollback period is after, and does not contain
+<i class="no-highlight">997</i>&nbsp;         * the lsn.
+<i class="no-highlight">998</i>&nbsp;         */
+<i class="no-highlight">999</i>&nbsp;        boolean follows(long lsn) {
+<b class="nc"><i class="no-highlight">1000</i>&nbsp;            return DbLsn.compareTo(matchpointLSN, lsn) &gt; 0;</b>
+<i class="no-highlight">1001</i>&nbsp;        }
+<i class="no-highlight">1002</i>&nbsp;
+<i class="no-highlight">1003</i>&nbsp;        /**
+<i class="no-highlight">1004</i>&nbsp;         * @return true if this rollback period is before, and does not contain
+<i class="no-highlight">1005</i>&nbsp;         * the lsn.
+<i class="no-highlight">1006</i>&nbsp;         */
+<i class="no-highlight">1007</i>&nbsp;        boolean precedes(long lsn) {
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;            return DbLsn.compareTo(rollbackStartLSN, lsn) &lt; 0;</b>
+<i class="no-highlight">1009</i>&nbsp;        }
+<i class="no-highlight">1010</i>&nbsp;
+<i class="no-highlight">1011</i>&nbsp;        TxnChain getChain(long txnId, long undoLsn, EnvironmentImpl envImpl) {
+<b class="nc"><i class="no-highlight">1012</i>&nbsp;            TxnChain chain = txnChainMap.get(txnId);</b>
+<b class="nc"><i class="no-highlight">1013</i>&nbsp;            if (chain == null) {</b>
+<b class="nc"><i class="no-highlight">1014</i>&nbsp;                chain = new TxnChain(undoLsn,</b>
+<i class="no-highlight">1015</i>&nbsp;                                     txnId,
+<i class="no-highlight">1016</i>&nbsp;                                     matchpointLSN,
+<i class="no-highlight">1017</i>&nbsp;                                     envImpl);
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;                txnChainMap.put(txnId, chain);</b>
+<i class="no-highlight">1019</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;            return chain;</b>
+<i class="no-highlight">1021</i>&nbsp;        }
+<i class="no-highlight">1022</i>&nbsp;
+<i class="no-highlight">1023</i>&nbsp;        boolean hasRollbackEnd() {
+<b class="nc"><i class="no-highlight">1024</i>&nbsp;            return rollbackEndLSN != DbLsn.NULL_LSN;</b>
+<i class="no-highlight">1025</i>&nbsp;        }
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;        @Override
+<i class="no-highlight">1028</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;            return &quot;matchpoint=&quot; + matchpointLSN + &quot; [&quot; +</b>
+<b class="nc"><i class="no-highlight">1030</i>&nbsp;                DbLsn.getNoFormatString(matchpointLSN) +</b>
+<i class="no-highlight">1031</i>&nbsp;                &quot;] rollbackStart=&quot; + rollbackStartLSN + &quot; [&quot; +
+<b class="nc"><i class="no-highlight">1032</i>&nbsp;                DbLsn.getNoFormatString(rollbackStartLSN) +</b>
+<i class="no-highlight">1033</i>&nbsp;                &quot;] rollbackEnd=&quot; + rollbackEndLSN + &quot; [&quot; +
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;                DbLsn.getNoFormatString(rollbackEndLSN) + &quot;]&quot;;</b>
+<i class="no-highlight">1035</i>&nbsp;        }
+<i class="no-highlight">1036</i>&nbsp;
+<i class="no-highlight">1037</i>&nbsp;        @Override
+<i class="no-highlight">1038</i>&nbsp;        public boolean equals(Object other) {
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;            if (!(other instanceof RollbackPeriod)) {</b>
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;                return false;</b>
+<i class="no-highlight">1041</i>&nbsp;            }
+<i class="no-highlight">1042</i>&nbsp;
+<b class="nc"><i class="no-highlight">1043</i>&nbsp;            RollbackPeriod otherPeriod = (RollbackPeriod) other;</b>
+<b class="nc"><i class="no-highlight">1044</i>&nbsp;            return ((matchpointLSN == otherPeriod.matchpointLSN) &amp;&amp;</b>
+<i class="no-highlight">1045</i>&nbsp;                    (rollbackStartLSN == otherPeriod.rollbackStartLSN) &amp;&amp;
+<i class="no-highlight">1046</i>&nbsp;                    (rollbackEndLSN == otherPeriod.rollbackEndLSN));
+<i class="no-highlight">1047</i>&nbsp;        }
+<i class="no-highlight">1048</i>&nbsp;
+<i class="no-highlight">1049</i>&nbsp;        boolean beforeCheckpointStart() {
+<b class="nc"><i class="no-highlight">1050</i>&nbsp;            return beforeCheckpointStart;</b>
+<i class="no-highlight">1051</i>&nbsp;        }
+<i class="no-highlight">1052</i>&nbsp;
+<i class="no-highlight">1053</i>&nbsp;        @Override
+<i class="no-highlight">1054</i>&nbsp;        public int hashCode() {
+<b class="nc"><i class="no-highlight">1055</i>&nbsp;            final int prime = 31;</b>
+<b class="nc"><i class="no-highlight">1056</i>&nbsp;            int result = (prime + (int) matchpointLSN);</b>
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;            result = (result * prime)+ (int) rollbackStartLSN;</b>
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;            result = (result * prime) + (int) rollbackEndLSN;</b>
+<b class="nc"><i class="no-highlight">1059</i>&nbsp;            return result;</b>
+<i class="no-highlight">1060</i>&nbsp;        }
+<i class="no-highlight">1061</i>&nbsp;
+<i class="no-highlight">1062</i>&nbsp;    }
+<i class="no-highlight">1063</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

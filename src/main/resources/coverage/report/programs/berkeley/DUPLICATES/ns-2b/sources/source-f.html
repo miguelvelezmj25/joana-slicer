@@ -1,0 +1,556 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > INTargetRep</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.tree</a>
+</div>
+
+<h1>Coverage Summary for Class: INTargetRep (com.sleepycat.je.tree)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">INTargetRep</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (3/3)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">INTargetRep$Default</td>
+<td class="coverageStat">
+  <span class="percent">
+    54.5%
+  </span>
+  <span class="absValue">
+    (6/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    32.4%
+  </span>
+  <span class="absValue">
+    (11/34)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INTargetRep$None</td>
+<td class="coverageStat">
+  <span class="percent">
+    72.7%
+  </span>
+  <span class="absValue">
+    (8/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    80%
+  </span>
+  <span class="absValue">
+    (16/20)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INTargetRep$Sparse</td>
+<td class="coverageStat">
+  <span class="percent">
+    72.7%
+  </span>
+  <span class="absValue">
+    (8/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    87.5%
+  </span>
+  <span class="absValue">
+    (56/64)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INTargetRep$Type</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    66.7%
+  </span>
+  <span class="absValue">
+    (24/36)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    70.5%
+  </span>
+  <span class="absValue">
+    (86/122)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.tree;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">16</i>&nbsp;
+<i class="no-highlight">17</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.evictor.Evictor;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.utilint.SizeofMarker;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;/**
+<i class="no-highlight">22</i>&nbsp; * The abstract class that defines the various representations used to
+<i class="no-highlight">23</i>&nbsp; * represent an array of target pointers to children of an IN node. These
+<i class="no-highlight">24</i>&nbsp; * arrays can be sparse, so the non-default representations are designed to
+<i class="no-highlight">25</i>&nbsp; * make efficient representations for the sparse cases. Each specialized
+<i class="no-highlight">26</i>&nbsp; * representation is a subclass of INTargetReps.
+<i class="no-highlight">27</i>&nbsp; *
+<i class="no-highlight">28</i>&nbsp; * A new IN node starts out with the None representation and grows through a
+<i class="no-highlight">29</i>&nbsp; * sparse into the full default representation. Subsequently, the default
+<i class="no-highlight">30</i>&nbsp; * representation can be &lt;i&gt;compacted&lt;/i&gt; into a Sparse or None representation
+<i class="no-highlight">31</i>&nbsp; * whenever an IN is stripped. Note that representations do not currently move
+<i class="no-highlight">32</i>&nbsp; * to more compact forms when entries are nulled to minimize the possibility of
+<i class="no-highlight">33</i>&nbsp; * tansitionary representation changes, since each representation change has
+<i class="no-highlight">34</i>&nbsp; * a cpu cost and a gc cost associated with it.
+<i class="no-highlight">35</i>&nbsp; */
+<i class="no-highlight">36</i>&nbsp;public abstract class INTargetRep
+<i class="no-highlight">37</i>&nbsp;    extends INArrayRep&lt;INTargetRep, INTargetRep.Type, Node&gt; {
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;    /* Single instance used for None rep. */
+<b class="fc"><i class="no-highlight">40</i>&nbsp;    public static final None NONE = new None();</b>
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;    /* Enumeration for the different types of supported representations. */
+<b class="nc"><i class="no-highlight">43</i>&nbsp;    public enum Type { DEFAULT, SPARSE, NONE }</b>
+<i class="no-highlight">44</i>&nbsp;
+<b class="fc"><i class="no-highlight">45</i>&nbsp;    public INTargetRep() {</b>
+<b class="fc"><i class="no-highlight">46</i>&nbsp;    }</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /* The default non-sparse representation. It simply wraps an array. */
+<i class="no-highlight">49</i>&nbsp;    public static class Default extends INTargetRep {
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;        /* The target nodes */
+<i class="no-highlight">52</i>&nbsp;        private final Node[] targets;
+<i class="no-highlight">53</i>&nbsp;
+<b class="fc"><i class="no-highlight">54</i>&nbsp;        public Default(int capacity) {</b>
+<b class="fc"><i class="no-highlight">55</i>&nbsp;            this.targets = new Node[capacity];</b>
+<b class="fc"><i class="no-highlight">56</i>&nbsp;        }</b>
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;        /* Only for use by the Sizeof utility. */
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        public Default(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;            targets = null;</b>
+<b class="nc"><i class="no-highlight">61</i>&nbsp;        }</b>
+<i class="no-highlight">62</i>&nbsp;
+<b class="nc"><i class="no-highlight">63</i>&nbsp;        private Default(Node[] targets) {</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;            this.targets = targets;</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;        }</b>
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;        @Override
+<i class="no-highlight">68</i>&nbsp;        public Default resize(int capacity) {
+<b class="nc"><i class="no-highlight">69</i>&nbsp;            return new Default(Arrays.copyOfRange(targets, 0, capacity));</b>
+<i class="no-highlight">70</i>&nbsp;        }
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;        @Override
+<i class="no-highlight">73</i>&nbsp;        public Type getType() {
+<b class="nc"><i class="no-highlight">74</i>&nbsp;            return Type.DEFAULT;</b>
+<i class="no-highlight">75</i>&nbsp;        }
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;        @Override
+<i class="no-highlight">78</i>&nbsp;        public Node get(int idx) {
+<b class="fc"><i class="no-highlight">79</i>&nbsp;            return targets[idx];</b>
+<i class="no-highlight">80</i>&nbsp;        }
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;        @Override
+<i class="no-highlight">83</i>&nbsp;        public INTargetRep set(int idx, Node node, IN parent) {
+<b class="fc"><i class="no-highlight">84</i>&nbsp;            targets[idx] = node;</b>
+<b class="fc"><i class="no-highlight">85</i>&nbsp;            return this;</b>
+<i class="no-highlight">86</i>&nbsp;        }
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;        @Override
+<i class="no-highlight">89</i>&nbsp;        public INTargetRep copy(int from, int to, int n, IN parent) {
+<b class="fc"><i class="no-highlight">90</i>&nbsp;            System.arraycopy(targets, from, targets, to, n);</b>
+<b class="fc"><i class="no-highlight">91</i>&nbsp;            return this;</b>
+<i class="no-highlight">92</i>&nbsp;        }
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;        @Override
+<i class="no-highlight">95</i>&nbsp;        public INTargetRep compact(IN parent) {
+<b class="nc"><i class="no-highlight">96</i>&nbsp;            int count = 0;</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;            for (Node target : targets) {</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                if (target != null) {</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;                    count++;</b>
+<i class="no-highlight">100</i>&nbsp;                }
+<i class="no-highlight">101</i>&nbsp;            }
+<i class="no-highlight">102</i>&nbsp;
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            if ((count &gt; Sparse.MAX_ENTRIES) ||</b>
+<i class="no-highlight">104</i>&nbsp;                (targets.length &gt; Sparse.MAX_INDEX)) {
+<b class="nc"><i class="no-highlight">105</i>&nbsp;                return this;</b>
+<i class="no-highlight">106</i>&nbsp;            }
+<i class="no-highlight">107</i>&nbsp;
+<b class="nc"><i class="no-highlight">108</i>&nbsp;            INTargetRep newRep = null;</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;            if (count == 0) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                newRep = NONE;</b>
+<i class="no-highlight">111</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                newRep = new Sparse(targets.length);</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                for (int i=0; i &lt; targets.length; i++) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                    if (targets[i] != null) {</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                        newRep.set(i, targets[i], parent);</b>
+<i class="no-highlight">116</i>&nbsp;                    }
+<i class="no-highlight">117</i>&nbsp;                }
+<i class="no-highlight">118</i>&nbsp;            }
+<i class="no-highlight">119</i>&nbsp;
+<b class="nc"><i class="no-highlight">120</i>&nbsp;            noteRepChange(newRep, parent);</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;            return newRep;</b>
+<i class="no-highlight">122</i>&nbsp;        }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;        @Override
+<i class="no-highlight">125</i>&nbsp;        public long calculateMemorySize() {
+<b class="fc"><i class="no-highlight">126</i>&nbsp;            return MemoryBudget.DEFAULT_TARGET_ENTRY_OVERHEAD +</b>
+<b class="fc"><i class="no-highlight">127</i>&nbsp;                   MemoryBudget.objectArraySize(targets.length);</b>
+<i class="no-highlight">128</i>&nbsp;        }
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;        @Override
+<i class="no-highlight">131</i>&nbsp;        public void updateCacheStats(@SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">132</i>&nbsp;                                     boolean increment,
+<i class="no-highlight">133</i>&nbsp;                                     @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">134</i>&nbsp;                                     Evictor evictor) {
+<i class="no-highlight">135</i>&nbsp;            /* No stats for this default rep. */
+<b class="fc"><i class="no-highlight">136</i>&nbsp;        }</b>
+<i class="no-highlight">137</i>&nbsp;    }
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    /**
+<i class="no-highlight">140</i>&nbsp;     * Representation used when 1-4 children are cached. Note that the IN
+<i class="no-highlight">141</i>&nbsp;     * itself may have more children, but they are not currently cached.
+<i class="no-highlight">142</i>&nbsp;     * The INArrayRep is represented by two parallel arrays: an array of
+<i class="no-highlight">143</i>&nbsp;     * indices (idxs) and an array of values (targets). All elements that are
+<i class="no-highlight">144</i>&nbsp;     * not explicitly represented are null.
+<i class="no-highlight">145</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">146</i>&nbsp;    public static class Sparse extends INTargetRep {</b>
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;        /* The maximum number of entries that can be represented. */
+<i class="no-highlight">149</i>&nbsp;        public static final int MAX_ENTRIES = 4;
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;        /* The maximum index that can be represented. */
+<i class="no-highlight">152</i>&nbsp;        public static final int MAX_INDEX = Short.MAX_VALUE;
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;        /*
+<i class="no-highlight">155</i>&nbsp;         * The parallel arrays implementing the INArrayRep.
+<i class="no-highlight">156</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">157</i>&nbsp;        final short idxs[] = new short[MAX_ENTRIES];</b>
+<b class="fc"><i class="no-highlight">158</i>&nbsp;        final Node targets[] = new Node[MAX_ENTRIES];</b>
+<i class="no-highlight">159</i>&nbsp;
+<b class="fc"><i class="no-highlight">160</i>&nbsp;        public Sparse(int capacity) {</b>
+<i class="no-highlight">161</i>&nbsp;
+<i class="no-highlight">162</i>&nbsp;            /* Unroll initialization. */
+<b class="fc"><i class="no-highlight">163</i>&nbsp;            idxs[0] = idxs[1] = idxs[2] = idxs[3] = -1;</b>
+<b class="fc"><i class="no-highlight">164</i>&nbsp;        }</b>
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;        /* Only for use by the Sizeof utility. */
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        public Sparse(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        }</b>
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;        @Override
+<i class="no-highlight">171</i>&nbsp;        public Sparse resize(int capacity) {
+<b class="nc"><i class="no-highlight">172</i>&nbsp;            return this;</b>
+<i class="no-highlight">173</i>&nbsp;        }
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;        @Override
+<i class="no-highlight">176</i>&nbsp;        public Type getType() {
+<b class="nc"><i class="no-highlight">177</i>&nbsp;            return Type.SPARSE;</b>
+<i class="no-highlight">178</i>&nbsp;        }
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;        @Override
+<i class="no-highlight">181</i>&nbsp;        public Node get(int j) {
+<b class="fc"><i class="no-highlight">182</i>&nbsp;            assert (j &gt;= 0) &amp;&amp; (j &lt;= MAX_INDEX);</b>
+<i class="no-highlight">183</i>&nbsp;
+<i class="no-highlight">184</i>&nbsp;            /* Unrolled for loop */
+<b class="fc"><i class="no-highlight">185</i>&nbsp;            if (idxs[0] == j) {</b>
+<b class="fc"><i class="no-highlight">186</i>&nbsp;                return targets[0];</b>
+<i class="no-highlight">187</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">188</i>&nbsp;            if (idxs[1] == j) {</b>
+<b class="fc"><i class="no-highlight">189</i>&nbsp;                return targets[1];</b>
+<i class="no-highlight">190</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">191</i>&nbsp;            if (idxs[2] == j) {</b>
+<b class="fc"><i class="no-highlight">192</i>&nbsp;                return targets[2];</b>
+<i class="no-highlight">193</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">194</i>&nbsp;            if (idxs[3] == j) {</b>
+<b class="fc"><i class="no-highlight">195</i>&nbsp;                return targets[3];</b>
+<i class="no-highlight">196</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">197</i>&nbsp;            return null;</b>
+<i class="no-highlight">198</i>&nbsp;        }
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;        @Override
+<i class="no-highlight">201</i>&nbsp;        public INTargetRep set(int j, Node node, IN parent) {
+<i class="no-highlight">202</i>&nbsp;
+<b class="fc"><i class="no-highlight">203</i>&nbsp;            assert (j &gt;= 0) &amp;&amp; (j &lt;= MAX_INDEX);</b>
+<i class="no-highlight">204</i>&nbsp;
+<b class="fc"><i class="no-highlight">205</i>&nbsp;            int slot = -1;</b>
+<b class="fc"><i class="no-highlight">206</i>&nbsp;            for (int i=0; i &lt; targets.length; i++) {</b>
+<i class="no-highlight">207</i>&nbsp;
+<b class="fc"><i class="no-highlight">208</i>&nbsp;                if (idxs[i] == j) {</b>
+<b class="fc"><i class="no-highlight">209</i>&nbsp;                    targets[i] = node;</b>
+<b class="fc"><i class="no-highlight">210</i>&nbsp;                    return this;</b>
+<i class="no-highlight">211</i>&nbsp;                }
+<i class="no-highlight">212</i>&nbsp;
+<b class="fc"><i class="no-highlight">213</i>&nbsp;                if ((slot &lt; 0) &amp;&amp; (targets[i] == null)) {</b>
+<b class="fc"><i class="no-highlight">214</i>&nbsp;                   slot = i;</b>
+<i class="no-highlight">215</i>&nbsp;                }
+<i class="no-highlight">216</i>&nbsp;            }
+<i class="no-highlight">217</i>&nbsp;
+<b class="fc"><i class="no-highlight">218</i>&nbsp;            if (node == null) {</b>
+<b class="fc"><i class="no-highlight">219</i>&nbsp;                return this;</b>
+<i class="no-highlight">220</i>&nbsp;            }
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;            /* Have a free slot, use it. */
+<b class="fc"><i class="no-highlight">223</i>&nbsp;            if (slot &gt;= 0) {</b>
+<b class="fc"><i class="no-highlight">224</i>&nbsp;                targets[slot] = node;</b>
+<b class="fc"><i class="no-highlight">225</i>&nbsp;                idxs[slot] = (short)j;</b>
+<b class="fc"><i class="no-highlight">226</i>&nbsp;                return this;</b>
+<i class="no-highlight">227</i>&nbsp;            }
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;            /* It&#39;s full, mutate it. */
+<b class="fc"><i class="no-highlight">230</i>&nbsp;            Default fe = new Default(parent.getMaxEntries());</b>
+<b class="fc"><i class="no-highlight">231</i>&nbsp;            noteRepChange(fe, parent);</b>
+<i class="no-highlight">232</i>&nbsp;
+<b class="fc"><i class="no-highlight">233</i>&nbsp;            for (int i=0; i &lt; targets.length; i++) {</b>
+<b class="fc"><i class="no-highlight">234</i>&nbsp;                if (targets[i] != null) {</b>
+<b class="fc"><i class="no-highlight">235</i>&nbsp;                    fe.set(idxs[i], targets[i], parent);</b>
+<i class="no-highlight">236</i>&nbsp;                }
+<i class="no-highlight">237</i>&nbsp;            }
+<i class="no-highlight">238</i>&nbsp;
+<b class="fc"><i class="no-highlight">239</i>&nbsp;            return fe.set(j, node, parent);</b>
+<i class="no-highlight">240</i>&nbsp;        }
+<i class="no-highlight">241</i>&nbsp;
+<i class="no-highlight">242</i>&nbsp;        @Override
+<i class="no-highlight">243</i>&nbsp;        public INTargetRep copy(int from, int to, int n, IN parent) {
+<i class="no-highlight">244</i>&nbsp;
+<b class="fc"><i class="no-highlight">245</i>&nbsp;            INTargetRep target = this;</b>
+<i class="no-highlight">246</i>&nbsp;
+<b class="fc"><i class="no-highlight">247</i>&nbsp;            if ((to == from) || (n == 0)) {</b>
+<i class="no-highlight">248</i>&nbsp;                /* Nothing to do */
+<b class="fc"><i class="no-highlight">249</i>&nbsp;            } else if (to &lt; from) {</b>
+<i class="no-highlight">250</i>&nbsp;                /* Copy ascending */
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                for (int i = 0; i &lt; n; i++) {</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;                    target = target.set(to++, get(from++), parent);</b>
+<i class="no-highlight">253</i>&nbsp;                }
+<i class="no-highlight">254</i>&nbsp;            } else {
+<i class="no-highlight">255</i>&nbsp;                /* to &gt; from. Copy descending */
+<b class="fc"><i class="no-highlight">256</i>&nbsp;                from += n;</b>
+<b class="fc"><i class="no-highlight">257</i>&nbsp;                to += n;</b>
+<b class="fc"><i class="no-highlight">258</i>&nbsp;                for (int i = 0; i &lt; n; i++) {</b>
+<b class="fc"><i class="no-highlight">259</i>&nbsp;                    target = target.set(--to, get(--from), parent);</b>
+<i class="no-highlight">260</i>&nbsp;                }
+<i class="no-highlight">261</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">262</i>&nbsp;            return target;</b>
+<i class="no-highlight">263</i>&nbsp;        }
+<i class="no-highlight">264</i>&nbsp;
+<i class="no-highlight">265</i>&nbsp;        @Override
+<i class="no-highlight">266</i>&nbsp;        public INTargetRep compact(IN parent) {
+<b class="fc"><i class="no-highlight">267</i>&nbsp;            int count = 0;</b>
+<b class="fc"><i class="no-highlight">268</i>&nbsp;            for (Node target : targets) {</b>
+<b class="fc"><i class="no-highlight">269</i>&nbsp;                if (target != null) {</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;                    count++;</b>
+<i class="no-highlight">271</i>&nbsp;                }
+<i class="no-highlight">272</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">273</i>&nbsp;            if (count == 0) {</b>
+<b class="fc"><i class="no-highlight">274</i>&nbsp;                None newRep = NONE;</b>
+<b class="fc"><i class="no-highlight">275</i>&nbsp;                noteRepChange(newRep, parent);</b>
+<b class="fc"><i class="no-highlight">276</i>&nbsp;                return newRep;</b>
+<i class="no-highlight">277</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">278</i>&nbsp;            return this;</b>
+<i class="no-highlight">279</i>&nbsp;        }
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;        @Override
+<i class="no-highlight">282</i>&nbsp;        public long calculateMemorySize() {
+<i class="no-highlight">283</i>&nbsp;            /*
+<i class="no-highlight">284</i>&nbsp;             * Note that fixed array sizes are already accounted for in the
+<i class="no-highlight">285</i>&nbsp;             * SPARSE_TARGET_ENTRY_OVERHEAD computed vis Sizeof.
+<i class="no-highlight">286</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">287</i>&nbsp;            return MemoryBudget.SPARSE_TARGET_ENTRY_OVERHEAD;</b>
+<i class="no-highlight">288</i>&nbsp;        }
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;        @Override
+<i class="no-highlight">291</i>&nbsp;        public void updateCacheStats(boolean increment, Evictor evictor) {
+<b class="fc"><i class="no-highlight">292</i>&nbsp;            if (increment) {</b>
+<b class="fc"><i class="no-highlight">293</i>&nbsp;                evictor.getNINSparseTarget().incrementAndGet();</b>
+<i class="no-highlight">294</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">295</i>&nbsp;                evictor.getNINSparseTarget().decrementAndGet();</b>
+<i class="no-highlight">296</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">297</i>&nbsp;        }</b>
+<i class="no-highlight">298</i>&nbsp;    }
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;    /**
+<i class="no-highlight">301</i>&nbsp;     * Representation used when an IN has no children cached.
+<i class="no-highlight">302</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">303</i>&nbsp;    public static class None extends INTargetRep {</b>
+<i class="no-highlight">304</i>&nbsp;
+<b class="fc"><i class="no-highlight">305</i>&nbsp;        private None() {</b>
+<b class="fc"><i class="no-highlight">306</i>&nbsp;        }</b>
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;        /* Only for use by the Sizeof utility. */
+<b class="nc"><i class="no-highlight">309</i>&nbsp;        public None(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        }</b>
+<i class="no-highlight">311</i>&nbsp;
+<i class="no-highlight">312</i>&nbsp;        @Override
+<i class="no-highlight">313</i>&nbsp;        public None resize(int capacity) {
+<b class="nc"><i class="no-highlight">314</i>&nbsp;            return this;</b>
+<i class="no-highlight">315</i>&nbsp;        }
+<i class="no-highlight">316</i>&nbsp;
+<i class="no-highlight">317</i>&nbsp;        @Override
+<i class="no-highlight">318</i>&nbsp;        public Type getType() {
+<b class="nc"><i class="no-highlight">319</i>&nbsp;            return Type.NONE;</b>
+<i class="no-highlight">320</i>&nbsp;        }
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;        @Override
+<i class="no-highlight">323</i>&nbsp;        public Node get(@SuppressWarnings(&quot;unused&quot;) int idx) {
+<b class="fc"><i class="no-highlight">324</i>&nbsp;            return null;</b>
+<i class="no-highlight">325</i>&nbsp;        }
+<i class="no-highlight">326</i>&nbsp;
+<i class="no-highlight">327</i>&nbsp;        @Override
+<i class="no-highlight">328</i>&nbsp;        public INTargetRep set(int idx, Node node, IN parent) {
+<i class="no-highlight">329</i>&nbsp;
+<b class="fc"><i class="no-highlight">330</i>&nbsp;            if (node == null) {</b>
+<b class="fc"><i class="no-highlight">331</i>&nbsp;                return this;</b>
+<i class="no-highlight">332</i>&nbsp;            }
+<i class="no-highlight">333</i>&nbsp;
+<b class="fc"><i class="no-highlight">334</i>&nbsp;            INTargetRep targets = new Sparse(parent.getMaxEntries());</b>
+<b class="fc"><i class="no-highlight">335</i>&nbsp;            noteRepChange(targets, parent);</b>
+<b class="fc"><i class="no-highlight">336</i>&nbsp;            return targets.set(idx, node, parent);</b>
+<i class="no-highlight">337</i>&nbsp;        }
+<i class="no-highlight">338</i>&nbsp;
+<i class="no-highlight">339</i>&nbsp;        @Override
+<i class="no-highlight">340</i>&nbsp;        public INTargetRep copy(@SuppressWarnings(&quot;unused&quot;) int from,
+<i class="no-highlight">341</i>&nbsp;                                @SuppressWarnings(&quot;unused&quot;) int to,
+<i class="no-highlight">342</i>&nbsp;                                @SuppressWarnings(&quot;unused&quot;) int n,
+<i class="no-highlight">343</i>&nbsp;                                @SuppressWarnings(&quot;unused&quot;) IN parent) {
+<i class="no-highlight">344</i>&nbsp;            /* Nothing to copy. */
+<b class="fc"><i class="no-highlight">345</i>&nbsp;            return this;</b>
+<i class="no-highlight">346</i>&nbsp;        }
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;        @Override
+<i class="no-highlight">349</i>&nbsp;        public INTargetRep compact(IN parent) {
+<b class="fc"><i class="no-highlight">350</i>&nbsp;            return this;</b>
+<i class="no-highlight">351</i>&nbsp;        }
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;        @Override
+<i class="no-highlight">354</i>&nbsp;        public long calculateMemorySize() {
+<i class="no-highlight">355</i>&nbsp;            /* A single static instance is used. */
+<b class="fc"><i class="no-highlight">356</i>&nbsp;            return 0;</b>
+<i class="no-highlight">357</i>&nbsp;        }
+<i class="no-highlight">358</i>&nbsp;
+<i class="no-highlight">359</i>&nbsp;        @Override
+<i class="no-highlight">360</i>&nbsp;        public void updateCacheStats(boolean increment, Evictor evictor) {
+<b class="fc"><i class="no-highlight">361</i>&nbsp;            if (increment) {</b>
+<b class="fc"><i class="no-highlight">362</i>&nbsp;                evictor.getNINNoTarget().incrementAndGet();</b>
+<i class="no-highlight">363</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">364</i>&nbsp;                evictor.getNINNoTarget().decrementAndGet();</b>
+<i class="no-highlight">365</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">366</i>&nbsp;        }</b>
+<i class="no-highlight">367</i>&nbsp;    }
+<i class="no-highlight">368</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

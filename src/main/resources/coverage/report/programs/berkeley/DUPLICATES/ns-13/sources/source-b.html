@@ -1,0 +1,1253 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LNLogEntry</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log.entry</a>
+</div>
+
+<h1>Coverage Summary for Class: LNLogEntry (com.sleepycat.je.log.entry)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LNLogEntry</td>
+<td class="coverageStat">
+  <span class="percent">
+    38.8%
+  </span>
+  <span class="absValue">
+    (19/49)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    53.3%
+  </span>
+  <span class="absValue">
+    (179/336)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">LNLogEntry$DupStatus</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    40%
+  </span>
+  <span class="absValue">
+    (20/50)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    53.4%
+  </span>
+  <span class="absValue">
+    (180/337)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log.entry;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.EnvironmentFailureException.unexpectedState;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import java.lang.reflect.Constructor;
+<i class="no-highlight">19</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">20</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">21</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.DupKeyData;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.log.LogEntryHeader;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.log.LogUtils;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.log.VersionedWriteLoggable;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.tree.Key;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.tree.VersionedLN;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">39</i>&nbsp;
+<i class="no-highlight">40</i>&nbsp;/**
+<i class="no-highlight">41</i>&nbsp; * An LNLogEntry is the in-memory image of an LN logrec describing a write op
+<i class="no-highlight">42</i>&nbsp; * (insertion, update, or deletion) performed by a locker T on a record R.
+<i class="no-highlight">43</i>&nbsp; * T always locks R in exclusive (WRITE or WRITE_RANGE) mode before performing
+<i class="no-highlight">44</i>&nbsp; * any write ops on it, and it retains its exclusive lock on R until it
+<i class="no-highlight">45</i>&nbsp; * terminates (commits or aborts). (Non-transactional lockers can be viewed as
+<i class="no-highlight">46</i>&nbsp; * &quot;simple&quot; transactions that perform at most one write op, and then
+<i class="no-highlight">47</i>&nbsp; * immediately commit).
+<i class="no-highlight">48</i>&nbsp; *
+<i class="no-highlight">49</i>&nbsp; * On disk, an LN logrec contains :
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * 1 &lt;= version &lt;= 5
+<i class="no-highlight">52</i>&nbsp; *
+<i class="no-highlight">53</i>&nbsp; *   LN data
+<i class="no-highlight">54</i>&nbsp; *   databaseid
+<i class="no-highlight">55</i>&nbsp; *   key
+<i class="no-highlight">56</i>&nbsp; *   abortLsn             -- if transactional
+<i class="no-highlight">57</i>&nbsp; *   abortKnownDeleted    -- if transactional
+<i class="no-highlight">58</i>&nbsp; *   txn id               -- if transactional
+<i class="no-highlight">59</i>&nbsp; *   prev LSN of same txn -- if transactional
+<i class="no-highlight">60</i>&nbsp; *
+<i class="no-highlight">61</i>&nbsp; * 6 &lt;= versions &lt;= 10 :
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; *   databaseid
+<i class="no-highlight">64</i>&nbsp; *   abortLsn             -- if transactional
+<i class="no-highlight">65</i>&nbsp; *   abortKnownDeleted    -- if transactional
+<i class="no-highlight">66</i>&nbsp; *   txn id               -- if transactional
+<i class="no-highlight">67</i>&nbsp; *   prev LSN of same txn -- if transactional
+<i class="no-highlight">68</i>&nbsp; *   data
+<i class="no-highlight">69</i>&nbsp; *   key
+<i class="no-highlight">70</i>&nbsp; *
+<i class="no-highlight">71</i>&nbsp; * 11 == version :
+<i class="no-highlight">72</i>&nbsp; *
+<i class="no-highlight">73</i>&nbsp; *   databaseid
+<i class="no-highlight">74</i>&nbsp; *   abortLsn               -- if transactional
+<i class="no-highlight">75</i>&nbsp; *   1-byte flags
+<i class="no-highlight">76</i>&nbsp; *     abortKnownDeleted
+<i class="no-highlight">77</i>&nbsp; *     embeddedLN
+<i class="no-highlight">78</i>&nbsp; *     haveAbortKey
+<i class="no-highlight">79</i>&nbsp; *     haveAbortData
+<i class="no-highlight">80</i>&nbsp; *     haveAbortVLSN
+<i class="no-highlight">81</i>&nbsp; *   txn id                 -- if transactional
+<i class="no-highlight">82</i>&nbsp; *   prev LSN of same txn   -- if transactional
+<i class="no-highlight">83</i>&nbsp; *   abort key              -- if haveAbortKey
+<i class="no-highlight">84</i>&nbsp; *   abort data             -- if haveAbortData
+<i class="no-highlight">85</i>&nbsp; *   abort vlsn             -- if haveAbortVLSN
+<i class="no-highlight">86</i>&nbsp; *   data
+<i class="no-highlight">87</i>&nbsp; *   key
+<i class="no-highlight">88</i>&nbsp; *
+<i class="no-highlight">89</i>&nbsp; *   In forReplication mode, these flags and fields are omitted:
+<i class="no-highlight">90</i>&nbsp; *     embeddedLN, haveAbortKey, haveAbortData, haveAbortVLSN,
+<i class="no-highlight">91</i>&nbsp; *     abort key, abort data, abort vlsn
+<i class="no-highlight">92</i>&nbsp; *
+<i class="no-highlight">93</i>&nbsp; * 12 &lt;= version :
+<i class="no-highlight">94</i>&nbsp; *
+<i class="no-highlight">95</i>&nbsp; *   1-byte flags
+<i class="no-highlight">96</i>&nbsp; *     abortKnownDeleted
+<i class="no-highlight">97</i>&nbsp; *     embeddedLN
+<i class="no-highlight">98</i>&nbsp; *     haveAbortKey
+<i class="no-highlight">99</i>&nbsp; *     haveAbortData
+<i class="no-highlight">100</i>&nbsp; *     haveAbortVLSN
+<i class="no-highlight">101</i>&nbsp; *     haveAbortLSN
+<i class="no-highlight">102</i>&nbsp; *     haveAbortExpiration
+<i class="no-highlight">103</i>&nbsp; *     haveExpiration
+<i class="no-highlight">104</i>&nbsp; *   databaseid
+<i class="no-highlight">105</i>&nbsp; *   abortLsn                -- if transactional and haveAbortLSN
+<i class="no-highlight">106</i>&nbsp; *   txn id                  -- if transactional
+<i class="no-highlight">107</i>&nbsp; *   prev LSN of same txn    -- if transactional
+<i class="no-highlight">108</i>&nbsp; *   abort key               -- if haveAbortKey
+<i class="no-highlight">109</i>&nbsp; *   abort data              -- if haveAbortData
+<i class="no-highlight">110</i>&nbsp; *   abort vlsn              -- if haveAbortVLSN
+<i class="no-highlight">111</i>&nbsp; *   abort expiration        -- if haveAbortExpiration
+<i class="no-highlight">112</i>&nbsp; *   expiration              -- if haveExpiration
+<i class="no-highlight">113</i>&nbsp; *   data
+<i class="no-highlight">114</i>&nbsp; *   key
+<i class="no-highlight">115</i>&nbsp; *
+<i class="no-highlight">116</i>&nbsp; *   In forReplication mode, these flags and fields are omitted:
+<i class="no-highlight">117</i>&nbsp; *     abortKnownDeleted, embeddedLN, haveAbortKey, haveAbortData,
+<i class="no-highlight">118</i>&nbsp; *     haveAbortVLSN, abort key, abort data, abort vlsn
+<i class="no-highlight">119</i>&nbsp; *
+<i class="no-highlight">120</i>&nbsp; * NOTE: LNLogEntry is sub-classed by NameLNLogEntry, which adds some extra
+<i class="no-highlight">121</i>&nbsp; * fields after the record key.
+<i class="no-highlight">122</i>&nbsp; */
+<b class="fc"><i class="no-highlight">123</i>&nbsp;public class LNLogEntry&lt;T extends LN&gt; extends BaseReplicableEntry&lt;T&gt; {</b>
+<i class="no-highlight">124</i>&nbsp;
+<i class="no-highlight">125</i>&nbsp;    private static final byte ABORT_KD_MASK = 0x1;
+<i class="no-highlight">126</i>&nbsp;    private static final byte EMBEDDED_LN_MASK = 0x2;
+<i class="no-highlight">127</i>&nbsp;    private static final byte HAVE_ABORT_KEY_MASK = 0x4;
+<i class="no-highlight">128</i>&nbsp;    private static final byte HAVE_ABORT_DATA_MASK = 0x8;
+<i class="no-highlight">129</i>&nbsp;    private static final byte HAVE_ABORT_VLSN_MASK = 0x10;
+<i class="no-highlight">130</i>&nbsp;    private static final byte HAVE_ABORT_LSN_MASK = 0x20;
+<i class="no-highlight">131</i>&nbsp;    private static final byte HAVE_ABORT_EXPIRATION_MASK = 0x40;
+<i class="no-highlight">132</i>&nbsp;    private static final byte HAVE_EXPIRATION_MASK = (byte) 0x80;
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    /**
+<i class="no-highlight">135</i>&nbsp;     * Used for computing the minimum log space used by an LNLogEntry.
+<i class="no-highlight">136</i>&nbsp;     */
+<i class="no-highlight">137</i>&nbsp;    public static final int MIN_LOG_SIZE = 1 + // Flags
+<i class="no-highlight">138</i>&nbsp;                                           1 + // DatabaseId
+<i class="no-highlight">139</i>&nbsp;                                           1 + // LN with zero-length data
+<i class="no-highlight">140</i>&nbsp;                                           LogEntryHeader.MIN_HEADER_SIZE;
+<i class="no-highlight">141</i>&nbsp;
+<i class="no-highlight">142</i>&nbsp;    /**
+<i class="no-highlight">143</i>&nbsp;     * The log version when the most recent format change for this entry was
+<i class="no-highlight">144</i>&nbsp;     * made (including any changes to the format of the underlying LN and other
+<i class="no-highlight">145</i>&nbsp;     * loggables).
+<i class="no-highlight">146</i>&nbsp;     *
+<i class="no-highlight">147</i>&nbsp;     * @see #getLastFormatChange
+<i class="no-highlight">148</i>&nbsp;     */
+<i class="no-highlight">149</i>&nbsp;    private static final int LAST_FORMAT_CHANGE = 12;
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;    /*
+<i class="no-highlight">152</i>&nbsp;     * Persistent fields.
+<i class="no-highlight">153</i>&nbsp;     */
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;    /*
+<i class="no-highlight">156</i>&nbsp;     * The id of the DB containing the record.
+<i class="no-highlight">157</i>&nbsp;     */
+<i class="no-highlight">158</i>&nbsp;    private DatabaseId dbId;
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;    /*
+<i class="no-highlight">161</i>&nbsp;     * The Txn performing the write op. It is null for non-transactional DBs.
+<i class="no-highlight">162</i>&nbsp;     * On disk we store only the txn id and the LSN of the previous logrec
+<i class="no-highlight">163</i>&nbsp;     * (if any) generated by this txn.
+<i class="no-highlight">164</i>&nbsp;     */
+<i class="no-highlight">165</i>&nbsp;    private Txn txn;
+<i class="no-highlight">166</i>&nbsp;
+<i class="no-highlight">167</i>&nbsp;    /*
+<i class="no-highlight">168</i>&nbsp;     * The LSN of the record&#39;s &quot;abort&quot; version, i.e., the version to revert to
+<i class="no-highlight">169</i>&nbsp;     * if this logrec must be undone as a result of a txn abort. It is set to
+<i class="no-highlight">170</i>&nbsp;     * the most recent version before the record was locked by the locker T
+<i class="no-highlight">171</i>&nbsp;     * associated with this logrec. Because T locks R before it writes it, the
+<i class="no-highlight">172</i>&nbsp;     * abort version is always a committed version.
+<i class="no-highlight">173</i>&nbsp;     *
+<i class="no-highlight">174</i>&nbsp;     * It is null for non-transactional lockers, because such lockers never
+<i class="no-highlight">175</i>&nbsp;     * abort.
+<i class="no-highlight">176</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">177</i>&nbsp;    private long abortLsn = DbLsn.NULL_LSN;</b>
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;    /*
+<i class="no-highlight">180</i>&nbsp;     * Whether the record&#39;s abort version was a deleted version or not.
+<i class="no-highlight">181</i>&nbsp;     */
+<i class="no-highlight">182</i>&nbsp;    private boolean abortKnownDeleted;
+<i class="no-highlight">183</i>&nbsp;
+<i class="no-highlight">184</i>&nbsp;    /*
+<i class="no-highlight">185</i>&nbsp;     * The key of the record&#39;s abort version, if haveAbortKey is true;
+<i class="no-highlight">186</i>&nbsp;     * null otherwise.
+<i class="no-highlight">187</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">188</i>&nbsp;    private byte[] abortKey = null;</b>
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /*
+<i class="no-highlight">191</i>&nbsp;     * The data portion of the record&#39;s abort version, if haveAbortData is
+<i class="no-highlight">192</i>&nbsp;     * true; null otherwise.
+<i class="no-highlight">193</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">194</i>&nbsp;    private byte[] abortData = null;</b>
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;    /*
+<i class="no-highlight">197</i>&nbsp;     * The VLSN of the record&#39;s abort version, if haveAbortVLSN is true;
+<i class="no-highlight">198</i>&nbsp;     * NULL_VLSN otherwise.
+<i class="no-highlight">199</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">200</i>&nbsp;    private long abortVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /* Abort expiration time in days or hours. */
+<b class="fc"><i class="no-highlight">203</i>&nbsp;    private int abortExpiration = 0;</b>
+<b class="fc"><i class="no-highlight">204</i>&nbsp;    private boolean abortExpirationInHours = false;</b>
+<i class="no-highlight">205</i>&nbsp;
+<i class="no-highlight">206</i>&nbsp;    /*
+<i class="no-highlight">207</i>&nbsp;     * True if the logrec stores an abort LSN, which is the case only if
+<i class="no-highlight">208</i>&nbsp;     * (a) this is a transactional logrec (b) the abort LSN is non-null.
+<i class="no-highlight">209</i>&nbsp;     */
+<i class="no-highlight">210</i>&nbsp;    private boolean haveAbortLSN;
+<i class="no-highlight">211</i>&nbsp;
+<i class="no-highlight">212</i>&nbsp;    /*
+<i class="no-highlight">213</i>&nbsp;     * True if the logrec stores an abort key, which is the case only if
+<i class="no-highlight">214</i>&nbsp;     * (a) this is a transactional logrec, (b) the record&#39;s abort version
+<i class="no-highlight">215</i>&nbsp;     * was embedded in the BIN, and (c) the DB allows key updates.
+<i class="no-highlight">216</i>&nbsp;     */
+<i class="no-highlight">217</i>&nbsp;    private boolean haveAbortKey;
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;    /*
+<i class="no-highlight">220</i>&nbsp;     * True if the logrec stores abort data, which is the case only if
+<i class="no-highlight">221</i>&nbsp;     * (a) this is a transactional logrec and (b) the record&#39;s abort
+<i class="no-highlight">222</i>&nbsp;     * version was embedded in the BIN.
+<i class="no-highlight">223</i>&nbsp;     */
+<i class="no-highlight">224</i>&nbsp;    private boolean haveAbortData;
+<i class="no-highlight">225</i>&nbsp;
+<i class="no-highlight">226</i>&nbsp;    /*
+<i class="no-highlight">227</i>&nbsp;     * True if the logrec stores an abort VLSN, which is the case only if
+<i class="no-highlight">228</i>&nbsp;     * (a) this is a transactional logrec (b) the record&#39;s abort version
+<i class="no-highlight">229</i>&nbsp;     * was embedded in the BIN, and (c) VLSN caching is enabled.
+<i class="no-highlight">230</i>&nbsp;     */
+<i class="no-highlight">231</i>&nbsp;    private boolean haveAbortVLSN;
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;    /*
+<i class="no-highlight">234</i>&nbsp;     * True if the logrec stores an abort expiration, which is the case only if
+<i class="no-highlight">235</i>&nbsp;     * (a) this is a transactional logrec (b) the record&#39;s abort version has a
+<i class="no-highlight">236</i>&nbsp;     * non-zero expiration.
+<i class="no-highlight">237</i>&nbsp;     */
+<i class="no-highlight">238</i>&nbsp;    private boolean haveAbortExpiration;
+<i class="no-highlight">239</i>&nbsp;
+<i class="no-highlight">240</i>&nbsp;    /*
+<i class="no-highlight">241</i>&nbsp;     * True if the logrec stores a non-zero expiration.
+<i class="no-highlight">242</i>&nbsp;     */
+<i class="no-highlight">243</i>&nbsp;    private boolean haveExpiration;
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    /*
+<i class="no-highlight">246</i>&nbsp;     * Whether, after the write op described by this logrec, the record is
+<i class="no-highlight">247</i>&nbsp;     * embedded in the BIN or not.
+<i class="no-highlight">248</i>&nbsp;     */
+<i class="no-highlight">249</i>&nbsp;    private boolean embeddedLN;
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;    /*
+<i class="no-highlight">252</i>&nbsp;     * The LN storing the record&#39;s data, after the write op described by this
+<i class="no-highlight">253</i>&nbsp;     * logrec. The ln has a null data value if the write op is a deletion. For
+<i class="no-highlight">254</i>&nbsp;     * replicated DBs, the ln contains the record&#39;s VLSN as well.
+<i class="no-highlight">255</i>&nbsp;     */
+<i class="no-highlight">256</i>&nbsp;    private LN ln;
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;    /*
+<i class="no-highlight">259</i>&nbsp;     * The value of the record&#39;s key, after the write op described by this
+<i class="no-highlight">260</i>&nbsp;     * logrec.
+<i class="no-highlight">261</i>&nbsp;     */
+<i class="no-highlight">262</i>&nbsp;    private byte[] key;
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;    /* Expiration time in days or hours. */
+<i class="no-highlight">265</i>&nbsp;    private int expiration;
+<i class="no-highlight">266</i>&nbsp;    private boolean expirationInHours;
+<i class="no-highlight">267</i>&nbsp;
+<i class="no-highlight">268</i>&nbsp;    /*
+<i class="no-highlight">269</i>&nbsp;     * Transient fields.
+<i class="no-highlight">270</i>&nbsp;     */
+<i class="no-highlight">271</i>&nbsp;
+<i class="no-highlight">272</i>&nbsp;    /* Transient field for duplicates conversion and user key/data methods. */
+<b class="fc"><i class="no-highlight">273</i>&nbsp;    enum DupStatus { UNKNOWN, NEED_CONVERSION, DUP_DB, NOT_DUP_DB }</b>
+<i class="no-highlight">274</i>&nbsp;    private DupStatus dupStatus;
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    /* For construction of VersionedLN, when VLSN is preserved. */
+<i class="no-highlight">277</i>&nbsp;    private final Constructor&lt;VersionedLN&gt; versionedLNConstructor;
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;    /**
+<i class="no-highlight">280</i>&nbsp;     * Creates an instance to read an entry.
+<i class="no-highlight">281</i>&nbsp;     *
+<i class="no-highlight">282</i>&nbsp;     * @param &lt;T&gt; the type of the contained LN
+<i class="no-highlight">283</i>&nbsp;     * @param cls the class of the contained LN
+<i class="no-highlight">284</i>&nbsp;     * @return the log entry
+<i class="no-highlight">285</i>&nbsp;     */
+<i class="no-highlight">286</i>&nbsp;    public static &lt;T extends LN&gt; LNLogEntry&lt;T&gt; create(final Class&lt;T&gt; cls) {
+<b class="fc"><i class="no-highlight">287</i>&nbsp;        return new LNLogEntry&lt;&gt;(cls);</b>
+<i class="no-highlight">288</i>&nbsp;    }
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;    /* Constructor to read an entry. */
+<i class="no-highlight">291</i>&nbsp;    LNLogEntry(final Class&lt;T&gt; cls) {
+<b class="fc"><i class="no-highlight">292</i>&nbsp;        super(cls);</b>
+<b class="fc"><i class="no-highlight">293</i>&nbsp;        if (cls == LN.class) {</b>
+<b class="fc"><i class="no-highlight">294</i>&nbsp;            versionedLNConstructor = getNoArgsConstructor(VersionedLN.class);</b>
+<i class="no-highlight">295</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">296</i>&nbsp;            versionedLNConstructor = null;</b>
+<i class="no-highlight">297</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">298</i>&nbsp;    }</b>
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;    /* Constructor to write an entry. */
+<i class="no-highlight">301</i>&nbsp;    public LNLogEntry(
+<i class="no-highlight">302</i>&nbsp;        LogEntryType entryType,
+<i class="no-highlight">303</i>&nbsp;        DatabaseId dbId,
+<i class="no-highlight">304</i>&nbsp;        Txn txn,
+<i class="no-highlight">305</i>&nbsp;        long abortLsn,
+<i class="no-highlight">306</i>&nbsp;        boolean abortKD,
+<i class="no-highlight">307</i>&nbsp;        byte[] abortKey,
+<i class="no-highlight">308</i>&nbsp;        byte[] abortData,
+<i class="no-highlight">309</i>&nbsp;        long abortVLSN,
+<i class="no-highlight">310</i>&nbsp;        int abortExpiration,
+<i class="no-highlight">311</i>&nbsp;        boolean abortExpirationInHours,
+<i class="no-highlight">312</i>&nbsp;        byte[] key,
+<i class="no-highlight">313</i>&nbsp;        T ln,
+<i class="no-highlight">314</i>&nbsp;        boolean embeddedLN,
+<i class="no-highlight">315</i>&nbsp;        int expiration,
+<b class="fc"><i class="no-highlight">316</i>&nbsp;        boolean expirationInHours) {</b>
+<i class="no-highlight">317</i>&nbsp;
+<b class="fc"><i class="no-highlight">318</i>&nbsp;        setLogType(entryType);</b>
+<b class="fc"><i class="no-highlight">319</i>&nbsp;        this.dbId = dbId;</b>
+<b class="fc"><i class="no-highlight">320</i>&nbsp;        this.txn = txn;</b>
+<b class="fc"><i class="no-highlight">321</i>&nbsp;        this.abortLsn = abortLsn;</b>
+<b class="fc"><i class="no-highlight">322</i>&nbsp;        this.abortKnownDeleted = abortKD;</b>
+<b class="fc"><i class="no-highlight">323</i>&nbsp;        this.abortKey = abortKey;</b>
+<b class="fc"><i class="no-highlight">324</i>&nbsp;        this.abortData = abortData;</b>
+<b class="fc"><i class="no-highlight">325</i>&nbsp;        this.abortVLSN = abortVLSN;</b>
+<b class="fc"><i class="no-highlight">326</i>&nbsp;        this.abortExpiration = abortExpiration;</b>
+<b class="fc"><i class="no-highlight">327</i>&nbsp;        this.abortExpirationInHours = abortExpirationInHours;</b>
+<i class="no-highlight">328</i>&nbsp;
+<b class="fc"><i class="no-highlight">329</i>&nbsp;        this.haveAbortLSN = (abortLsn != DbLsn.NULL_LSN);</b>
+<b class="fc"><i class="no-highlight">330</i>&nbsp;        this.haveAbortKey = (abortKey != null);</b>
+<b class="fc"><i class="no-highlight">331</i>&nbsp;        this.haveAbortData = (abortData != null);</b>
+<b class="fc"><i class="no-highlight">332</i>&nbsp;        this.haveAbortVLSN = !VLSN.isNull(abortVLSN);</b>
+<b class="fc"><i class="no-highlight">333</i>&nbsp;        this.haveAbortExpiration = (abortExpiration != 0);</b>
+<b class="fc"><i class="no-highlight">334</i>&nbsp;        this.haveExpiration = (expiration != 0);</b>
+<i class="no-highlight">335</i>&nbsp;
+<b class="fc"><i class="no-highlight">336</i>&nbsp;        this.embeddedLN = embeddedLN;</b>
+<b class="fc"><i class="no-highlight">337</i>&nbsp;        this.key = key;</b>
+<b class="fc"><i class="no-highlight">338</i>&nbsp;        this.ln = ln;</b>
+<b class="fc"><i class="no-highlight">339</i>&nbsp;        this.expiration = expiration;</b>
+<b class="fc"><i class="no-highlight">340</i>&nbsp;        this.expirationInHours = expirationInHours;</b>
+<i class="no-highlight">341</i>&nbsp;
+<b class="fc"><i class="no-highlight">342</i>&nbsp;        versionedLNConstructor = null;</b>
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;        /* A txn should only be provided for transactional entry types. */
+<b class="fc"><i class="no-highlight">345</i>&nbsp;        assert(entryType.isTransactional() == (txn != null));</b>
+<b class="fc"><i class="no-highlight">346</i>&nbsp;    }</b>
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;    private void reset() {
+<b class="fc"><i class="no-highlight">349</i>&nbsp;        dbId = null;</b>
+<b class="fc"><i class="no-highlight">350</i>&nbsp;        txn = null;</b>
+<b class="fc"><i class="no-highlight">351</i>&nbsp;        abortLsn = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">352</i>&nbsp;        abortKnownDeleted = false;</b>
+<b class="fc"><i class="no-highlight">353</i>&nbsp;        abortKey = null;</b>
+<b class="fc"><i class="no-highlight">354</i>&nbsp;        abortData = null;</b>
+<b class="fc"><i class="no-highlight">355</i>&nbsp;        abortVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<b class="fc"><i class="no-highlight">356</i>&nbsp;        abortExpiration = 0;</b>
+<b class="fc"><i class="no-highlight">357</i>&nbsp;        abortExpirationInHours = false;</b>
+<i class="no-highlight">358</i>&nbsp;
+<b class="fc"><i class="no-highlight">359</i>&nbsp;        haveAbortLSN = false;</b>
+<b class="fc"><i class="no-highlight">360</i>&nbsp;        haveAbortKey = false;</b>
+<b class="fc"><i class="no-highlight">361</i>&nbsp;        haveAbortData = false;</b>
+<b class="fc"><i class="no-highlight">362</i>&nbsp;        haveAbortVLSN = false;</b>
+<b class="fc"><i class="no-highlight">363</i>&nbsp;        haveAbortExpiration = false;</b>
+<b class="fc"><i class="no-highlight">364</i>&nbsp;        haveExpiration = false;</b>
+<i class="no-highlight">365</i>&nbsp;
+<b class="fc"><i class="no-highlight">366</i>&nbsp;        embeddedLN = false;</b>
+<b class="fc"><i class="no-highlight">367</i>&nbsp;        key = null;</b>
+<b class="fc"><i class="no-highlight">368</i>&nbsp;        ln = null;</b>
+<b class="fc"><i class="no-highlight">369</i>&nbsp;        expiration = 0;</b>
+<b class="fc"><i class="no-highlight">370</i>&nbsp;        expirationInHours = false;</b>
+<i class="no-highlight">371</i>&nbsp;
+<b class="fc"><i class="no-highlight">372</i>&nbsp;        dupStatus = null;</b>
+<b class="fc"><i class="no-highlight">373</i>&nbsp;    }</b>
+<i class="no-highlight">374</i>&nbsp;
+<i class="no-highlight">375</i>&nbsp;    @Override
+<i class="no-highlight">376</i>&nbsp;    public void readEntry(
+<i class="no-highlight">377</i>&nbsp;        EnvironmentImpl envImpl,
+<i class="no-highlight">378</i>&nbsp;        LogEntryHeader header,
+<i class="no-highlight">379</i>&nbsp;        ByteBuffer entryBuffer) {
+<i class="no-highlight">380</i>&nbsp;
+<i class="no-highlight">381</i>&nbsp;        /* Subclasses must call readBaseLNEntry. */
+<b class="fc"><i class="no-highlight">382</i>&nbsp;        assert getClass() == LNLogEntry.class;</b>
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;        /*
+<i class="no-highlight">385</i>&nbsp;         * Prior to version 8, the optimization to omit the key size was
+<i class="no-highlight">386</i>&nbsp;         * mistakenly not applied to internal LN types such as FileSummaryLN
+<i class="no-highlight">387</i>&nbsp;         * and MapLN, and was only applied to user LN types.  The optimization
+<i class="no-highlight">388</i>&nbsp;         * should be applicable whenever LNLogEntry is not subclassed to add
+<i class="no-highlight">389</i>&nbsp;         * additional fields. [#18055]
+<i class="no-highlight">390</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">391</i>&nbsp;        final boolean keyIsLastSerializedField =</b>
+<b class="fc"><i class="no-highlight">392</i>&nbsp;            header.getVersion() &gt;= 8 || entryType.isUserLNType();</b>
+<i class="no-highlight">393</i>&nbsp;
+<b class="fc"><i class="no-highlight">394</i>&nbsp;        readBaseLNEntry(envImpl, header, entryBuffer,</b>
+<i class="no-highlight">395</i>&nbsp;                        keyIsLastSerializedField);
+<b class="fc"><i class="no-highlight">396</i>&nbsp;    }</b>
+<i class="no-highlight">397</i>&nbsp;
+<i class="no-highlight">398</i>&nbsp;    /**
+<i class="no-highlight">399</i>&nbsp;     * Method shared by LNLogEntry subclasses.
+<i class="no-highlight">400</i>&nbsp;     *
+<i class="no-highlight">401</i>&nbsp;     * @param keyIsLastSerializedField specifies whether the key length can be
+<i class="no-highlight">402</i>&nbsp;     * omitted because the key is the last field.  This should be false when
+<i class="no-highlight">403</i>&nbsp;     * an LNLogEntry subclass adds fields to the serialized format.
+<i class="no-highlight">404</i>&nbsp;     */
+<i class="no-highlight">405</i>&nbsp;    final void readBaseLNEntry(
+<i class="no-highlight">406</i>&nbsp;        EnvironmentImpl envImpl,
+<i class="no-highlight">407</i>&nbsp;        LogEntryHeader header,
+<i class="no-highlight">408</i>&nbsp;        ByteBuffer entryBuffer,
+<i class="no-highlight">409</i>&nbsp;        boolean keyIsLastSerializedField) {
+<i class="no-highlight">410</i>&nbsp;
+<b class="fc"><i class="no-highlight">411</i>&nbsp;        reset();</b>
+<i class="no-highlight">412</i>&nbsp;
+<b class="fc"><i class="no-highlight">413</i>&nbsp;        int logVersion = header.getVersion();</b>
+<b class="fc"><i class="no-highlight">414</i>&nbsp;        boolean unpacked = (logVersion &lt; 6);</b>
+<b class="fc"><i class="no-highlight">415</i>&nbsp;        int recStartPosition = entryBuffer.position();</b>
+<i class="no-highlight">416</i>&nbsp;
+<b class="fc"><i class="no-highlight">417</i>&nbsp;        if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">418</i>&nbsp;            setFlags(entryBuffer.get());</b>
+<i class="no-highlight">419</i>&nbsp;        }
+<i class="no-highlight">420</i>&nbsp;
+<i class="no-highlight">421</i>&nbsp;        /*
+<i class="no-highlight">422</i>&nbsp;         * For log version 6 and above we store the key last so that we can
+<i class="no-highlight">423</i>&nbsp;         * avoid storing the key size. Instead, we derive it from the LN size
+<i class="no-highlight">424</i>&nbsp;         * and the total entry size. The DatabaseId is also packed.
+<i class="no-highlight">425</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">426</i>&nbsp;        if (logVersion &lt; 6) {</b>
+<i class="no-highlight">427</i>&nbsp;            /* LN is first for log versions prior to 6. */
+<b class="nc"><i class="no-highlight">428</i>&nbsp;            ln = newLNInstance(envImpl);</b>
+<b class="nc"><i class="no-highlight">429</i>&nbsp;            ln.readFromLog(entryBuffer, logVersion);</b>
+<i class="no-highlight">430</i>&nbsp;        }
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;        /* DatabaseImpl Id. */
+<b class="fc"><i class="no-highlight">433</i>&nbsp;        dbId = new DatabaseId();</b>
+<b class="fc"><i class="no-highlight">434</i>&nbsp;        dbId.readFromLog(entryBuffer, logVersion);</b>
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;        /* Key. */
+<b class="fc"><i class="no-highlight">437</i>&nbsp;        if (logVersion &lt; 6) {</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;            key = LogUtils.readByteArray(entryBuffer, true/*unpacked*/);</b>
+<i class="no-highlight">439</i>&nbsp;        }
+<i class="no-highlight">440</i>&nbsp;
+<b class="fc"><i class="no-highlight">441</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<i class="no-highlight">442</i>&nbsp;
+<i class="no-highlight">443</i>&nbsp;            /*
+<i class="no-highlight">444</i>&nbsp;             * AbortLsn. If it was a marker LSN that was used to fill in a
+<i class="no-highlight">445</i>&nbsp;             * create, mark it null.
+<i class="no-highlight">446</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">447</i>&nbsp;            if (haveAbortLSN || logVersion &lt; 12) {</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                abortLsn = LogUtils.readLong(entryBuffer, unpacked);</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;                if (DbLsn.getFileNumber(abortLsn) ==</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;                    DbLsn.getFileNumber(DbLsn.NULL_LSN)) {</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;                    abortLsn = DbLsn.NULL_LSN;</b>
+<i class="no-highlight">452</i>&nbsp;                }
+<i class="no-highlight">453</i>&nbsp;            }
+<i class="no-highlight">454</i>&nbsp;
+<b class="fc"><i class="no-highlight">455</i>&nbsp;            if (logVersion &lt; 12) {</b>
+<b class="nc"><i class="no-highlight">456</i>&nbsp;                setFlags(entryBuffer.get());</b>
+<b class="nc"><i class="no-highlight">457</i>&nbsp;                haveAbortLSN = (abortLsn != DbLsn.NULL_LSN);</b>
+<i class="no-highlight">458</i>&nbsp;            }
+<i class="no-highlight">459</i>&nbsp;
+<i class="no-highlight">460</i>&nbsp;            /* txn id and prev LSN by same txn. */
+<b class="fc"><i class="no-highlight">461</i>&nbsp;            txn = new Txn();</b>
+<b class="fc"><i class="no-highlight">462</i>&nbsp;            txn.readFromLog(entryBuffer, logVersion);</b>
+<i class="no-highlight">463</i>&nbsp;
+<b class="fc"><i class="no-highlight">464</i>&nbsp;        } else if (logVersion == 11) {</b>
+<b class="nc"><i class="no-highlight">465</i>&nbsp;            setFlags(entryBuffer.get());</b>
+<i class="no-highlight">466</i>&nbsp;        }
+<i class="no-highlight">467</i>&nbsp;
+<b class="fc"><i class="no-highlight">468</i>&nbsp;        if (logVersion &gt;= 11) {</b>
+<b class="fc"><i class="no-highlight">469</i>&nbsp;            if (haveAbortKey) {</b>
+<b class="nc"><i class="no-highlight">470</i>&nbsp;                abortKey = LogUtils.readByteArray(entryBuffer, false);</b>
+<i class="no-highlight">471</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">472</i>&nbsp;            if (haveAbortData) {</b>
+<b class="nc"><i class="no-highlight">473</i>&nbsp;                abortData = LogUtils.readByteArray(entryBuffer, false);</b>
+<i class="no-highlight">474</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">475</i>&nbsp;            if (haveAbortVLSN) {</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;                abortVLSN = LogUtils.readPackedLong(entryBuffer);</b>
+<i class="no-highlight">477</i>&nbsp;            }
+<i class="no-highlight">478</i>&nbsp;        }
+<i class="no-highlight">479</i>&nbsp;
+<b class="fc"><i class="no-highlight">480</i>&nbsp;        if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">481</i>&nbsp;            if (haveAbortExpiration) {</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                abortExpiration = LogUtils.readPackedInt(entryBuffer);</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                if (abortExpiration &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;                    abortExpiration = (- abortExpiration);</b>
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                    abortExpirationInHours = true;</b>
+<i class="no-highlight">486</i>&nbsp;                }
+<i class="no-highlight">487</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">488</i>&nbsp;            if (haveExpiration) {</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;                expiration = LogUtils.readPackedInt(entryBuffer);</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;                if (expiration &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">491</i>&nbsp;                    expiration = (- expiration);</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;                    expirationInHours = true;</b>
+<i class="no-highlight">493</i>&nbsp;                }
+<i class="no-highlight">494</i>&nbsp;            }
+<i class="no-highlight">495</i>&nbsp;        }
+<i class="no-highlight">496</i>&nbsp;
+<b class="fc"><i class="no-highlight">497</i>&nbsp;        if (logVersion &gt;= 6) {</b>
+<i class="no-highlight">498</i>&nbsp;
+<b class="fc"><i class="no-highlight">499</i>&nbsp;            ln = newLNInstance(envImpl);</b>
+<b class="fc"><i class="no-highlight">500</i>&nbsp;            ln.readFromLog(entryBuffer, logVersion);</b>
+<i class="no-highlight">501</i>&nbsp;
+<i class="no-highlight">502</i>&nbsp;            int keySize;
+<b class="fc"><i class="no-highlight">503</i>&nbsp;            if (keyIsLastSerializedField) {</b>
+<b class="fc"><i class="no-highlight">504</i>&nbsp;                int bytesWritten = entryBuffer.position() - recStartPosition;</b>
+<b class="fc"><i class="no-highlight">505</i>&nbsp;                keySize = header.getItemSize() - bytesWritten;</b>
+<b class="fc"><i class="no-highlight">506</i>&nbsp;            } else {</b>
+<b class="fc"><i class="no-highlight">507</i>&nbsp;                keySize = LogUtils.readPackedInt(entryBuffer);</b>
+<i class="no-highlight">508</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">509</i>&nbsp;            key = LogUtils.readBytesNoLength(entryBuffer, keySize);</b>
+<i class="no-highlight">510</i>&nbsp;        }
+<i class="no-highlight">511</i>&nbsp;
+<i class="no-highlight">512</i>&nbsp;        /* Save transient fields after read. */
+<i class="no-highlight">513</i>&nbsp;
+<b class="fc"><i class="no-highlight">514</i>&nbsp;        if (header.getVLSN() != null) {</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            ln.setVLSNSequence(header.getVLSN().getSequence());</b>
+<i class="no-highlight">516</i>&nbsp;        }
+<i class="no-highlight">517</i>&nbsp;
+<i class="no-highlight">518</i>&nbsp;        /* Dup conversion will be done by postFetchInit. */
+<b class="fc"><i class="no-highlight">519</i>&nbsp;        dupStatus =</b>
+<i class="no-highlight">520</i>&nbsp;            (logVersion &lt; 8) ? DupStatus.NEED_CONVERSION : DupStatus.UNKNOWN;
+<b class="fc"><i class="no-highlight">521</i>&nbsp;    }</b>
+<i class="no-highlight">522</i>&nbsp;
+<i class="no-highlight">523</i>&nbsp;    private void setFlags(final byte flags) {
+<b class="fc"><i class="no-highlight">524</i>&nbsp;        embeddedLN = ((flags &amp; EMBEDDED_LN_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">525</i>&nbsp;        abortKnownDeleted = ((flags &amp; ABORT_KD_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">526</i>&nbsp;        haveAbortLSN = ((flags &amp; HAVE_ABORT_LSN_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">527</i>&nbsp;        haveAbortKey = ((flags &amp; HAVE_ABORT_KEY_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">528</i>&nbsp;        haveAbortData = ((flags &amp; HAVE_ABORT_DATA_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">529</i>&nbsp;        haveAbortVLSN = ((flags &amp; HAVE_ABORT_VLSN_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">530</i>&nbsp;        haveAbortExpiration = ((flags &amp; HAVE_ABORT_EXPIRATION_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">531</i>&nbsp;        haveExpiration = ((flags &amp; HAVE_EXPIRATION_MASK) != 0);</b>
+<b class="fc"><i class="no-highlight">532</i>&nbsp;    }</b>
+<i class="no-highlight">533</i>&nbsp;
+<i class="no-highlight">534</i>&nbsp;    @Override
+<i class="no-highlight">535</i>&nbsp;    public boolean hasReplicationFormat() {
+<b class="nc"><i class="no-highlight">536</i>&nbsp;        return true;</b>
+<i class="no-highlight">537</i>&nbsp;    }
+<i class="no-highlight">538</i>&nbsp;
+<i class="no-highlight">539</i>&nbsp;    @Override
+<i class="no-highlight">540</i>&nbsp;    public boolean isReplicationFormatWorthwhile(final ByteBuffer logBuffer,
+<i class="no-highlight">541</i>&nbsp;                                                 final int srcVersion,
+<i class="no-highlight">542</i>&nbsp;                                                 final int destVersion) {
+<i class="no-highlight">543</i>&nbsp;
+<i class="no-highlight">544</i>&nbsp;        /* The replication format is optimized only in versions &gt;= 11. */
+<b class="nc"><i class="no-highlight">545</i>&nbsp;        if (destVersion &lt; 11) {</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;            return false;</b>
+<i class="no-highlight">547</i>&nbsp;        }
+<i class="no-highlight">548</i>&nbsp;
+<i class="no-highlight">549</i>&nbsp;        /*
+<i class="no-highlight">550</i>&nbsp;         * It is too much trouble to parse versions older than 12, because the
+<i class="no-highlight">551</i>&nbsp;         * flags are not at the front in older versions.
+<i class="no-highlight">552</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">553</i>&nbsp;        if (srcVersion &lt; 12) {</b>
+<b class="nc"><i class="no-highlight">554</i>&nbsp;            return false;</b>
+<i class="no-highlight">555</i>&nbsp;        }
+<i class="no-highlight">556</i>&nbsp;
+<b class="nc"><i class="no-highlight">557</i>&nbsp;        final byte flags = logBuffer.get(0);</b>
+<i class="no-highlight">558</i>&nbsp;
+<i class="no-highlight">559</i>&nbsp;        /*
+<i class="no-highlight">560</i>&nbsp;         * If we have an abort key or data, assume that the savings is
+<i class="no-highlight">561</i>&nbsp;         * substantial enough to be worthwhile.
+<i class="no-highlight">562</i>&nbsp;         *
+<i class="no-highlight">563</i>&nbsp;         * The abort key is unusual and implies that data is hidden in the key
+<i class="no-highlight">564</i>&nbsp;         * using a partial comparator, so we assume it is probably large,
+<i class="no-highlight">565</i>&nbsp;         * relative to the total size.
+<i class="no-highlight">566</i>&nbsp;         *
+<i class="no-highlight">567</i>&nbsp;         * If there is abort data, it may be small, however, because the
+<i class="no-highlight">568</i>&nbsp;         * presence of abort data implies that this is an update or deletion,
+<i class="no-highlight">569</i>&nbsp;         * there will also be an abort LSN and an abort VLSN (with HA). Plus,
+<i class="no-highlight">570</i>&nbsp;         * abort data is likely to be around the same size as the non-abort
+<i class="no-highlight">571</i>&nbsp;         * data, and keys are normally smallish, meaning that the abort data is
+<i class="no-highlight">572</i>&nbsp;         * largish relative to the total record size. So we assume the savings
+<i class="no-highlight">573</i>&nbsp;         * are substantial enough.
+<i class="no-highlight">574</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        return (flags &amp;</b>
+<i class="no-highlight">576</i>&nbsp;            (HAVE_ABORT_KEY_MASK | HAVE_ABORT_DATA_MASK)) != 0;
+<i class="no-highlight">577</i>&nbsp;    }
+<i class="no-highlight">578</i>&nbsp;
+<i class="no-highlight">579</i>&nbsp;    /**
+<i class="no-highlight">580</i>&nbsp;     * newLNInstance usually returns exactly the type of LN of the type that
+<i class="no-highlight">581</i>&nbsp;     * was contained in in the log. For example, if a LNLogEntry holds a MapLN,
+<i class="no-highlight">582</i>&nbsp;     * newLNInstance will return that MapLN. There is one extra possibility for
+<i class="no-highlight">583</i>&nbsp;     * vanilla (data record) LNs. In that case, this method may either return a
+<i class="no-highlight">584</i>&nbsp;     * LN or a generated type, the VersionedLN, which adds the vlsn information
+<i class="no-highlight">585</i>&nbsp;     * from the log header to the LN object.
+<i class="no-highlight">586</i>&nbsp;     */
+<i class="no-highlight">587</i>&nbsp;    LN newLNInstance(EnvironmentImpl envImpl) {
+<b class="fc"><i class="no-highlight">588</i>&nbsp;        if (versionedLNConstructor != null &amp;&amp; envImpl.getPreserveVLSN()) {</b>
+<b class="nc"><i class="no-highlight">589</i>&nbsp;            return newInstanceOfType(versionedLNConstructor);</b>
+<i class="no-highlight">590</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">591</i>&nbsp;        return newInstanceOfType();</b>
+<i class="no-highlight">592</i>&nbsp;    }
+<i class="no-highlight">593</i>&nbsp;
+<i class="no-highlight">594</i>&nbsp;    @Override
+<i class="no-highlight">595</i>&nbsp;    public StringBuilder dumpEntry(StringBuilder sb, boolean verbose) {
+<i class="no-highlight">596</i>&nbsp;
+<b class="nc"><i class="no-highlight">597</i>&nbsp;        dbId.dumpLog(sb, verbose);</b>
+<i class="no-highlight">598</i>&nbsp;
+<b class="nc"><i class="no-highlight">599</i>&nbsp;        ln.dumpKey(sb, key);</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        ln.dumpLog(sb, verbose);</b>
+<i class="no-highlight">601</i>&nbsp;
+<b class="nc"><i class="no-highlight">602</i>&nbsp;        sb.append(&quot;&lt;embeddedLN val=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">603</i>&nbsp;        sb.append(embeddedLN);</b>
+<b class="nc"><i class="no-highlight">604</i>&nbsp;        sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">605</i>&nbsp;
+<b class="nc"><i class="no-highlight">606</i>&nbsp;        if (haveExpiration) {</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            sb.append(&quot;&lt;expires val=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            sb.append(TTL.formatExpiration(expiration, expirationInHours));</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;            sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">610</i>&nbsp;        }
+<i class="no-highlight">611</i>&nbsp;
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<i class="no-highlight">613</i>&nbsp;
+<b class="nc"><i class="no-highlight">614</i>&nbsp;            txn.dumpLog(sb, verbose);</b>
+<i class="no-highlight">615</i>&nbsp;
+<b class="nc"><i class="no-highlight">616</i>&nbsp;            sb.append(&quot;&lt;abortLSN val=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">617</i>&nbsp;            sb.append(DbLsn.getNoFormatString(abortLsn));</b>
+<b class="nc"><i class="no-highlight">618</i>&nbsp;            sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">619</i>&nbsp;
+<b class="nc"><i class="no-highlight">620</i>&nbsp;            sb.append(&quot;&lt;abortKD val=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">621</i>&nbsp;            sb.append(abortKnownDeleted ? &quot;true&quot; : &quot;false&quot;);</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;            sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">623</i>&nbsp;
+<b class="nc"><i class="no-highlight">624</i>&nbsp;            if (haveAbortKey) {</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;                sb.append(Key.dumpString(abortKey, &quot;abortKey&quot;, 0));</b>
+<i class="no-highlight">626</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">627</i>&nbsp;            if (haveAbortData) {</b>
+<b class="nc"><i class="no-highlight">628</i>&nbsp;                sb.append(Key.dumpString(abortData, &quot;abortData&quot;, 0));</b>
+<i class="no-highlight">629</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">630</i>&nbsp;            if (haveAbortVLSN) {</b>
+<b class="nc"><i class="no-highlight">631</i>&nbsp;                sb.append(&quot;&lt;abortVLSN v=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">632</i>&nbsp;                sb.append(abortVLSN);</b>
+<b class="nc"><i class="no-highlight">633</i>&nbsp;                sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">634</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">635</i>&nbsp;            if (haveAbortExpiration) {</b>
+<b class="nc"><i class="no-highlight">636</i>&nbsp;                sb.append(&quot;&lt;abortExpires val=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">637</i>&nbsp;                sb.append(TTL.formatExpiration(</b>
+<i class="no-highlight">638</i>&nbsp;                    abortExpiration, abortExpirationInHours));
+<b class="nc"><i class="no-highlight">639</i>&nbsp;                sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">640</i>&nbsp;            }
+<i class="no-highlight">641</i>&nbsp;        }
+<i class="no-highlight">642</i>&nbsp;
+<b class="nc"><i class="no-highlight">643</i>&nbsp;        return sb;</b>
+<i class="no-highlight">644</i>&nbsp;    }
+<i class="no-highlight">645</i>&nbsp;
+<i class="no-highlight">646</i>&nbsp;    @Override
+<i class="no-highlight">647</i>&nbsp;    public void dumpRep(StringBuilder sb) {
+<b class="nc"><i class="no-highlight">648</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<b class="nc"><i class="no-highlight">649</i>&nbsp;            sb.append(&quot; txn=&quot;).append(txn.getId());</b>
+<i class="no-highlight">650</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">651</i>&nbsp;    }</b>
+<i class="no-highlight">652</i>&nbsp;
+<i class="no-highlight">653</i>&nbsp;    @Override
+<i class="no-highlight">654</i>&nbsp;    public LN getMainItem() {
+<b class="nc"><i class="no-highlight">655</i>&nbsp;        return ln;</b>
+<i class="no-highlight">656</i>&nbsp;    }
+<i class="no-highlight">657</i>&nbsp;
+<i class="no-highlight">658</i>&nbsp;    @Override
+<i class="no-highlight">659</i>&nbsp;    public long getTransactionId() {
+<b class="nc"><i class="no-highlight">660</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<b class="nc"><i class="no-highlight">661</i>&nbsp;            return txn.getId();</b>
+<i class="no-highlight">662</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">663</i>&nbsp;        return 0;</b>
+<i class="no-highlight">664</i>&nbsp;    }
+<i class="no-highlight">665</i>&nbsp;
+<i class="no-highlight">666</i>&nbsp;    /*
+<i class="no-highlight">667</i>&nbsp;     * Writing support.
+<i class="no-highlight">668</i>&nbsp;     */
+<i class="no-highlight">669</i>&nbsp;
+<i class="no-highlight">670</i>&nbsp;    @Override
+<i class="no-highlight">671</i>&nbsp;    public int getLastFormatChange() {
+<b class="nc"><i class="no-highlight">672</i>&nbsp;        return LAST_FORMAT_CHANGE;</b>
+<i class="no-highlight">673</i>&nbsp;    }
+<i class="no-highlight">674</i>&nbsp;
+<i class="no-highlight">675</i>&nbsp;    @Override
+<i class="no-highlight">676</i>&nbsp;    public Collection&lt;VersionedWriteLoggable&gt; getEmbeddedLoggables() {
+<b class="nc"><i class="no-highlight">677</i>&nbsp;        return Arrays.asList(new LN(), new DatabaseId(), new Txn());</b>
+<i class="no-highlight">678</i>&nbsp;    }
+<i class="no-highlight">679</i>&nbsp;
+<i class="no-highlight">680</i>&nbsp;    @Override
+<i class="no-highlight">681</i>&nbsp;    public int getSize(final int logVersion, final boolean forReplication) {
+<i class="no-highlight">682</i>&nbsp;
+<b class="fc"><i class="no-highlight">683</i>&nbsp;        assert getClass() == LNLogEntry.class;</b>
+<i class="no-highlight">684</i>&nbsp;
+<b class="fc"><i class="no-highlight">685</i>&nbsp;        return getBaseLNEntrySize(</b>
+<i class="no-highlight">686</i>&nbsp;            logVersion, true /*keyIsLastSerializedField*/, forReplication);
+<i class="no-highlight">687</i>&nbsp;    }
+<i class="no-highlight">688</i>&nbsp;
+<i class="no-highlight">689</i>&nbsp;    /**
+<i class="no-highlight">690</i>&nbsp;     * Method shared by LNLogEntry subclasses.
+<i class="no-highlight">691</i>&nbsp;     *
+<i class="no-highlight">692</i>&nbsp;     * @param keyIsLastSerializedField specifies whether the key length can be
+<i class="no-highlight">693</i>&nbsp;     * omitted because the key is the last field.  This should be false when
+<i class="no-highlight">694</i>&nbsp;     * an LNLogEntry subclass adds fields to the serialized format.
+<i class="no-highlight">695</i>&nbsp;     */
+<i class="no-highlight">696</i>&nbsp;    final int getBaseLNEntrySize(
+<i class="no-highlight">697</i>&nbsp;        final int logVersion,
+<i class="no-highlight">698</i>&nbsp;        final boolean keyIsLastSerializedField,
+<i class="no-highlight">699</i>&nbsp;        final boolean forReplication) {
+<i class="no-highlight">700</i>&nbsp;
+<b class="fc"><i class="no-highlight">701</i>&nbsp;        int size = ln.getLogSize(logVersion, forReplication) +</b>
+<b class="fc"><i class="no-highlight">702</i>&nbsp;            dbId.getLogSize(logVersion, forReplication) +</b>
+<i class="no-highlight">703</i>&nbsp;            key.length;
+<i class="no-highlight">704</i>&nbsp;
+<b class="fc"><i class="no-highlight">705</i>&nbsp;        if (!keyIsLastSerializedField) {</b>
+<b class="fc"><i class="no-highlight">706</i>&nbsp;            size += LogUtils.getPackedIntLogSize(key.length);</b>
+<i class="no-highlight">707</i>&nbsp;        }
+<i class="no-highlight">708</i>&nbsp;
+<b class="fc"><i class="no-highlight">709</i>&nbsp;        if (entryType.isTransactional() || logVersion &gt;= 11) {</b>
+<b class="fc"><i class="no-highlight">710</i>&nbsp;            size += 1;   // flags</b>
+<i class="no-highlight">711</i>&nbsp;        }
+<i class="no-highlight">712</i>&nbsp;
+<b class="fc"><i class="no-highlight">713</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<b class="fc"><i class="no-highlight">714</i>&nbsp;            if (logVersion &lt; 12 || (haveAbortLSN &amp;&amp; !forReplication)) {</b>
+<b class="nc"><i class="no-highlight">715</i>&nbsp;                size += LogUtils.getPackedLongLogSize(abortLsn);</b>
+<i class="no-highlight">716</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">717</i>&nbsp;            size += txn.getLogSize(logVersion, forReplication);</b>
+<i class="no-highlight">718</i>&nbsp;        }
+<i class="no-highlight">719</i>&nbsp;
+<b class="fc"><i class="no-highlight">720</i>&nbsp;        if (!forReplication) {</b>
+<b class="fc"><i class="no-highlight">721</i>&nbsp;            if (logVersion &gt;= 11 ) {</b>
+<b class="fc"><i class="no-highlight">722</i>&nbsp;                if (haveAbortKey) {</b>
+<b class="nc"><i class="no-highlight">723</i>&nbsp;                    size += LogUtils.getByteArrayLogSize(abortKey);</b>
+<i class="no-highlight">724</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">725</i>&nbsp;                if (haveAbortData) {</b>
+<b class="nc"><i class="no-highlight">726</i>&nbsp;                    size += LogUtils.getByteArrayLogSize(abortData);</b>
+<i class="no-highlight">727</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">728</i>&nbsp;                if (haveAbortVLSN) {</b>
+<b class="nc"><i class="no-highlight">729</i>&nbsp;                    size += LogUtils.getPackedLongLogSize(abortVLSN);</b>
+<i class="no-highlight">730</i>&nbsp;                }
+<i class="no-highlight">731</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">732</i>&nbsp;            if (haveAbortExpiration) {</b>
+<b class="nc"><i class="no-highlight">733</i>&nbsp;                size += LogUtils.getPackedIntLogSize(</b>
+<i class="no-highlight">734</i>&nbsp;                    abortExpirationInHours ?
+<i class="no-highlight">735</i>&nbsp;                        (- abortExpiration) : abortExpiration);
+<i class="no-highlight">736</i>&nbsp;            }
+<i class="no-highlight">737</i>&nbsp;        }
+<i class="no-highlight">738</i>&nbsp;
+<b class="fc"><i class="no-highlight">739</i>&nbsp;        if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">740</i>&nbsp;            if (haveExpiration) {</b>
+<b class="nc"><i class="no-highlight">741</i>&nbsp;                size += LogUtils.getPackedIntLogSize(</b>
+<i class="no-highlight">742</i>&nbsp;                    expirationInHours ? (- expiration) : expiration);
+<i class="no-highlight">743</i>&nbsp;            }
+<i class="no-highlight">744</i>&nbsp;        }
+<i class="no-highlight">745</i>&nbsp;
+<b class="fc"><i class="no-highlight">746</i>&nbsp;        return size;</b>
+<i class="no-highlight">747</i>&nbsp;    }
+<i class="no-highlight">748</i>&nbsp;
+<i class="no-highlight">749</i>&nbsp;    @Override
+<i class="no-highlight">750</i>&nbsp;    public void writeEntry(final ByteBuffer destBuffer,
+<i class="no-highlight">751</i>&nbsp;                           final int logVersion,
+<i class="no-highlight">752</i>&nbsp;                           final boolean forReplication) {
+<i class="no-highlight">753</i>&nbsp;
+<i class="no-highlight">754</i>&nbsp;        /* Subclasses must call writeBaseLNEntry. */
+<b class="fc"><i class="no-highlight">755</i>&nbsp;        assert getClass() == LNLogEntry.class;</b>
+<i class="no-highlight">756</i>&nbsp;
+<b class="fc"><i class="no-highlight">757</i>&nbsp;        writeBaseLNEntry(</b>
+<i class="no-highlight">758</i>&nbsp;            destBuffer, logVersion, true /*keyIsLastSerializedField*/,
+<i class="no-highlight">759</i>&nbsp;            forReplication);
+<b class="fc"><i class="no-highlight">760</i>&nbsp;    }</b>
+<i class="no-highlight">761</i>&nbsp;
+<i class="no-highlight">762</i>&nbsp;    /**
+<i class="no-highlight">763</i>&nbsp;     * Method shared by LNLogEntry subclasses.
+<i class="no-highlight">764</i>&nbsp;     *
+<i class="no-highlight">765</i>&nbsp;     * @param keyIsLastSerializedField specifies whether the key length can be
+<i class="no-highlight">766</i>&nbsp;     * omitted because the key is the last field.  This should be false when
+<i class="no-highlight">767</i>&nbsp;     * an LNLogEntry subclass adds fields to the serialized format.
+<i class="no-highlight">768</i>&nbsp;     */
+<i class="no-highlight">769</i>&nbsp;    final void writeBaseLNEntry(
+<i class="no-highlight">770</i>&nbsp;        final ByteBuffer destBuffer,
+<i class="no-highlight">771</i>&nbsp;        final int logVersion,
+<i class="no-highlight">772</i>&nbsp;        final boolean keyIsLastSerializedField,
+<i class="no-highlight">773</i>&nbsp;        final boolean forReplication) {
+<i class="no-highlight">774</i>&nbsp;
+<b class="fc"><i class="no-highlight">775</i>&nbsp;        byte flags = 0;</b>
+<i class="no-highlight">776</i>&nbsp;
+<b class="fc"><i class="no-highlight">777</i>&nbsp;        if (entryType.isTransactional() &amp;&amp;</b>
+<i class="no-highlight">778</i>&nbsp;            (logVersion &lt; 12 || !forReplication)) {
+<i class="no-highlight">779</i>&nbsp;
+<b class="fc"><i class="no-highlight">780</i>&nbsp;            if (abortKnownDeleted) {</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;                flags |= ABORT_KD_MASK;</b>
+<i class="no-highlight">782</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">783</i>&nbsp;            if (haveAbortLSN) {</b>
+<b class="nc"><i class="no-highlight">784</i>&nbsp;                flags |= HAVE_ABORT_LSN_MASK;</b>
+<i class="no-highlight">785</i>&nbsp;            }
+<i class="no-highlight">786</i>&nbsp;        }
+<i class="no-highlight">787</i>&nbsp;
+<b class="fc"><i class="no-highlight">788</i>&nbsp;        if (!forReplication) {</b>
+<b class="fc"><i class="no-highlight">789</i>&nbsp;            if (logVersion &gt;= 11) {</b>
+<b class="fc"><i class="no-highlight">790</i>&nbsp;                if (embeddedLN) {</b>
+<b class="nc"><i class="no-highlight">791</i>&nbsp;                    flags |= EMBEDDED_LN_MASK;</b>
+<i class="no-highlight">792</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">793</i>&nbsp;                if (haveAbortKey) {</b>
+<b class="nc"><i class="no-highlight">794</i>&nbsp;                    flags |= HAVE_ABORT_KEY_MASK;</b>
+<i class="no-highlight">795</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">796</i>&nbsp;                if (haveAbortData) {</b>
+<b class="nc"><i class="no-highlight">797</i>&nbsp;                    flags |= HAVE_ABORT_DATA_MASK;</b>
+<i class="no-highlight">798</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">799</i>&nbsp;                if (haveAbortVLSN) {</b>
+<b class="nc"><i class="no-highlight">800</i>&nbsp;                    flags |= HAVE_ABORT_VLSN_MASK;</b>
+<i class="no-highlight">801</i>&nbsp;                }
+<i class="no-highlight">802</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">803</i>&nbsp;            if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">804</i>&nbsp;                if (haveAbortExpiration) {</b>
+<b class="nc"><i class="no-highlight">805</i>&nbsp;                    flags |= HAVE_ABORT_EXPIRATION_MASK;</b>
+<i class="no-highlight">806</i>&nbsp;                }
+<i class="no-highlight">807</i>&nbsp;            }
+<i class="no-highlight">808</i>&nbsp;        }
+<i class="no-highlight">809</i>&nbsp;
+<b class="fc"><i class="no-highlight">810</i>&nbsp;        if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">811</i>&nbsp;            if (haveExpiration) {</b>
+<b class="nc"><i class="no-highlight">812</i>&nbsp;                flags |= HAVE_EXPIRATION_MASK;</b>
+<i class="no-highlight">813</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">814</i>&nbsp;            destBuffer.put(flags);</b>
+<i class="no-highlight">815</i>&nbsp;        }
+<i class="no-highlight">816</i>&nbsp;
+<b class="fc"><i class="no-highlight">817</i>&nbsp;        dbId.writeToLog(destBuffer, logVersion, forReplication);</b>
+<i class="no-highlight">818</i>&nbsp;
+<b class="fc"><i class="no-highlight">819</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<i class="no-highlight">820</i>&nbsp;
+<b class="fc"><i class="no-highlight">821</i>&nbsp;            if (logVersion &lt; 12 || (haveAbortLSN &amp;&amp; !forReplication)) {</b>
+<b class="nc"><i class="no-highlight">822</i>&nbsp;                LogUtils.writePackedLong(destBuffer, abortLsn);</b>
+<i class="no-highlight">823</i>&nbsp;            }
+<i class="no-highlight">824</i>&nbsp;
+<b class="fc"><i class="no-highlight">825</i>&nbsp;            if (logVersion &lt; 12) {</b>
+<b class="nc"><i class="no-highlight">826</i>&nbsp;                destBuffer.put(flags);</b>
+<i class="no-highlight">827</i>&nbsp;            }
+<i class="no-highlight">828</i>&nbsp;
+<b class="fc"><i class="no-highlight">829</i>&nbsp;            txn.writeToLog(destBuffer, logVersion, forReplication);</b>
+<i class="no-highlight">830</i>&nbsp;
+<b class="fc"><i class="no-highlight">831</i>&nbsp;        } else if (logVersion == 11) {</b>
+<b class="nc"><i class="no-highlight">832</i>&nbsp;            destBuffer.put(flags);</b>
+<i class="no-highlight">833</i>&nbsp;        }
+<i class="no-highlight">834</i>&nbsp;
+<b class="fc"><i class="no-highlight">835</i>&nbsp;        if (!forReplication) {</b>
+<b class="fc"><i class="no-highlight">836</i>&nbsp;            if (logVersion &gt;= 11) {</b>
+<b class="fc"><i class="no-highlight">837</i>&nbsp;                if (haveAbortKey) {</b>
+<b class="nc"><i class="no-highlight">838</i>&nbsp;                    LogUtils.writeByteArray(destBuffer, abortKey);</b>
+<i class="no-highlight">839</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">840</i>&nbsp;                if (haveAbortData) {</b>
+<b class="nc"><i class="no-highlight">841</i>&nbsp;                    LogUtils.writeByteArray(destBuffer, abortData);</b>
+<i class="no-highlight">842</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">843</i>&nbsp;                if (haveAbortVLSN) {</b>
+<b class="nc"><i class="no-highlight">844</i>&nbsp;                    LogUtils.writePackedLong(destBuffer, abortVLSN);</b>
+<i class="no-highlight">845</i>&nbsp;                }
+<i class="no-highlight">846</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">847</i>&nbsp;            if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">848</i>&nbsp;                if (haveAbortExpiration) {</b>
+<b class="nc"><i class="no-highlight">849</i>&nbsp;                    LogUtils.writePackedInt(</b>
+<i class="no-highlight">850</i>&nbsp;                        destBuffer,
+<i class="no-highlight">851</i>&nbsp;                        abortExpirationInHours ?
+<i class="no-highlight">852</i>&nbsp;                            (-abortExpiration) : abortExpiration);
+<i class="no-highlight">853</i>&nbsp;                }
+<i class="no-highlight">854</i>&nbsp;            }
+<i class="no-highlight">855</i>&nbsp;        }
+<i class="no-highlight">856</i>&nbsp;
+<b class="fc"><i class="no-highlight">857</i>&nbsp;        if (logVersion &gt;= 12) {</b>
+<b class="fc"><i class="no-highlight">858</i>&nbsp;            if (haveExpiration) {</b>
+<b class="nc"><i class="no-highlight">859</i>&nbsp;                LogUtils.writePackedInt(</b>
+<i class="no-highlight">860</i>&nbsp;                    destBuffer,
+<i class="no-highlight">861</i>&nbsp;                    expirationInHours ? (-expiration) : expiration);
+<i class="no-highlight">862</i>&nbsp;            }
+<i class="no-highlight">863</i>&nbsp;        }
+<i class="no-highlight">864</i>&nbsp;
+<b class="fc"><i class="no-highlight">865</i>&nbsp;        ln.writeToLog(destBuffer, logVersion, forReplication);</b>
+<i class="no-highlight">866</i>&nbsp;
+<b class="fc"><i class="no-highlight">867</i>&nbsp;        if (!keyIsLastSerializedField) {</b>
+<b class="fc"><i class="no-highlight">868</i>&nbsp;            LogUtils.writePackedInt(destBuffer, key.length);</b>
+<i class="no-highlight">869</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">870</i>&nbsp;        LogUtils.writeBytesNoLength(destBuffer, key);</b>
+<b class="fc"><i class="no-highlight">871</i>&nbsp;    }</b>
+<i class="no-highlight">872</i>&nbsp;
+<i class="no-highlight">873</i>&nbsp;    @Override
+<i class="no-highlight">874</i>&nbsp;    public boolean isImmediatelyObsolete(DatabaseImpl dbImpl) {
+<b class="fc"><i class="no-highlight">875</i>&nbsp;        return (ln.isDeleted() ||</b>
+<i class="no-highlight">876</i>&nbsp;                embeddedLN ||
+<b class="fc"><i class="no-highlight">877</i>&nbsp;                dbImpl.isLNImmediatelyObsolete());</b>
+<i class="no-highlight">878</i>&nbsp;    }
+<i class="no-highlight">879</i>&nbsp;
+<i class="no-highlight">880</i>&nbsp;    @Override
+<i class="no-highlight">881</i>&nbsp;    public boolean isDeleted() {
+<b class="fc"><i class="no-highlight">882</i>&nbsp;        return ln.isDeleted();</b>
+<i class="no-highlight">883</i>&nbsp;    }
+<i class="no-highlight">884</i>&nbsp;
+<i class="no-highlight">885</i>&nbsp;    /**
+<i class="no-highlight">886</i>&nbsp;     * For LN entries, we need to record the latest LSN for that node with the
+<i class="no-highlight">887</i>&nbsp;     * owning transaction, within the protection of the log latch. This is a
+<i class="no-highlight">888</i>&nbsp;     * callback for the log manager to do that recording.
+<i class="no-highlight">889</i>&nbsp;     */
+<i class="no-highlight">890</i>&nbsp;    @Override
+<i class="no-highlight">891</i>&nbsp;    public void postLogWork(
+<i class="no-highlight">892</i>&nbsp;        LogEntryHeader header,
+<i class="no-highlight">893</i>&nbsp;        long justLoggedLsn,
+<i class="no-highlight">894</i>&nbsp;        VLSN vlsn) {
+<i class="no-highlight">895</i>&nbsp;
+<b class="fc"><i class="no-highlight">896</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<b class="fc"><i class="no-highlight">897</i>&nbsp;            txn.addLogInfo(justLoggedLsn);</b>
+<i class="no-highlight">898</i>&nbsp;        }
+<i class="no-highlight">899</i>&nbsp;
+<i class="no-highlight">900</i>&nbsp;        /* Save transient fields after write. */
+<b class="fc"><i class="no-highlight">901</i>&nbsp;        if (vlsn != null) {</b>
+<b class="nc"><i class="no-highlight">902</i>&nbsp;            ln.setVLSNSequence(vlsn.getSequence());</b>
+<i class="no-highlight">903</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">904</i>&nbsp;    }</b>
+<i class="no-highlight">905</i>&nbsp;
+<i class="no-highlight">906</i>&nbsp;    @Override
+<i class="no-highlight">907</i>&nbsp;    public void postFetchInit(DatabaseImpl dbImpl) {
+<b class="nc"><i class="no-highlight">908</i>&nbsp;        postFetchInit(dbImpl.getSortedDuplicates());</b>
+<b class="nc"><i class="no-highlight">909</i>&nbsp;    }</b>
+<i class="no-highlight">910</i>&nbsp;
+<i class="no-highlight">911</i>&nbsp;    /**
+<i class="no-highlight">912</i>&nbsp;     * Converts the key/data for old format LNs in a duplicates DB.
+<i class="no-highlight">913</i>&nbsp;     *
+<i class="no-highlight">914</i>&nbsp;     * This method MUST be called before calling any of the following methods:
+<i class="no-highlight">915</i>&nbsp;     *  getLN
+<i class="no-highlight">916</i>&nbsp;     *  getKey
+<i class="no-highlight">917</i>&nbsp;     *  getUserKeyData
+<i class="no-highlight">918</i>&nbsp;     *
+<i class="no-highlight">919</i>&nbsp;     * TODO:
+<i class="no-highlight">920</i>&nbsp;     * This method is not called by the HA feeder when materializing entries.
+<i class="no-highlight">921</i>&nbsp;     * This is OK because entries with log version 7 and below are never
+<i class="no-highlight">922</i>&nbsp;     * materialized. But we may want to rename this method to make it clear
+<i class="no-highlight">923</i>&nbsp;     * that it only is, and only must be, called for the log versions &lt; 8.
+<i class="no-highlight">924</i>&nbsp;     */
+<i class="no-highlight">925</i>&nbsp;    public void postFetchInit(boolean isDupDb) {
+<i class="no-highlight">926</i>&nbsp;
+<b class="nc"><i class="no-highlight">927</i>&nbsp;        final boolean needConversion =</b>
+<i class="no-highlight">928</i>&nbsp;            (dupStatus == DupStatus.NEED_CONVERSION);
+<i class="no-highlight">929</i>&nbsp;
+<b class="nc"><i class="no-highlight">930</i>&nbsp;        dupStatus = isDupDb ? DupStatus.DUP_DB : DupStatus.NOT_DUP_DB;</b>
+<i class="no-highlight">931</i>&nbsp;
+<i class="no-highlight">932</i>&nbsp;        /* Do not convert more than once. */
+<b class="nc"><i class="no-highlight">933</i>&nbsp;        if (!needConversion) {</b>
+<b class="nc"><i class="no-highlight">934</i>&nbsp;            return;</b>
+<i class="no-highlight">935</i>&nbsp;        }
+<i class="no-highlight">936</i>&nbsp;
+<i class="no-highlight">937</i>&nbsp;        /* Nothing to convert for non-duplicates DB. */
+<b class="nc"><i class="no-highlight">938</i>&nbsp;        if (dupStatus == DupStatus.NOT_DUP_DB) {</b>
+<b class="nc"><i class="no-highlight">939</i>&nbsp;            return;</b>
+<i class="no-highlight">940</i>&nbsp;        }
+<i class="no-highlight">941</i>&nbsp;
+<b class="nc"><i class="no-highlight">942</i>&nbsp;        key = combineDupKeyData();</b>
+<b class="nc"><i class="no-highlight">943</i>&nbsp;    }</b>
+<i class="no-highlight">944</i>&nbsp;
+<i class="no-highlight">945</i>&nbsp;    /**
+<i class="no-highlight">946</i>&nbsp;     * Combine old key and old LN&#39;s data into a new key, and set the LN&#39;s data
+<i class="no-highlight">947</i>&nbsp;     * to empty.
+<i class="no-highlight">948</i>&nbsp;     */
+<i class="no-highlight">949</i>&nbsp;    byte[] combineDupKeyData() {
+<b class="nc"><i class="no-highlight">950</i>&nbsp;        assert !ln.isDeleted(); // DeletedLNLogEntry overrides this method.</b>
+<b class="nc"><i class="no-highlight">951</i>&nbsp;        return DupKeyData.combine(key, ln.setEmpty());</b>
+<i class="no-highlight">952</i>&nbsp;    }
+<i class="no-highlight">953</i>&nbsp;
+<i class="no-highlight">954</i>&nbsp;    /**
+<i class="no-highlight">955</i>&nbsp;     * Translates two-part keys in duplicate DBs back to the original user
+<i class="no-highlight">956</i>&nbsp;     * operation params.  postFetchInit must be called before calling this
+<i class="no-highlight">957</i>&nbsp;     * method.
+<i class="no-highlight">958</i>&nbsp;     */
+<i class="no-highlight">959</i>&nbsp;    public void getUserKeyData(
+<i class="no-highlight">960</i>&nbsp;        DatabaseEntry keyParam,
+<i class="no-highlight">961</i>&nbsp;        DatabaseEntry dataParam) {
+<i class="no-highlight">962</i>&nbsp;
+<b class="nc"><i class="no-highlight">963</i>&nbsp;        requireKnownDupStatus();</b>
+<i class="no-highlight">964</i>&nbsp;
+<b class="nc"><i class="no-highlight">965</i>&nbsp;        if (dupStatus == DupStatus.DUP_DB) {</b>
+<b class="nc"><i class="no-highlight">966</i>&nbsp;            DupKeyData.split(new DatabaseEntry(key), keyParam, dataParam);</b>
+<i class="no-highlight">967</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">968</i>&nbsp;            if (keyParam != null) {</b>
+<b class="nc"><i class="no-highlight">969</i>&nbsp;                keyParam.setData(key);</b>
+<i class="no-highlight">970</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">971</i>&nbsp;            if (dataParam != null) {</b>
+<b class="nc"><i class="no-highlight">972</i>&nbsp;                dataParam.setData(ln.getData());</b>
+<i class="no-highlight">973</i>&nbsp;            }
+<i class="no-highlight">974</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">975</i>&nbsp;    }</b>
+<i class="no-highlight">976</i>&nbsp;
+<i class="no-highlight">977</i>&nbsp;    /*
+<i class="no-highlight">978</i>&nbsp;     * Accessors.
+<i class="no-highlight">979</i>&nbsp;     */
+<i class="no-highlight">980</i>&nbsp;    public boolean isEmbeddedLN() {
+<b class="fc"><i class="no-highlight">981</i>&nbsp;        return embeddedLN;</b>
+<i class="no-highlight">982</i>&nbsp;    }
+<i class="no-highlight">983</i>&nbsp;
+<i class="no-highlight">984</i>&nbsp;    public LN getLN() {
+<b class="nc"><i class="no-highlight">985</i>&nbsp;        requireKnownDupStatus();</b>
+<b class="nc"><i class="no-highlight">986</i>&nbsp;        return ln;</b>
+<i class="no-highlight">987</i>&nbsp;    }
+<i class="no-highlight">988</i>&nbsp;
+<i class="no-highlight">989</i>&nbsp;    public byte[] getKey() {
+<b class="nc"><i class="no-highlight">990</i>&nbsp;        requireKnownDupStatus();</b>
+<b class="nc"><i class="no-highlight">991</i>&nbsp;        return key;</b>
+<i class="no-highlight">992</i>&nbsp;    }
+<i class="no-highlight">993</i>&nbsp;
+<i class="no-highlight">994</i>&nbsp;    public byte[] getData() {
+<b class="nc"><i class="no-highlight">995</i>&nbsp;        return ln.getData();</b>
+<i class="no-highlight">996</i>&nbsp;    }
+<i class="no-highlight">997</i>&nbsp;
+<i class="no-highlight">998</i>&nbsp;    public byte[] getEmbeddedData() {
+<i class="no-highlight">999</i>&nbsp;
+<b class="nc"><i class="no-highlight">1000</i>&nbsp;        if (!isEmbeddedLN()) {</b>
+<b class="nc"><i class="no-highlight">1001</i>&nbsp;            return null;</b>
+<i class="no-highlight">1002</i>&nbsp;        }
+<i class="no-highlight">1003</i>&nbsp;
+<b class="nc"><i class="no-highlight">1004</i>&nbsp;        if (ln.isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;            return Key.EMPTY_KEY;</b>
+<i class="no-highlight">1006</i>&nbsp;        }
+<i class="no-highlight">1007</i>&nbsp;
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;        return ln.getData();</b>
+<i class="no-highlight">1009</i>&nbsp;    }
+<i class="no-highlight">1010</i>&nbsp;
+<i class="no-highlight">1011</i>&nbsp;    public int getExpiration() {
+<b class="fc"><i class="no-highlight">1012</i>&nbsp;        return expiration;</b>
+<i class="no-highlight">1013</i>&nbsp;    }
+<i class="no-highlight">1014</i>&nbsp;
+<i class="no-highlight">1015</i>&nbsp;    public boolean isExpirationInHours() {
+<b class="nc"><i class="no-highlight">1016</i>&nbsp;        return expirationInHours;</b>
+<i class="no-highlight">1017</i>&nbsp;    }
+<i class="no-highlight">1018</i>&nbsp;
+<i class="no-highlight">1019</i>&nbsp;    private void requireKnownDupStatus() {
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;        if (dupStatus != DupStatus.DUP_DB &amp;&amp;</b>
+<i class="no-highlight">1021</i>&nbsp;            dupStatus != DupStatus.NOT_DUP_DB) {
+<b class="nc"><i class="no-highlight">1022</i>&nbsp;            throw unexpectedState(</b>
+<i class="no-highlight">1023</i>&nbsp;                &quot;postFetchInit was not called&quot;);
+<i class="no-highlight">1024</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;    }</b>
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;    /**
+<i class="no-highlight">1028</i>&nbsp;     * This method is only used when the converted length is not needed, for
+<i class="no-highlight">1029</i>&nbsp;     * example by StatsFileReader.
+<i class="no-highlight">1030</i>&nbsp;     */
+<i class="no-highlight">1031</i>&nbsp;    public int getUnconvertedDataLength() {
+<b class="nc"><i class="no-highlight">1032</i>&nbsp;        return ln.getData().length;</b>
+<i class="no-highlight">1033</i>&nbsp;    }
+<i class="no-highlight">1034</i>&nbsp;
+<i class="no-highlight">1035</i>&nbsp;    /**
+<i class="no-highlight">1036</i>&nbsp;     * This method is only used when the converted length is not needed, for
+<i class="no-highlight">1037</i>&nbsp;     * example by StatsFileReader.
+<i class="no-highlight">1038</i>&nbsp;     */
+<i class="no-highlight">1039</i>&nbsp;    public int getUnconvertedKeyLength() {
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;        return key.length;</b>
+<i class="no-highlight">1041</i>&nbsp;    }
+<i class="no-highlight">1042</i>&nbsp;
+<i class="no-highlight">1043</i>&nbsp;    @Override
+<i class="no-highlight">1044</i>&nbsp;    public DatabaseId getDbId() {
+<b class="fc"><i class="no-highlight">1045</i>&nbsp;        return dbId;</b>
+<i class="no-highlight">1046</i>&nbsp;    }
+<i class="no-highlight">1047</i>&nbsp;
+<i class="no-highlight">1048</i>&nbsp;    public long getAbortLsn() {
+<b class="nc"><i class="no-highlight">1049</i>&nbsp;        return abortLsn;</b>
+<i class="no-highlight">1050</i>&nbsp;    }
+<i class="no-highlight">1051</i>&nbsp;
+<i class="no-highlight">1052</i>&nbsp;    public boolean getAbortKnownDeleted() {
+<b class="nc"><i class="no-highlight">1053</i>&nbsp;        return abortKnownDeleted;</b>
+<i class="no-highlight">1054</i>&nbsp;    }
+<i class="no-highlight">1055</i>&nbsp;
+<i class="no-highlight">1056</i>&nbsp;    public byte[] getAbortKey() {
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;        return abortKey;</b>
+<i class="no-highlight">1058</i>&nbsp;    }
+<i class="no-highlight">1059</i>&nbsp;
+<i class="no-highlight">1060</i>&nbsp;    public byte[] getAbortData() {
+<b class="nc"><i class="no-highlight">1061</i>&nbsp;        return abortData;</b>
+<i class="no-highlight">1062</i>&nbsp;    }
+<i class="no-highlight">1063</i>&nbsp;
+<i class="no-highlight">1064</i>&nbsp;    public long getAbortVLSN() {
+<b class="nc"><i class="no-highlight">1065</i>&nbsp;        return abortVLSN;</b>
+<i class="no-highlight">1066</i>&nbsp;    }
+<i class="no-highlight">1067</i>&nbsp;
+<i class="no-highlight">1068</i>&nbsp;    public int getAbortExpiration() {
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;        return abortExpiration;</b>
+<i class="no-highlight">1070</i>&nbsp;    }
+<i class="no-highlight">1071</i>&nbsp;
+<i class="no-highlight">1072</i>&nbsp;    public boolean isAbortExpirationInHours() {
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;        return abortExpirationInHours;</b>
+<i class="no-highlight">1074</i>&nbsp;    }
+<i class="no-highlight">1075</i>&nbsp;
+<i class="no-highlight">1076</i>&nbsp;    public Long getTxnId() {
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;            return txn.getId();</b>
+<i class="no-highlight">1079</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1080</i>&nbsp;        return null;</b>
+<i class="no-highlight">1081</i>&nbsp;    }
+<i class="no-highlight">1082</i>&nbsp;
+<i class="no-highlight">1083</i>&nbsp;    public Txn getUserTxn() {
+<b class="nc"><i class="no-highlight">1084</i>&nbsp;        if (entryType.isTransactional()) {</b>
+<b class="nc"><i class="no-highlight">1085</i>&nbsp;            return txn;</b>
+<i class="no-highlight">1086</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1087</i>&nbsp;        return null;</b>
+<i class="no-highlight">1088</i>&nbsp;    }
+<i class="no-highlight">1089</i>&nbsp;
+<i class="no-highlight">1090</i>&nbsp;    @Override
+<i class="no-highlight">1091</i>&nbsp;    public boolean logicalEquals(LogEntry other) {
+<b class="nc"><i class="no-highlight">1092</i>&nbsp;        if (!(other instanceof LNLogEntry)) {</b>
+<b class="nc"><i class="no-highlight">1093</i>&nbsp;            return false;</b>
+<i class="no-highlight">1094</i>&nbsp;        }
+<i class="no-highlight">1095</i>&nbsp;
+<b class="nc"><i class="no-highlight">1096</i>&nbsp;        LNLogEntry&lt;?&gt; otherEntry = (LNLogEntry&lt;?&gt;) other;</b>
+<i class="no-highlight">1097</i>&nbsp;
+<b class="nc"><i class="no-highlight">1098</i>&nbsp;        if (!dbId.logicalEquals(otherEntry.dbId)) {</b>
+<b class="nc"><i class="no-highlight">1099</i>&nbsp;            return false;</b>
+<i class="no-highlight">1100</i>&nbsp;        }
+<i class="no-highlight">1101</i>&nbsp;
+<b class="nc"><i class="no-highlight">1102</i>&nbsp;        if (txn != null) {</b>
+<b class="nc"><i class="no-highlight">1103</i>&nbsp;            if (!txn.logicalEquals(otherEntry.txn)) {</b>
+<b class="nc"><i class="no-highlight">1104</i>&nbsp;                return false;</b>
+<i class="no-highlight">1105</i>&nbsp;            }
+<i class="no-highlight">1106</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1107</i>&nbsp;            if (otherEntry.txn != null) {</b>
+<b class="nc"><i class="no-highlight">1108</i>&nbsp;                return false;</b>
+<i class="no-highlight">1109</i>&nbsp;            }
+<i class="no-highlight">1110</i>&nbsp;        }
+<i class="no-highlight">1111</i>&nbsp;
+<b class="nc"><i class="no-highlight">1112</i>&nbsp;        if (!Arrays.equals(key, otherEntry.key)) {</b>
+<b class="nc"><i class="no-highlight">1113</i>&nbsp;            return false;</b>
+<i class="no-highlight">1114</i>&nbsp;        }
+<i class="no-highlight">1115</i>&nbsp;
+<b class="nc"><i class="no-highlight">1116</i>&nbsp;        if (!ln.logicalEquals(otherEntry.ln)) {</b>
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;            return false;</b>
+<i class="no-highlight">1118</i>&nbsp;        }
+<i class="no-highlight">1119</i>&nbsp;
+<b class="nc"><i class="no-highlight">1120</i>&nbsp;        return true;</b>
+<i class="no-highlight">1121</i>&nbsp;    }
+<i class="no-highlight">1122</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

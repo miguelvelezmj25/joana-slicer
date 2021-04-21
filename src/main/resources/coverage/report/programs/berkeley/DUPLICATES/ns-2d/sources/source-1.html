@@ -1,0 +1,483 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > BasicLocker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: BasicLocker (com.sleepycat.je.txn)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">BasicLocker</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    61.5%
+  </span>
+  <span class="absValue">
+    (16/26)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    51.7%
+  </span>
+  <span class="absValue">
+    (46/89)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.txn.LockStatDefinition.LOCK_READ_LOCKS;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.txn.LockStatDefinition.LOCK_WRITE_LOCKS;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">20</i>&nbsp;import java.util.Set;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.utilint.IntStat;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;/**
+<i class="no-highlight">31</i>&nbsp; * A non-transactional Locker that simply tracks locks and releases them when
+<i class="no-highlight">32</i>&nbsp; * releaseNonTxnLocks or operationEnd is called.
+<i class="no-highlight">33</i>&nbsp; */
+<i class="no-highlight">34</i>&nbsp;public class BasicLocker extends Locker {
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;    /*
+<i class="no-highlight">37</i>&nbsp;     * A BasicLocker can release all locks, so there is no need to distinguish
+<i class="no-highlight">38</i>&nbsp;     * between read and write locks.
+<i class="no-highlight">39</i>&nbsp;     *
+<i class="no-highlight">40</i>&nbsp;     * ownedLock is used for the first lock obtained, and ownedLockSet is
+<i class="no-highlight">41</i>&nbsp;     * instantiated and used only if more than one lock is obtained.  This is
+<i class="no-highlight">42</i>&nbsp;     * an optimization for the common case where only one lock is held by a
+<i class="no-highlight">43</i>&nbsp;     * non-transactional locker.
+<i class="no-highlight">44</i>&nbsp;     *
+<i class="no-highlight">45</i>&nbsp;     * There&#39;s no need to track memory utilization for these non-txnal lockers,
+<i class="no-highlight">46</i>&nbsp;     * because the lockers are short lived.
+<i class="no-highlight">47</i>&nbsp;     */
+<i class="no-highlight">48</i>&nbsp;    private Long ownedLock;
+<i class="no-highlight">49</i>&nbsp;    private Set&lt;Long&gt; ownedLockSet;
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    private boolean lockingRequired;
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /**
+<i class="no-highlight">54</i>&nbsp;     * Creates a BasicLocker.
+<i class="no-highlight">55</i>&nbsp;     */
+<i class="no-highlight">56</i>&nbsp;    protected BasicLocker(EnvironmentImpl env) {
+<b class="fc"><i class="no-highlight">57</i>&nbsp;        super(env,</b>
+<i class="no-highlight">58</i>&nbsp;              false, // readUncommittedDefault
+<i class="no-highlight">59</i>&nbsp;              false, // noWait
+<i class="no-highlight">60</i>&nbsp;              0);    // mandatedId
+<b class="fc"><i class="no-highlight">61</i>&nbsp;    }</b>
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    public static BasicLocker createBasicLocker(EnvironmentImpl env)
+<i class="no-highlight">64</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">65</i>&nbsp;
+<b class="fc"><i class="no-highlight">66</i>&nbsp;        return new BasicLocker(env);</b>
+<i class="no-highlight">67</i>&nbsp;    }
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /**
+<i class="no-highlight">70</i>&nbsp;     * Creates a BasicLocker with a noWait argument.
+<i class="no-highlight">71</i>&nbsp;     */
+<i class="no-highlight">72</i>&nbsp;    protected BasicLocker(EnvironmentImpl env, boolean noWait) {
+<b class="fc"><i class="no-highlight">73</i>&nbsp;        super(env,</b>
+<i class="no-highlight">74</i>&nbsp;              false, // readUncommittedDefault
+<i class="no-highlight">75</i>&nbsp;              noWait,
+<i class="no-highlight">76</i>&nbsp;              0);    // mandatedId
+<b class="fc"><i class="no-highlight">77</i>&nbsp;    }</b>
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    public static BasicLocker createBasicLocker(EnvironmentImpl env,
+<i class="no-highlight">80</i>&nbsp;                                                boolean noWait)
+<i class="no-highlight">81</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">82</i>&nbsp;
+<b class="fc"><i class="no-highlight">83</i>&nbsp;        return new BasicLocker(env, noWait);</b>
+<i class="no-highlight">84</i>&nbsp;    }
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /**
+<i class="no-highlight">87</i>&nbsp;     * BasicLockers always have a fixed id, because they are never used for
+<i class="no-highlight">88</i>&nbsp;     * recovery.
+<i class="no-highlight">89</i>&nbsp;     */
+<i class="no-highlight">90</i>&nbsp;    @Override
+<i class="no-highlight">91</i>&nbsp;    protected long generateId(TxnManager txnManager,
+<i class="no-highlight">92</i>&nbsp;                              long ignore /* mandatedId */) {
+<b class="fc"><i class="no-highlight">93</i>&nbsp;        return TxnManager.NULL_TXN_ID;</b>
+<i class="no-highlight">94</i>&nbsp;    }
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    @Override
+<i class="no-highlight">97</i>&nbsp;    protected void checkState(boolean ignoreCalledByAbort) {
+<i class="no-highlight">98</i>&nbsp;        /* Do nothing. */
+<b class="fc"><i class="no-highlight">99</i>&nbsp;    }</b>
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    @Override
+<i class="no-highlight">102</i>&nbsp;    protected LockResult lockInternal(long lsn,
+<i class="no-highlight">103</i>&nbsp;                                      LockType lockType,
+<i class="no-highlight">104</i>&nbsp;                                      boolean noWait,
+<i class="no-highlight">105</i>&nbsp;                                      boolean jumpAheadOfWaiters,
+<i class="no-highlight">106</i>&nbsp;                                      DatabaseImpl database)
+<i class="no-highlight">107</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;        /* Does nothing in BasicLocker. synchronized is for posterity. */
+<b class="fc"><i class="no-highlight">110</i>&nbsp;        synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">111</i>&nbsp;            checkState(false);</b>
+<b class="fc"><i class="no-highlight">112</i>&nbsp;        }</b>
+<i class="no-highlight">113</i>&nbsp;
+<b class="fc"><i class="no-highlight">114</i>&nbsp;        long timeout = 0;</b>
+<b class="fc"><i class="no-highlight">115</i>&nbsp;        boolean useNoWait = noWait || defaultNoWait;</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;        if (!useNoWait) {</b>
+<b class="nc"><i class="no-highlight">117</i>&nbsp;            synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">118</i>&nbsp;                timeout = getLockTimeout();</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;            }</b>
+<i class="no-highlight">120</i>&nbsp;        }
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;        /* Ask for the lock. */
+<b class="fc"><i class="no-highlight">123</i>&nbsp;        LockGrantType grant = lockManager.lock</b>
+<b class="fc"><i class="no-highlight">124</i>&nbsp;            (lsn, this, lockType, timeout, useNoWait, jumpAheadOfWaiters, </b>
+<i class="no-highlight">125</i>&nbsp;             database);
+<i class="no-highlight">126</i>&nbsp;
+<b class="fc"><i class="no-highlight">127</i>&nbsp;        return new LockResult(grant, null);</b>
+<i class="no-highlight">128</i>&nbsp;    }
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    @Override
+<i class="no-highlight">131</i>&nbsp;    public void preLogWithoutLock(DatabaseImpl database) {
+<b class="fc"><i class="no-highlight">132</i>&nbsp;    }</b>
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    /**
+<i class="no-highlight">135</i>&nbsp;     * Get the txn that owns the lock on this node. Return null if there&#39;s no
+<i class="no-highlight">136</i>&nbsp;     * owning txn found.
+<i class="no-highlight">137</i>&nbsp;     */
+<i class="no-highlight">138</i>&nbsp;    public Locker getWriteOwnerLocker(long lsn)
+<i class="no-highlight">139</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">140</i>&nbsp;
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        return lockManager.getWriteOwnerLocker(Long.valueOf(lsn));</b>
+<i class="no-highlight">142</i>&nbsp;    }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    /**
+<i class="no-highlight">145</i>&nbsp;     * Is never transactional.
+<i class="no-highlight">146</i>&nbsp;     */
+<i class="no-highlight">147</i>&nbsp;    @Override
+<i class="no-highlight">148</i>&nbsp;    public boolean isTransactional() {
+<b class="fc"><i class="no-highlight">149</i>&nbsp;        return false;</b>
+<i class="no-highlight">150</i>&nbsp;    }
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    /**
+<i class="no-highlight">153</i>&nbsp;     * Is never serializable isolation.
+<i class="no-highlight">154</i>&nbsp;     */
+<i class="no-highlight">155</i>&nbsp;    @Override
+<i class="no-highlight">156</i>&nbsp;    public boolean isSerializableIsolation() {
+<b class="fc"><i class="no-highlight">157</i>&nbsp;        return false;</b>
+<i class="no-highlight">158</i>&nbsp;    }
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;    /**
+<i class="no-highlight">161</i>&nbsp;     * Is never read-committed isolation.
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    @Override
+<i class="no-highlight">164</i>&nbsp;    public boolean isReadCommittedIsolation() {
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        return false;</b>
+<i class="no-highlight">166</i>&nbsp;    }
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;    /**
+<i class="no-highlight">169</i>&nbsp;     * No transactional locker is available.
+<i class="no-highlight">170</i>&nbsp;     */
+<i class="no-highlight">171</i>&nbsp;    @Override
+<i class="no-highlight">172</i>&nbsp;    public Txn getTxnLocker() {
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        return null;</b>
+<i class="no-highlight">174</i>&nbsp;    }
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;    /**
+<i class="no-highlight">177</i>&nbsp;     * Throws EnvironmentFailureException unconditionally.
+<i class="no-highlight">178</i>&nbsp;     *
+<i class="no-highlight">179</i>&nbsp;     * If we were to create a new BasicLocker here, it would not share locks
+<i class="no-highlight">180</i>&nbsp;     * with this locker, which violates the definition of this method.  This
+<i class="no-highlight">181</i>&nbsp;     * method is not currently called in direct uses of BasicLocker and is
+<i class="no-highlight">182</i>&nbsp;     * overridden by subclasses where it is allowed (e.g., ThreadLocker and
+<i class="no-highlight">183</i>&nbsp;     * ReadCommittedLocker).
+<i class="no-highlight">184</i>&nbsp;     * @throws DatabaseException from subclasses.
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    @Override
+<i class="no-highlight">187</i>&nbsp;    public Locker newNonTxnLocker()
+<i class="no-highlight">188</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">189</i>&nbsp;
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        throw EnvironmentFailureException.unexpectedState();</b>
+<i class="no-highlight">191</i>&nbsp;    }
+<i class="no-highlight">192</i>&nbsp;
+<i class="no-highlight">193</i>&nbsp;    /**
+<i class="no-highlight">194</i>&nbsp;     * Releases all locks, since all locks held by this locker are
+<i class="no-highlight">195</i>&nbsp;     * non-transactional.
+<i class="no-highlight">196</i>&nbsp;     */
+<i class="no-highlight">197</i>&nbsp;    @Override
+<i class="no-highlight">198</i>&nbsp;    public synchronized void releaseNonTxnLocks()
+<i class="no-highlight">199</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;        /*
+<i class="no-highlight">202</i>&nbsp;         * Don&#39;t remove locks from txn&#39;s lock collection until iteration is
+<i class="no-highlight">203</i>&nbsp;         * done, lest we get a ConcurrentModificationException during deadlock
+<i class="no-highlight">204</i>&nbsp;         * graph &quot;display&quot;.  [#9544]
+<i class="no-highlight">205</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        if (ownedLock != null) {</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;            lockManager.release(ownedLock, this);</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;            ownedLock = null;</b>
+<i class="no-highlight">209</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">210</i>&nbsp;        if (ownedLockSet != null) {</b>
+<b class="fc"><i class="no-highlight">211</i>&nbsp;            for (final Long nid : ownedLockSet) {</b>
+<b class="fc"><i class="no-highlight">212</i>&nbsp;                lockManager.release(nid, this);</b>
+<b class="fc"><i class="no-highlight">213</i>&nbsp;            }</b>
+<i class="no-highlight">214</i>&nbsp;
+<i class="no-highlight">215</i>&nbsp;            /* Now clear lock collection. */
+<b class="fc"><i class="no-highlight">216</i>&nbsp;            ownedLockSet.clear();</b>
+<i class="no-highlight">217</i>&nbsp;        }
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;        /* Unload delete info, but don&#39;t wake up the compressor. */
+<b class="fc"><i class="no-highlight">220</i>&nbsp;        if ((deleteInfo != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            (deleteInfo.size() &gt; 0)) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;            envImpl.addToCompressorQueue(deleteInfo.values());</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            deleteInfo.clear();</b>
+<i class="no-highlight">224</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">225</i>&nbsp;    }</b>
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * Release locks and close the cursor at the end of the operation.
+<i class="no-highlight">229</i>&nbsp;     */
+<i class="no-highlight">230</i>&nbsp;    @Override
+<i class="no-highlight">231</i>&nbsp;    public void nonTxnOperationEnd()
+<i class="no-highlight">232</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">233</i>&nbsp;
+<b class="fc"><i class="no-highlight">234</i>&nbsp;        operationEnd(true);</b>
+<b class="fc"><i class="no-highlight">235</i>&nbsp;    }</b>
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    /**
+<i class="no-highlight">238</i>&nbsp;     * Release locks and close the cursor at the end of the operation.
+<i class="no-highlight">239</i>&nbsp;     */
+<i class="no-highlight">240</i>&nbsp;    @Override
+<i class="no-highlight">241</i>&nbsp;    public void operationEnd(boolean operationOK)
+<i class="no-highlight">242</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">243</i>&nbsp;
+<b class="fc"><i class="no-highlight">244</i>&nbsp;        releaseNonTxnLocks();</b>
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;        /* Close this Locker. */
+<b class="fc"><i class="no-highlight">247</i>&nbsp;        close();</b>
+<b class="fc"><i class="no-highlight">248</i>&nbsp;    }</b>
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /**
+<i class="no-highlight">251</i>&nbsp;     * This txn doesn&#39;t store cursors.
+<i class="no-highlight">252</i>&nbsp;     * @throws DatabaseException in subclasses.
+<i class="no-highlight">253</i>&nbsp;     */
+<i class="no-highlight">254</i>&nbsp;    @Override
+<i class="no-highlight">255</i>&nbsp;    public void registerCursor(CursorImpl cursor) {
+<b class="fc"><i class="no-highlight">256</i>&nbsp;        lockingRequired = cursor.isInternalDbCursor();</b>
+<b class="fc"><i class="no-highlight">257</i>&nbsp;    }</b>
+<i class="no-highlight">258</i>&nbsp;
+<i class="no-highlight">259</i>&nbsp;    /**
+<i class="no-highlight">260</i>&nbsp;     * This txn doesn&#39;t store cursors.
+<i class="no-highlight">261</i>&nbsp;     */
+<i class="no-highlight">262</i>&nbsp;    @Override
+<i class="no-highlight">263</i>&nbsp;    public void unRegisterCursor(CursorImpl cursor) {
+<b class="fc"><i class="no-highlight">264</i>&nbsp;    }</b>
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;    @Override
+<i class="no-highlight">267</i>&nbsp;    public boolean lockingRequired() {
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        return lockingRequired;</b>
+<i class="no-highlight">269</i>&nbsp;    }
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;    /*
+<i class="no-highlight">272</i>&nbsp;     * Transactional methods are all no-oped.
+<i class="no-highlight">273</i>&nbsp;     */
+<i class="no-highlight">274</i>&nbsp;
+<i class="no-highlight">275</i>&nbsp;    /**
+<i class="no-highlight">276</i>&nbsp;     * @return a dummy WriteLockInfo for this node.
+<i class="no-highlight">277</i>&nbsp;     */
+<i class="no-highlight">278</i>&nbsp;    @Override
+<i class="no-highlight">279</i>&nbsp;    public WriteLockInfo getWriteLockInfo(long lsn) {
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        return WriteLockInfo.basicWriteLockInfo;</b>
+<i class="no-highlight">281</i>&nbsp;    }
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;    @Override
+<i class="no-highlight">284</i>&nbsp;    public void markDeleteAtTxnEnd(DatabaseImpl db, boolean deleteAtCommit)
+<i class="no-highlight">285</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">286</i>&nbsp;
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        if (deleteAtCommit) {</b>
+<i class="no-highlight">288</i>&nbsp;            /* releaseDb will be called by startAndFinishDelete. */
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            db.startAndFinishDelete();</b>
+<i class="no-highlight">290</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            envImpl.getDbTree().releaseDb(db);</b>
+<i class="no-highlight">292</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">293</i>&nbsp;    }</b>
+<i class="no-highlight">294</i>&nbsp;
+<i class="no-highlight">295</i>&nbsp;    /**
+<i class="no-highlight">296</i>&nbsp;     * Add a lock to set owned by this transaction.
+<i class="no-highlight">297</i>&nbsp;     */
+<i class="no-highlight">298</i>&nbsp;    @Override
+<i class="no-highlight">299</i>&nbsp;    protected void addLock(Long lsn,
+<i class="no-highlight">300</i>&nbsp;                           LockType type,
+<i class="no-highlight">301</i>&nbsp;                           LockGrantType grantStatus) {
+<b class="fc"><i class="no-highlight">302</i>&nbsp;        if ((ownedLock != null &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">303</i>&nbsp;            ownedLock.equals(lsn)) ||</b>
+<i class="no-highlight">304</i>&nbsp;            (ownedLockSet != null &amp;&amp;
+<b class="nc"><i class="no-highlight">305</i>&nbsp;             ownedLockSet.contains(lsn))) {</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;            return; // Already owned</b>
+<i class="no-highlight">307</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">308</i>&nbsp;        if (ownedLock == null) {</b>
+<b class="fc"><i class="no-highlight">309</i>&nbsp;            ownedLock = lsn;</b>
+<i class="no-highlight">310</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">311</i>&nbsp;            if (ownedLockSet == null) {</b>
+<b class="fc"><i class="no-highlight">312</i>&nbsp;                ownedLockSet = new HashSet&lt;&gt;();</b>
+<i class="no-highlight">313</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">314</i>&nbsp;            ownedLockSet.add(lsn);</b>
+<i class="no-highlight">315</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">316</i>&nbsp;    }</b>
+<i class="no-highlight">317</i>&nbsp;
+<i class="no-highlight">318</i>&nbsp;    /**
+<i class="no-highlight">319</i>&nbsp;     * Remove a lock from the set owned by this txn.
+<i class="no-highlight">320</i>&nbsp;     */
+<i class="no-highlight">321</i>&nbsp;    @Override
+<i class="no-highlight">322</i>&nbsp;    void removeLock(long lsn) {
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        if (ownedLock != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            ownedLock == lsn) {</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            ownedLock = null;</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;        } else if (ownedLockSet != null) {</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;            ownedLockSet.remove(lsn);</b>
+<i class="no-highlight">328</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">329</i>&nbsp;    }</b>
+<i class="no-highlight">330</i>&nbsp;
+<i class="no-highlight">331</i>&nbsp;    /**
+<i class="no-highlight">332</i>&nbsp;     * A lock is being demoted. Move it from the write collection into the read
+<i class="no-highlight">333</i>&nbsp;     * collection.
+<i class="no-highlight">334</i>&nbsp;     */
+<i class="no-highlight">335</i>&nbsp;    @Override
+<i class="no-highlight">336</i>&nbsp;    void moveWriteToReadLock(long lsn, Lock lock) {
+<b class="nc"><i class="no-highlight">337</i>&nbsp;    }</b>
+<i class="no-highlight">338</i>&nbsp;
+<i class="no-highlight">339</i>&nbsp;    /**
+<i class="no-highlight">340</i>&nbsp;     * Stats.  Note lack of synchronization while accessing Lock object.
+<i class="no-highlight">341</i>&nbsp;     * Appropriate for unit testing only.
+<i class="no-highlight">342</i>&nbsp;     */
+<i class="no-highlight">343</i>&nbsp;    @Override
+<i class="no-highlight">344</i>&nbsp;    public StatGroup collectStats()
+<i class="no-highlight">345</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">346</i>&nbsp;
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        StatGroup stats = </b>
+<i class="no-highlight">348</i>&nbsp;            new StatGroup(&quot;Locker lock counts&quot; ,
+<i class="no-highlight">349</i>&nbsp;                          &quot;Read and write locks held by this locker&quot;);
+<i class="no-highlight">350</i>&nbsp;
+<b class="nc"><i class="no-highlight">351</i>&nbsp;        IntStat nReadLocks = new IntStat(stats, LOCK_READ_LOCKS);</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;        IntStat nWriteLocks = new IntStat(stats, LOCK_WRITE_LOCKS);</b>
+<i class="no-highlight">353</i>&nbsp;
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        if (ownedLock != null) {</b>
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            Lock l = lockManager.lookupLock(ownedLock);</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            if (l != null) {</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;                if (l.isOwnedWriteLock(this)) {</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;                    nWriteLocks.increment();</b>
+<i class="no-highlight">359</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">360</i>&nbsp;                    nReadLocks.increment();</b>
+<i class="no-highlight">361</i>&nbsp;                }
+<i class="no-highlight">362</i>&nbsp;            }
+<i class="no-highlight">363</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">364</i>&nbsp;        if (ownedLockSet != null) {</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;            for (Long nid : ownedLockSet) {</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                Lock l = lockManager.lookupLock(nid);</b>
+<b class="nc"><i class="no-highlight">367</i>&nbsp;                if (l != null) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;                    if (l.isOwnedWriteLock(this)) {</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;                        nWriteLocks.increment();</b>
+<i class="no-highlight">370</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">371</i>&nbsp;                        nReadLocks.increment();</b>
+<i class="no-highlight">372</i>&nbsp;                    }
+<i class="no-highlight">373</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">374</i>&nbsp;            }</b>
+<i class="no-highlight">375</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">376</i>&nbsp;        return stats;</b>
+<i class="no-highlight">377</i>&nbsp;    }
+<i class="no-highlight">378</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

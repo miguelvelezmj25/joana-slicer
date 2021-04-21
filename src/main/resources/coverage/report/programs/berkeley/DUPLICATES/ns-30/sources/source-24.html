@@ -1,0 +1,692 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LoggerUtils</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: LoggerUtils (com.sleepycat.je.utilint)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LoggerUtils</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    29.6%
+  </span>
+  <span class="absValue">
+    (8/27)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    36.6%
+  </span>
+  <span class="absValue">
+    (45/123)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.PrintWriter;
+<i class="no-highlight">17</i>&nbsp;import java.io.StringWriter;
+<i class="no-highlight">18</i>&nbsp;import java.util.Map;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.ConcurrentHashMap;
+<i class="no-highlight">20</i>&nbsp;import java.util.logging.Formatter;
+<i class="no-highlight">21</i>&nbsp;import java.util.logging.Handler;
+<i class="no-highlight">22</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">23</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.config.ConfigParam;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.log.Trace;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;/**
+<i class="no-highlight">31</i>&nbsp; * &lt;b&gt;Logging Architecture&lt;/b&gt;
+<i class="no-highlight">32</i>&nbsp; * ===========================
+<i class="no-highlight">33</i>&nbsp; * JE uses the java.util.logging package. The ability to dynamically specify
+<i class="no-highlight">34</i>&nbsp; * logging levels per component is important functionality for the system.
+<i class="no-highlight">35</i>&nbsp; * Logging output is directed to the console, to the je.info files, and in
+<i class="no-highlight">36</i>&nbsp; * special cases, to a MemoryHandler. The latter is meant for debugging and
+<i class="no-highlight">37</i>&nbsp; * field support.
+<i class="no-highlight">38</i>&nbsp; *
+<i class="no-highlight">39</i>&nbsp; * Logging output from multiple environments may end up going to the same
+<i class="no-highlight">40</i>&nbsp; * handler, either because a single process is executing multiple environments,
+<i class="no-highlight">41</i>&nbsp; * or because the output of multiple environments, such as a replication group,
+<i class="no-highlight">42</i>&nbsp; * is combined in a single display. Because of that, it&#39;s important for logging
+<i class="no-highlight">43</i>&nbsp; * output to be prefixed with an environment id so it can be distinguished by
+<i class="no-highlight">44</i>&nbsp; * environment.
+<i class="no-highlight">45</i>&nbsp; *
+<i class="no-highlight">46</i>&nbsp; * Loggers managed by java.util.logging.LogManager are supposed to be
+<i class="no-highlight">47</i>&nbsp; * maintained with a weak reference by the LogManager. In our experience,
+<i class="no-highlight">48</i>&nbsp; * loggers do not seem to be released, and seem to accumulate in
+<i class="no-highlight">49</i>&nbsp; * memory. Because of that, we create a single logger per JE class, rather than
+<i class="no-highlight">50</i>&nbsp; * a logger per class instance.
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * The latter would be more convenient, because we wish to use environment
+<i class="no-highlight">53</i>&nbsp; * specific information, such as the environment name as a prefix, or the
+<i class="no-highlight">54</i>&nbsp; * location of the je.info file, when creating output. Restricting ourselves to
+<i class="no-highlight">55</i>&nbsp; * a single per-class logger requires that we keep the logger and its
+<i class="no-highlight">56</i>&nbsp; * associated handlers and formatters stateless, because the logger may be
+<i class="no-highlight">57</i>&nbsp; * shared by multiple environments. To compensate for that, we use per-thread
+<i class="no-highlight">58</i>&nbsp; * state to permit per-environment customization of the logging output (that is
+<i class="no-highlight">59</i>&nbsp; * the logging prefix) and file handler location. Because we&#39;ve seen some
+<i class="no-highlight">60</i>&nbsp; * performance issues with ThreadLocals, we elected instead to maintain a
+<i class="no-highlight">61</i>&nbsp; * per-thread map to store state information needed by the logger.
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; * This state information is:
+<i class="no-highlight">64</i>&nbsp; *
+<i class="no-highlight">65</i>&nbsp; * - the environment impl from the envMap(from which one can obtain the prefix
+<i class="no-highlight">66</i>&nbsp; * and the console, file and memory handlers to use)
+<i class="no-highlight">67</i>&nbsp; *
+<i class="no-highlight">68</i>&nbsp; * - or if the environment impl is null because the component executes without
+<i class="no-highlight">69</i>&nbsp; * an environment, the output will go to only a console handler. It will use a
+<i class="no-highlight">70</i>&nbsp; * particular formatter to prefix the output with a useful id. This is obtained
+<i class="no-highlight">71</i>&nbsp; * from the formatter map.
+<i class="no-highlight">72</i>&nbsp; *
+<i class="no-highlight">73</i>&nbsp; *
+<i class="no-highlight">74</i>&nbsp; * With this scheme, a JE process has a maximum of
+<i class="no-highlight">75</i>&nbsp; *  - N loggers, where N is the number of classes which get loggers
+<i class="no-highlight">76</i>&nbsp; *  - 3 handlers * number of environments, because each environment creates
+<i class="no-highlight">77</i>&nbsp; * a Console, File and Memory handler.
+<i class="no-highlight">78</i>&nbsp; *
+<i class="no-highlight">79</i>&nbsp; * &lt;b&gt;How To Use Logging in a JE Class&lt;/b&gt;
+<i class="no-highlight">80</i>&nbsp; * =======================================
+<i class="no-highlight">81</i>&nbsp; * Creating a Logger: There are three kinds of loggers that a class may chose
+<i class="no-highlight">82</i>&nbsp; * to use.
+<i class="no-highlight">83</i>&nbsp; *
+<i class="no-highlight">84</i>&nbsp; * 1. A class with a reference to EnvironmentImpl or RepImpl should use
+<i class="no-highlight">85</i>&nbsp; * LoggerUtils.getLogger(Class&lt;?&gt;) to create a logger which prefixes its output
+<i class="no-highlight">86</i>&nbsp; * with an environment id. When a logger is obtained this way, the logger
+<i class="no-highlight">87</i>&nbsp; * should not be used directly. Instead, LoggerUtils provides several methods
+<i class="no-highlight">88</i>&nbsp; * like this:
+<i class="no-highlight">89</i>&nbsp; * LoggerUtils.severe() equals to logger.severe
+<i class="no-highlight">90</i>&nbsp; * LoggerUtils.warning() equals to logger.warning
+<i class="no-highlight">91</i>&nbsp; *  etc
+<i class="no-highlight">92</i>&nbsp; * LoggerUtils.logMsg(Logger, EnvironmentImpl, Level, String) equals to
+<i class="no-highlight">93</i>&nbsp; * logger.log(Level, String)
+<i class="no-highlight">94</i>&nbsp; *
+<i class="no-highlight">95</i>&nbsp; * 2. A class without an EnvironmentImpl which still has some kind of custom
+<i class="no-highlight">96</i>&nbsp; * information to prepend to the logging output should use
+<i class="no-highlight">97</i>&nbsp; * LoggerUtils.getFormatterNeeded(). For example,
+<i class="no-highlight">98</i>&nbsp; * com.sleepycat.je.rep.monitor.Monitor does not have an environment, but does
+<i class="no-highlight">99</i>&nbsp; * have a NameIdPair, and it can insert that information via a specific
+<i class="no-highlight">100</i>&nbsp; * Formatter. When using this logger, the class must create and maintain a
+<i class="no-highlight">101</i>&nbsp; * Formatter instance to pass as a logging parameter. When using this flavor,
+<i class="no-highlight">102</i>&nbsp; * use:
+<i class="no-highlight">103</i>&nbsp; * LoggerUtils.logMsg(Logger, Formatter, Level, String) where the
+<i class="no-highlight">104</i>&nbsp; * formatter is the one created by the using class.
+<i class="no-highlight">105</i>&nbsp; *
+<i class="no-highlight">106</i>&nbsp; * 3. A logger without an EnvironmentImpl does not prefix or customize the
+<i class="no-highlight">107</i>&nbsp; * logging output, and uses LoggerUtils.getLoggerFixedPrefix to create a
+<i class="no-highlight">108</i>&nbsp; * logger. In this case, use the usual java.util.logging.Logger logging
+<i class="no-highlight">109</i>&nbsp; * methods.
+<i class="no-highlight">110</i>&nbsp; *
+<i class="no-highlight">111</i>&nbsp; * Note: there are some JE classes which only conditionally reference an
+<i class="no-highlight">112</i>&nbsp; * environment. In that case, the environment must also conditionally create
+<i class="no-highlight">113</i>&nbsp; * a logger, and then use the wrapper methods which use both an environmentImpl
+<i class="no-highlight">114</i>&nbsp; * and a formatter. For example:
+<i class="no-highlight">115</i>&nbsp; *
+<i class="no-highlight">116</i>&nbsp; *   if (envImpl != null) {
+<i class="no-highlight">117</i>&nbsp; *       logger = LoggerUtils.getLogger(getClass());
+<i class="no-highlight">118</i>&nbsp; *   } else {
+<i class="no-highlight">119</i>&nbsp; *       logger = LoggerUtils.getLoggerFormatterNeeded();
+<i class="no-highlight">120</i>&nbsp; *   }
+<i class="no-highlight">121</i>&nbsp; *   formatter = new Formatter(.....);
+<i class="no-highlight">122</i>&nbsp; *
+<i class="no-highlight">123</i>&nbsp; * Then use LoggerUtils.logMsg(Logger, EnvironmentImpl, Formatter, Level,
+<i class="no-highlight">124</i>&nbsp; * String) instead of Logger.log(Level, String)
+<i class="no-highlight">125</i>&nbsp; */
+<b class="nc"><i class="no-highlight">126</i>&nbsp;public class LoggerUtils {</b>
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    /*
+<i class="no-highlight">129</i>&nbsp;     * Environment state to be used by a logger. Must be set and released
+<i class="no-highlight">130</i>&nbsp;     * per logger call.
+<i class="no-highlight">131</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">132</i>&nbsp;    static final Map&lt;Thread, EnvironmentImpl&gt; envMap =</b>
+<i class="no-highlight">133</i>&nbsp;        new ConcurrentHashMap&lt;Thread, EnvironmentImpl&gt;();
+<i class="no-highlight">134</i>&nbsp;
+<i class="no-highlight">135</i>&nbsp;    /*
+<i class="no-highlight">136</i>&nbsp;     * Formatter state to be used by a logger. Must be set and released
+<i class="no-highlight">137</i>&nbsp;     * per logger call. Used by logging calls that do not have an available
+<i class="no-highlight">138</i>&nbsp;     * environment.
+<i class="no-highlight">139</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">140</i>&nbsp;    static final Map&lt;Thread, Formatter&gt; formatterMap =</b>
+<i class="no-highlight">141</i>&nbsp;        new ConcurrentHashMap&lt;Thread, Formatter&gt;();
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    public static final String NO_ENV = &quot;.noEnv&quot;;
+<i class="no-highlight">144</i>&nbsp;    public static final String FIXED_PREFIX = &quot;.fixedPrefix&quot;;
+<i class="no-highlight">145</i>&nbsp;    private static final String PUSH_LEVEL = &quot;.push.level&quot;;
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;    /* Used to prevent multiple full thread dumps. */
+<b class="fc"><i class="no-highlight">148</i>&nbsp;    private static final Object fullThreadDumpMutex = new Object();</b>
+<i class="no-highlight">149</i>&nbsp;
+<i class="no-highlight">150</i>&nbsp;    /**
+<i class="no-highlight">151</i>&nbsp;     * Get a logger which is configured to use the shared console, memory, and
+<i class="no-highlight">152</i>&nbsp;     * file handlers of an EnvironmentImpl and prefixes all messages with an
+<i class="no-highlight">153</i>&nbsp;     * environment identifier. Use this for classes which have a reference
+<i class="no-highlight">154</i>&nbsp;     * to an EnvironmentImpl (or RepImpl).
+<i class="no-highlight">155</i>&nbsp;     *
+<i class="no-highlight">156</i>&nbsp;     * When a logger is obtained this way, the logger should not be used
+<i class="no-highlight">157</i>&nbsp;     * directly. Instead, the wrapper methods in LoggerUtils which put and
+<i class="no-highlight">158</i>&nbsp;     * remove the environment from the envMap must be used, so that the logging
+<i class="no-highlight">159</i>&nbsp;     * output can be properly prefixed and redirected to the correct
+<i class="no-highlight">160</i>&nbsp;     * environment.
+<i class="no-highlight">161</i>&nbsp;     */
+<i class="no-highlight">162</i>&nbsp;    public static Logger getLogger(Class&lt;?&gt; cl) {
+<i class="no-highlight">163</i>&nbsp;
+<b class="fc"><i class="no-highlight">164</i>&nbsp;        Logger logger = createLogger(cl.getName());</b>
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;        /* Check whether the logger already has existing handlers. */
+<b class="fc"><i class="no-highlight">167</i>&nbsp;        boolean hasConsoleHandler = false;</b>
+<b class="fc"><i class="no-highlight">168</i>&nbsp;        boolean hasFileHandler = false;</b>
+<b class="fc"><i class="no-highlight">169</i>&nbsp;        boolean hasConfiguredHandler = false;</b>
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;        /*
+<i class="no-highlight">172</i>&nbsp;         * [#18277] Add null check of logger.getHandlers() because the Resin
+<i class="no-highlight">173</i>&nbsp;         * app server&#39;s implementation of logging can return null instead of an
+<i class="no-highlight">174</i>&nbsp;         * empty array.
+<i class="no-highlight">175</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">176</i>&nbsp;        Handler[] handlers = logger.getHandlers();</b>
+<b class="fc"><i class="no-highlight">177</i>&nbsp;        if (handlers != null) {</b>
+<b class="fc"><i class="no-highlight">178</i>&nbsp;            for (Handler h : handlers) {</b>
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;                /*
+<i class="no-highlight">181</i>&nbsp;                 * Intentionally check for java.util.logging.ConsoleHandler
+<i class="no-highlight">182</i>&nbsp;                 * rather than ConsoleRedirectHandler, because the loggers that
+<i class="no-highlight">183</i>&nbsp;                 * do not have a custom prefix use the ConsoleHandler
+<i class="no-highlight">184</i>&nbsp;                 * directly. Having ConsoleRedirectHandler extend
+<i class="no-highlight">185</i>&nbsp;                 * ConsoleHandler lets us have a model where the user only have
+<i class="no-highlight">186</i>&nbsp;                 * to set com.sleepycat.je.util.ConsoleHandler in their logging
+<i class="no-highlight">187</i>&nbsp;                 * properties file.
+<i class="no-highlight">188</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">189</i>&nbsp;                if (h instanceof java.util.logging.ConsoleHandler) {</b>
+<b class="fc"><i class="no-highlight">190</i>&nbsp;                    hasConsoleHandler = true;</b>
+<i class="no-highlight">191</i>&nbsp;                }
+<i class="no-highlight">192</i>&nbsp;         
+<b class="fc"><i class="no-highlight">193</i>&nbsp;                if (h instanceof FileRedirectHandler) {</b>
+<b class="fc"><i class="no-highlight">194</i>&nbsp;                    hasFileHandler = true;</b>
+<i class="no-highlight">195</i>&nbsp;                }
+<i class="no-highlight">196</i>&nbsp;
+<b class="fc"><i class="no-highlight">197</i>&nbsp;                if (h instanceof ConfiguredRedirectHandler) {</b>
+<b class="fc"><i class="no-highlight">198</i>&nbsp;                    hasConfiguredHandler = true;</b>
+<i class="no-highlight">199</i>&nbsp;                }
+<i class="no-highlight">200</i>&nbsp;            }
+<i class="no-highlight">201</i>&nbsp;        }
+<i class="no-highlight">202</i>&nbsp;
+<b class="fc"><i class="no-highlight">203</i>&nbsp;        if (!hasConsoleHandler) {</b>
+<b class="fc"><i class="no-highlight">204</i>&nbsp;            logger.addHandler(new ConsoleRedirectHandler());</b>
+<i class="no-highlight">205</i>&nbsp;        }
+<i class="no-highlight">206</i>&nbsp;
+<b class="fc"><i class="no-highlight">207</i>&nbsp;        if (!hasFileHandler) {</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;            logger.addHandler(new FileRedirectHandler());</b>
+<i class="no-highlight">209</i>&nbsp;        }
+<i class="no-highlight">210</i>&nbsp;
+<b class="fc"><i class="no-highlight">211</i>&nbsp;        if (!hasConfiguredHandler) {</b>
+<b class="fc"><i class="no-highlight">212</i>&nbsp;            logger.addHandler(new ConfiguredRedirectHandler());</b>
+<i class="no-highlight">213</i>&nbsp;        }
+<i class="no-highlight">214</i>&nbsp;
+<b class="fc"><i class="no-highlight">215</i>&nbsp;        return logger;</b>
+<i class="no-highlight">216</i>&nbsp;    }
+<i class="no-highlight">217</i>&nbsp;
+<i class="no-highlight">218</i>&nbsp;    /**
+<i class="no-highlight">219</i>&nbsp;     * Get a logger which only publishes to a console handler. The logging
+<i class="no-highlight">220</i>&nbsp;     * output is prefixed in a custom way, using the formatter map to access
+<i class="no-highlight">221</i>&nbsp;     * the proper state. This should be used by a class that does not have
+<i class="no-highlight">222</i>&nbsp;     * an EnvironmentImpl, but still wishes to prepend some kind of custom
+<i class="no-highlight">223</i>&nbsp;     * prefix to the logging output.
+<i class="no-highlight">224</i>&nbsp;     *
+<i class="no-highlight">225</i>&nbsp;     * When a logger is obtained this way, the logger should not be used
+<i class="no-highlight">226</i>&nbsp;     * directly. Instead, the wrapper methods in LoggerUtils which use a
+<i class="no-highlight">227</i>&nbsp;     * Formatter parameter, and put and remove the environment from the
+<i class="no-highlight">228</i>&nbsp;     * formatterMap must be used, so that the logging output can be properly
+<i class="no-highlight">229</i>&nbsp;     * prefixed and redirected to the correct environment.
+<i class="no-highlight">230</i>&nbsp;     */
+<i class="no-highlight">231</i>&nbsp;    public static Logger getLoggerFormatterNeeded(Class&lt;?&gt; cl) {
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;        /*
+<i class="no-highlight">234</i>&nbsp;         * By convention, loggers that use redirect handlers are named with the
+<i class="no-highlight">235</i>&nbsp;         * class name. Name logger that don&#39;t use redirecting differently, in
+<i class="no-highlight">236</i>&nbsp;         * order to avoid conflicts when a single class uses both redirecting
+<i class="no-highlight">237</i>&nbsp;         * and fixed prefix loggers.
+<i class="no-highlight">238</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">239</i>&nbsp;        Logger logger = createLogger(cl.getName() + NO_ENV);</b>
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;        /* Add a new handler if a console handler does not already exist. */
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        if (!hasConsoleHandler(logger)) {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            logger.addHandler(new FormatterRedirectHandler());</b>
+<i class="no-highlight">244</i>&nbsp;        }
+<i class="no-highlight">245</i>&nbsp;
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        return logger;</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /* Convenience method for getLoggerFixedPrefix. */
+<i class="no-highlight">250</i>&nbsp;    public static Logger getLoggerFixedPrefix(Class&lt;?&gt; cl,
+<i class="no-highlight">251</i>&nbsp;                                              String prefix) {
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        return getLoggerFixedPrefix(cl, prefix, null);</b>
+<i class="no-highlight">253</i>&nbsp;    }
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * Get a logger that uses the generic console handler, with no attempt to
+<i class="no-highlight">257</i>&nbsp;     * use thread local state to customize the message prefix.
+<i class="no-highlight">258</i>&nbsp;     */
+<i class="no-highlight">259</i>&nbsp;    public static Logger getLoggerFixedPrefix(Class&lt;?&gt; cl,
+<i class="no-highlight">260</i>&nbsp;                                              String prefix,
+<i class="no-highlight">261</i>&nbsp;                                              EnvironmentImpl envImpl) {
+<i class="no-highlight">262</i>&nbsp;
+<i class="no-highlight">263</i>&nbsp;        /*
+<i class="no-highlight">264</i>&nbsp;         * By convention, loggers that use redirect handlers are named with the
+<i class="no-highlight">265</i>&nbsp;         * class name. Name logger that don&#39;t use redirecting differently, in
+<i class="no-highlight">266</i>&nbsp;         * order to avoid conflicts when a single class uses both redirecting
+<i class="no-highlight">267</i>&nbsp;         * and fixed prefix loggers.
+<i class="no-highlight">268</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        Logger logger = createLogger(cl.getName() + FIXED_PREFIX);</b>
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;        /* Check whether the logger already has this handler. */
+<b class="nc"><i class="no-highlight">272</i>&nbsp;        if (!hasConsoleHandler(logger)) {</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            logger.addHandler(new com.sleepycat.je.util.ConsoleHandler</b>
+<i class="no-highlight">274</i>&nbsp;                              (new TracerFormatter(prefix), envImpl));
+<i class="no-highlight">275</i>&nbsp;        }
+<i class="no-highlight">276</i>&nbsp;
+<b class="nc"><i class="no-highlight">277</i>&nbsp;        return logger;</b>
+<i class="no-highlight">278</i>&nbsp;    }
+<i class="no-highlight">279</i>&nbsp;
+<i class="no-highlight">280</i>&nbsp;    /*
+<i class="no-highlight">281</i>&nbsp;     * Return true if this logger already has a console handler.
+<i class="no-highlight">282</i>&nbsp;     */
+<i class="no-highlight">283</i>&nbsp;    private static boolean hasConsoleHandler(Logger logger) {
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;        /*
+<i class="no-highlight">286</i>&nbsp;         * [#18277] Add null check of logger.getHandlers() because the Resin
+<i class="no-highlight">287</i>&nbsp;         * app server&#39;s implementation of logging can return null instead of an
+<i class="no-highlight">288</i>&nbsp;         * empty array.
+<i class="no-highlight">289</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        Handler[] handlers = logger.getHandlers();</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;        if (handlers == null) {</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;            return false;</b>
+<i class="no-highlight">293</i>&nbsp;        }
+<i class="no-highlight">294</i>&nbsp;
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        for (Handler h : handlers) {</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;            if (h instanceof java.util.logging.ConsoleHandler) {</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;                return true;</b>
+<i class="no-highlight">298</i>&nbsp;            }
+<i class="no-highlight">299</i>&nbsp;        }
+<i class="no-highlight">300</i>&nbsp;
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        return false;</b>
+<i class="no-highlight">302</i>&nbsp;    }
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;    /* Create a logger for the specified class name. */
+<i class="no-highlight">305</i>&nbsp;    private static Logger createLogger(String className) {
+<i class="no-highlight">306</i>&nbsp;
+<i class="no-highlight">307</i>&nbsp;        /*
+<i class="no-highlight">308</i>&nbsp;         * No need to set level values explicitly. This is managed in the
+<i class="no-highlight">309</i>&nbsp;         * standard way by java.util.logging.LogManager.
+<i class="no-highlight">310</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">311</i>&nbsp;        Logger logger = Logger.getLogger(className);</b>
+<i class="no-highlight">312</i>&nbsp;
+<i class="no-highlight">313</i>&nbsp;        /*
+<i class="no-highlight">314</i>&nbsp;         * We&#39;ve debated permitting the logger to use parental handlers, which
+<i class="no-highlight">315</i>&nbsp;         * would permit using the standard java.util.logging policy of setting
+<i class="no-highlight">316</i>&nbsp;         * tbe property com.sleepycat.je.handlers as a way of customizing
+<i class="no-highlight">317</i>&nbsp;         * handlers. This was not useful because of the need to specify
+<i class="no-highlight">318</i>&nbsp;         * handlers per environment, and also caused a process monitor echo
+<i class="no-highlight">319</i>&nbsp;         * issue within NoSQL DB.
+<i class="no-highlight">320</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">321</i>&nbsp;        logger.setUseParentHandlers(false);</b>
+<i class="no-highlight">322</i>&nbsp;
+<b class="fc"><i class="no-highlight">323</i>&nbsp;        return logger;</b>
+<i class="no-highlight">324</i>&nbsp;    }
+<i class="no-highlight">325</i>&nbsp;
+<i class="no-highlight">326</i>&nbsp;    /* Get the value of a specified Logger property. */
+<i class="no-highlight">327</i>&nbsp;    public static String getLoggerProperty(String property) {
+<i class="no-highlight">328</i>&nbsp;        java.util.logging.LogManager mgr =
+<b class="fc"><i class="no-highlight">329</i>&nbsp;            java.util.logging.LogManager.getLogManager();</b>
+<i class="no-highlight">330</i>&nbsp;
+<b class="fc"><i class="no-highlight">331</i>&nbsp;        return mgr.getProperty(property);</b>
+<i class="no-highlight">332</i>&nbsp;    }
+<i class="no-highlight">333</i>&nbsp;
+<i class="no-highlight">334</i>&nbsp;    /**
+<i class="no-highlight">335</i>&nbsp;     * Get the push level for the MemoryHandler.
+<i class="no-highlight">336</i>&nbsp;     */
+<i class="no-highlight">337</i>&nbsp;    public static Level getPushLevel(String name) {
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        String propertyValue = getLoggerProperty(name + PUSH_LEVEL);</b>
+<i class="no-highlight">339</i>&nbsp;
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        Level level = Level.OFF;</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        if (propertyValue != null) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            level = Level.parse(propertyValue);</b>
+<i class="no-highlight">343</i>&nbsp;        }
+<i class="no-highlight">344</i>&nbsp;
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        return level;</b>
+<i class="no-highlight">346</i>&nbsp;    }
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;    /**
+<i class="no-highlight">349</i>&nbsp;     * Log a message using this logger. We expect that this logger is one that
+<i class="no-highlight">350</i>&nbsp;     * has been configured to expect an environment. This utility method should
+<i class="no-highlight">351</i>&nbsp;     * be used to ensure that the thread specific context is pushed before
+<i class="no-highlight">352</i>&nbsp;     * logging, and cleared afterwards.
+<i class="no-highlight">353</i>&nbsp;     */
+<i class="no-highlight">354</i>&nbsp;    public static void logMsg(Logger useLogger,
+<i class="no-highlight">355</i>&nbsp;                              EnvironmentImpl envImpl,
+<i class="no-highlight">356</i>&nbsp;                              Level logLevel,
+<i class="no-highlight">357</i>&nbsp;                              String msg) {
+<i class="no-highlight">358</i>&nbsp;        /* Set thread specific context. */
+<b class="fc"><i class="no-highlight">359</i>&nbsp;        if (envImpl != null) {</b>
+<b class="fc"><i class="no-highlight">360</i>&nbsp;            envMap.put(Thread.currentThread(), envImpl);</b>
+<i class="no-highlight">361</i>&nbsp;        }
+<i class="no-highlight">362</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">363</i>&nbsp;            useLogger.log(logLevel, msg);</b>
+<i class="no-highlight">364</i>&nbsp;        } finally {
+<i class="no-highlight">365</i>&nbsp;            /* Clear thread specific context. */
+<b class="fc"><i class="no-highlight">366</i>&nbsp;            envMap.remove(Thread.currentThread());</b>
+<b class="fc"><i class="no-highlight">367</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">368</i>&nbsp;    }</b>
+<i class="no-highlight">369</i>&nbsp;
+<i class="no-highlight">370</i>&nbsp;    /**
+<i class="no-highlight">371</i>&nbsp;     * Use the environment logger.
+<i class="no-highlight">372</i>&nbsp;     */
+<i class="no-highlight">373</i>&nbsp;    public static void envLogMsg(Level logLevel,
+<i class="no-highlight">374</i>&nbsp;                                 EnvironmentImpl envImpl,
+<i class="no-highlight">375</i>&nbsp;                                 String msg) {
+<b class="fc"><i class="no-highlight">376</i>&nbsp;        logMsg(envImpl.getLogger(), envImpl, logLevel, msg);</b>
+<b class="fc"><i class="no-highlight">377</i>&nbsp;    }</b>
+<i class="no-highlight">378</i>&nbsp;
+<i class="no-highlight">379</i>&nbsp;    /**
+<i class="no-highlight">380</i>&nbsp;     * Log a message using this logger. The logger may be either one that
+<i class="no-highlight">381</i>&nbsp;     * expects to use the state in the envMap (obtained via getLogger(), or it
+<i class="no-highlight">382</i>&nbsp;     * may be one that expects to use the state in the formatter map (obtained
+<i class="no-highlight">383</i>&nbsp;     * via getLoggerFormatterNeeded(). This method checks whether the
+<i class="no-highlight">384</i>&nbsp;     * EnvironmentImpl is null or not and choses the appropriate state type to
+<i class="no-highlight">385</i>&nbsp;     * use.
+<i class="no-highlight">386</i>&nbsp;     */
+<i class="no-highlight">387</i>&nbsp;    public static void logMsg(Logger useLogger,
+<i class="no-highlight">388</i>&nbsp;                              EnvironmentImpl envImpl,
+<i class="no-highlight">389</i>&nbsp;                              Formatter formatter,
+<i class="no-highlight">390</i>&nbsp;                              Level logLevel,
+<i class="no-highlight">391</i>&nbsp;                              String msg) {
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        if (envImpl != null) {</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            logMsg(useLogger, envImpl, logLevel, msg);</b>
+<i class="no-highlight">394</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">395</i>&nbsp;            logMsg(useLogger, formatter, logLevel, msg);</b>
+<i class="no-highlight">396</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">397</i>&nbsp;    }</b>
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;    /* Some convenience methods. */
+<i class="no-highlight">400</i>&nbsp;    public static void severe(Logger useLogger,
+<i class="no-highlight">401</i>&nbsp;                              EnvironmentImpl envImpl,
+<i class="no-highlight">402</i>&nbsp;                              String msg) {
+<b class="nc"><i class="no-highlight">403</i>&nbsp;        logMsg(useLogger, envImpl, Level.SEVERE, msg);</b>
+<b class="nc"><i class="no-highlight">404</i>&nbsp;    }</b>
+<i class="no-highlight">405</i>&nbsp;
+<i class="no-highlight">406</i>&nbsp;    public static void warning(Logger useLogger,
+<i class="no-highlight">407</i>&nbsp;                               EnvironmentImpl envImpl,
+<i class="no-highlight">408</i>&nbsp;                               String msg) {
+<b class="nc"><i class="no-highlight">409</i>&nbsp;        logMsg(useLogger, envImpl, Level.WARNING, msg);</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;    }</b>
+<i class="no-highlight">411</i>&nbsp;
+<i class="no-highlight">412</i>&nbsp;    public static void info(Logger useLogger,
+<i class="no-highlight">413</i>&nbsp;                            EnvironmentImpl envImpl,
+<i class="no-highlight">414</i>&nbsp;                            String msg) {
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        logMsg(useLogger, envImpl, Level.INFO, msg);</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;    }</b>
+<i class="no-highlight">417</i>&nbsp;
+<i class="no-highlight">418</i>&nbsp;    public static void fine(Logger useLogger,
+<i class="no-highlight">419</i>&nbsp;                            EnvironmentImpl envImpl,
+<i class="no-highlight">420</i>&nbsp;                            String msg) {
+<b class="fc"><i class="no-highlight">421</i>&nbsp;        logMsg(useLogger, envImpl, Level.FINE, msg);</b>
+<b class="fc"><i class="no-highlight">422</i>&nbsp;    }</b>
+<i class="no-highlight">423</i>&nbsp;
+<i class="no-highlight">424</i>&nbsp;    public static void finer(Logger useLogger,
+<i class="no-highlight">425</i>&nbsp;                             EnvironmentImpl envImpl,
+<i class="no-highlight">426</i>&nbsp;                             String msg) {
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        logMsg(useLogger, envImpl, Level.FINER, msg);</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;    }</b>
+<i class="no-highlight">429</i>&nbsp;
+<i class="no-highlight">430</i>&nbsp;    public static void finest(Logger useLogger,
+<i class="no-highlight">431</i>&nbsp;                              EnvironmentImpl envImpl,
+<i class="no-highlight">432</i>&nbsp;                              String msg) {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        logMsg(useLogger, envImpl, Level.FINEST, msg);</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;    }</b>
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;    /**
+<i class="no-highlight">437</i>&nbsp;     * Log a message with this logger. This utility method should be used in
+<i class="no-highlight">438</i>&nbsp;     * tandem with loggers obtained via getLoggerFormatterNeeded() to ensure
+<i class="no-highlight">439</i>&nbsp;     * that the thread specific Formatter is pushed before logging, and cleared
+<i class="no-highlight">440</i>&nbsp;     * afterwards.
+<i class="no-highlight">441</i>&nbsp;     */
+<i class="no-highlight">442</i>&nbsp;    public static void logMsg(Logger useLogger,
+<i class="no-highlight">443</i>&nbsp;                              Formatter formatter,
+<i class="no-highlight">444</i>&nbsp;                              Level logLevel,
+<i class="no-highlight">445</i>&nbsp;                              String msg) {
+<i class="no-highlight">446</i>&nbsp;        /* Set thread specific Formatter. */
+<b class="nc"><i class="no-highlight">447</i>&nbsp;        if (formatter != null) {</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;            formatterMap.put(Thread.currentThread(), formatter);</b>
+<i class="no-highlight">449</i>&nbsp;        }
+<i class="no-highlight">450</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">451</i>&nbsp;            useLogger.log(logLevel, msg);</b>
+<i class="no-highlight">452</i>&nbsp;        } finally {
+<i class="no-highlight">453</i>&nbsp;            /* Clear thread specific Formatter. */
+<b class="nc"><i class="no-highlight">454</i>&nbsp;            formatterMap.remove(Thread.currentThread());</b>
+<b class="nc"><i class="no-highlight">455</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">456</i>&nbsp;    }</b>
+<i class="no-highlight">457</i>&nbsp;
+<i class="no-highlight">458</i>&nbsp;    /**
+<i class="no-highlight">459</i>&nbsp;     * Logger method for recording an exception and stacktrace to both the
+<i class="no-highlight">460</i>&nbsp;     * java.util.logging system and the .jdb files.
+<i class="no-highlight">461</i>&nbsp;     */
+<i class="no-highlight">462</i>&nbsp;    public static void traceAndLogException(EnvironmentImpl envImpl,
+<i class="no-highlight">463</i>&nbsp;                                            String sourceClass,
+<i class="no-highlight">464</i>&nbsp;                                            String sourceMethod,
+<i class="no-highlight">465</i>&nbsp;                                            String msg,
+<i class="no-highlight">466</i>&nbsp;                                            Throwable t) {
+<b class="nc"><i class="no-highlight">467</i>&nbsp;        String traceMsg = msg + &quot;\n&quot; + getStackTrace(t);</b>
+<i class="no-highlight">468</i>&nbsp;
+<b class="nc"><i class="no-highlight">469</i>&nbsp;        envMap.put(Thread.currentThread(), envImpl);</b>
+<i class="no-highlight">470</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">471</i>&nbsp;            envImpl.getLogger().logp</b>
+<b class="nc"><i class="no-highlight">472</i>&nbsp;                (Level.SEVERE, sourceClass, sourceMethod, traceMsg);</b>
+<i class="no-highlight">473</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">474</i>&nbsp;            envMap.remove(Thread.currentThread());</b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        Trace.trace(envImpl, traceMsg);</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;    }</b>
+<i class="no-highlight">478</i>&nbsp;
+<i class="no-highlight">479</i>&nbsp;    /**
+<i class="no-highlight">480</i>&nbsp;     * Records a message both to the java.util.logging loggers and through
+<i class="no-highlight">481</i>&nbsp;     * the trace system which writes to the .jdb files. The logLevel parameter
+<i class="no-highlight">482</i>&nbsp;     * only applies to the java.util.logging system. Trace messages are
+<i class="no-highlight">483</i>&nbsp;     * unconditionally written to the .jdb files.
+<i class="no-highlight">484</i>&nbsp;     *
+<i class="no-highlight">485</i>&nbsp;     * Because of that, this method should be used sparingly, for critical
+<i class="no-highlight">486</i>&nbsp;     * messages.
+<i class="no-highlight">487</i>&nbsp;     */
+<i class="no-highlight">488</i>&nbsp;    public static void traceAndLog(Logger logger,
+<i class="no-highlight">489</i>&nbsp;                                   EnvironmentImpl envImpl,
+<i class="no-highlight">490</i>&nbsp;                                   Level logLevel,
+<i class="no-highlight">491</i>&nbsp;                                   String msg) {
+<b class="nc"><i class="no-highlight">492</i>&nbsp;        logMsg(logger, envImpl, logLevel, msg);</b>
+<b class="nc"><i class="no-highlight">493</i>&nbsp;        Trace.trace(envImpl, msg);</b>
+<b class="nc"><i class="no-highlight">494</i>&nbsp;    }</b>
+<i class="no-highlight">495</i>&nbsp;
+<i class="no-highlight">496</i>&nbsp;    /** Return a String version of a stack trace */
+<i class="no-highlight">497</i>&nbsp;    public static String getStackTrace(Throwable t) {
+<b class="nc"><i class="no-highlight">498</i>&nbsp;        StringWriter sw = new StringWriter();</b>
+<b class="nc"><i class="no-highlight">499</i>&nbsp;        t.printStackTrace(new PrintWriter(sw));</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;        String stackTrace = sw.toString();</b>
+<b class="nc"><i class="no-highlight">501</i>&nbsp;        stackTrace = stackTrace.replaceAll(&quot;&amp;lt&quot;, &quot;&lt;&quot;);</b>
+<b class="nc"><i class="no-highlight">502</i>&nbsp;        stackTrace = stackTrace.replaceAll(&quot;&amp;gt&quot;, &quot;&gt;&quot;);</b>
+<i class="no-highlight">503</i>&nbsp;
+<b class="nc"><i class="no-highlight">504</i>&nbsp;        return stackTrace;</b>
+<i class="no-highlight">505</i>&nbsp;    }
+<i class="no-highlight">506</i>&nbsp;
+<i class="no-highlight">507</i>&nbsp;    /** Return the stack trace of the caller, for debugging. */
+<i class="no-highlight">508</i>&nbsp;    public static String getStackTrace() {
+<b class="nc"><i class="no-highlight">509</i>&nbsp;        Exception e = new Exception();</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;        return getStackTrace(e);</b>
+<i class="no-highlight">511</i>&nbsp;    }
+<i class="no-highlight">512</i>&nbsp;
+<i class="no-highlight">513</i>&nbsp;    /* Get the level for ConsoleHandler and FileHandler. */
+<i class="no-highlight">514</i>&nbsp;    public static Level getHandlerLevel(DbConfigManager configManager,
+<i class="no-highlight">515</i>&nbsp;                                        ConfigParam param,
+<i class="no-highlight">516</i>&nbsp;                                        String levelName) {
+<b class="fc"><i class="no-highlight">517</i>&nbsp;        boolean changed = false;</b>
+<i class="no-highlight">518</i>&nbsp;
+<i class="no-highlight">519</i>&nbsp;        /* Check if the level params are set. */
+<b class="fc"><i class="no-highlight">520</i>&nbsp;        String level = configManager.get(param);</b>
+<b class="fc"><i class="no-highlight">521</i>&nbsp;        if (!param.getDefault().equals(level)) {</b>
+<b class="fc"><i class="no-highlight">522</i>&nbsp;            changed = true;</b>
+<i class="no-highlight">523</i>&nbsp;        }
+<i class="no-highlight">524</i>&nbsp;
+<i class="no-highlight">525</i>&nbsp;        /* Get the level from the java.util.logging configuration system. */
+<b class="fc"><i class="no-highlight">526</i>&nbsp;        String propertyLevel = getLoggerProperty(levelName);</b>
+<i class="no-highlight">527</i>&nbsp;
+<i class="no-highlight">528</i>&nbsp;        /*
+<i class="no-highlight">529</i>&nbsp;         * If the params are not set, and levels are set in the properties
+<i class="no-highlight">530</i>&nbsp;         * file, then set the level from properties file.
+<i class="no-highlight">531</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">532</i>&nbsp;        if (!changed &amp;&amp; propertyLevel != null) {</b>
+<b class="nc"><i class="no-highlight">533</i>&nbsp;            level = propertyLevel;</b>
+<i class="no-highlight">534</i>&nbsp;        }
+<i class="no-highlight">535</i>&nbsp;
+<b class="fc"><i class="no-highlight">536</i>&nbsp;        return Level.parse(level);</b>
+<i class="no-highlight">537</i>&nbsp;    }
+<i class="no-highlight">538</i>&nbsp;
+<i class="no-highlight">539</i>&nbsp;    /**
+<i class="no-highlight">540</i>&nbsp;     * Logs a full thread dump as if jstack were piped to the je.info file.
+<i class="no-highlight">541</i>&nbsp;     *
+<i class="no-highlight">542</i>&nbsp;     * Only one dump per EnvironmentImpl lifetime is allowed. Allowing multiple
+<i class="no-highlight">543</i>&nbsp;     * dumps can causes them to be interleaved, and risks filling the je.info
+<i class="no-highlight">544</i>&nbsp;     * files with repeated dumps. The envImpl should be invalidated when this
+<i class="no-highlight">545</i>&nbsp;     * method is called, so one dump should be enough.
+<i class="no-highlight">546</i>&nbsp;     */
+<i class="no-highlight">547</i>&nbsp;    public static void fullThreadDump(Logger logger,
+<i class="no-highlight">548</i>&nbsp;                                      EnvironmentImpl envImpl,
+<i class="no-highlight">549</i>&nbsp;                                      Level level) {
+<i class="no-highlight">550</i>&nbsp;
+<b class="nc"><i class="no-highlight">551</i>&nbsp;        if (!logger.isLoggable(level)) {</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;            return;</b>
+<i class="no-highlight">553</i>&nbsp;        }
+<i class="no-highlight">554</i>&nbsp;
+<b class="nc"><i class="no-highlight">555</i>&nbsp;        synchronized (fullThreadDumpMutex) {</b>
+<i class="no-highlight">556</i>&nbsp;
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            if (envImpl != null) {</b>
+<b class="nc"><i class="no-highlight">558</i>&nbsp;                if (envImpl.getDidFullThreadDump()) {</b>
+<b class="nc"><i class="no-highlight">559</i>&nbsp;                    return;</b>
+<i class="no-highlight">560</i>&nbsp;                }
+<i class="no-highlight">561</i>&nbsp;
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                envImpl.setDidFullThreadDump(true);</b>
+<i class="no-highlight">563</i>&nbsp;            }
+<i class="no-highlight">564</i>&nbsp;
+<i class="no-highlight">565</i>&nbsp;            Map&lt;Thread, StackTraceElement[]&gt; stackTraces =
+<b class="nc"><i class="no-highlight">566</i>&nbsp;                Thread.getAllStackTraces();</b>
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;            for (Map.Entry&lt;Thread, StackTraceElement[]&gt; stme :
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                stackTraces.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;                logMsg(logger, envImpl, level, stme.getKey().toString());</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                for (StackTraceElement ste : stme.getValue()) {</b>
+<b class="nc"><i class="no-highlight">572</i>&nbsp;                    logMsg(logger, envImpl, level, &quot;     &quot; + ste);</b>
+<i class="no-highlight">573</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;    }</b>
+<i class="no-highlight">577</i>&nbsp;    
+<i class="no-highlight">578</i>&nbsp;    /**
+<i class="no-highlight">579</i>&nbsp;     * Displays both the exception class and the message. Use you wnat a 
+<i class="no-highlight">580</i>&nbsp;     * relatively terse display of the exception (i.e. omitting stacktrace).
+<i class="no-highlight">581</i>&nbsp;     * Prefer to use this over exception.getMessage(), as some exceptions have
+<i class="no-highlight">582</i>&nbsp;     * null messages.
+<i class="no-highlight">583</i>&nbsp;     */
+<i class="no-highlight">584</i>&nbsp;    public static String exceptionTypeAndMsg(Exception e) {
+<b class="nc"><i class="no-highlight">585</i>&nbsp;        return e.getClass() + &quot; : &quot; + e.getMessage();</b>
+<i class="no-highlight">586</i>&nbsp;    }
+<i class="no-highlight">587</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

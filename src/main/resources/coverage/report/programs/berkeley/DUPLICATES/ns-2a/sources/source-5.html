@@ -1,0 +1,427 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > StatManager</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.statcap</a>
+</div>
+
+<h1>Coverage Summary for Class: StatManager (com.sleepycat.je.statcap)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">StatManager</td>
+<td class="coverageStat">
+  <span class="percent">
+    40%
+  </span>
+  <span class="absValue">
+    (2/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    27.5%
+  </span>
+  <span class="absValue">
+    (14/51)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">StatManager$SDef</td>
+<td class="coverageStat">
+  <span class="percent">
+    25%
+  </span>
+  <span class="absValue">
+    (1/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    57.1%
+  </span>
+  <span class="absValue">
+    (4/7)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">StatManager$StatContext</td>
+<td class="coverageStat">
+  <span class="percent">
+    20%
+  </span>
+  <span class="absValue">
+    (1/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    40%
+  </span>
+  <span class="absValue">
+    (4/10)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">StatManager$UpdateMinMax</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (1/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    17.9%
+  </span>
+  <span class="absValue">
+    (7/39)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    31.2%
+  </span>
+  <span class="absValue">
+    (5/16)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    27.1%
+  </span>
+  <span class="absValue">
+    (29/107)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.statcap;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">18</i>&nbsp;import java.util.Map;
+<i class="no-highlight">19</i>&nbsp;import java.util.Map.Entry;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.EnvironmentStats;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.utilint.LongMaxStat;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.utilint.LongMinStat;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.utilint.StatDefinition;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">30</i>&nbsp;
+<i class="no-highlight">31</i>&nbsp;/**
+<i class="no-highlight">32</i>&nbsp; * The StatManager provides functionality to acquire incremental statistics.
+<i class="no-highlight">33</i>&nbsp; * A client registers itself and is returned a key. The key is used in
+<i class="no-highlight">34</i>&nbsp; * subsequent calls to acquire statistics. The key is associated with a base
+<i class="no-highlight">35</i>&nbsp; * set of statistic values. The base set is used to compute incremental
+<i class="no-highlight">36</i>&nbsp; * statistics. Incremental statistics are computed interval by subtracting
+<i class="no-highlight">37</i>&nbsp; * the base from the current set of values. The base values for the
+<i class="no-highlight">38</i>&nbsp; * registered contexts are updated when statistics are cleared.
+<i class="no-highlight">39</i>&nbsp; *
+<i class="no-highlight">40</i>&nbsp; * For instance if you have a counter named X. The initial value is zero.
+<i class="no-highlight">41</i>&nbsp; * Suppose there are two statistic contexts registered S1
+<i class="no-highlight">42</i>&nbsp; * (say for statcapture)and S2 (for the public api loadStats).   The counter
+<i class="no-highlight">43</i>&nbsp; * gets incremented to 10. S1 loads stats with clear=true. The statistic base
+<i class="no-highlight">44</i>&nbsp; * for the other stat contexts, S2  is updated. The value in the base for X
+<i class="no-highlight">45</i>&nbsp; * is set to (current value in base - current stat value) or (0 - 10). The
+<i class="no-highlight">46</i>&nbsp; * value returned for stat X with respect to context S1
+<i class="no-highlight">47</i>&nbsp; * (the caller of loadStat) is (current value of X - base value) or 10-0.
+<i class="no-highlight">48</i>&nbsp; * The value of X is cleared since getClear() =true. Later the value of X is
+<i class="no-highlight">49</i>&nbsp; * incremented (value is now 1). Statistics are loaded for stat context S2.
+<i class="no-highlight">50</i>&nbsp; * The value returned is current value - base value, or 1 - (-10) or 11.
+<i class="no-highlight">51</i>&nbsp; */
+<i class="no-highlight">52</i>&nbsp;public class StatManager {
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /* Registered statistics base contexts */
+<b class="fc"><i class="no-highlight">55</i>&nbsp;    protected final Map&lt;Integer, StatContext&gt; statContextMap =</b>
+<i class="no-highlight">56</i>&nbsp;        new HashMap&lt;Integer, StatContext&gt;();
+<i class="no-highlight">57</i>&nbsp;
+<b class="fc"><i class="no-highlight">58</i>&nbsp;    private final UpdateMinMax updateMinMaxStat =</b>
+<i class="no-highlight">59</i>&nbsp;        new UpdateMinMax(StatCaptureDefinitions.minStats,
+<i class="no-highlight">60</i>&nbsp;                         StatCaptureDefinitions.maxStats);
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    protected final EnvironmentImpl env;
+<i class="no-highlight">63</i>&nbsp;
+<b class="fc"><i class="no-highlight">64</i>&nbsp;    public StatManager(EnvironmentImpl env) {</b>
+<b class="fc"><i class="no-highlight">65</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">66</i>&nbsp;    }</b>
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    public synchronized Integer registerStatContext() {
+<b class="fc"><i class="no-highlight">69</i>&nbsp;        StatContext sctx = new StatContext(null);</b>
+<b class="fc"><i class="no-highlight">70</i>&nbsp;        int max = 0;</b>
+<b class="fc"><i class="no-highlight">71</i>&nbsp;        for (Integer key : statContextMap.keySet()) {</b>
+<b class="fc"><i class="no-highlight">72</i>&nbsp;            if (key &gt; max) {</b>
+<b class="fc"><i class="no-highlight">73</i>&nbsp;                max = key;</b>
+<i class="no-highlight">74</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">75</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">76</i>&nbsp;        Integer newkey = max + 1;</b>
+<b class="fc"><i class="no-highlight">77</i>&nbsp;        statContextMap.put(newkey, sctx);</b>
+<b class="fc"><i class="no-highlight">78</i>&nbsp;        return newkey;</b>
+<i class="no-highlight">79</i>&nbsp;    }
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    public synchronized EnvironmentStats loadStats(StatsConfig config,
+<i class="no-highlight">82</i>&nbsp;                                                   Integer contextKey) {
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        StatContext sc = statContextMap.get(contextKey);</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;        if (sc == null) {</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;            throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">86</i>&nbsp;                &quot;Internal error stat context is not registered&quot;);
+<i class="no-highlight">87</i>&nbsp;        }
+<i class="no-highlight">88</i>&nbsp;        /* load current statistics */
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        EnvironmentStats curstats = env.loadStatsInternal(config);</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        Map&lt;String, StatGroup&gt; cur = curstats.getStatGroupsMap();</b>
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;        /* compute statistics by using the base values from the context */
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        Map&lt;String, StatGroup&gt; base = sc.getBase();</b>
+<i class="no-highlight">94</i>&nbsp;        EnvironmentStats intervalStats;
+<b class="nc"><i class="no-highlight">95</i>&nbsp;        if (base != null) {</b>
+<b class="nc"><i class="no-highlight">96</i>&nbsp;            intervalStats = computeIntervalStats(cur, base);</b>
+<i class="no-highlight">97</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">98</i>&nbsp;            intervalStats = curstats;</b>
+<i class="no-highlight">99</i>&nbsp;        }
+<i class="no-highlight">100</i>&nbsp;
+<b class="nc"><i class="no-highlight">101</i>&nbsp;        if (config.getClear()) {</b>
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;            /* The underlying statistics were cleared so the base values
+<i class="no-highlight">104</i>&nbsp;             * for the registered contexts are updated to reflect the
+<i class="no-highlight">105</i>&nbsp;             * current statistic values.
+<i class="no-highlight">106</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">107</i>&nbsp;            for (StatContext context : statContextMap.values()) {</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                if (context.getBase() != null) {</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                    updateMinMaxStat.updateBase(context.getBase(), cur);</b>
+<i class="no-highlight">110</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">111</i>&nbsp;            }</b>
+<i class="no-highlight">112</i>&nbsp;
+<b class="nc"><i class="no-highlight">113</i>&nbsp;            for (StatContext context : statContextMap.values()) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                if (context == sc) {</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                    context.setBase(null);</b>
+<i class="no-highlight">116</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                    if (context.getBase() == null) {</b>
+<b class="nc"><i class="no-highlight">118</i>&nbsp;                        context.setBase(cloneAndNegate(cur));</b>
+<i class="no-highlight">119</i>&nbsp;                    } else {
+<i class="no-highlight">120</i>&nbsp;                        // reset base
+<b class="nc"><i class="no-highlight">121</i>&nbsp;                        context.setBase(</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;                            computeIntervalStats(</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;                                context.getBase(), cur).getStatGroupsMap());</b>
+<i class="no-highlight">124</i>&nbsp;                    }
+<i class="no-highlight">125</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">126</i>&nbsp;            }</b>
+<i class="no-highlight">127</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        return intervalStats;</b>
+<i class="no-highlight">129</i>&nbsp;    }
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    private EnvironmentStats computeIntervalStats(
+<i class="no-highlight">132</i>&nbsp;        Map&lt;String, StatGroup&gt; current,
+<i class="no-highlight">133</i>&nbsp;        Map&lt;String, StatGroup&gt; base) {
+<i class="no-highlight">134</i>&nbsp;
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        EnvironmentStats envStats = new EnvironmentStats();</b>
+<i class="no-highlight">136</i>&nbsp;
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        for (StatGroup cg : current.values()) {</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;            StatGroup bg = base.get(cg.getName());</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            envStats.setStatGroup(cg.computeInterval(bg));</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        return envStats;</b>
+<i class="no-highlight">142</i>&nbsp;    }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    protected Map&lt;String, StatGroup&gt; cloneAndNegate(Map&lt;String, StatGroup&gt; in) {
+<b class="nc"><i class="no-highlight">145</i>&nbsp;        HashMap&lt;String, StatGroup&gt; retval = new HashMap&lt;String, StatGroup&gt;();</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        for (Entry&lt;String, StatGroup&gt;e : in.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;            StatGroup negatedGroup = e.getValue().cloneGroup(false);</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            negatedGroup.negate();</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;            retval.put(e.getKey(), negatedGroup);</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        return retval;</b>
+<i class="no-highlight">152</i>&nbsp;    }
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    protected class StatContext {
+<i class="no-highlight">155</i>&nbsp;        private Map&lt;String, StatGroup&gt; base;
+<b class="fc"><i class="no-highlight">156</i>&nbsp;        private Map&lt;String, StatGroup&gt; repbase = null;</b>
+<i class="no-highlight">157</i>&nbsp;
+<b class="fc"><i class="no-highlight">158</i>&nbsp;        StatContext(Map&lt;String, StatGroup&gt; base) {</b>
+<b class="fc"><i class="no-highlight">159</i>&nbsp;            this.base = base;</b>
+<b class="fc"><i class="no-highlight">160</i>&nbsp;        }</b>
+<i class="no-highlight">161</i>&nbsp;
+<i class="no-highlight">162</i>&nbsp;        void setBase(Map&lt;String, StatGroup&gt; base) {
+<b class="nc"><i class="no-highlight">163</i>&nbsp;            this.base = base;</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        }</b>
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;        Map&lt;String, StatGroup&gt; getBase() {
+<b class="nc"><i class="no-highlight">167</i>&nbsp;            return base;</b>
+<i class="no-highlight">168</i>&nbsp;        }
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;        public void setRepBase(Map&lt;String, StatGroup&gt; base) {
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            this.repbase = base;</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        }</b>
+<i class="no-highlight">173</i>&nbsp;
+<i class="no-highlight">174</i>&nbsp;        public Map&lt;String, StatGroup&gt; getRepBase() {
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            return repbase;</b>
+<i class="no-highlight">176</i>&nbsp;        }
+<i class="no-highlight">177</i>&nbsp;    }
+<i class="no-highlight">178</i>&nbsp;
+<b class="nc"><i class="no-highlight">179</i>&nbsp;    public static class SDef {</b>
+<i class="no-highlight">180</i>&nbsp;        private final String groupName;
+<i class="no-highlight">181</i>&nbsp;        private final StatDefinition definition;
+<i class="no-highlight">182</i>&nbsp;
+<b class="fc"><i class="no-highlight">183</i>&nbsp;        public SDef(String groupname, StatDefinition sd) {</b>
+<b class="fc"><i class="no-highlight">184</i>&nbsp;            definition = sd;</b>
+<b class="fc"><i class="no-highlight">185</i>&nbsp;            groupName = groupname;</b>
+<b class="fc"><i class="no-highlight">186</i>&nbsp;        }</b>
+<i class="no-highlight">187</i>&nbsp;
+<i class="no-highlight">188</i>&nbsp;        public String getGroupName() {
+<b class="nc"><i class="no-highlight">189</i>&nbsp;            return groupName;</b>
+<i class="no-highlight">190</i>&nbsp;        }
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;        public StatDefinition getDefinition() {
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            return definition;</b>
+<i class="no-highlight">194</i>&nbsp;        }
+<i class="no-highlight">195</i>&nbsp;    }
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    public class UpdateMinMax {
+<b class="fc"><i class="no-highlight">198</i>&nbsp;        private final ArrayList&lt;SDef&gt; minStats = new ArrayList&lt;SDef&gt;();</b>
+<b class="fc"><i class="no-highlight">199</i>&nbsp;        private final ArrayList&lt;SDef&gt; maxStats = new ArrayList&lt;SDef&gt;();</b>
+<i class="no-highlight">200</i>&nbsp;
+<b class="fc"><i class="no-highlight">201</i>&nbsp;        public UpdateMinMax(SDef[] minStatistics, SDef[] maxStatistics) {</b>
+<b class="fc"><i class="no-highlight">202</i>&nbsp;            for (SDef min : minStatistics) {</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                minStats.add(min);</b>
+<i class="no-highlight">204</i>&nbsp;            }
+<i class="no-highlight">205</i>&nbsp;
+<b class="fc"><i class="no-highlight">206</i>&nbsp;            for (SDef max : maxStatistics) {</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;                maxStats.add(max);</b>
+<i class="no-highlight">208</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">209</i>&nbsp;        }</b>
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;        public void updateBase(Map&lt;String, StatGroup&gt; base,
+<i class="no-highlight">212</i>&nbsp;                               Map&lt;String, StatGroup&gt; other) {
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            for (SDef sd : minStats) {</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                StatGroup group = other.get(sd.groupName);</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;                if (group == null) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                    continue;</b>
+<i class="no-highlight">217</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                LongStat otherValue =</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                    group.getLongStat(sd.definition);</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                if (otherValue == null) {</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;                    continue;</b>
+<i class="no-highlight">222</i>&nbsp;                }
+<i class="no-highlight">223</i>&nbsp;
+<b class="nc"><i class="no-highlight">224</i>&nbsp;                LongMinStat baseStat =</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                        base.get(sd.groupName).getLongMinStat(sd.definition);</b>
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;                /* Check is stat is not yet in the base */
+<b class="nc"><i class="no-highlight">228</i>&nbsp;                if (baseStat == null) {</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;                    StatGroup sg = base.get(sd.groupName);</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                    baseStat = (LongMinStat)otherValue.copyAndAdd(sg);</b>
+<i class="no-highlight">231</i>&nbsp;                }
+<i class="no-highlight">232</i>&nbsp;
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                baseStat.setMin(otherValue.get());</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;            for (SDef sd : maxStats) {</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                StatGroup group = other.get(sd.groupName);</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                if (group == null) {</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                    continue;</b>
+<i class="no-highlight">239</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                LongStat otherValue =</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                    group.getLongStat(sd.definition);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                if (otherValue == null) {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;                    continue;</b>
+<i class="no-highlight">244</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                LongMaxStat baseStat =</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;                        base.get(sd.groupName).getLongMaxStat(sd.definition);</b>
+<i class="no-highlight">247</i>&nbsp;
+<i class="no-highlight">248</i>&nbsp;                /* Check is stat is not yet in the base */
+<b class="nc"><i class="no-highlight">249</i>&nbsp;                if (baseStat == null) {</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;                    StatGroup sg = base.get(sd.groupName);</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                    baseStat = (LongMaxStat)otherValue.copyAndAdd(sg);</b>
+<i class="no-highlight">252</i>&nbsp;                }
+<i class="no-highlight">253</i>&nbsp;
+<b class="nc"><i class="no-highlight">254</i>&nbsp;                baseStat.setMax(otherValue.get());</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        }</b>
+<i class="no-highlight">257</i>&nbsp;    }
+<i class="no-highlight">258</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,456 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DbVerifyLog</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.util</a>
+</div>
+
+<h1>Coverage Summary for Class: DbVerifyLog (com.sleepycat.je.util)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DbVerifyLog</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    30%
+  </span>
+  <span class="absValue">
+    (3/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    10.7%
+  </span>
+  <span class="absValue">
+    (12/112)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.util;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.File;
+<i class="no-highlight">17</i>&nbsp;import java.io.FileInputStream;
+<i class="no-highlight">18</i>&nbsp;import java.io.FileNotFoundException;
+<i class="no-highlight">19</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">20</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">21</i>&nbsp;import java.nio.channels.FileChannel;
+<i class="no-highlight">22</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">23</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.JEVersion;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.log.FileManager;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.log.entry.RestoreRequired;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.util.verify.VerifierUtils;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.utilint.CmdUtil;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.utilint.PropUtil;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;/**
+<i class="no-highlight">42</i>&nbsp; * Verifies the checksums in one or more log files.
+<i class="no-highlight">43</i>&nbsp; *
+<i class="no-highlight">44</i>&nbsp; * &lt;p&gt;This class may be instantiated and used programmatically, or used as a
+<i class="no-highlight">45</i>&nbsp; * command line utility as described below.&lt;/p&gt;
+<i class="no-highlight">46</i>&nbsp; *
+<i class="no-highlight">47</i>&nbsp; * &lt;pre&gt;
+<i class="no-highlight">48</i>&nbsp; * usage: java { com.sleepycat.je.util.DbVerifyLog |
+<i class="no-highlight">49</i>&nbsp; *               -jar je-&amp;lt;version&amp;gt;.jar DbVerifyLog }
+<i class="no-highlight">50</i>&nbsp; *  [-h &amp;lt;dir&amp;gt;]      # environment home directory
+<i class="no-highlight">51</i>&nbsp; *  [-s &amp;lt;file&amp;gt;]     # starting (minimum) file number
+<i class="no-highlight">52</i>&nbsp; *  [-e &amp;lt;file&amp;gt;]     # ending (one past the maximum) file number
+<i class="no-highlight">53</i>&nbsp; *  [-d &amp;lt;millis&amp;gt;]   # delay in ms between reads (default is zero)
+<i class="no-highlight">54</i>&nbsp; *  [-V]                  # print JE version number&quot;
+<i class="no-highlight">55</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">56</i>&nbsp; *
+<i class="no-highlight">57</i>&nbsp; * &lt;p&gt;All arguments are optional.  The current directory is used if {@code -h}
+<i class="no-highlight">58</i>&nbsp; * is not specified.  File numbers may be specified in hex (preceded by {@code
+<i class="no-highlight">59</i>&nbsp; * 0x}) or decimal format.  For convenience when copy/pasting from other
+<i class="no-highlight">60</i>&nbsp; * output, LSN format (&amp;lt;file&amp;gt;/&amp;lt;offset&amp;gt;) is also allowed.&lt;/p&gt;
+<i class="no-highlight">61</i>&nbsp; */
+<i class="no-highlight">62</i>&nbsp;public class DbVerifyLog {
+<i class="no-highlight">63</i>&nbsp;
+<b class="fc"><i class="no-highlight">64</i>&nbsp;    private static final String USAGE =</b>
+<b class="fc"><i class="no-highlight">65</i>&nbsp;        &quot;usage: &quot; + CmdUtil.getJavaCommand(DbVerifyLog.class) + &quot;\n&quot; +</b>
+<i class="no-highlight">66</i>&nbsp;        &quot;   [-h &lt;dir&gt;]       # environment home directory\n&quot; +
+<i class="no-highlight">67</i>&nbsp;        &quot;   [-s &lt;file&gt;]      # starting (minimum) file number\n&quot; +
+<i class="no-highlight">68</i>&nbsp;        &quot;   [-e &lt;file&gt;]      # ending (one past the maximum) file number\n&quot; +
+<i class="no-highlight">69</i>&nbsp;        &quot;   [-d &lt;millis&gt;]    # delay in ms between reads (default is zero)\n&quot; +
+<i class="no-highlight">70</i>&nbsp;        &quot;   [-V]             # print JE version number&quot;;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">73</i>&nbsp;    private final int readBufferSize;
+<b class="fc"><i class="no-highlight">74</i>&nbsp;    private volatile boolean stopVerify = false;</b>
+<i class="no-highlight">75</i>&nbsp;
+<b class="fc"><i class="no-highlight">76</i>&nbsp;    private long delayMs = 0;</b>
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    /**
+<i class="no-highlight">79</i>&nbsp;     * Creates a utility object for verifying the checksums in log files.
+<i class="no-highlight">80</i>&nbsp;     *
+<i class="no-highlight">81</i>&nbsp;     * &lt;p&gt;The read buffer size is {@link
+<i class="no-highlight">82</i>&nbsp;     * EnvironmentConfig#LOG_ITERATOR_READ_SIZE}.&lt;/p&gt;
+<i class="no-highlight">83</i>&nbsp;     *
+<i class="no-highlight">84</i>&nbsp;     * @param env the {@code Environment} associated with the log.
+<i class="no-highlight">85</i>&nbsp;     *
+<i class="no-highlight">86</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">87</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    public DbVerifyLog(final Environment env) {
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        this(env, 0);</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;    }</b>
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /**
+<i class="no-highlight">94</i>&nbsp;     * Creates a utility object for verifying log files.
+<i class="no-highlight">95</i>&nbsp;     *
+<i class="no-highlight">96</i>&nbsp;     * @param env the {@code Environment} associated with the log.
+<i class="no-highlight">97</i>&nbsp;     *
+<i class="no-highlight">98</i>&nbsp;     * @param readBufferSize is the buffer size to use.  If a value less than
+<i class="no-highlight">99</i>&nbsp;     * or equal to zero is specified, {@link
+<i class="no-highlight">100</i>&nbsp;     * EnvironmentConfig#LOG_ITERATOR_READ_SIZE} is used.
+<i class="no-highlight">101</i>&nbsp;     *
+<i class="no-highlight">102</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">103</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">104</i>&nbsp;     */
+<i class="no-highlight">105</i>&nbsp;    public DbVerifyLog(final Environment env, final int readBufferSize) {
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        this(DbInternal.getNonNullEnvImpl(env), readBufferSize);</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;    }</b>
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /**
+<i class="no-highlight">110</i>&nbsp;     * @hidden
+<i class="no-highlight">111</i>&nbsp;     */
+<i class="no-highlight">112</i>&nbsp;    public DbVerifyLog(final EnvironmentImpl envImpl,
+<b class="fc"><i class="no-highlight">113</i>&nbsp;                       final int readBufferSize) {</b>
+<b class="fc"><i class="no-highlight">114</i>&nbsp;        this.readBufferSize = (readBufferSize &gt; 0) ?</b>
+<i class="no-highlight">115</i>&nbsp;            readBufferSize :
+<b class="fc"><i class="no-highlight">116</i>&nbsp;            envImpl.getConfigManager().getInt</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;                (EnvironmentParams.LOG_ITERATOR_READ_SIZE);</b>
+<b class="fc"><i class="no-highlight">118</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">119</i>&nbsp;    }</b>
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /**
+<i class="no-highlight">122</i>&nbsp;     * Verifies all log files in the environment.
+<i class="no-highlight">123</i>&nbsp;     *
+<i class="no-highlight">124</i>&nbsp;     * @throws LogVerificationException if a checksum cannot be verified or a
+<i class="no-highlight">125</i>&nbsp;     * log entry is determined to be invalid by examining its contents.
+<i class="no-highlight">126</i>&nbsp;     *
+<i class="no-highlight">127</i>&nbsp;     * @throws IOException if an IOException occurs while reading a log file.
+<i class="no-highlight">128</i>&nbsp;     *
+<i class="no-highlight">129</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">130</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">131</i>&nbsp;     */
+<i class="no-highlight">132</i>&nbsp;    public void verifyAll()
+<i class="no-highlight">133</i>&nbsp;        throws LogVerificationException, IOException {
+<i class="no-highlight">134</i>&nbsp;
+<i class="no-highlight">135</i>&nbsp;        /* The same reason with BtreeVerifier.verifyAll. */
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        if (stopVerify) {</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            return;</b>
+<i class="no-highlight">138</i>&nbsp;        }
+<i class="no-highlight">139</i>&nbsp;
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        LoggerUtils.envLogMsg(</b>
+<i class="no-highlight">141</i>&nbsp;            Level.INFO, envImpl, &quot;Start verify of data files&quot;);
+<i class="no-highlight">142</i>&nbsp;
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        verify(0, Long.MAX_VALUE);</b>
+<i class="no-highlight">144</i>&nbsp;
+<b class="nc"><i class="no-highlight">145</i>&nbsp;        LoggerUtils.envLogMsg(</b>
+<i class="no-highlight">146</i>&nbsp;            Level.INFO, envImpl, &quot;End verify of data files&quot;);
+<b class="nc"><i class="no-highlight">147</i>&nbsp;    }</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /**
+<i class="no-highlight">150</i>&nbsp;     * Verifies the given range of log files in the environment.
+<i class="no-highlight">151</i>&nbsp;     *
+<i class="no-highlight">152</i>&nbsp;     * @param startFile is the lowest numbered log file to be verified.
+<i class="no-highlight">153</i>&nbsp;     *
+<i class="no-highlight">154</i>&nbsp;     * @param endFile is one greater than the highest numbered log file to be
+<i class="no-highlight">155</i>&nbsp;     * verified.
+<i class="no-highlight">156</i>&nbsp;     *
+<i class="no-highlight">157</i>&nbsp;     * @throws LogVerificationException if a checksum cannot be verified or a
+<i class="no-highlight">158</i>&nbsp;     * log entry is determined to be invalid by examining its contents.
+<i class="no-highlight">159</i>&nbsp;     *
+<i class="no-highlight">160</i>&nbsp;     * @throws IOException if an IOException occurs while reading a log file.
+<i class="no-highlight">161</i>&nbsp;     *
+<i class="no-highlight">162</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">163</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">164</i>&nbsp;     */
+<i class="no-highlight">165</i>&nbsp;    public void verify(final long startFile, final long endFile)
+<i class="no-highlight">166</i>&nbsp;        throws LogVerificationException, IOException {
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">169</i>&nbsp;            final FileManager fileManager = envImpl.getFileManager();</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;            final File homeDir = envImpl.getEnvironmentHome();</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            final String[] fileNames =</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                fileManager.listFileNames(startFile, endFile - 1);</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            final ByteBuffer buf = ByteBuffer.allocateDirect(readBufferSize);</b>
+<i class="no-highlight">174</i>&nbsp;
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            for (final String fileName : fileNames) {</b>
+<i class="no-highlight">176</i>&nbsp;                /*
+<i class="no-highlight">177</i>&nbsp;                 * When env is closed, the current executing dataVerifier task
+<i class="no-highlight">178</i>&nbsp;                 * should be canceled asap. So when env is closed,
+<i class="no-highlight">179</i>&nbsp;                 * setStopVerifyFlag() is called in DataVerifier.shutdown().
+<i class="no-highlight">180</i>&nbsp;                 * Here stopVerify is checked to determine whether dataVerifier
+<i class="no-highlight">181</i>&nbsp;                 * task continues.
+<i class="no-highlight">182</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">183</i>&nbsp;                if (stopVerify) {</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                    return;</b>
+<i class="no-highlight">185</i>&nbsp;                }
+<i class="no-highlight">186</i>&nbsp;
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                final File file = new File(homeDir, fileName);</b>
+<i class="no-highlight">188</i>&nbsp;                /*
+<i class="no-highlight">189</i>&nbsp;                 * If JE enables Cleaner, then it is possible that Cleaner
+<i class="no-highlight">190</i>&nbsp;                 * deletes one or more files, whose fileNum is between
+<i class="no-highlight">191</i>&nbsp;                 * startFile and endFile, during the for-loop. So for each
+<i class="no-highlight">192</i>&nbsp;                 * loop, the current &#39;file&#39; may be deleted by the Cleaner, then
+<i class="no-highlight">193</i>&nbsp;                 * &#39;new FileInputStream&#39; will throw FileNotFoundException.
+<i class="no-highlight">194</i>&nbsp;                 *
+<i class="no-highlight">195</i>&nbsp;                 * In addition, now JE has a daemon thread to detect the
+<i class="no-highlight">196</i>&nbsp;                 * unexpected log file deletion. So if FileNotFoundException is
+<i class="no-highlight">197</i>&nbsp;                 * caused by unexpected log deletion, then that daemon thread
+<i class="no-highlight">198</i>&nbsp;                 * will catch this abnormal situation. Here, we just ignore
+<i class="no-highlight">199</i>&nbsp;                 * this exception.
+<i class="no-highlight">200</i>&nbsp;                 */
+<i class="no-highlight">201</i>&nbsp;                FileInputStream fis;
+<i class="no-highlight">202</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                    fis = new FileInputStream(file);</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                } catch (FileNotFoundException fne) {</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                    continue;</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                }</b>
+<i class="no-highlight">207</i>&nbsp;
+<b class="nc"><i class="no-highlight">208</i>&nbsp;                final FileChannel fic = fis.getChannel();</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;                final LogVerificationReadableByteChannel vic =</b>
+<i class="no-highlight">210</i>&nbsp;                    new LogVerificationReadableByteChannel(envImpl, fic, fileName);
+<i class="no-highlight">211</i>&nbsp;
+<b class="nc"><i class="no-highlight">212</i>&nbsp;                IOException ioe = null;</b>
+<i class="no-highlight">213</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                    while (vic.read(buf) != -1) {</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;                        buf.clear();</b>
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;                        /* Return as soon as possible if shutdown. */
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                        if (stopVerify) {</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                            return;</b>
+<i class="no-highlight">220</i>&nbsp;                        }
+<i class="no-highlight">221</i>&nbsp;
+<b class="nc"><i class="no-highlight">222</i>&nbsp;                        if (delayMs &gt; 0) {</b>
+<i class="no-highlight">223</i>&nbsp;                            try {
+<b class="nc"><i class="no-highlight">224</i>&nbsp;                                Thread.sleep(delayMs);</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                            } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;                                throw new ThreadInterruptedException(</b>
+<i class="no-highlight">227</i>&nbsp;                                    envImpl, e);
+<b class="nc"><i class="no-highlight">228</i>&nbsp;                            }</b>
+<i class="no-highlight">229</i>&nbsp;                        }
+<i class="no-highlight">230</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">231</i>&nbsp;                } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;                    ioe = e;</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                    throw ioe;</b>
+<i class="no-highlight">234</i>&nbsp;                } finally {
+<i class="no-highlight">235</i>&nbsp;
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                    try {</b>
+<i class="no-highlight">237</i>&nbsp;                    /*
+<i class="no-highlight">238</i>&nbsp;                     * vic.close aims to close associated channel fic, but
+<i class="no-highlight">239</i>&nbsp;                     * it may be redundant because fis.close also closes fic.
+<i class="no-highlight">240</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                        fis.close();</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                        vic.close();</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;                    } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                        if (ioe == null) {</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                            throw e;</b>
+<i class="no-highlight">246</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">247</i>&nbsp;                    }</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;                }</b>
+<i class="no-highlight">249</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">250</i>&nbsp;        } catch (LogVerificationException lve) {</b>
+<i class="no-highlight">251</i>&nbsp;
+<b class="nc"><i class="no-highlight">252</i>&nbsp;            VerifierUtils.createMarkerFileFromException(</b>
+<i class="no-highlight">253</i>&nbsp;                RestoreRequired.FailureType.LOG_CHECKSUM,
+<i class="no-highlight">254</i>&nbsp;                lve,
+<i class="no-highlight">255</i>&nbsp;                envImpl,
+<i class="no-highlight">256</i>&nbsp;                EnvironmentFailureReason.LOG_CHECKSUM);
+<i class="no-highlight">257</i>&nbsp;
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            throw lve;</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;    }</b>
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;    public static void main(String[] argv) {
+<i class="no-highlight">263</i>&nbsp;        try {
+<i class="no-highlight">264</i>&nbsp;
+<b class="nc"><i class="no-highlight">265</i>&nbsp;            File envHome = new File(&quot;.&quot;);</b>
+<b class="nc"><i class="no-highlight">266</i>&nbsp;            long startFile = 0;</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            long endFile = Long.MAX_VALUE;</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;            long delayMs = 0;</b>
+<i class="no-highlight">269</i>&nbsp;
+<b class="nc"><i class="no-highlight">270</i>&nbsp;            for (int whichArg = 0; whichArg &lt; argv.length; whichArg += 1) {</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;                final String nextArg = argv[whichArg];</b>
+<b class="nc"><i class="no-highlight">272</i>&nbsp;                if (nextArg.equals(&quot;-h&quot;)) {</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                    whichArg++;</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;                    envHome = new File(CmdUtil.getArg(argv, whichArg));</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;                } else if (nextArg.equals(&quot;-s&quot;)) {</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;                    whichArg++;</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;                    String arg = CmdUtil.getArg(argv, whichArg);</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;                    final int slashOff = arg.indexOf(&quot;/&quot;);</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;                    if (slashOff &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;                        arg = arg.substring(0, slashOff);</b>
+<i class="no-highlight">281</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                    startFile = CmdUtil.readLongNumber(arg);</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                } else if (nextArg.equals(&quot;-e&quot;)) {</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;                    whichArg++;</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;                    String arg = CmdUtil.getArg(argv, whichArg);</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;                    final int slashOff = arg.indexOf(&quot;/&quot;);</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;                    if (slashOff &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                        arg = arg.substring(0, slashOff);</b>
+<i class="no-highlight">289</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">290</i>&nbsp;                    endFile = CmdUtil.readLongNumber(arg);</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;                } else if (nextArg.equals(&quot;-d&quot;)) {</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                    whichArg++;</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;                    delayMs =</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;                        CmdUtil.readLongNumber(CmdUtil.getArg(argv, whichArg));</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                } else if (nextArg.equals(&quot;-V&quot;)) {</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;                    System.out.println(JEVersion.CURRENT_VERSION);</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;                    System.exit(0);</b>
+<i class="no-highlight">298</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">299</i>&nbsp;                    printUsageAndExit(&quot;Unknown argument: &quot; + nextArg);</b>
+<i class="no-highlight">300</i>&nbsp;                }
+<i class="no-highlight">301</i>&nbsp;            }
+<i class="no-highlight">302</i>&nbsp;
+<b class="nc"><i class="no-highlight">303</i>&nbsp;            final EnvironmentImpl envImpl =</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;                CmdUtil.makeUtilityEnvironment(envHome, true /*readOnly*/);</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            final DbVerifyLog verifier = new DbVerifyLog(envImpl, 0);</b>
+<i class="no-highlight">306</i>&nbsp;            /* Set the delay time specified by -d flag. */
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            verifier.setReadDelay(delayMs, TimeUnit.MILLISECONDS);</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            verifier.verify(startFile, endFile);</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            System.exit(0);</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        } catch (Throwable e) {</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            printUsageAndExit(e.toString());</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;    }</b>
+<i class="no-highlight">315</i>&nbsp;
+<i class="no-highlight">316</i>&nbsp;    private static void printUsageAndExit(String msg) {
+<b class="nc"><i class="no-highlight">317</i>&nbsp;        if (msg != null) {</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            System.err.println(msg);</b>
+<i class="no-highlight">319</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        System.err.println(USAGE);</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;        System.exit(1);</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;    }</b>
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    /**
+<i class="no-highlight">325</i>&nbsp;     * Configures the delay between file reads during verification. A delay
+<i class="no-highlight">326</i>&nbsp;     * between reads is needed to allow other JE components, such as HA, to
+<i class="no-highlight">327</i>&nbsp;     * make timely progress.
+<i class="no-highlight">328</i>&nbsp;     *
+<i class="no-highlight">329</i>&nbsp;     * &lt;p&gt;By default there is no read delay (it is zero).&lt;/p&gt;
+<i class="no-highlight">330</i>&nbsp;     *
+<i class="no-highlight">331</i>&nbsp;     * &lt;p&gt;Note that when using the {@link EnvironmentConfig#ENV_RUN_VERIFIER
+<i class="no-highlight">332</i>&nbsp;     * background data verifier}, the delay between reads is
+<i class="no-highlight">333</i>&nbsp;     * {@link EnvironmentConfig#VERIFY_LOG_READ_DELAY}.&lt;/p&gt;
+<i class="no-highlight">334</i>&nbsp;     *
+<i class="no-highlight">335</i>&nbsp;     * @param delay the delay between reads or zero for no delay.
+<i class="no-highlight">336</i>&nbsp;     *
+<i class="no-highlight">337</i>&nbsp;     * @param unit the {@code TimeUnit} of the delay value. May be
+<i class="no-highlight">338</i>&nbsp;     * null only if delay is zero.
+<i class="no-highlight">339</i>&nbsp;     */
+<i class="no-highlight">340</i>&nbsp;    public void setReadDelay(long delay, TimeUnit unit) {
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        delayMs = PropUtil.durationToMillis(delay, unit);</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;    }</b>
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;    /**
+<i class="no-highlight">345</i>&nbsp;     * @hidden
+<i class="no-highlight">346</i>&nbsp;     * For internal use only.
+<i class="no-highlight">347</i>&nbsp;     */
+<i class="no-highlight">348</i>&nbsp;    public void setStopVerifyFlag(boolean val) {
+<b class="fc"><i class="no-highlight">349</i>&nbsp;        stopVerify = val;</b>
+<b class="fc"><i class="no-highlight">350</i>&nbsp;    }</b>
+<i class="no-highlight">351</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

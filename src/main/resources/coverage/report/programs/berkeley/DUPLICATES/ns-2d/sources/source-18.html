@@ -1,0 +1,2661 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Txn</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: Txn (com.sleepycat.je.txn)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Txn</td>
+<td class="coverageStat">
+  <span class="percent">
+    41%
+  </span>
+  <span class="absValue">
+    (50/122)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    33.4%
+  </span>
+  <span class="absValue">
+    (212/635)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Txn$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Txn$AutoTransaction</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/17)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Txn$DatabaseCleanupInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    38.6%
+  </span>
+  <span class="absValue">
+    (51/132)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    32.3%
+  </span>
+  <span class="absValue">
+    (214/662)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.txn.LockStatDefinition.LOCK_READ_LOCKS;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.txn.LockStatDefinition.LOCK_TOTAL;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.txn.LockStatDefinition.LOCK_WRITE_LOCKS;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.utilint.DbLsn.NULL_LSN;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">22</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">23</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">24</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">25</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">26</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">27</i>&nbsp;import java.util.Map;
+<i class="no-highlight">28</i>&nbsp;import java.util.Set;
+<i class="no-highlight">29</i>&nbsp;import java.util.TreeSet;
+<i class="no-highlight">30</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">31</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">32</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;import javax.transaction.xa.XAResource;
+<i class="no-highlight">35</i>&nbsp;import javax.transaction.xa.Xid;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.CommitToken;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.Durability;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.Durability.SyncPolicy;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.OperationFailureException;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.dbi.TriggerManager;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.log.LogItem;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.log.LogManager;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.log.LogParams;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.log.LogUtils;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.log.Loggable;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.log.Provisional;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">63</i>&nbsp;import com.sleepycat.je.log.VersionedWriteLoggable;
+<i class="no-highlight">64</i>&nbsp;import com.sleepycat.je.log.entry.AbortLogEntry;
+<i class="no-highlight">65</i>&nbsp;import com.sleepycat.je.log.entry.CommitLogEntry;
+<i class="no-highlight">66</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">67</i>&nbsp;import com.sleepycat.je.log.entry.SingleItemEntry;
+<i class="no-highlight">68</i>&nbsp;import com.sleepycat.je.recovery.RecoveryManager;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.tree.TreeLocation;
+<i class="no-highlight">70</i>&nbsp;import com.sleepycat.je.txn.TxnChain.CompareSlot;
+<i class="no-highlight">71</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">72</i>&nbsp;import com.sleepycat.je.utilint.IntStat;
+<i class="no-highlight">73</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">74</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">75</i>&nbsp;import com.sleepycat.je.utilint.TinyHashSet;
+<i class="no-highlight">76</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;/**
+<i class="no-highlight">79</i>&nbsp; * A Txn is the internal representation of a transaction created by a call to
+<i class="no-highlight">80</i>&nbsp; * Environment.txnBegin. This class must support multi-threaded use.
+<i class="no-highlight">81</i>&nbsp; */
+<b class="fc"><i class="no-highlight">82</i>&nbsp;public class Txn extends Locker implements VersionedWriteLoggable {</b>
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    /**
+<i class="no-highlight">85</i>&nbsp;     * The log version of the most recent format change for this loggable.
+<i class="no-highlight">86</i>&nbsp;     *
+<i class="no-highlight">87</i>&nbsp;     * @see #getLastFormatChange
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    private static final int LAST_FORMAT_CHANGE = 8;
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;    /* Use an AtomicInteger to record cursors opened under this txn. */
+<b class="fc"><i class="no-highlight">92</i>&nbsp;    private final AtomicInteger cursors = new AtomicInteger();</b>
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /* Internal txn flags. */
+<i class="no-highlight">95</i>&nbsp;    private byte txnFlags;
+<i class="no-highlight">96</i>&nbsp;    /* Set if prepare() has been called on this transaction. */
+<i class="no-highlight">97</i>&nbsp;    private static final byte IS_PREPARED = 1;
+<i class="no-highlight">98</i>&nbsp;    /* Set if xa_end(TMSUSPEND) has been called on this transaction. */
+<i class="no-highlight">99</i>&nbsp;    private static final byte XA_SUSPENDED = 2;
+<i class="no-highlight">100</i>&nbsp;    /* Set if this rollback() has been called on this transaction. */
+<i class="no-highlight">101</i>&nbsp;    private static final byte PAST_ROLLBACK = 4;
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    /*
+<i class="no-highlight">104</i>&nbsp;     * Set if this transaction may abort other transactions holding a needed
+<i class="no-highlight">105</i>&nbsp;     * lock.  Note that this bit flag and the setImportunate method could be
+<i class="no-highlight">106</i>&nbsp;     * removed in favor of overriding getImportunate in ReplayTxn.  This was
+<i class="no-highlight">107</i>&nbsp;     * not done, for now, to avoid changing importunate tests that use a Txn
+<i class="no-highlight">108</i>&nbsp;     * and call setImportunate. [#16513]
+<i class="no-highlight">109</i>&nbsp;     */
+<i class="no-highlight">110</i>&nbsp;    private static final byte IMPORTUNATE = 8;
+<i class="no-highlight">111</i>&nbsp;
+<i class="no-highlight">112</i>&nbsp;    /* Holds the public Transaction state. */
+<i class="no-highlight">113</i>&nbsp;    private Transaction.State txnState;
+<i class="no-highlight">114</i>&nbsp;
+<i class="no-highlight">115</i>&nbsp;    /* Information about why a Txn was made only abortable. */
+<i class="no-highlight">116</i>&nbsp;    private OperationFailureException onlyAbortableCause;
+<i class="no-highlight">117</i>&nbsp;
+<i class="no-highlight">118</i>&nbsp;    /*
+<i class="no-highlight">119</i>&nbsp;     * A Txn can be used by multiple threads. Modification to the read and
+<i class="no-highlight">120</i>&nbsp;     * write lock collections is done by synchronizing on the txn.
+<i class="no-highlight">121</i>&nbsp;     */
+<i class="no-highlight">122</i>&nbsp;    private Set&lt;Long&gt; readLocks; // key is LSN
+<i class="no-highlight">123</i>&nbsp;    private Map&lt;Long, WriteLockInfo&gt; writeInfo; // key is LSN
+<i class="no-highlight">124</i>&nbsp;
+<i class="no-highlight">125</i>&nbsp;    /*
+<i class="no-highlight">126</i>&nbsp;     * A set of BuddyLockers that have this locker as their buddy.  Currently
+<i class="no-highlight">127</i>&nbsp;     * this set is only maintained (non-null) in a replicated environment
+<i class="no-highlight">128</i>&nbsp;     * because it is only needed for determining when to throw
+<i class="no-highlight">129</i>&nbsp;     * LockPreemptedException.  If null, it can be assumed that no other
+<i class="no-highlight">130</i>&nbsp;     * thread will change it.  If non-null, access should be synchronized on
+<i class="no-highlight">131</i>&nbsp;     * the buddyLockers object.  TinyHashSet is used because it is optimized
+<i class="no-highlight">132</i>&nbsp;     * for 0 to 2 entries, and normally a Txn will have at most two buddy
+<i class="no-highlight">133</i>&nbsp;     * lockers (for read-committed mode).
+<i class="no-highlight">134</i>&nbsp;     */
+<i class="no-highlight">135</i>&nbsp;    private TinyHashSet&lt;BuddyLocker&gt; buddyLockers;
+<i class="no-highlight">136</i>&nbsp;
+<b class="fc"><i class="no-highlight">137</i>&nbsp;    private static final int READ_LOCK_OVERHEAD =</b>
+<i class="no-highlight">138</i>&nbsp;        MemoryBudget.HASHSET_ENTRY_OVERHEAD;
+<b class="fc"><i class="no-highlight">139</i>&nbsp;    private static final int WRITE_LOCK_OVERHEAD =</b>
+<i class="no-highlight">140</i>&nbsp;        MemoryBudget.HASHMAP_ENTRY_OVERHEAD +
+<i class="no-highlight">141</i>&nbsp;        MemoryBudget.WRITE_LOCKINFO_OVERHEAD;
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /*
+<i class="no-highlight">144</i>&nbsp;     * We have to keep a set of DatabaseCleanupInfo objects so after commit or
+<i class="no-highlight">145</i>&nbsp;     * abort of Environment.truncateDatabase() or Environment.removeDatabase(),
+<i class="no-highlight">146</i>&nbsp;     * we can appropriately purge the unneeded MapLN and DatabaseImpl.
+<i class="no-highlight">147</i>&nbsp;     * Synchronize access to this set on this object.
+<i class="no-highlight">148</i>&nbsp;     */
+<i class="no-highlight">149</i>&nbsp;    protected Set&lt;DatabaseCleanupInfo&gt; deletedDatabases;
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;    /*
+<i class="no-highlight">152</i>&nbsp;     * We need a map of the latest databaseImpl objects to drive the undo
+<i class="no-highlight">153</i>&nbsp;     * during an abort, because it&#39;s too hard to look up the database object in
+<i class="no-highlight">154</i>&nbsp;     * the mapping tree. (The normal code paths want to take locks, add
+<i class="no-highlight">155</i>&nbsp;     * cursors, etc.
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    protected Map&lt;DatabaseId, DatabaseImpl&gt; undoDatabases;
+<i class="no-highlight">158</i>&nbsp;
+<i class="no-highlight">159</i>&nbsp;    /**
+<i class="no-highlight">160</i>&nbsp;     * @see #addOpenedDatabase
+<i class="no-highlight">161</i>&nbsp;     * @see HandleLocker
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    protected Set&lt;Database&gt; openedDatabaseHandles;
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    /*
+<i class="no-highlight">166</i>&nbsp;     * First LSN logged for this transaction -- used for keeping track of the
+<i class="no-highlight">167</i>&nbsp;     * first active LSN point, for checkpointing. This field is not persistent.
+<i class="no-highlight">168</i>&nbsp;     *
+<i class="no-highlight">169</i>&nbsp;     * [#16861] This field is volatile to avoid making getFirstActiveLsn
+<i class="no-highlight">170</i>&nbsp;     * synchronized, which causes a deadlock in HA.
+<i class="no-highlight">171</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">172</i>&nbsp;    protected volatile long firstLoggedLsn = NULL_LSN;</b>
+<i class="no-highlight">173</i>&nbsp;
+<i class="no-highlight">174</i>&nbsp;    /*
+<i class="no-highlight">175</i>&nbsp;     * Last LSN logged for this transaction. Serves as the handle onto the
+<i class="no-highlight">176</i>&nbsp;     * chained log entries belonging to this transaction. Is persistent.
+<i class="no-highlight">177</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">178</i>&nbsp;    protected long lastLoggedLsn = NULL_LSN;</b>
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /*
+<i class="no-highlight">181</i>&nbsp;     * The LSN used to commit the transaction. One of commitLSN or abortLSN
+<i class="no-highlight">182</i>&nbsp;     * must be set after a commit() or abort() operation. Note that a commit()
+<i class="no-highlight">183</i>&nbsp;     * may set abortLSN, if the commit failed, and the transaction had to be
+<i class="no-highlight">184</i>&nbsp;     * aborted.
+<i class="no-highlight">185</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">186</i>&nbsp;    protected long commitLsn = NULL_LSN;</b>
+<i class="no-highlight">187</i>&nbsp;
+<i class="no-highlight">188</i>&nbsp;    /* The LSN used to record the abort of the transaction. */
+<b class="fc"><i class="no-highlight">189</i>&nbsp;    long abortLsn = NULL_LSN;</b>
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    /* The configured durability at the time the transaction was created. */
+<i class="no-highlight">192</i>&nbsp;    private Durability defaultDurability;
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;    /* The durability used for the actual commit. */
+<i class="no-highlight">195</i>&nbsp;    private Durability commitDurability;
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    /* Whether to use Serializable isolation (prevent phantoms). */
+<i class="no-highlight">198</i>&nbsp;    private boolean serializableIsolation;
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;    /* Whether to use Read-Committed isolation. */
+<i class="no-highlight">201</i>&nbsp;    private boolean readCommittedIsolation;
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    /*
+<i class="no-highlight">204</i>&nbsp;     * In-memory size, in bytes. A Txn tracks the memory needed for itself and
+<i class="no-highlight">205</i>&nbsp;     * the readlock, writeInfo, undoDatabases, and deletedDatabases
+<i class="no-highlight">206</i>&nbsp;     * collections, including the cost of each collection entry. However, the
+<i class="no-highlight">207</i>&nbsp;     * actual Lock object memory cost is maintained within the Lock class.
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    private int inMemorySize;
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;    /*
+<i class="no-highlight">212</i>&nbsp;     * Accumulated memory budget delta. Once this exceeds ACCUMULATED_LIMIT we
+<i class="no-highlight">213</i>&nbsp;     * inform the MemoryBudget that a change has occurred.
+<i class="no-highlight">214</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">215</i>&nbsp;    private int accumulatedDelta = 0;</b>
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    /*
+<i class="no-highlight">218</i>&nbsp;     * The set of databases for which triggers were invoked during the
+<i class="no-highlight">219</i>&nbsp;     * course of this transaction. It&#39;s null if no triggers were invoked.
+<i class="no-highlight">220</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">221</i>&nbsp;    private Set&lt;DatabaseImpl&gt; triggerDbs = null;</b>
+<i class="no-highlight">222</i>&nbsp;
+<i class="no-highlight">223</i>&nbsp;    /*
+<i class="no-highlight">224</i>&nbsp;     * The user Transaction handle associated with this Txn. It&#39;s null if there
+<i class="no-highlight">225</i>&nbsp;     * isn&#39;t one, e.g. it&#39;s an internal transaction.
+<i class="no-highlight">226</i>&nbsp;     */
+<i class="no-highlight">227</i>&nbsp;    private Transaction transaction;
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    /*
+<i class="no-highlight">230</i>&nbsp;     * Max allowable accumulation of memory budget changes before MemoryBudget
+<i class="no-highlight">231</i>&nbsp;     * should be updated. This allows for consolidating multiple calls to
+<i class="no-highlight">232</i>&nbsp;     * updateXXXMemoryBudget() into one call. Not declared final so that unit
+<i class="no-highlight">233</i>&nbsp;     * tests can modify this. See SR 12273.
+<i class="no-highlight">234</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">235</i>&nbsp;    public static int ACCUMULATED_LIMIT = 10000;</b>
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    /*
+<i class="no-highlight">238</i>&nbsp;     * Each Txn instance has a handle on a ReplicationContext instance for use
+<i class="no-highlight">239</i>&nbsp;     * in logging a TxnCommit or TxnAbort log entries.
+<i class="no-highlight">240</i>&nbsp;     */
+<i class="no-highlight">241</i>&nbsp;    protected ReplicationContext repContext;
+<i class="no-highlight">242</i>&nbsp;
+<i class="no-highlight">243</i>&nbsp;    /*
+<i class="no-highlight">244</i>&nbsp;     * Used to track mixed mode (sync/durability) transaction API usage. When
+<i class="no-highlight">245</i>&nbsp;     * the sync based api is removed, these tracking ivs can be as well.
+<i class="no-highlight">246</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">247</i>&nbsp;    private boolean explicitSyncConfigured = false;</b>
+<b class="fc"><i class="no-highlight">248</i>&nbsp;    private boolean explicitDurabilityConfigured = false;</b>
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /* Determines whether the transaction is auto-commit */
+<b class="fc"><i class="no-highlight">251</i>&nbsp;    private boolean isAutoCommit = false;</b>
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;    private boolean readOnly;
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * Constructor for reading from log.
+<i class="no-highlight">257</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">258</i>&nbsp;    public Txn() {</b>
+<b class="fc"><i class="no-highlight">259</i>&nbsp;        lastLoggedLsn = NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">260</i>&nbsp;    }</b>
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;    protected Txn(EnvironmentImpl envImpl,
+<i class="no-highlight">263</i>&nbsp;                  TransactionConfig config,
+<i class="no-highlight">264</i>&nbsp;                  ReplicationContext repContext) {
+<b class="fc"><i class="no-highlight">265</i>&nbsp;        this(envImpl, config, repContext, 0L /*mandatedId */ );</b>
+<b class="fc"><i class="no-highlight">266</i>&nbsp;    }</b>
+<i class="no-highlight">267</i>&nbsp;
+<i class="no-highlight">268</i>&nbsp;    /**
+<i class="no-highlight">269</i>&nbsp;     * A non-zero mandatedId is specified only by subtypes which arbitrarily
+<i class="no-highlight">270</i>&nbsp;     * impose a transaction id value onto the transaction. This is done by
+<i class="no-highlight">271</i>&nbsp;     * implementing a version of Locker.generateId() which uses the proposed
+<i class="no-highlight">272</i>&nbsp;     * id.
+<i class="no-highlight">273</i>&nbsp;     */
+<i class="no-highlight">274</i>&nbsp;    protected Txn(EnvironmentImpl envImpl,
+<i class="no-highlight">275</i>&nbsp;                  TransactionConfig config,
+<i class="no-highlight">276</i>&nbsp;                  ReplicationContext repContext,
+<i class="no-highlight">277</i>&nbsp;                  long mandatedId)
+<i class="no-highlight">278</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">279</i>&nbsp;
+<i class="no-highlight">280</i>&nbsp;        /*
+<i class="no-highlight">281</i>&nbsp;         * Initialize using the config but don&#39;t hold a reference to it, since
+<i class="no-highlight">282</i>&nbsp;         * it has not been cloned.
+<i class="no-highlight">283</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">284</i>&nbsp;        super(envImpl, config.getReadUncommitted(), config.getNoWait(),</b>
+<i class="no-highlight">285</i>&nbsp;              mandatedId);
+<b class="fc"><i class="no-highlight">286</i>&nbsp;        initTxn(config);</b>
+<b class="fc"><i class="no-highlight">287</i>&nbsp;        this.repContext = repContext;</b>
+<b class="fc"><i class="no-highlight">288</i>&nbsp;    }</b>
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;    public static Txn createLocalTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">291</i>&nbsp;                                     TransactionConfig config) {
+<b class="fc"><i class="no-highlight">292</i>&nbsp;        return new Txn(envImpl, config, ReplicationContext.NO_REPLICATE);</b>
+<i class="no-highlight">293</i>&nbsp;    }
+<i class="no-highlight">294</i>&nbsp;
+<i class="no-highlight">295</i>&nbsp;    public static Txn createLocalAutoTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">296</i>&nbsp;                                         TransactionConfig config) {
+<b class="fc"><i class="no-highlight">297</i>&nbsp;        Txn txn = createLocalTxn(envImpl, config);</b>
+<b class="fc"><i class="no-highlight">298</i>&nbsp;        txn.isAutoCommit = true;</b>
+<b class="fc"><i class="no-highlight">299</i>&nbsp;        return txn;</b>
+<i class="no-highlight">300</i>&nbsp;    }
+<i class="no-highlight">301</i>&nbsp;
+<i class="no-highlight">302</i>&nbsp;    /*
+<i class="no-highlight">303</i>&nbsp;     * Make a transaction for a user instigated transaction. Whether the
+<i class="no-highlight">304</i>&nbsp;     * environment is replicated or not determines whether a MasterTxn or
+<i class="no-highlight">305</i>&nbsp;     * a plain local Txn is returned.
+<i class="no-highlight">306</i>&nbsp;     */
+<i class="no-highlight">307</i>&nbsp;    static Txn createUserTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">308</i>&nbsp;                             TransactionConfig config) {
+<i class="no-highlight">309</i>&nbsp;
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        Txn ret = null;</b>
+<i class="no-highlight">311</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            ret = envImpl.isReplicated() ?</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;                  envImpl.createRepUserTxn(config) :</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;                  createLocalTxn(envImpl, config);</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;        } catch (DatabaseException DE) {</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            if (ret != null) {</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;                ret.close(false);</b>
+<i class="no-highlight">318</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">319</i>&nbsp;            throw DE;</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;        return ret;</b>
+<i class="no-highlight">322</i>&nbsp;    }
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    static Txn createAutoTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">325</i>&nbsp;                             TransactionConfig config,
+<i class="no-highlight">326</i>&nbsp;                             ReplicationContext repContext)
+<i class="no-highlight">327</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">328</i>&nbsp;
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        Txn ret = null;</b>
+<i class="no-highlight">330</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">331</i>&nbsp;            if (envImpl.isReplicated() &amp;&amp; repContext.inReplicationStream()) {</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;                ret = envImpl.createRepUserTxn(config);</b>
+<i class="no-highlight">333</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">334</i>&nbsp;                ret = new Txn(envImpl, config, repContext);</b>
+<i class="no-highlight">335</i>&nbsp;            }
+<i class="no-highlight">336</i>&nbsp;
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            ret.isAutoCommit = true;</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        } catch (DatabaseException DE) {</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            if (ret != null) {</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;                ret.close(false);</b>
+<i class="no-highlight">341</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            throw DE;</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;        return ret;</b>
+<i class="no-highlight">345</i>&nbsp;    }
+<i class="no-highlight">346</i>&nbsp;
+<i class="no-highlight">347</i>&nbsp;    @SuppressWarnings(&quot;deprecation&quot;)
+<i class="no-highlight">348</i>&nbsp;    private void initTxn(TransactionConfig config)
+<i class="no-highlight">349</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">350</i>&nbsp;
+<b class="fc"><i class="no-highlight">351</i>&nbsp;        serializableIsolation = config.getSerializableIsolation();</b>
+<b class="fc"><i class="no-highlight">352</i>&nbsp;        readCommittedIsolation = config.getReadCommitted();</b>
+<b class="fc"><i class="no-highlight">353</i>&nbsp;        defaultDurability = config.getDurability();</b>
+<b class="fc"><i class="no-highlight">354</i>&nbsp;        if (defaultDurability == null) {</b>
+<b class="fc"><i class="no-highlight">355</i>&nbsp;            explicitDurabilityConfigured = false;</b>
+<b class="fc"><i class="no-highlight">356</i>&nbsp;            defaultDurability = config.getDurabilityFromSync(envImpl);</b>
+<i class="no-highlight">357</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">358</i>&nbsp;            explicitDurabilityConfigured = true;</b>
+<i class="no-highlight">359</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">360</i>&nbsp;        explicitSyncConfigured =</b>
+<b class="fc"><i class="no-highlight">361</i>&nbsp;            config.getSync() || config.getNoSync() || config.getWriteNoSync();</b>
+<i class="no-highlight">362</i>&nbsp;
+<b class="fc"><i class="no-highlight">363</i>&nbsp;        assert (!(explicitDurabilityConfigured &amp;&amp; explicitSyncConfigured));</b>
+<i class="no-highlight">364</i>&nbsp;
+<b class="fc"><i class="no-highlight">365</i>&nbsp;        readOnly = config.getReadOnly();</b>
+<i class="no-highlight">366</i>&nbsp;
+<b class="fc"><i class="no-highlight">367</i>&nbsp;        lastLoggedLsn = NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">368</i>&nbsp;        firstLoggedLsn = NULL_LSN;</b>
+<i class="no-highlight">369</i>&nbsp;
+<b class="fc"><i class="no-highlight">370</i>&nbsp;        txnFlags = 0;</b>
+<b class="fc"><i class="no-highlight">371</i>&nbsp;        setState(Transaction.State.OPEN);</b>
+<i class="no-highlight">372</i>&nbsp;
+<b class="fc"><i class="no-highlight">373</i>&nbsp;        if (envImpl.isReplicated()) {</b>
+<b class="nc"><i class="no-highlight">374</i>&nbsp;            buddyLockers = new TinyHashSet&lt;BuddyLocker&gt;();</b>
+<i class="no-highlight">375</i>&nbsp;        }
+<i class="no-highlight">376</i>&nbsp;
+<b class="fc"><i class="no-highlight">377</i>&nbsp;        txnBeginHook(config);</b>
+<i class="no-highlight">378</i>&nbsp;
+<i class="no-highlight">379</i>&nbsp;        /*
+<i class="no-highlight">380</i>&nbsp;         * Note: readLocks, writeInfo, undoDatabases, deleteDatabases are
+<i class="no-highlight">381</i>&nbsp;         * initialized lazily in order to conserve memory. WriteInfo and
+<i class="no-highlight">382</i>&nbsp;         * undoDatabases are treated as a package deal, because they are both
+<i class="no-highlight">383</i>&nbsp;         * only needed if a transaction does writes.
+<i class="no-highlight">384</i>&nbsp;         *
+<i class="no-highlight">385</i>&nbsp;         * When a lock is added to this transaction, we add the collection
+<i class="no-highlight">386</i>&nbsp;         * entry overhead to the memory cost, but don&#39;t add the lock
+<i class="no-highlight">387</i>&nbsp;         * itself. That&#39;s taken care of by the Lock class.
+<i class="no-highlight">388</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">389</i>&nbsp;        updateMemoryUsage(MemoryBudget.TXN_OVERHEAD);</b>
+<i class="no-highlight">390</i>&nbsp;
+<b class="fc"><i class="no-highlight">391</i>&nbsp;        if (registerImmediately()) {</b>
+<b class="fc"><i class="no-highlight">392</i>&nbsp;            this.envImpl.getTxnManager().registerTxn(this);</b>
+<i class="no-highlight">393</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">394</i>&nbsp;    }</b>
+<i class="no-highlight">395</i>&nbsp;
+<i class="no-highlight">396</i>&nbsp;    /**
+<i class="no-highlight">397</i>&nbsp;     * True if this transaction should be registered with the transaction
+<i class="no-highlight">398</i>&nbsp;     * manager immediately at startup. True for all transactions except for
+<i class="no-highlight">399</i>&nbsp;     * those ReplayTxns which were created as transformed master transactions.
+<i class="no-highlight">400</i>&nbsp;     */
+<i class="no-highlight">401</i>&nbsp;    protected boolean registerImmediately() {
+<b class="fc"><i class="no-highlight">402</i>&nbsp;        return true;</b>
+<i class="no-highlight">403</i>&nbsp;    }
+<i class="no-highlight">404</i>&nbsp;
+<i class="no-highlight">405</i>&nbsp;    @Override
+<i class="no-highlight">406</i>&nbsp;    void addBuddy(BuddyLocker buddy) {
+<b class="nc"><i class="no-highlight">407</i>&nbsp;        if (buddyLockers != null) {</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;            synchronized (buddyLockers) {</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;                buddyLockers.add(buddy);</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            }</b>
+<i class="no-highlight">411</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">412</i>&nbsp;    }</b>
+<i class="no-highlight">413</i>&nbsp;
+<i class="no-highlight">414</i>&nbsp;    @Override
+<i class="no-highlight">415</i>&nbsp;    void removeBuddy(BuddyLocker buddy) {
+<b class="nc"><i class="no-highlight">416</i>&nbsp;        if (buddyLockers != null) {</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            synchronized (buddyLockers) {</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;                buddyLockers.remove(buddy);</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;            }</b>
+<i class="no-highlight">420</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">421</i>&nbsp;    }</b>
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;    /**
+<i class="no-highlight">424</i>&nbsp;     * UserTxns get a new unique id for each instance.
+<i class="no-highlight">425</i>&nbsp;     */
+<i class="no-highlight">426</i>&nbsp;    @Override
+<i class="no-highlight">427</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">428</i>&nbsp;    protected long generateId(TxnManager txnManager,
+<i class="no-highlight">429</i>&nbsp;                              long ignore /* mandatedId */) {
+<b class="fc"><i class="no-highlight">430</i>&nbsp;        return txnManager.getNextTxnId();</b>
+<i class="no-highlight">431</i>&nbsp;    }
+<i class="no-highlight">432</i>&nbsp;
+<i class="no-highlight">433</i>&nbsp;    /**
+<i class="no-highlight">434</i>&nbsp;     * Access to last LSN.
+<i class="no-highlight">435</i>&nbsp;     */
+<i class="no-highlight">436</i>&nbsp;    public long getLastLsn() {
+<b class="nc"><i class="no-highlight">437</i>&nbsp;        return lastLoggedLsn;</b>
+<i class="no-highlight">438</i>&nbsp;    }
+<i class="no-highlight">439</i>&nbsp;
+<i class="no-highlight">440</i>&nbsp;    /**
+<i class="no-highlight">441</i>&nbsp;     *
+<i class="no-highlight">442</i>&nbsp;     * Returns the durability used for the commit operation. It&#39;s only
+<i class="no-highlight">443</i>&nbsp;     * available after a commit operation has been initiated.
+<i class="no-highlight">444</i>&nbsp;     *
+<i class="no-highlight">445</i>&nbsp;     * @return the durability associated with the commit, or null if the
+<i class="no-highlight">446</i>&nbsp;     * commit has not yet been initiated.
+<i class="no-highlight">447</i>&nbsp;     */
+<i class="no-highlight">448</i>&nbsp;    public Durability getCommitDurability() {
+<b class="nc"><i class="no-highlight">449</i>&nbsp;        return commitDurability;</b>
+<i class="no-highlight">450</i>&nbsp;    }
+<i class="no-highlight">451</i>&nbsp;
+<i class="no-highlight">452</i>&nbsp;    /**
+<i class="no-highlight">453</i>&nbsp;     * Returns the durability associated the transaction at the time it&#39;s first
+<i class="no-highlight">454</i>&nbsp;     * created.
+<i class="no-highlight">455</i>&nbsp;     *
+<i class="no-highlight">456</i>&nbsp;     * @return the durability associated with the transaction at creation.
+<i class="no-highlight">457</i>&nbsp;     */
+<i class="no-highlight">458</i>&nbsp;    public Durability getDefaultDurability() {
+<b class="nc"><i class="no-highlight">459</i>&nbsp;        return defaultDurability;</b>
+<i class="no-highlight">460</i>&nbsp;    }
+<i class="no-highlight">461</i>&nbsp;
+<i class="no-highlight">462</i>&nbsp;    public boolean getPrepared() {
+<b class="nc"><i class="no-highlight">463</i>&nbsp;        return (txnFlags &amp; IS_PREPARED) != 0;</b>
+<i class="no-highlight">464</i>&nbsp;    }
+<i class="no-highlight">465</i>&nbsp;
+<i class="no-highlight">466</i>&nbsp;    public void setPrepared(boolean prepared) {
+<b class="nc"><i class="no-highlight">467</i>&nbsp;        if (prepared) {</b>
+<b class="nc"><i class="no-highlight">468</i>&nbsp;            txnFlags |= IS_PREPARED;</b>
+<i class="no-highlight">469</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">470</i>&nbsp;            txnFlags &amp;= ~IS_PREPARED;</b>
+<i class="no-highlight">471</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">472</i>&nbsp;    }</b>
+<i class="no-highlight">473</i>&nbsp;
+<i class="no-highlight">474</i>&nbsp;    public void setSuspended(boolean suspended) {
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        if (suspended) {</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;            txnFlags |= XA_SUSPENDED;</b>
+<i class="no-highlight">477</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">478</i>&nbsp;            txnFlags &amp;= ~XA_SUSPENDED;</b>
+<i class="no-highlight">479</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">480</i>&nbsp;   }</b>
+<i class="no-highlight">481</i>&nbsp;
+<i class="no-highlight">482</i>&nbsp;    public boolean isSuspended() {
+<b class="nc"><i class="no-highlight">483</i>&nbsp;        return (txnFlags &amp; XA_SUSPENDED) != 0;</b>
+<i class="no-highlight">484</i>&nbsp;    }
+<i class="no-highlight">485</i>&nbsp;
+<i class="no-highlight">486</i>&nbsp;    protected void setRollback() {
+<b class="nc"><i class="no-highlight">487</i>&nbsp;        txnFlags |= PAST_ROLLBACK;</b>
+<b class="nc"><i class="no-highlight">488</i>&nbsp;    }</b>
+<i class="no-highlight">489</i>&nbsp;
+<i class="no-highlight">490</i>&nbsp;    /**
+<i class="no-highlight">491</i>&nbsp;     * @return if this transaction has ever executed a rollback.
+<i class="no-highlight">492</i>&nbsp;     * A Rollback is an undo of the transaction that can return either to the
+<i class="no-highlight">493</i>&nbsp;     * original pre-txn state, or to an intermediate intra-txn state. An abort
+<i class="no-highlight">494</i>&nbsp;     * always returns the txn to the pre-txn state.
+<i class="no-highlight">495</i>&nbsp;     */
+<i class="no-highlight">496</i>&nbsp;    @Override
+<i class="no-highlight">497</i>&nbsp;    public boolean isRolledBack() {
+<b class="fc"><i class="no-highlight">498</i>&nbsp;        return (txnFlags &amp; PAST_ROLLBACK) != 0;</b>
+<i class="no-highlight">499</i>&nbsp;    }
+<i class="no-highlight">500</i>&nbsp;
+<i class="no-highlight">501</i>&nbsp;    /**
+<i class="no-highlight">502</i>&nbsp;     * Gets a lock on this LSN and, if it is a write lock, saves an abort
+<i class="no-highlight">503</i>&nbsp;     * LSN. Caller will set the abortLsn later, after the write lock has been
+<i class="no-highlight">504</i>&nbsp;     * obtained.
+<i class="no-highlight">505</i>&nbsp;     *
+<i class="no-highlight">506</i>&nbsp;     * @throws IllegalStateException via API read/write methods if the txn is
+<i class="no-highlight">507</i>&nbsp;     * closed, in theory.  However, this should not occur from a user API call,
+<i class="no-highlight">508</i>&nbsp;     * because the API methods first call Transaction.getLocker, which will
+<i class="no-highlight">509</i>&nbsp;     * throw IllegalStateException if the txn is closed.  It might occur,
+<i class="no-highlight">510</i>&nbsp;     * however, if the transaction ends in the window between the call to
+<i class="no-highlight">511</i>&nbsp;     * getLocker and the lock attempt.
+<i class="no-highlight">512</i>&nbsp;     *
+<i class="no-highlight">513</i>&nbsp;     * @throws OperationFailureException via API read/write methods if an
+<i class="no-highlight">514</i>&nbsp;     * OperationFailureException occurred earlier and set the txn to
+<i class="no-highlight">515</i>&nbsp;     * abort-only.
+<i class="no-highlight">516</i>&nbsp;     *
+<i class="no-highlight">517</i>&nbsp;     * @see Locker#lockInternal
+<i class="no-highlight">518</i>&nbsp;     * @Override
+<i class="no-highlight">519</i>&nbsp;     */
+<i class="no-highlight">520</i>&nbsp;    @Override
+<i class="no-highlight">521</i>&nbsp;    protected LockResult lockInternal(long lsn,
+<i class="no-highlight">522</i>&nbsp;                                      LockType lockType,
+<i class="no-highlight">523</i>&nbsp;                                      boolean noWait,
+<i class="no-highlight">524</i>&nbsp;                                      boolean jumpAheadOfWaiters,
+<i class="no-highlight">525</i>&nbsp;                                      DatabaseImpl database)
+<i class="no-highlight">526</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">527</i>&nbsp;
+<b class="fc"><i class="no-highlight">528</i>&nbsp;        long timeout = 0;</b>
+<b class="fc"><i class="no-highlight">529</i>&nbsp;        boolean useNoWait = noWait || defaultNoWait;</b>
+<b class="fc"><i class="no-highlight">530</i>&nbsp;        synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">531</i>&nbsp;            checkState(false);</b>
+<b class="fc"><i class="no-highlight">532</i>&nbsp;            if (!useNoWait) {</b>
+<b class="nc"><i class="no-highlight">533</i>&nbsp;                timeout = getLockTimeout();</b>
+<i class="no-highlight">534</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">535</i>&nbsp;        }</b>
+<i class="no-highlight">536</i>&nbsp;
+<i class="no-highlight">537</i>&nbsp;        /* Ask for the lock. */
+<b class="fc"><i class="no-highlight">538</i>&nbsp;        LockGrantType grant = lockManager.lock</b>
+<b class="fc"><i class="no-highlight">539</i>&nbsp;            (lsn, this, lockType, timeout, useNoWait, jumpAheadOfWaiters,</b>
+<i class="no-highlight">540</i>&nbsp;             database);
+<i class="no-highlight">541</i>&nbsp;
+<b class="fc"><i class="no-highlight">542</i>&nbsp;        WriteLockInfo info = null;</b>
+<b class="fc"><i class="no-highlight">543</i>&nbsp;        if (writeInfo != null) {</b>
+<b class="fc"><i class="no-highlight">544</i>&nbsp;            if (grant != LockGrantType.DENIED &amp;&amp; lockType.isWriteLock()) {</b>
+<b class="fc"><i class="no-highlight">545</i>&nbsp;                synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">546</i>&nbsp;                    info = writeInfo.get(Long.valueOf(lsn));</b>
+<i class="no-highlight">547</i>&nbsp;                    /* Save the latest version of this database for undoing. */
+<b class="fc"><i class="no-highlight">548</i>&nbsp;                    undoDatabases.put(database.getId(), database);</b>
+<b class="fc"><i class="no-highlight">549</i>&nbsp;                }</b>
+<i class="no-highlight">550</i>&nbsp;            }
+<i class="no-highlight">551</i>&nbsp;        }
+<i class="no-highlight">552</i>&nbsp;
+<b class="fc"><i class="no-highlight">553</i>&nbsp;        return new LockResult(grant, info);</b>
+<i class="no-highlight">554</i>&nbsp;    }
+<i class="no-highlight">555</i>&nbsp;
+<i class="no-highlight">556</i>&nbsp;    /**
+<i class="no-highlight">557</i>&nbsp;     * Prepare to undo in the (very unlikely) event that logging succeeds but
+<i class="no-highlight">558</i>&nbsp;     * locking fails. Subclasses should call super.preLogWithoutLock. [#22875]
+<i class="no-highlight">559</i>&nbsp;     */
+<i class="no-highlight">560</i>&nbsp;    @Override
+<i class="no-highlight">561</i>&nbsp;    public synchronized void preLogWithoutLock(DatabaseImpl database) {
+<b class="fc"><i class="no-highlight">562</i>&nbsp;        ensureWriteInfo();</b>
+<b class="fc"><i class="no-highlight">563</i>&nbsp;        undoDatabases.put(database.getId(), database);</b>
+<b class="fc"><i class="no-highlight">564</i>&nbsp;    }</b>
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;    /**
+<i class="no-highlight">567</i>&nbsp;     * @throws IllegalStateException via XAResource
+<i class="no-highlight">568</i>&nbsp;     */
+<i class="no-highlight">569</i>&nbsp;    public synchronized int prepare(Xid xid)
+<i class="no-highlight">570</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">571</i>&nbsp;
+<b class="nc"><i class="no-highlight">572</i>&nbsp;        if ((txnFlags &amp; IS_PREPARED) != 0) {</b>
+<b class="nc"><i class="no-highlight">573</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">574</i>&nbsp;                (&quot;prepare() has already been called for Transaction &quot; +
+<i class="no-highlight">575</i>&nbsp;                 id + &quot;.&quot;);
+<i class="no-highlight">576</i>&nbsp;        }
+<i class="no-highlight">577</i>&nbsp;
+<b class="nc"><i class="no-highlight">578</i>&nbsp;        checkState(false);</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;        if (checkCursorsForClose()) {</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">581</i>&nbsp;                (&quot;Transaction &quot; + id +
+<i class="no-highlight">582</i>&nbsp;                 &quot; prepare failed because there were open cursors.&quot;);
+<i class="no-highlight">583</i>&nbsp;        }
+<i class="no-highlight">584</i>&nbsp;
+<b class="nc"><i class="no-highlight">585</i>&nbsp;        setPrepared(true);</b>
+<b class="nc"><i class="no-highlight">586</i>&nbsp;        envImpl.getTxnManager().notePrepare();</b>
+<b class="nc"><i class="no-highlight">587</i>&nbsp;        if (writeInfo == null) {</b>
+<b class="nc"><i class="no-highlight">588</i>&nbsp;            return XAResource.XA_RDONLY;</b>
+<i class="no-highlight">589</i>&nbsp;        }
+<i class="no-highlight">590</i>&nbsp;
+<b class="nc"><i class="no-highlight">591</i>&nbsp;        SingleItemEntry&lt;TxnPrepare&gt; prepareEntry =</b>
+<b class="nc"><i class="no-highlight">592</i>&nbsp;            SingleItemEntry.create(LogEntryType.LOG_TXN_PREPARE,</b>
+<i class="no-highlight">593</i>&nbsp;                                   new TxnPrepare(id,xid));
+<i class="no-highlight">594</i>&nbsp;        /* Flush required. */
+<b class="nc"><i class="no-highlight">595</i>&nbsp;        LogManager logManager = envImpl.getLogManager();</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        logManager.logForceFlush(prepareEntry,</b>
+<i class="no-highlight">597</i>&nbsp;                                 true,  // fsyncrequired
+<i class="no-highlight">598</i>&nbsp;                                 ReplicationContext.NO_REPLICATE);
+<i class="no-highlight">599</i>&nbsp;
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        return XAResource.XA_OK;</b>
+<i class="no-highlight">601</i>&nbsp;    }
+<i class="no-highlight">602</i>&nbsp;
+<i class="no-highlight">603</i>&nbsp;    public void commit(Xid xid)
+<i class="no-highlight">604</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">605</i>&nbsp;
+<b class="nc"><i class="no-highlight">606</i>&nbsp;        commit(Durability.COMMIT_SYNC);</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;        envImpl.getTxnManager().unRegisterXATxn(xid, true);</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;        return;</b>
+<i class="no-highlight">609</i>&nbsp;    }
+<i class="no-highlight">610</i>&nbsp;
+<i class="no-highlight">611</i>&nbsp;    public void abort(Xid xid)
+<i class="no-highlight">612</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">613</i>&nbsp;
+<b class="nc"><i class="no-highlight">614</i>&nbsp;        abort(true /* forceFlush */);</b>
+<b class="nc"><i class="no-highlight">615</i>&nbsp;        envImpl.getTxnManager().unRegisterXATxn(xid, false);</b>
+<b class="nc"><i class="no-highlight">616</i>&nbsp;        return;</b>
+<i class="no-highlight">617</i>&nbsp;    }
+<i class="no-highlight">618</i>&nbsp;
+<i class="no-highlight">619</i>&nbsp;    /**
+<i class="no-highlight">620</i>&nbsp;     * Call commit() with the default sync configuration property.
+<i class="no-highlight">621</i>&nbsp;     */
+<i class="no-highlight">622</i>&nbsp;    public long commit()
+<i class="no-highlight">623</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">624</i>&nbsp;
+<b class="fc"><i class="no-highlight">625</i>&nbsp;        return commit(defaultDurability);</b>
+<i class="no-highlight">626</i>&nbsp;    }
+<i class="no-highlight">627</i>&nbsp;
+<i class="no-highlight">628</i>&nbsp;    /**
+<i class="no-highlight">629</i>&nbsp;     * Commit this transaction; it involves the following logical steps:
+<i class="no-highlight">630</i>&nbsp;     *
+<i class="no-highlight">631</i>&nbsp;     * 1. Run pre-commit hook.
+<i class="no-highlight">632</i>&nbsp;     *
+<i class="no-highlight">633</i>&nbsp;     * 2. Release read locks.
+<i class="no-highlight">634</i>&nbsp;     *
+<i class="no-highlight">635</i>&nbsp;     * 3. Log a txn commit record and flush the log as indicated by the
+<i class="no-highlight">636</i>&nbsp;     * durability policy.
+<i class="no-highlight">637</i>&nbsp;     *
+<i class="no-highlight">638</i>&nbsp;     * 4. Run the post-commit hook.
+<i class="no-highlight">639</i>&nbsp;     *
+<i class="no-highlight">640</i>&nbsp;     * 5. Add deleted LN info to IN compressor queue.
+<i class="no-highlight">641</i>&nbsp;     *
+<i class="no-highlight">642</i>&nbsp;     * 6. Release all write locks
+<i class="no-highlight">643</i>&nbsp;     *
+<i class="no-highlight">644</i>&nbsp;     * If this transaction has not made any changes to the database, that is,
+<i class="no-highlight">645</i>&nbsp;     * it is a read-only transaction, no entry is made to the log. Otherwise,
+<i class="no-highlight">646</i>&nbsp;     * a concerted effort is made to log a commit entry, or an abort entry,
+<i class="no-highlight">647</i>&nbsp;     * but NOT both. If exceptions are encountered and neither entry can be
+<i class="no-highlight">648</i>&nbsp;     * logged, a EnvironmentFailureException is thrown.
+<i class="no-highlight">649</i>&nbsp;     *
+<i class="no-highlight">650</i>&nbsp;     * Error conditions (in contrast to Exceptions) always result in the
+<i class="no-highlight">651</i>&nbsp;     * environment being invalidated and the Error being propagated back to the
+<i class="no-highlight">652</i>&nbsp;     * application.  In addition, if the environment is made invalid in another
+<i class="no-highlight">653</i>&nbsp;     * thread, or the transaction is closed by another thread, then we
+<i class="no-highlight">654</i>&nbsp;     * propagate the exception and we do not attempt to abort.  This special
+<i class="no-highlight">655</i>&nbsp;     * handling is prior to the pre-commit stage.
+<i class="no-highlight">656</i>&nbsp;     *
+<i class="no-highlight">657</i>&nbsp;     * From an exception handling viewpoint the commit goes through two stages:
+<i class="no-highlight">658</i>&nbsp;     * a pre-commit stage spanning steps 1-3, and a post-commit stage
+<i class="no-highlight">659</i>&nbsp;     * spanning steps 4-5. The post-commit stage is entered only after a commit
+<i class="no-highlight">660</i>&nbsp;     * entry has been successfully logged.
+<i class="no-highlight">661</i>&nbsp;     *
+<i class="no-highlight">662</i>&nbsp;     * Any exceptions detected during the pre-commit stage results in an
+<i class="no-highlight">663</i>&nbsp;     * attempt to log an abort entry. A NULL commitLsn (and abortLsn)
+<i class="no-highlight">664</i>&nbsp;     * indicates that we are in the pre-commit stage. Note in particular, that
+<i class="no-highlight">665</i>&nbsp;     * if the log of the commit entry (step 3) fails due to an IOException,
+<i class="no-highlight">666</i>&nbsp;     * then the lower levels are responsible for wrapping it in a
+<i class="no-highlight">667</i>&nbsp;     * EnvironmentFailureException which is propagated directly to the
+<i class="no-highlight">668</i>&nbsp;     * application.
+<i class="no-highlight">669</i>&nbsp;     *
+<i class="no-highlight">670</i>&nbsp;     * Exceptions thrown in the post-commit stage are examined to see if they
+<i class="no-highlight">671</i>&nbsp;     * are expected and must be propagated back to the caller after completing
+<i class="no-highlight">672</i>&nbsp;     * any pending cleanup; some replication exceptions fall into this
+<i class="no-highlight">673</i>&nbsp;     * category. If the exception was unexpected, the environment is
+<i class="no-highlight">674</i>&nbsp;     * invalidated and a EnvironmentFailureException is thrown instead. The
+<i class="no-highlight">675</i>&nbsp;     * current implementation only allows propagation of exceptions from the
+<i class="no-highlight">676</i>&nbsp;     * post-commit hook, since we do not expect exceptions from any of the
+<i class="no-highlight">677</i>&nbsp;     * other post-commit operations.
+<i class="no-highlight">678</i>&nbsp;     *
+<i class="no-highlight">679</i>&nbsp;     * When there are multiple failures in commit(), we want the caller to
+<i class="no-highlight">680</i>&nbsp;     * receive the first exception, to make the problem manifest. So an effort
+<i class="no-highlight">681</i>&nbsp;     * is made to preserve that primary exception and propagate it instead of
+<i class="no-highlight">682</i>&nbsp;     * any following, secondary exceptions. The secondary exception is always
+<i class="no-highlight">683</i>&nbsp;     * logged in such a circumstance.
+<i class="no-highlight">684</i>&nbsp;     *
+<i class="no-highlight">685</i>&nbsp;     * @throws IllegalStateException via Transaction.commit if cursors are
+<i class="no-highlight">686</i>&nbsp;     * open.
+<i class="no-highlight">687</i>&nbsp;     *
+<i class="no-highlight">688</i>&nbsp;     * @throws OperationFailureException via Transaction.commit if an
+<i class="no-highlight">689</i>&nbsp;     * OperationFailureException occurred earlier and set the txn to
+<i class="no-highlight">690</i>&nbsp;     * abort-only.
+<i class="no-highlight">691</i>&nbsp;     *
+<i class="no-highlight">692</i>&nbsp;     * Note that IllegalStateException should never be thrown by
+<i class="no-highlight">693</i>&nbsp;     * Transaction.commit because of a closed txn, since Transaction.commit and
+<i class="no-highlight">694</i>&nbsp;     * abort set the Transaction.txn to null and disallow subsequent method
+<i class="no-highlight">695</i>&nbsp;     * calls (other than abort).  So in a sense the call to checkState(true) in
+<i class="no-highlight">696</i>&nbsp;     * this method is unnecessary, although perhaps a good safeguard.
+<i class="no-highlight">697</i>&nbsp;     */
+<i class="no-highlight">698</i>&nbsp;    public long commit(Durability durability)
+<i class="no-highlight">699</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">700</i>&nbsp;
+<i class="no-highlight">701</i>&nbsp;        /*
+<i class="no-highlight">702</i>&nbsp;         * If frozen, throw the appropriate exception, but don&#39;t attempt to
+<i class="no-highlight">703</i>&nbsp;         * make any changes to cleanup the exception.
+<i class="no-highlight">704</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">705</i>&nbsp;        checkIfFrozen(true /* isCommit */);</b>
+<i class="no-highlight">706</i>&nbsp;
+<i class="no-highlight">707</i>&nbsp;        /*
+<i class="no-highlight">708</i>&nbsp;         * A post commit exception that needs to be propagated back to the
+<i class="no-highlight">709</i>&nbsp;         * caller. Its throw is delayed until the post commit cleanup has been
+<i class="no-highlight">710</i>&nbsp;         * completed.
+<i class="no-highlight">711</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">712</i>&nbsp;        DatabaseException queuedPostCommitException = null;</b>
+<i class="no-highlight">713</i>&nbsp;
+<b class="fc"><i class="no-highlight">714</i>&nbsp;        this.commitDurability = durability;</b>
+<i class="no-highlight">715</i>&nbsp;
+<i class="no-highlight">716</i>&nbsp;        try {
+<i class="no-highlight">717</i>&nbsp;
+<b class="fc"><i class="no-highlight">718</i>&nbsp;            synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">719</i>&nbsp;                checkState(false);</b>
+<b class="fc"><i class="no-highlight">720</i>&nbsp;                if (checkCursorsForClose()) {</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;                    throw new IllegalStateException</b>
+<i class="no-highlight">722</i>&nbsp;                        (&quot;Transaction &quot; + id +
+<i class="no-highlight">723</i>&nbsp;                         &quot; commit failed because there were open cursors.&quot;);
+<i class="no-highlight">724</i>&nbsp;                }
+<i class="no-highlight">725</i>&nbsp;
+<i class="no-highlight">726</i>&nbsp;                /*
+<i class="no-highlight">727</i>&nbsp;                 * Do the pre-commit hook before executing any commit related
+<i class="no-highlight">728</i>&nbsp;                 * actions like releasing locks.
+<i class="no-highlight">729</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">730</i>&nbsp;                if (updateLoggedForTxn()) {</b>
+<b class="fc"><i class="no-highlight">731</i>&nbsp;                    preLogCommitHook();</b>
+<i class="no-highlight">732</i>&nbsp;                }
+<i class="no-highlight">733</i>&nbsp;
+<i class="no-highlight">734</i>&nbsp;                /*
+<i class="no-highlight">735</i>&nbsp;                 * Release all read locks, clear lock collection. Optimize for
+<i class="no-highlight">736</i>&nbsp;                 * the case where there are no read locks.
+<i class="no-highlight">737</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">738</i>&nbsp;                int numReadLocks = clearReadLocks();</b>
+<i class="no-highlight">739</i>&nbsp;
+<i class="no-highlight">740</i>&nbsp;                /*
+<i class="no-highlight">741</i>&nbsp;                 * Log the commit if we ever logged any modifications for this
+<i class="no-highlight">742</i>&nbsp;                 * txn. Refraining from logging empty commits is more efficient
+<i class="no-highlight">743</i>&nbsp;                 * and makes for fewer edge cases for HA. Note that this is not
+<i class="no-highlight">744</i>&nbsp;                 * the same as the question of whether we have held any write
+<i class="no-highlight">745</i>&nbsp;                 * locks. Various scenarios, like RMW txns and
+<i class="no-highlight">746</i>&nbsp;                 * Cursor.putNoOverwrite can take write locks without having
+<i class="no-highlight">747</i>&nbsp;                 * actually made any modifications.
+<i class="no-highlight">748</i>&nbsp;                 *
+<i class="no-highlight">749</i>&nbsp;                 * If we have outstanding write locks, we must release them
+<i class="no-highlight">750</i>&nbsp;                 * even if we won&#39;t log a commit.  TODO: This may have been
+<i class="no-highlight">751</i>&nbsp;                 * true in the past because of dbhandle write locks that were
+<i class="no-highlight">752</i>&nbsp;                 * transferred away, but is probably no longer true.
+<i class="no-highlight">753</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">754</i>&nbsp;                int numWriteLocks = 0;</b>
+<b class="fc"><i class="no-highlight">755</i>&nbsp;                Collection&lt;WriteLockInfo&gt; obsoleteLsns = null;</b>
+<b class="fc"><i class="no-highlight">756</i>&nbsp;                if (writeInfo != null) {</b>
+<b class="fc"><i class="no-highlight">757</i>&nbsp;                    numWriteLocks = writeInfo.size();</b>
+<b class="fc"><i class="no-highlight">758</i>&nbsp;                    obsoleteLsns = getObsoleteLsnInfo();</b>
+<i class="no-highlight">759</i>&nbsp;                }
+<i class="no-highlight">760</i>&nbsp;
+<i class="no-highlight">761</i>&nbsp;                /*
+<i class="no-highlight">762</i>&nbsp;                 * If nothing was written to log for this txn, no need to log a
+<i class="no-highlight">763</i>&nbsp;                 * commit.
+<i class="no-highlight">764</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">765</i>&nbsp;                if (updateLoggedForTxn()) {</b>
+<b class="fc"><i class="no-highlight">766</i>&nbsp;                    final LogItem commitItem =</b>
+<b class="fc"><i class="no-highlight">767</i>&nbsp;                        logCommitEntry(durability.getLocalSync(),</b>
+<i class="no-highlight">768</i>&nbsp;                                       obsoleteLsns);
+<b class="fc"><i class="no-highlight">769</i>&nbsp;                    commitLsn = commitItem.lsn;</b>
+<i class="no-highlight">770</i>&nbsp;
+<i class="no-highlight">771</i>&nbsp;                    try {
+<b class="fc"><i class="no-highlight">772</i>&nbsp;                        postLogCommitHook(commitItem);</b>
+<b class="nc"><i class="no-highlight">773</i>&nbsp;                    } catch (DatabaseException hookException) {</b>
+<b class="nc"><i class="no-highlight">774</i>&nbsp;                        if (txnState == Transaction.State.MUST_ABORT) {</b>
+<b class="nc"><i class="no-highlight">775</i>&nbsp;                            throw EnvironmentFailureException.</b>
+<i class="no-highlight">776</i>&nbsp;                                unexpectedException
+<b class="nc"><i class="no-highlight">777</i>&nbsp;                                (&quot;postLogCommitHook may not set MUST_ABORT&quot;,</b>
+<i class="no-highlight">778</i>&nbsp;                                 hookException);
+<i class="no-highlight">779</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">780</i>&nbsp;                        if (!propagatePostCommitException(hookException)) {</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;                            throw hookException;</b>
+<i class="no-highlight">782</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">783</i>&nbsp;                        queuedPostCommitException = hookException;</b>
+<b class="fc"><i class="no-highlight">784</i>&nbsp;                    }</b>
+<i class="no-highlight">785</i>&nbsp;                }
+<i class="no-highlight">786</i>&nbsp;
+<i class="no-highlight">787</i>&nbsp;                /*
+<i class="no-highlight">788</i>&nbsp;                 * Set database state for deletes before releasing any write
+<i class="no-highlight">789</i>&nbsp;                 * locks.
+<i class="no-highlight">790</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">791</i>&nbsp;                setDeletedDatabaseState(true);</b>
+<i class="no-highlight">792</i>&nbsp;
+<i class="no-highlight">793</i>&nbsp;                /* Release all write locks, clear lock collection. */
+<b class="fc"><i class="no-highlight">794</i>&nbsp;                if (numWriteLocks &gt; 0) {</b>
+<b class="fc"><i class="no-highlight">795</i>&nbsp;                    releaseWriteLocks();</b>
+<i class="no-highlight">796</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">797</i>&nbsp;                writeInfo = null;</b>
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;                /* Unload delete info, but don&#39;t wake up the compressor. */
+<b class="fc"><i class="no-highlight">800</i>&nbsp;                if ((deleteInfo != null) &amp;&amp; deleteInfo.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">801</i>&nbsp;                    envImpl.addToCompressorQueue(deleteInfo.values());</b>
+<b class="nc"><i class="no-highlight">802</i>&nbsp;                    deleteInfo.clear();</b>
+<i class="no-highlight">803</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">804</i>&nbsp;                traceCommit(numWriteLocks, numReadLocks);</b>
+<b class="fc"><i class="no-highlight">805</i>&nbsp;            }</b>
+<i class="no-highlight">806</i>&nbsp;
+<i class="no-highlight">807</i>&nbsp;            /*
+<i class="no-highlight">808</i>&nbsp;             * Purge any databaseImpls not needed as a result of the commit. Be
+<i class="no-highlight">809</i>&nbsp;             * sure to do this outside the synchronization block, to avoid
+<i class="no-highlight">810</i>&nbsp;             * conflict w/ checkpointer.
+<i class="no-highlight">811</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">812</i>&nbsp;            cleanupDatabaseImpls(true);</b>
+<i class="no-highlight">813</i>&nbsp;
+<i class="no-highlight">814</i>&nbsp;            /*
+<i class="no-highlight">815</i>&nbsp;             * Unregister this txn. Be sure to do this outside the
+<i class="no-highlight">816</i>&nbsp;             * synchronization block, to avoid conflict w/ checkpointer.
+<i class="no-highlight">817</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">818</i>&nbsp;            close(true);</b>
+<i class="no-highlight">819</i>&nbsp;
+<b class="fc"><i class="no-highlight">820</i>&nbsp;            if (queuedPostCommitException == null) {</b>
+<b class="fc"><i class="no-highlight">821</i>&nbsp;                TriggerManager.runCommitTriggers(this);</b>
+<b class="fc"><i class="no-highlight">822</i>&nbsp;                return commitLsn;</b>
+<i class="no-highlight">823</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">824</i>&nbsp;        } catch (Error e) {</b>
+<b class="nc"><i class="no-highlight">825</i>&nbsp;            envImpl.invalidate(e);</b>
+<b class="nc"><i class="no-highlight">826</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">827</i>&nbsp;        } catch (RuntimeException commitException) {</b>
+<b class="nc"><i class="no-highlight">828</i>&nbsp;            if (!envImpl.isValid()) {</b>
+<i class="no-highlight">829</i>&nbsp;                /* Env is invalid, propagate exception. */
+<b class="nc"><i class="no-highlight">830</i>&nbsp;                throw commitException;</b>
+<i class="no-highlight">831</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">832</i>&nbsp;            if (commitLsn != NULL_LSN) {</b>
+<i class="no-highlight">833</i>&nbsp;                /* An unfiltered post commit exception */
+<b class="nc"><i class="no-highlight">834</i>&nbsp;                throw new EnvironmentFailureException</b>
+<i class="no-highlight">835</i>&nbsp;                    (envImpl,
+<i class="no-highlight">836</i>&nbsp;                     EnvironmentFailureReason.LOG_INCOMPLETE,
+<i class="no-highlight">837</i>&nbsp;                     &quot;Failed after commiting transaction &quot; +
+<i class="no-highlight">838</i>&nbsp;                     id +
+<i class="no-highlight">839</i>&nbsp;                     &quot; during post transaction cleanup.&quot; +
+<i class="no-highlight">840</i>&nbsp;                     &quot;Original exception = &quot; +
+<b class="nc"><i class="no-highlight">841</i>&nbsp;                     commitException.getMessage(),</b>
+<i class="no-highlight">842</i>&nbsp;                     commitException);
+<i class="no-highlight">843</i>&nbsp;            }
+<i class="no-highlight">844</i>&nbsp;
+<i class="no-highlight">845</i>&nbsp;            /*
+<i class="no-highlight">846</i>&nbsp;             * If this transaction is frozen, just bail out, and don&#39;t try
+<i class="no-highlight">847</i>&nbsp;             * to clean up with an abort.
+<i class="no-highlight">848</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">849</i>&nbsp;            checkIfFrozen(true);</b>
+<b class="nc"><i class="no-highlight">850</i>&nbsp;            throwPreCommitException(durability, commitException);</b>
+<i class="no-highlight">851</i>&nbsp;        } finally {
+<i class="no-highlight">852</i>&nbsp;
+<i class="no-highlight">853</i>&nbsp;            /*
+<i class="no-highlight">854</i>&nbsp;             * Final catch-all to ensure state is set, in case close(boolean)
+<i class="no-highlight">855</i>&nbsp;             * is not called.
+<i class="no-highlight">856</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">857</i>&nbsp;            if (txnState == Transaction.State.OPEN) {</b>
+<b class="nc"><i class="no-highlight">858</i>&nbsp;                setState(Transaction.State.COMMITTED);</b>
+<i class="no-highlight">859</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">860</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">861</i>&nbsp;        throw queuedPostCommitException;</b>
+<i class="no-highlight">862</i>&nbsp;    }
+<i class="no-highlight">863</i>&nbsp;
+<i class="no-highlight">864</i>&nbsp;    /**
+<i class="no-highlight">865</i>&nbsp;     * Releases all write locks, nulls the lock collection.
+<i class="no-highlight">866</i>&nbsp;     */
+<i class="no-highlight">867</i>&nbsp;    protected void releaseWriteLocks() throws DatabaseException {
+<b class="fc"><i class="no-highlight">868</i>&nbsp;        if (writeInfo == null) {</b>
+<b class="nc"><i class="no-highlight">869</i>&nbsp;            return;</b>
+<i class="no-highlight">870</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">871</i>&nbsp;        for (Long lsn : writeInfo.keySet()) {</b>
+<b class="fc"><i class="no-highlight">872</i>&nbsp;            lockManager.release(lsn, this);</b>
+<b class="fc"><i class="no-highlight">873</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">874</i>&nbsp;        writeInfo = null;</b>
+<b class="fc"><i class="no-highlight">875</i>&nbsp;    }</b>
+<i class="no-highlight">876</i>&nbsp;
+<i class="no-highlight">877</i>&nbsp;    /**
+<i class="no-highlight">878</i>&nbsp;     * Aborts the current transaction and throws the pre-commit Exception,
+<i class="no-highlight">879</i>&nbsp;     * wrapped in a Database exception if it isn&#39;t already a DatabaseException.
+<i class="no-highlight">880</i>&nbsp;     *
+<i class="no-highlight">881</i>&nbsp;     * If the attempt at writing the abort entry fails, that is, if neither an
+<i class="no-highlight">882</i>&nbsp;     * abort entry, nor a commit entry was successfully written to the log, the
+<i class="no-highlight">883</i>&nbsp;     * environment is invalidated and a EnvironmentFailureException is thrown.
+<i class="no-highlight">884</i>&nbsp;     * Note that for HA, it&#39;s necessary that either a commit or abort entry be
+<i class="no-highlight">885</i>&nbsp;     * made in the log, so that it can be replayed to the replicas and the
+<i class="no-highlight">886</i>&nbsp;     * transaction is not left in limbo at the other nodes.
+<i class="no-highlight">887</i>&nbsp;     *
+<i class="no-highlight">888</i>&nbsp;     * @param durability used to determine whether the abort record should be
+<i class="no-highlight">889</i>&nbsp;     * flushed to the log.
+<i class="no-highlight">890</i>&nbsp;     * @param preCommitException the exception being handled.
+<i class="no-highlight">891</i>&nbsp;     * @throws DatabaseException this is the normal return for the method.
+<i class="no-highlight">892</i>&nbsp;     */
+<i class="no-highlight">893</i>&nbsp;    private void throwPreCommitException(Durability durability,
+<i class="no-highlight">894</i>&nbsp;                                         RuntimeException preCommitException) {
+<i class="no-highlight">895</i>&nbsp;
+<i class="no-highlight">896</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">897</i>&nbsp;            abortInternal(durability.getLocalSync() == SyncPolicy.SYNC);</b>
+<b class="nc"><i class="no-highlight">898</i>&nbsp;            LoggerUtils.traceAndLogException(envImpl, &quot;Txn&quot;, &quot;commit&quot;,</b>
+<i class="no-highlight">899</i>&nbsp;                                             &quot;Commit of transaction &quot; + id +
+<i class="no-highlight">900</i>&nbsp;                                             &quot; failed&quot;, preCommitException);
+<b class="nc"><i class="no-highlight">901</i>&nbsp;        } catch (Error e) {</b>
+<b class="nc"><i class="no-highlight">902</i>&nbsp;            envImpl.invalidate(e);</b>
+<b class="nc"><i class="no-highlight">903</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;        } catch (RuntimeException abortT2) {</b>
+<b class="nc"><i class="no-highlight">905</i>&nbsp;            if (!envImpl.isValid()) {</b>
+<i class="no-highlight">906</i>&nbsp;                /* Env already invalid, propagate exception. */
+<b class="nc"><i class="no-highlight">907</i>&nbsp;                throw abortT2;</b>
+<i class="no-highlight">908</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">909</i>&nbsp;            String message = &quot;Failed while attempting to commit transaction &quot; +</b>
+<i class="no-highlight">910</i>&nbsp;                    id + &quot;. The attempt to abort also failed. &quot; +
+<i class="no-highlight">911</i>&nbsp;                    &quot;The original exception seen from commit = &quot; +
+<b class="nc"><i class="no-highlight">912</i>&nbsp;                    preCommitException.getMessage() +</b>
+<i class="no-highlight">913</i>&nbsp;                    &quot; The exception from the cleanup = &quot; +
+<b class="nc"><i class="no-highlight">914</i>&nbsp;                    abortT2.getMessage();</b>
+<b class="nc"><i class="no-highlight">915</i>&nbsp;            if ((writeInfo != null) &amp;&amp; (abortLsn == NULL_LSN)) {</b>
+<i class="no-highlight">916</i>&nbsp;                /* Failed to log an abort or commit entry */
+<b class="nc"><i class="no-highlight">917</i>&nbsp;                throw new EnvironmentFailureException</b>
+<i class="no-highlight">918</i>&nbsp;                    (envImpl,
+<i class="no-highlight">919</i>&nbsp;                     EnvironmentFailureReason.LOG_INCOMPLETE,
+<i class="no-highlight">920</i>&nbsp;                     message, preCommitException);
+<i class="no-highlight">921</i>&nbsp;            }
+<i class="no-highlight">922</i>&nbsp;
+<i class="no-highlight">923</i>&nbsp;            /*
+<i class="no-highlight">924</i>&nbsp;             * An abort entry has been written, so we can proceed. Log the
+<i class="no-highlight">925</i>&nbsp;             * secondary exception, but throw the more meaningful original
+<i class="no-highlight">926</i>&nbsp;             * exception.
+<i class="no-highlight">927</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">928</i>&nbsp;            LoggerUtils.envLogMsg(Level.WARNING, envImpl, message);</b>
+<i class="no-highlight">929</i>&nbsp;            /* The preCommitException exception will be thrown below. */
+<b class="nc"><i class="no-highlight">930</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">931</i>&nbsp;        postLogCommitAbortHook();</b>
+<i class="no-highlight">932</i>&nbsp;
+<i class="no-highlight">933</i>&nbsp;        /*
+<i class="no-highlight">934</i>&nbsp;         * Abort entry was written, wrap the exception if necessary and throw
+<i class="no-highlight">935</i>&nbsp;         * it.  An IllegalStateException is thrown by commit() when cursors are
+<i class="no-highlight">936</i>&nbsp;         * open.
+<i class="no-highlight">937</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">938</i>&nbsp;        if (preCommitException instanceof DatabaseException ||</b>
+<i class="no-highlight">939</i>&nbsp;            preCommitException instanceof IllegalStateException) {
+<b class="nc"><i class="no-highlight">940</i>&nbsp;            throw preCommitException;</b>
+<i class="no-highlight">941</i>&nbsp;        }
+<i class="no-highlight">942</i>&nbsp;
+<i class="no-highlight">943</i>&nbsp;        /* Now throw an exception that shows the commit problem. */
+<b class="nc"><i class="no-highlight">944</i>&nbsp;        throw EnvironmentFailureException.unexpectedException</b>
+<b class="nc"><i class="no-highlight">945</i>&nbsp;            (&quot;Failed while attempting to commit transaction &quot; +</b>
+<i class="no-highlight">946</i>&nbsp;              id + &quot;, aborted instead. Original exception = &quot; +
+<b class="nc"><i class="no-highlight">947</i>&nbsp;              preCommitException.getMessage(),</b>
+<i class="no-highlight">948</i>&nbsp;              preCommitException);
+<i class="no-highlight">949</i>&nbsp;    }
+<i class="no-highlight">950</i>&nbsp;
+<i class="no-highlight">951</i>&nbsp;    /**
+<i class="no-highlight">952</i>&nbsp;     * Creates and logs the txn commit entry, enforcing the flush/Sync
+<i class="no-highlight">953</i>&nbsp;     * behavior.
+<i class="no-highlight">954</i>&nbsp;     *
+<i class="no-highlight">955</i>&nbsp;     * @param flushSyncBehavior the local durability requirements
+<i class="no-highlight">956</i>&nbsp;     *
+<i class="no-highlight">957</i>&nbsp;     * @return the committed log item
+<i class="no-highlight">958</i>&nbsp;     *
+<i class="no-highlight">959</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">960</i>&nbsp;     */
+<i class="no-highlight">961</i>&nbsp;    private LogItem logCommitEntry(SyncPolicy flushSyncBehavior,
+<i class="no-highlight">962</i>&nbsp;                                   Collection&lt;WriteLockInfo&gt; obsoleteLsns)
+<i class="no-highlight">963</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">964</i>&nbsp;
+<b class="fc"><i class="no-highlight">965</i>&nbsp;        LogManager logManager = envImpl.getLogManager();</b>
+<b class="fc"><i class="no-highlight">966</i>&nbsp;        assert checkForValidReplicatorNodeId();</b>
+<i class="no-highlight">967</i>&nbsp;
+<b class="fc"><i class="no-highlight">968</i>&nbsp;        final CommitLogEntry commitEntry =</b>
+<i class="no-highlight">969</i>&nbsp;            new CommitLogEntry(new TxnCommit(id,
+<i class="no-highlight">970</i>&nbsp;                                             lastLoggedLsn,
+<b class="fc"><i class="no-highlight">971</i>&nbsp;                                             getReplicatorNodeId(),</b>
+<b class="fc"><i class="no-highlight">972</i>&nbsp;                                             getDTVLSN()));</b>
+<i class="no-highlight">973</i>&nbsp;
+<b class="fc"><i class="no-highlight">974</i>&nbsp;        LogParams params = new LogParams();</b>
+<b class="fc"><i class="no-highlight">975</i>&nbsp;        params.entry = commitEntry;</b>
+<b class="fc"><i class="no-highlight">976</i>&nbsp;        params.provisional = Provisional.NO;</b>
+<b class="fc"><i class="no-highlight">977</i>&nbsp;        params.repContext = repContext;</b>
+<i class="no-highlight">978</i>&nbsp;
+<b class="fc"><i class="no-highlight">979</i>&nbsp;        params.obsoleteWriteLockInfo = obsoleteLsns;</b>
+<i class="no-highlight">980</i>&nbsp;
+<b class="fc"><i class="no-highlight">981</i>&nbsp;        switch (flushSyncBehavior) {</b>
+<i class="no-highlight">982</i>&nbsp;
+<i class="no-highlight">983</i>&nbsp;            case SYNC:
+<b class="fc"><i class="no-highlight">984</i>&nbsp;                params.flushRequired = true;</b>
+<b class="fc"><i class="no-highlight">985</i>&nbsp;                params.fsyncRequired = true;</b>
+<b class="fc"><i class="no-highlight">986</i>&nbsp;                break;</b>
+<i class="no-highlight">987</i>&nbsp;
+<i class="no-highlight">988</i>&nbsp;            case WRITE_NO_SYNC:
+<b class="nc"><i class="no-highlight">989</i>&nbsp;                params.flushRequired = true;</b>
+<b class="nc"><i class="no-highlight">990</i>&nbsp;                params.fsyncRequired = false;</b>
+<b class="nc"><i class="no-highlight">991</i>&nbsp;                break;</b>
+<i class="no-highlight">992</i>&nbsp;
+<i class="no-highlight">993</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">994</i>&nbsp;                params.flushRequired = false;</b>
+<b class="nc"><i class="no-highlight">995</i>&nbsp;                params.fsyncRequired = false;</b>
+<i class="no-highlight">996</i>&nbsp;                break;
+<i class="no-highlight">997</i>&nbsp;        }
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;        /*
+<i class="no-highlight">1000</i>&nbsp;         * Do a final pre-log check just before the logging call, to minimize
+<i class="no-highlight">1001</i>&nbsp;         * the window where the POSSIBLY_COMMITTED state may be set. [#21264]
+<i class="no-highlight">1002</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1003</i>&nbsp;        preLogCommitCheck();</b>
+<i class="no-highlight">1004</i>&nbsp;
+<i class="no-highlight">1005</i>&nbsp;        /* Log the commit with requested durability. */
+<b class="fc"><i class="no-highlight">1006</i>&nbsp;        boolean logSuccess = false;</b>
+<i class="no-highlight">1007</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">1008</i>&nbsp;            LogItem item = logManager.log(params);</b>
+<b class="fc"><i class="no-highlight">1009</i>&nbsp;            logSuccess = true;</b>
+<b class="fc"><i class="no-highlight">1010</i>&nbsp;            return item;</b>
+<b class="nc"><i class="no-highlight">1011</i>&nbsp;        } catch (RuntimeException e) {</b>
+<i class="no-highlight">1012</i>&nbsp;
+<i class="no-highlight">1013</i>&nbsp;            /*
+<i class="no-highlight">1014</i>&nbsp;             * Exceptions thrown during logging are expected to be fatal.
+<i class="no-highlight">1015</i>&nbsp;             * Ensure that the environment is invalidated when a non-fatal
+<i class="no-highlight">1016</i>&nbsp;             * exception is unexpectedly thrown, since the commit durability is
+<i class="no-highlight">1017</i>&nbsp;             * unknown [#21264].
+<i class="no-highlight">1018</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1019</i>&nbsp;            if (envImpl.isValid()) {</b>
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;                throw EnvironmentFailureException.unexpectedException</b>
+<b class="nc"><i class="no-highlight">1021</i>&nbsp;                    (envImpl,</b>
+<i class="no-highlight">1022</i>&nbsp;                     &quot;Unexpected non-fatal exception while logging commit&quot;,
+<i class="no-highlight">1023</i>&nbsp;                     e);
+<i class="no-highlight">1024</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">1026</i>&nbsp;        } catch (Error e) {</b>
+<i class="no-highlight">1027</i>&nbsp;            /* Ensure that the environment is invalidated. [#21264] */
+<b class="nc"><i class="no-highlight">1028</i>&nbsp;            envImpl.invalidate(e);</b>
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;            throw e;</b>
+<i class="no-highlight">1030</i>&nbsp;        } finally {
+<i class="no-highlight">1031</i>&nbsp;
+<i class="no-highlight">1032</i>&nbsp;            /*
+<i class="no-highlight">1033</i>&nbsp;             * If logging fails, there is still a possibility that the commit
+<i class="no-highlight">1034</i>&nbsp;             * is durable. [#21264]
+<i class="no-highlight">1035</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1036</i>&nbsp;            if (!logSuccess) {</b>
+<b class="nc"><i class="no-highlight">1037</i>&nbsp;                setState(Transaction.State.POSSIBLY_COMMITTED);</b>
+<i class="no-highlight">1038</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;        }</b>
+<i class="no-highlight">1040</i>&nbsp;    }
+<i class="no-highlight">1041</i>&nbsp;
+<i class="no-highlight">1042</i>&nbsp;    /**
+<i class="no-highlight">1043</i>&nbsp;     * Pre-log check for an invalid environment or interrupted thread (this
+<i class="no-highlight">1044</i>&nbsp;     * thread may have been interrupted but we haven&#39;t found out yet, because
+<i class="no-highlight">1045</i>&nbsp;     * we haven&#39;t done a wait or an I/O) to narrow the time window where a
+<i class="no-highlight">1046</i>&nbsp;     * commit could become partially durable.  See getPartialDurability.
+<i class="no-highlight">1047</i>&nbsp;     * [#21264]
+<i class="no-highlight">1048</i>&nbsp;     */
+<i class="no-highlight">1049</i>&nbsp;    private void preLogCommitCheck() {
+<b class="fc"><i class="no-highlight">1050</i>&nbsp;        if (Thread.interrupted()) {</b>
+<b class="nc"><i class="no-highlight">1051</i>&nbsp;            throw new ThreadInterruptedException</b>
+<i class="no-highlight">1052</i>&nbsp;                (envImpl, &quot;Thread interrupted prior to logging the commit&quot;);
+<i class="no-highlight">1053</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1054</i>&nbsp;        envImpl.checkIfInvalid();</b>
+<b class="fc"><i class="no-highlight">1055</i>&nbsp;    }</b>
+<i class="no-highlight">1056</i>&nbsp;
+<i class="no-highlight">1057</i>&nbsp;    /*
+<i class="no-highlight">1058</i>&nbsp;     * A replicated txn must know the node of the master which issued it.
+<i class="no-highlight">1059</i>&nbsp;     */
+<i class="no-highlight">1060</i>&nbsp;    private boolean checkForValidReplicatorNodeId() {
+<b class="nc"><i class="no-highlight">1061</i>&nbsp;        if (isReplicated()) {</b>
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;            if (getReplicatorNodeId() == 0) {</b>
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;                return false;</b>
+<i class="no-highlight">1064</i>&nbsp;            }
+<i class="no-highlight">1065</i>&nbsp;
+<i class="no-highlight">1066</i>&nbsp;            /*
+<i class="no-highlight">1067</i>&nbsp;            return (repContext.getClientVLSN() != null) &amp;&amp;
+<i class="no-highlight">1068</i>&nbsp;                   (!repContext.getClientVLSN().isNull());
+<i class="no-highlight">1069</i>&nbsp;                   */
+<i class="no-highlight">1070</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1071</i>&nbsp;        return true;</b>
+<i class="no-highlight">1072</i>&nbsp;    }
+<i class="no-highlight">1073</i>&nbsp;
+<i class="no-highlight">1074</i>&nbsp;    /**
+<i class="no-highlight">1075</i>&nbsp;     * Extract obsolete LSN info from writeInfo. Do not add a WriteInfo if a
+<i class="no-highlight">1076</i>&nbsp;     * slot with a deleted LN was reused (abortKnownDeleted), to avoid double
+<i class="no-highlight">1077</i>&nbsp;     * counting. And count each abortLSN only once.
+<i class="no-highlight">1078</i>&nbsp;     */
+<i class="no-highlight">1079</i>&nbsp;    private Collection&lt;WriteLockInfo&gt; getObsoleteLsnInfo() {
+<i class="no-highlight">1080</i>&nbsp;
+<i class="no-highlight">1081</i>&nbsp;        /*
+<i class="no-highlight">1082</i>&nbsp;         * A Map is used to prevent double counting abortLNS if there is more
+<i class="no-highlight">1083</i>&nbsp;         * then one WriteLockInfo with the same abortLSN in this txn, which can
+<i class="no-highlight">1084</i>&nbsp;         * occur when the txn has performed more than one CUD ops on the same
+<i class="no-highlight">1085</i>&nbsp;         * record.
+<i class="no-highlight">1086</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1087</i>&nbsp;        Map&lt;Long, WriteLockInfo&gt; map = new HashMap&lt;Long, WriteLockInfo&gt;();</b>
+<i class="no-highlight">1088</i>&nbsp;
+<b class="fc"><i class="no-highlight">1089</i>&nbsp;        for (WriteLockInfo info : writeInfo.values()) {</b>
+<b class="fc"><i class="no-highlight">1090</i>&nbsp;            maybeCountObsoleteLSN(map, info);</b>
+<b class="fc"><i class="no-highlight">1091</i>&nbsp;        }</b>
+<i class="no-highlight">1092</i>&nbsp;
+<b class="fc"><i class="no-highlight">1093</i>&nbsp;        return map.values();</b>
+<i class="no-highlight">1094</i>&nbsp;    }
+<i class="no-highlight">1095</i>&nbsp;
+<i class="no-highlight">1096</i>&nbsp;    private void maybeCountObsoleteLSN(
+<i class="no-highlight">1097</i>&nbsp;        Map&lt;Long, WriteLockInfo&gt; obsoleteLsnSet,
+<i class="no-highlight">1098</i>&nbsp;        WriteLockInfo info) {
+<i class="no-highlight">1099</i>&nbsp;
+<b class="fc"><i class="no-highlight">1100</i>&nbsp;        if (info.getAbortLsn() == DbLsn.NULL_LSN ||</b>
+<b class="nc"><i class="no-highlight">1101</i>&nbsp;            info.getAbortKnownDeleted()) {</b>
+<b class="fc"><i class="no-highlight">1102</i>&nbsp;            return;</b>
+<i class="no-highlight">1103</i>&nbsp;        }
+<i class="no-highlight">1104</i>&nbsp;
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;        if ((info.getDb() != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1106</i>&nbsp;            info.getDb().isLNImmediatelyObsolete()) {</b>
+<i class="no-highlight">1107</i>&nbsp;            /* Was already counted obsolete during logging. */
+<b class="nc"><i class="no-highlight">1108</i>&nbsp;            return;</b>
+<i class="no-highlight">1109</i>&nbsp;        }
+<i class="no-highlight">1110</i>&nbsp;
+<b class="nc"><i class="no-highlight">1111</i>&nbsp;        if (info.getAbortData() != null) {</b>
+<i class="no-highlight">1112</i>&nbsp;            /* Was already counted obsolete during logging. */
+<b class="nc"><i class="no-highlight">1113</i>&nbsp;            return;</b>
+<i class="no-highlight">1114</i>&nbsp;        }
+<i class="no-highlight">1115</i>&nbsp;
+<b class="nc"><i class="no-highlight">1116</i>&nbsp;        final Long longLsn = Long.valueOf(info.getAbortLsn());</b>
+<i class="no-highlight">1117</i>&nbsp;
+<b class="nc"><i class="no-highlight">1118</i>&nbsp;        if (!obsoleteLsnSet.containsKey(longLsn)) {</b>
+<b class="nc"><i class="no-highlight">1119</i>&nbsp;            obsoleteLsnSet.put(longLsn, info);</b>
+<i class="no-highlight">1120</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;    }</b>
+<i class="no-highlight">1122</i>&nbsp;
+<i class="no-highlight">1123</i>&nbsp;    /**
+<i class="no-highlight">1124</i>&nbsp;     * Abort this transaction. This flavor does not return an LSN, nor does it
+<i class="no-highlight">1125</i>&nbsp;     * require the logging of a durable abort record.
+<i class="no-highlight">1126</i>&nbsp;     */
+<i class="no-highlight">1127</i>&nbsp;    public void abort()
+<i class="no-highlight">1128</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1129</i>&nbsp;
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;        if (isClosed()) {</b>
+<b class="nc"><i class="no-highlight">1131</i>&nbsp;            return;</b>
+<i class="no-highlight">1132</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1133</i>&nbsp;        abort(false /* forceFlush */);</b>
+<b class="nc"><i class="no-highlight">1134</i>&nbsp;    }</b>
+<i class="no-highlight">1135</i>&nbsp;
+<i class="no-highlight">1136</i>&nbsp;    /**
+<i class="no-highlight">1137</i>&nbsp;     * Abort this transaction. Steps are:
+<i class="no-highlight">1138</i>&nbsp;     * 1. Release LN read locks.
+<i class="no-highlight">1139</i>&nbsp;     * 2. Write a txn abort entry to the log. This is used for log file
+<i class="no-highlight">1140</i>&nbsp;     *    cleaning optimization and replication, and there&#39;s no need to
+<i class="no-highlight">1141</i>&nbsp;     *    guarantee a flush to disk.
+<i class="no-highlight">1142</i>&nbsp;     * 3. Find the last LN log entry written for this txn, and use that
+<i class="no-highlight">1143</i>&nbsp;     *    to traverse the log looking for nodes to undo. For each node,
+<i class="no-highlight">1144</i>&nbsp;     *    use the same undo logic as recovery to undo the transaction. Note
+<i class="no-highlight">1145</i>&nbsp;     *    that we walk the log in order to undo in reverse order of the
+<i class="no-highlight">1146</i>&nbsp;     *    actual operations. For example, suppose the txn did this:
+<i class="no-highlight">1147</i>&nbsp;     *       delete K1/D1 (in LN 10)
+<i class="no-highlight">1148</i>&nbsp;     *       create K1/D1 (in LN 20)
+<i class="no-highlight">1149</i>&nbsp;     *    If we process LN10 before LN 20, we&#39;d inadvertently create a
+<i class="no-highlight">1150</i>&nbsp;     *    duplicate tree of &quot;K1&quot;, which would be fatal for the mapping tree.
+<i class="no-highlight">1151</i>&nbsp;     * 4. Release the write lock for this LN.
+<i class="no-highlight">1152</i>&nbsp;     *
+<i class="no-highlight">1153</i>&nbsp;     * An abort differs from a rollback in that the former always undoes every
+<i class="no-highlight">1154</i>&nbsp;     * operation, and returns it to the pre-txn state. A rollback may return
+<i class="no-highlight">1155</i>&nbsp;     * the txn to an intermediate state, or to the pre-txn state.
+<i class="no-highlight">1156</i>&nbsp;     */
+<i class="no-highlight">1157</i>&nbsp;    public long abort(boolean forceFlush)
+<i class="no-highlight">1158</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1159</i>&nbsp;
+<b class="nc"><i class="no-highlight">1160</i>&nbsp;        return abortInternal(forceFlush);</b>
+<i class="no-highlight">1161</i>&nbsp;    }
+<i class="no-highlight">1162</i>&nbsp;
+<i class="no-highlight">1163</i>&nbsp;    /**
+<i class="no-highlight">1164</i>&nbsp;     * @throws IllegalStateException via Transaction.abort if cursors are open.
+<i class="no-highlight">1165</i>&nbsp;     *
+<i class="no-highlight">1166</i>&nbsp;     * Note that IllegalStateException should never be thrown by
+<i class="no-highlight">1167</i>&nbsp;     * Transaction.abort because of a closed txn, since Transaction.commit and
+<i class="no-highlight">1168</i>&nbsp;     * abort set the Transaction.txn to null and disallow subsequent method
+<i class="no-highlight">1169</i>&nbsp;     * calls (other than abort).  So in a sense the call to checkState(true) in
+<i class="no-highlight">1170</i>&nbsp;     * this method is unnecessary, although perhaps a good safeguard.
+<i class="no-highlight">1171</i>&nbsp;     */
+<i class="no-highlight">1172</i>&nbsp;    private long abortInternal(boolean forceFlush)
+<i class="no-highlight">1173</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1174</i>&nbsp;
+<i class="no-highlight">1175</i>&nbsp;        /*
+<i class="no-highlight">1176</i>&nbsp;         * If frozen, throw the appropriate exception, but don&#39;t attempt to
+<i class="no-highlight">1177</i>&nbsp;         * make any changes to cleanup the exception.
+<i class="no-highlight">1178</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1179</i>&nbsp;        boolean hooked = false;</b>
+<b class="nc"><i class="no-highlight">1180</i>&nbsp;        checkIfFrozen(false);</b>
+<i class="no-highlight">1181</i>&nbsp;
+<i class="no-highlight">1182</i>&nbsp;        try {
+<i class="no-highlight">1183</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">1184</i>&nbsp;                synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">1185</i>&nbsp;                    checkState(true);</b>
+<i class="no-highlight">1186</i>&nbsp;
+<i class="no-highlight">1187</i>&nbsp;                    /*
+<i class="no-highlight">1188</i>&nbsp;                     * State is set to ABORTED before undo, so that other
+<i class="no-highlight">1189</i>&nbsp;                     * threads cannot access this txn in the middle of undo.
+<i class="no-highlight">1190</i>&nbsp;                     * [#19321]
+<i class="no-highlight">1191</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1192</i>&nbsp;                    setState(Transaction.State.ABORTED);</b>
+<i class="no-highlight">1193</i>&nbsp;
+<i class="no-highlight">1194</i>&nbsp;                    /* Log the abort. */
+<b class="nc"><i class="no-highlight">1195</i>&nbsp;                    if (updateLoggedForTxn()) {</b>
+<b class="nc"><i class="no-highlight">1196</i>&nbsp;                        preLogAbortHook();</b>
+<b class="nc"><i class="no-highlight">1197</i>&nbsp;                        hooked = true;</b>
+<b class="nc"><i class="no-highlight">1198</i>&nbsp;                        assert checkForValidReplicatorNodeId();</b>
+<b class="nc"><i class="no-highlight">1199</i>&nbsp;                        assert (commitLsn == NULL_LSN) &amp;&amp;</b>
+<i class="no-highlight">1200</i>&nbsp;                               (abortLsn == NULL_LSN);
+<b class="nc"><i class="no-highlight">1201</i>&nbsp;                        final AbortLogEntry abortEntry =</b>
+<i class="no-highlight">1202</i>&nbsp;                            new AbortLogEntry(
+<i class="no-highlight">1203</i>&nbsp;                                new TxnAbort(id, lastLoggedLsn,
+<b class="nc"><i class="no-highlight">1204</i>&nbsp;                                             getReplicatorNodeId(),</b>
+<b class="nc"><i class="no-highlight">1205</i>&nbsp;                                             getDTVLSN()));</b>
+<b class="nc"><i class="no-highlight">1206</i>&nbsp;                        abortLsn = forceFlush ?</b>
+<b class="nc"><i class="no-highlight">1207</i>&nbsp;                            envImpl.getLogManager().</b>
+<b class="nc"><i class="no-highlight">1208</i>&nbsp;                            logForceFlush(abortEntry,</b>
+<i class="no-highlight">1209</i>&nbsp;                                          true /* fsyncRequired */,
+<i class="no-highlight">1210</i>&nbsp;                                          repContext) :
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;                            envImpl.getLogManager().log(abortEntry,</b>
+<i class="no-highlight">1212</i>&nbsp;                                                        repContext);
+<i class="no-highlight">1213</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1214</i>&nbsp;                }</b>
+<i class="no-highlight">1215</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">1216</i>&nbsp;                if (hooked) {</b>
+<b class="nc"><i class="no-highlight">1217</i>&nbsp;                    postLogAbortHook();</b>
+<b class="nc"><i class="no-highlight">1218</i>&nbsp;                    hooked = false;</b>
+<i class="no-highlight">1219</i>&nbsp;                }
+<i class="no-highlight">1220</i>&nbsp;
+<i class="no-highlight">1221</i>&nbsp;                /*
+<i class="no-highlight">1222</i>&nbsp;                 * undo must be called outside the synchronization block to
+<i class="no-highlight">1223</i>&nbsp;                 * preserve locking order: For non-blocking locks, the BIN
+<i class="no-highlight">1224</i>&nbsp;                 * is latched before synchronizing on the Txn.  If we were
+<i class="no-highlight">1225</i>&nbsp;                 * to synchronize while calling undo, this order would be
+<i class="no-highlight">1226</i>&nbsp;                 * reversed.
+<i class="no-highlight">1227</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1228</i>&nbsp;                undo();</b>
+<b class="nc"><i class="no-highlight">1229</i>&nbsp;            }</b>
+<i class="no-highlight">1230</i>&nbsp;
+<i class="no-highlight">1231</i>&nbsp;            /*
+<i class="no-highlight">1232</i>&nbsp;             * Purge any databaseImpls not needed as a result of the abort. Be
+<i class="no-highlight">1233</i>&nbsp;             * sure to do this outside the synchronization block, to avoid
+<i class="no-highlight">1234</i>&nbsp;             * conflict w/ checkpointer.
+<i class="no-highlight">1235</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1236</i>&nbsp;            cleanupDatabaseImpls(false);</b>
+<i class="no-highlight">1237</i>&nbsp;
+<b class="nc"><i class="no-highlight">1238</i>&nbsp;            synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">1239</i>&nbsp;                boolean openCursors = checkCursorsForClose();</b>
+<b class="nc"><i class="no-highlight">1240</i>&nbsp;                Logger logger = envImpl.getLogger();</b>
+<b class="nc"><i class="no-highlight">1241</i>&nbsp;                if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">1242</i>&nbsp;                    LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">1243</i>&nbsp;                                     &quot;Abort: id = &quot; + id + &quot; openCursors= &quot; +
+<i class="no-highlight">1244</i>&nbsp;                                     openCursors);
+<i class="no-highlight">1245</i>&nbsp;                }
+<i class="no-highlight">1246</i>&nbsp;
+<i class="no-highlight">1247</i>&nbsp;                /* Invalidate any Db handles protected by this txn. */
+<b class="nc"><i class="no-highlight">1248</i>&nbsp;                if (openedDatabaseHandles != null) {</b>
+<b class="nc"><i class="no-highlight">1249</i>&nbsp;                    for (Database handle : openedDatabaseHandles) {</b>
+<b class="nc"><i class="no-highlight">1250</i>&nbsp;                        DbInternal.invalidate(handle);</b>
+<b class="nc"><i class="no-highlight">1251</i>&nbsp;                    }</b>
+<i class="no-highlight">1252</i>&nbsp;                }
+<i class="no-highlight">1253</i>&nbsp;                /* Delay the exception until cleanup is complete. */
+<b class="nc"><i class="no-highlight">1254</i>&nbsp;                if (openCursors) {</b>
+<b class="nc"><i class="no-highlight">1255</i>&nbsp;                    envImpl.checkIfInvalid();</b>
+<b class="nc"><i class="no-highlight">1256</i>&nbsp;                    throw new IllegalStateException</b>
+<i class="no-highlight">1257</i>&nbsp;                            (&quot;Transaction &quot; + id +
+<i class="no-highlight">1258</i>&nbsp;                             &quot; detected open cursors while aborting&quot;);
+<i class="no-highlight">1259</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1260</i>&nbsp;            }</b>
+<i class="no-highlight">1261</i>&nbsp;        } finally {
+<i class="no-highlight">1262</i>&nbsp;
+<i class="no-highlight">1263</i>&nbsp;            /*
+<i class="no-highlight">1264</i>&nbsp;             * The close method, which unregisters the txn, and must be called
+<i class="no-highlight">1265</i>&nbsp;             * after undo and cleanupDatabaseImpls.  A transaction must remain
+<i class="no-highlight">1266</i>&nbsp;             * registered until all actions that modify/dirty INs are complete;
+<i class="no-highlight">1267</i>&nbsp;             * see Checkpointer class comments for details.  [#19321]
+<i class="no-highlight">1268</i>&nbsp;             *
+<i class="no-highlight">1269</i>&nbsp;             * close must be called, even though the state has already been set
+<i class="no-highlight">1270</i>&nbsp;             * to ABORTED above, for two reasons: 1) To unregister the txn, and
+<i class="no-highlight">1271</i>&nbsp;             * 2) to allow subclasses to override the close method.
+<i class="no-highlight">1272</i>&nbsp;             *
+<i class="no-highlight">1273</i>&nbsp;             * close must be called outside the synchronization block to avoid
+<i class="no-highlight">1274</i>&nbsp;             * conflict w/ checkpointer.
+<i class="no-highlight">1275</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1276</i>&nbsp;            close(false);</b>
+<i class="no-highlight">1277</i>&nbsp;
+<b class="nc"><i class="no-highlight">1278</i>&nbsp;            if (abortLsn != NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">1279</i>&nbsp;                TriggerManager.runAbortTriggers(this);</b>
+<i class="no-highlight">1280</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1281</i>&nbsp;        }</b>
+<i class="no-highlight">1282</i>&nbsp;
+<b class="nc"><i class="no-highlight">1283</i>&nbsp;        return abortLsn;</b>
+<i class="no-highlight">1284</i>&nbsp;    }
+<i class="no-highlight">1285</i>&nbsp;
+<i class="no-highlight">1286</i>&nbsp;    /**
+<i class="no-highlight">1287</i>&nbsp;     * Undo write operations and release all resources held by the transaction.
+<i class="no-highlight">1288</i>&nbsp;     */
+<i class="no-highlight">1289</i>&nbsp;    protected void undo()
+<i class="no-highlight">1290</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1291</i>&nbsp;
+<i class="no-highlight">1292</i>&nbsp;        /*
+<i class="no-highlight">1293</i>&nbsp;         * We need to undo, or reverse the effect of any applied operations on
+<i class="no-highlight">1294</i>&nbsp;         * the in-memory btree. We also need to make the latest version of any
+<i class="no-highlight">1295</i>&nbsp;         * record modified by the transaction obsolete.
+<i class="no-highlight">1296</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1297</i>&nbsp;        Set&lt;Long&gt; alreadyUndoneLsns = new HashSet&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">1298</i>&nbsp;        Set&lt;CompareSlot&gt; alreadyUndoneSlots = new TreeSet&lt;CompareSlot&gt;();</b>
+<b class="nc"><i class="no-highlight">1299</i>&nbsp;        TreeLocation location = new TreeLocation();</b>
+<b class="nc"><i class="no-highlight">1300</i>&nbsp;        long undoLsn = lastLoggedLsn;</b>
+<i class="no-highlight">1301</i>&nbsp;
+<i class="no-highlight">1302</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1303</i>&nbsp;            while (undoLsn != NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">1304</i>&nbsp;                UndoReader undo =</b>
+<b class="nc"><i class="no-highlight">1305</i>&nbsp;                    UndoReader.create(envImpl, undoLsn, undoDatabases);</b>
+<i class="no-highlight">1306</i>&nbsp;                /*
+<i class="no-highlight">1307</i>&nbsp;                 * Only undo the first instance we see of any node. All log
+<i class="no-highlight">1308</i>&nbsp;                 * entries for a given node have the same abortLsn, so we don&#39;t
+<i class="no-highlight">1309</i>&nbsp;                 * need to undo it multiple times.
+<i class="no-highlight">1310</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1311</i>&nbsp;                if (firstInstance(</b>
+<i class="no-highlight">1312</i>&nbsp;                    alreadyUndoneLsns, alreadyUndoneSlots, undo)) {
+<i class="no-highlight">1313</i>&nbsp;
+<b class="nc"><i class="no-highlight">1314</i>&nbsp;                    RecoveryManager.abortUndo(</b>
+<b class="nc"><i class="no-highlight">1315</i>&nbsp;                        envImpl.getLogger(), Level.FINER, location,</b>
+<i class="no-highlight">1316</i>&nbsp;                        undo.db, undo.logEntry, undoLsn);
+<i class="no-highlight">1317</i>&nbsp;
+<b class="nc"><i class="no-highlight">1318</i>&nbsp;                    countObsoleteExact(undoLsn, undo, isRolledBack());</b>
+<i class="no-highlight">1319</i>&nbsp;                }
+<i class="no-highlight">1320</i>&nbsp;
+<i class="no-highlight">1321</i>&nbsp;                /* Move on to the previous log entry for this txn. */
+<b class="nc"><i class="no-highlight">1322</i>&nbsp;                undoLsn = undo.logEntry.getUserTxn().getLastLsn();</b>
+<b class="nc"><i class="no-highlight">1323</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1324</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">1325</i>&nbsp;            String lsnMsg = &quot;LSN=&quot; + DbLsn.getNoFormatString(undoLsn);</b>
+<b class="nc"><i class="no-highlight">1326</i>&nbsp;            LoggerUtils.traceAndLogException(envImpl, &quot;Txn&quot;, &quot;undo&quot;,</b>
+<i class="no-highlight">1327</i>&nbsp;                                             lsnMsg, e);
+<b class="nc"><i class="no-highlight">1328</i>&nbsp;            e.addErrorMessage(lsnMsg);</b>
+<b class="nc"><i class="no-highlight">1329</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">1330</i>&nbsp;        } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">1331</i>&nbsp;            throw EnvironmentFailureException.unexpectedException</b>
+<b class="nc"><i class="no-highlight">1332</i>&nbsp;                (&quot;Txn undo for LSN=&quot; + DbLsn.getNoFormatString(undoLsn), e);</b>
+<b class="nc"><i class="no-highlight">1333</i>&nbsp;        }</b>
+<i class="no-highlight">1334</i>&nbsp;
+<i class="no-highlight">1335</i>&nbsp;        /*
+<i class="no-highlight">1336</i>&nbsp;         * Release all read locks after the undo (since the undo may need to
+<i class="no-highlight">1337</i>&nbsp;         * read in mapLNs).
+<i class="no-highlight">1338</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1339</i>&nbsp;        if (readLocks != null) {</b>
+<b class="nc"><i class="no-highlight">1340</i>&nbsp;            clearReadLocks();</b>
+<i class="no-highlight">1341</i>&nbsp;        }
+<i class="no-highlight">1342</i>&nbsp;
+<i class="no-highlight">1343</i>&nbsp;        /* Set database state for deletes before releasing any write locks. */
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;        setDeletedDatabaseState(false);</b>
+<i class="no-highlight">1345</i>&nbsp;
+<i class="no-highlight">1346</i>&nbsp;        /* Throw away write lock collection, don&#39;t retain any locks. */
+<b class="nc"><i class="no-highlight">1347</i>&nbsp;        Set&lt;Long&gt; empty = Collections.emptySet();</b>
+<b class="nc"><i class="no-highlight">1348</i>&nbsp;        clearWriteLocks(empty);</b>
+<i class="no-highlight">1349</i>&nbsp;
+<i class="no-highlight">1350</i>&nbsp;        /*
+<i class="no-highlight">1351</i>&nbsp;         * Let the delete related info (binreferences and dbs) get gc&#39;ed. Don&#39;t
+<i class="no-highlight">1352</i>&nbsp;         * explicitly iterate and clear -- that&#39;s far less efficient, gives GC
+<i class="no-highlight">1353</i>&nbsp;         * wrong input.
+<i class="no-highlight">1354</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1355</i>&nbsp;        deleteInfo = null;</b>
+<b class="nc"><i class="no-highlight">1356</i>&nbsp;    }</b>
+<i class="no-highlight">1357</i>&nbsp;
+<i class="no-highlight">1358</i>&nbsp;    /**
+<i class="no-highlight">1359</i>&nbsp;     * For an explanation of obsoleteDupsAllowed, see ReplayTxn.rollback.
+<i class="no-highlight">1360</i>&nbsp;     */
+<i class="no-highlight">1361</i>&nbsp;    private void countObsoleteExact(long undoLsn, UndoReader undo,
+<i class="no-highlight">1362</i>&nbsp;                                    boolean obsoleteDupsAllowed) {
+<i class="no-highlight">1363</i>&nbsp;        /*
+<i class="no-highlight">1364</i>&nbsp;         * &quot;Immediately obsolete&quot; LNs are counted as obsolete when they are
+<i class="no-highlight">1365</i>&nbsp;         * logged, so no need to repeat here.
+<i class="no-highlight">1366</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1367</i>&nbsp;        if (undo.logEntry.isImmediatelyObsolete(undo.db)) {</b>
+<b class="nc"><i class="no-highlight">1368</i>&nbsp;            return;</b>
+<i class="no-highlight">1369</i>&nbsp;        }
+<i class="no-highlight">1370</i>&nbsp;
+<b class="nc"><i class="no-highlight">1371</i>&nbsp;        LogManager logManager = envImpl.getLogManager();</b>
+<i class="no-highlight">1372</i>&nbsp;
+<b class="nc"><i class="no-highlight">1373</i>&nbsp;        if (obsoleteDupsAllowed) {</b>
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;            logManager.countObsoleteNodeDupsAllowed</b>
+<b class="nc"><i class="no-highlight">1375</i>&nbsp;                (undoLsn,</b>
+<i class="no-highlight">1376</i>&nbsp;                 null, // type
+<i class="no-highlight">1377</i>&nbsp;                 undo.logEntrySize,
+<i class="no-highlight">1378</i>&nbsp;                 undo.db);
+<i class="no-highlight">1379</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1380</i>&nbsp;            logManager.countObsoleteNode(undoLsn,</b>
+<i class="no-highlight">1381</i>&nbsp;                                         null,  // type
+<i class="no-highlight">1382</i>&nbsp;                                         undo.logEntrySize,
+<i class="no-highlight">1383</i>&nbsp;                                         undo.db,
+<i class="no-highlight">1384</i>&nbsp;                                         true); // countExact
+<i class="no-highlight">1385</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1386</i>&nbsp;    }</b>
+<i class="no-highlight">1387</i>&nbsp;
+<i class="no-highlight">1388</i>&nbsp;    /**
+<i class="no-highlight">1389</i>&nbsp;     * Release any write locks that are not in the retainedNodes set.
+<i class="no-highlight">1390</i>&nbsp;     */
+<i class="no-highlight">1391</i>&nbsp;    protected void clearWriteLocks(Set&lt;Long&gt; retainedNodes)
+<i class="no-highlight">1392</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1393</i>&nbsp;
+<b class="nc"><i class="no-highlight">1394</i>&nbsp;        if (writeInfo == null) {</b>
+<b class="nc"><i class="no-highlight">1395</i>&nbsp;            return;</b>
+<i class="no-highlight">1396</i>&nbsp;        }
+<i class="no-highlight">1397</i>&nbsp;
+<i class="no-highlight">1398</i>&nbsp;        /* Release all write locks, clear lock collection. */
+<b class="nc"><i class="no-highlight">1399</i>&nbsp;        Iterator&lt;Map.Entry&lt;Long, WriteLockInfo&gt;&gt; iter =</b>
+<b class="nc"><i class="no-highlight">1400</i>&nbsp;            writeInfo.entrySet().iterator();</b>
+<b class="nc"><i class="no-highlight">1401</i>&nbsp;        while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">1402</i>&nbsp;            Map.Entry&lt;Long, WriteLockInfo&gt; entry = iter.next();</b>
+<b class="nc"><i class="no-highlight">1403</i>&nbsp;            Long lsn = entry.getKey();</b>
+<i class="no-highlight">1404</i>&nbsp;
+<i class="no-highlight">1405</i>&nbsp;            /* Release any write locks not in the retained set. */
+<b class="nc"><i class="no-highlight">1406</i>&nbsp;            if (!retainedNodes.contains(lsn)) {</b>
+<b class="nc"><i class="no-highlight">1407</i>&nbsp;                lockManager.release(lsn, this);</b>
+<b class="nc"><i class="no-highlight">1408</i>&nbsp;                iter.remove();</b>
+<i class="no-highlight">1409</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1410</i>&nbsp;        }</b>
+<i class="no-highlight">1411</i>&nbsp;
+<b class="nc"><i class="no-highlight">1412</i>&nbsp;        if (writeInfo.size() == 0) {</b>
+<b class="nc"><i class="no-highlight">1413</i>&nbsp;            writeInfo = null;</b>
+<i class="no-highlight">1414</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1415</i>&nbsp;    }</b>
+<i class="no-highlight">1416</i>&nbsp;
+<i class="no-highlight">1417</i>&nbsp;    protected int clearReadLocks()
+<i class="no-highlight">1418</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1419</i>&nbsp;
+<b class="fc"><i class="no-highlight">1420</i>&nbsp;        int numReadLocks = 0;</b>
+<b class="fc"><i class="no-highlight">1421</i>&nbsp;        if (readLocks != null) {</b>
+<b class="nc"><i class="no-highlight">1422</i>&nbsp;            numReadLocks = readLocks.size();</b>
+<b class="nc"><i class="no-highlight">1423</i>&nbsp;            Iterator&lt;Long&gt; iter = readLocks.iterator();</b>
+<b class="nc"><i class="no-highlight">1424</i>&nbsp;            while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">1425</i>&nbsp;                Long rLockNid = iter.next();</b>
+<b class="nc"><i class="no-highlight">1426</i>&nbsp;                lockManager.release(rLockNid, this);</b>
+<b class="nc"><i class="no-highlight">1427</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1428</i>&nbsp;            readLocks = null;</b>
+<i class="no-highlight">1429</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1430</i>&nbsp;        return numReadLocks;</b>
+<i class="no-highlight">1431</i>&nbsp;    }
+<i class="no-highlight">1432</i>&nbsp;
+<i class="no-highlight">1433</i>&nbsp;    /**
+<i class="no-highlight">1434</i>&nbsp;     * Called by LNLogEntry.postLogWork() via the LogManager (while still under
+<i class="no-highlight">1435</i>&nbsp;     * the LWL) after a transactional LN is logged. Also called by the recovery
+<i class="no-highlight">1436</i>&nbsp;     * manager when logging a transaction aware object.
+<i class="no-highlight">1437</i>&nbsp;     *
+<i class="no-highlight">1438</i>&nbsp;     * This method is synchronized by the caller, by being called within the
+<i class="no-highlight">1439</i>&nbsp;     * log latch. Record the last LSN for this transaction, to create the
+<i class="no-highlight">1440</i>&nbsp;     * transaction chain, and also record the LSN in the write info for abort
+<i class="no-highlight">1441</i>&nbsp;     * logic.
+<i class="no-highlight">1442</i>&nbsp;     */
+<i class="no-highlight">1443</i>&nbsp;    public synchronized void addLogInfo(long lastLsn) {
+<i class="no-highlight">1444</i>&nbsp;        /* Save the last LSN for maintaining the transaction LSN chain. */
+<b class="fc"><i class="no-highlight">1445</i>&nbsp;        lastLoggedLsn = lastLsn;</b>
+<i class="no-highlight">1446</i>&nbsp;
+<i class="no-highlight">1447</i>&nbsp;        /*
+<i class="no-highlight">1448</i>&nbsp;         * Save handle to LSN for aborts.
+<i class="no-highlight">1449</i>&nbsp;         *
+<i class="no-highlight">1450</i>&nbsp;         * If this is the first LSN, save it for calculating the first LSN
+<i class="no-highlight">1451</i>&nbsp;         * of any active txn, for checkpointing.
+<i class="no-highlight">1452</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1453</i>&nbsp;        if (firstLoggedLsn == NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">1454</i>&nbsp;            firstLoggedLsn = lastLsn;</b>
+<i class="no-highlight">1455</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1456</i>&nbsp;    }</b>
+<i class="no-highlight">1457</i>&nbsp;
+<i class="no-highlight">1458</i>&nbsp;    /**
+<i class="no-highlight">1459</i>&nbsp;     * [#16861] The firstLoggedLsn field is volatile to avoid making
+<i class="no-highlight">1460</i>&nbsp;     * getFirstActiveLsn synchronized, which causes a deadlock in HA.
+<i class="no-highlight">1461</i>&nbsp;     *
+<i class="no-highlight">1462</i>&nbsp;     * @return first logged LSN, to aid recovery undo
+<i class="no-highlight">1463</i>&nbsp;     */
+<i class="no-highlight">1464</i>&nbsp;    public long getFirstActiveLsn() {
+<b class="nc"><i class="no-highlight">1465</i>&nbsp;        return firstLoggedLsn;</b>
+<i class="no-highlight">1466</i>&nbsp;    }
+<i class="no-highlight">1467</i>&nbsp;
+<i class="no-highlight">1468</i>&nbsp;    /**
+<i class="no-highlight">1469</i>&nbsp;     * @return true if this txn has logged any log entries.
+<i class="no-highlight">1470</i>&nbsp;     */
+<i class="no-highlight">1471</i>&nbsp;    protected boolean updateLoggedForTxn() {
+<b class="fc"><i class="no-highlight">1472</i>&nbsp;        return (lastLoggedLsn != DbLsn.NULL_LSN);</b>
+<i class="no-highlight">1473</i>&nbsp;    }
+<i class="no-highlight">1474</i>&nbsp;
+<i class="no-highlight">1475</i>&nbsp;    /**
+<i class="no-highlight">1476</i>&nbsp;     * @param dbImpl databaseImpl to remove
+<i class="no-highlight">1477</i>&nbsp;     * @param deleteAtCommit true if this databaseImpl should be cleaned on
+<i class="no-highlight">1478</i>&nbsp;     * commit, false if it should be cleaned on abort.
+<i class="no-highlight">1479</i>&nbsp;     */
+<i class="no-highlight">1480</i>&nbsp;    @Override
+<i class="no-highlight">1481</i>&nbsp;    public synchronized void markDeleteAtTxnEnd(DatabaseImpl dbImpl,
+<i class="no-highlight">1482</i>&nbsp;                                                boolean deleteAtCommit) {
+<b class="nc"><i class="no-highlight">1483</i>&nbsp;        int delta = 0;</b>
+<b class="nc"><i class="no-highlight">1484</i>&nbsp;        if (deletedDatabases == null) {</b>
+<b class="nc"><i class="no-highlight">1485</i>&nbsp;            deletedDatabases = new HashSet&lt;DatabaseCleanupInfo&gt;();</b>
+<b class="nc"><i class="no-highlight">1486</i>&nbsp;            delta += MemoryBudget.HASHSET_OVERHEAD;</b>
+<i class="no-highlight">1487</i>&nbsp;        }
+<i class="no-highlight">1488</i>&nbsp;
+<b class="nc"><i class="no-highlight">1489</i>&nbsp;        deletedDatabases.add(new DatabaseCleanupInfo(dbImpl,</b>
+<i class="no-highlight">1490</i>&nbsp;                                                     deleteAtCommit));
+<b class="nc"><i class="no-highlight">1491</i>&nbsp;        delta += MemoryBudget.HASHSET_ENTRY_OVERHEAD +</b>
+<i class="no-highlight">1492</i>&nbsp;            MemoryBudget.OBJECT_OVERHEAD;
+<b class="nc"><i class="no-highlight">1493</i>&nbsp;        updateMemoryUsage(delta);</b>
+<i class="no-highlight">1494</i>&nbsp;
+<i class="no-highlight">1495</i>&nbsp;        /* releaseDb will be called by cleanupDatabaseImpls. */
+<b class="nc"><i class="no-highlight">1496</i>&nbsp;    }</b>
+<i class="no-highlight">1497</i>&nbsp;
+<i class="no-highlight">1498</i>&nbsp;    public Set&lt;DatabaseCleanupInfo&gt; getDeletedDatabases() {
+<b class="nc"><i class="no-highlight">1499</i>&nbsp;        return deletedDatabases;</b>
+<i class="no-highlight">1500</i>&nbsp;    }
+<i class="no-highlight">1501</i>&nbsp;
+<i class="no-highlight">1502</i>&nbsp;    /*
+<i class="no-highlight">1503</i>&nbsp;     * Leftover databaseImpls that are a by-product of database operations like
+<i class="no-highlight">1504</i>&nbsp;     * removeDatabase(), truncateDatabase() will be deleted after the write
+<i class="no-highlight">1505</i>&nbsp;     * locks are released. However, do set the database state appropriately
+<i class="no-highlight">1506</i>&nbsp;     * before the locks are released.
+<i class="no-highlight">1507</i>&nbsp;     */
+<i class="no-highlight">1508</i>&nbsp;    protected void setDeletedDatabaseState(boolean isCommit) {
+<b class="fc"><i class="no-highlight">1509</i>&nbsp;        if (deletedDatabases != null) {</b>
+<b class="nc"><i class="no-highlight">1510</i>&nbsp;            Iterator&lt;DatabaseCleanupInfo&gt; iter = deletedDatabases.iterator();</b>
+<b class="nc"><i class="no-highlight">1511</i>&nbsp;            while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">1512</i>&nbsp;                DatabaseCleanupInfo info = iter.next();</b>
+<b class="nc"><i class="no-highlight">1513</i>&nbsp;                if (info.deleteAtCommit == isCommit) {</b>
+<b class="nc"><i class="no-highlight">1514</i>&nbsp;                    info.dbImpl.startDeleteProcessing();</b>
+<i class="no-highlight">1515</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1516</i>&nbsp;            }</b>
+<i class="no-highlight">1517</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1518</i>&nbsp;    }</b>
+<i class="no-highlight">1519</i>&nbsp;
+<i class="no-highlight">1520</i>&nbsp;    /**
+<i class="no-highlight">1521</i>&nbsp;     * Cleanup leftover databaseImpls that are a by-product of database
+<i class="no-highlight">1522</i>&nbsp;     * operations like removeDatabase(), truncateDatabase().
+<i class="no-highlight">1523</i>&nbsp;     *
+<i class="no-highlight">1524</i>&nbsp;     * This method must be called outside the synchronization on this txn,
+<i class="no-highlight">1525</i>&nbsp;     * because it calls finishDeleteProcessing, which gets the TxnManager&#39;s
+<i class="no-highlight">1526</i>&nbsp;     * allTxns latch. The checkpointer also gets the allTxns latch, and within
+<i class="no-highlight">1527</i>&nbsp;     * that latch, needs to synchronize on individual txns, so we must avoid a
+<i class="no-highlight">1528</i>&nbsp;     * latching hiearchy conflict.
+<i class="no-highlight">1529</i>&nbsp;     *
+<i class="no-highlight">1530</i>&nbsp;     * [#16861] FUTURE: Perhaps this special handling is no longer needed, now
+<i class="no-highlight">1531</i>&nbsp;     * that firstLoggedLsn is volatile and getFirstActiveLsn is not
+<i class="no-highlight">1532</i>&nbsp;     * synchronized.
+<i class="no-highlight">1533</i>&nbsp;     */
+<i class="no-highlight">1534</i>&nbsp;    protected void cleanupDatabaseImpls(boolean isCommit)
+<i class="no-highlight">1535</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1536</i>&nbsp;
+<b class="fc"><i class="no-highlight">1537</i>&nbsp;        if (deletedDatabases != null) {</b>
+<i class="no-highlight">1538</i>&nbsp;            /* Make a copy of the deleted databases while synchronized. */
+<i class="no-highlight">1539</i>&nbsp;            DatabaseCleanupInfo[] infoArray;
+<b class="nc"><i class="no-highlight">1540</i>&nbsp;            synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">1541</i>&nbsp;                infoArray = new DatabaseCleanupInfo[deletedDatabases.size()];</b>
+<b class="nc"><i class="no-highlight">1542</i>&nbsp;                deletedDatabases.toArray(infoArray);</b>
+<b class="nc"><i class="no-highlight">1543</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1544</i>&nbsp;            for (DatabaseCleanupInfo info : infoArray) {</b>
+<b class="nc"><i class="no-highlight">1545</i>&nbsp;                if (info.deleteAtCommit == isCommit) {</b>
+<i class="no-highlight">1546</i>&nbsp;
+<i class="no-highlight">1547</i>&nbsp;                    /*
+<i class="no-highlight">1548</i>&nbsp;                     * If deletedDatabases contains same databases with
+<i class="no-highlight">1549</i>&nbsp;                     * different deleteAtCommit, firstly release the database,
+<i class="no-highlight">1550</i>&nbsp;                     * then delete it. [#19636]
+<i class="no-highlight">1551</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1552</i>&nbsp;                    if (checkRepeatedDeletedDB(infoArray, info)) {</b>
+<b class="nc"><i class="no-highlight">1553</i>&nbsp;                        envImpl.getDbTree().releaseDb(info.dbImpl);</b>
+<i class="no-highlight">1554</i>&nbsp;                    }
+<i class="no-highlight">1555</i>&nbsp;                    /* releaseDb will be called by finishDeleteProcessing. */
+<b class="nc"><i class="no-highlight">1556</i>&nbsp;                    info.dbImpl.finishDeleteProcessing();</b>
+<b class="nc"><i class="no-highlight">1557</i>&nbsp;                } else if(!checkRepeatedDeletedDB(infoArray, info)){</b>
+<i class="no-highlight">1558</i>&nbsp;
+<i class="no-highlight">1559</i>&nbsp;                    /*
+<i class="no-highlight">1560</i>&nbsp;                     * If deletedDatabases contains same databases with
+<i class="no-highlight">1561</i>&nbsp;                     * different deleteAtCommit, do nothing. [#19636]
+<i class="no-highlight">1562</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1563</i>&nbsp;                    envImpl.getDbTree().releaseDb(info.dbImpl);</b>
+<i class="no-highlight">1564</i>&nbsp;                }
+<i class="no-highlight">1565</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1566</i>&nbsp;            deletedDatabases = null;</b>
+<i class="no-highlight">1567</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1568</i>&nbsp;    }</b>
+<i class="no-highlight">1569</i>&nbsp;
+<i class="no-highlight">1570</i>&nbsp;    private boolean checkRepeatedDeletedDB(DatabaseCleanupInfo[] infoArray,
+<i class="no-highlight">1571</i>&nbsp;                                           DatabaseCleanupInfo info) {
+<b class="nc"><i class="no-highlight">1572</i>&nbsp;        for (DatabaseCleanupInfo element : infoArray) {</b>
+<b class="nc"><i class="no-highlight">1573</i>&nbsp;            if (element.dbImpl.getId().equals(info.dbImpl.getId()) &amp;&amp;</b>
+<i class="no-highlight">1574</i>&nbsp;                element.deleteAtCommit != info.deleteAtCommit){
+<b class="nc"><i class="no-highlight">1575</i>&nbsp;                    return true;</b>
+<i class="no-highlight">1576</i>&nbsp;            }
+<i class="no-highlight">1577</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1578</i>&nbsp;        return false;</b>
+<i class="no-highlight">1579</i>&nbsp;    }
+<i class="no-highlight">1580</i>&nbsp;
+<i class="no-highlight">1581</i>&nbsp;    private synchronized void ensureWriteInfo() {
+<b class="fc"><i class="no-highlight">1582</i>&nbsp;        if (writeInfo == null) {</b>
+<b class="fc"><i class="no-highlight">1583</i>&nbsp;            writeInfo = new HashMap&lt;Long, WriteLockInfo&gt;();</b>
+<b class="fc"><i class="no-highlight">1584</i>&nbsp;            undoDatabases = new HashMap&lt;DatabaseId, DatabaseImpl&gt;();</b>
+<b class="fc"><i class="no-highlight">1585</i>&nbsp;            updateMemoryUsage(MemoryBudget.TWOHASHMAPS_OVERHEAD);</b>
+<i class="no-highlight">1586</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1587</i>&nbsp;    }</b>
+<i class="no-highlight">1588</i>&nbsp;
+<i class="no-highlight">1589</i>&nbsp;    /**
+<i class="no-highlight">1590</i>&nbsp;     * Add lock to the appropriate queue.
+<i class="no-highlight">1591</i>&nbsp;     */
+<i class="no-highlight">1592</i>&nbsp;    @Override
+<i class="no-highlight">1593</i>&nbsp;    protected synchronized void addLock(Long lsn,
+<i class="no-highlight">1594</i>&nbsp;                                        LockType type,
+<i class="no-highlight">1595</i>&nbsp;                                        LockGrantType grantStatus) {
+<b class="fc"><i class="no-highlight">1596</i>&nbsp;        if (type.isWriteLock()) {</b>
+<i class="no-highlight">1597</i>&nbsp;
+<b class="fc"><i class="no-highlight">1598</i>&nbsp;            ensureWriteInfo();</b>
+<b class="fc"><i class="no-highlight">1599</i>&nbsp;            writeInfo.put(lsn, new WriteLockInfo());</b>
+<i class="no-highlight">1600</i>&nbsp;
+<b class="fc"><i class="no-highlight">1601</i>&nbsp;            int delta = WRITE_LOCK_OVERHEAD;</b>
+<i class="no-highlight">1602</i>&nbsp;
+<b class="fc"><i class="no-highlight">1603</i>&nbsp;            if ((grantStatus == LockGrantType.PROMOTION) ||</b>
+<i class="no-highlight">1604</i>&nbsp;                (grantStatus == LockGrantType.WAIT_PROMOTION)) {
+<b class="nc"><i class="no-highlight">1605</i>&nbsp;                readLocks.remove(lsn);</b>
+<b class="nc"><i class="no-highlight">1606</i>&nbsp;                delta -= READ_LOCK_OVERHEAD;</b>
+<i class="no-highlight">1607</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">1608</i>&nbsp;            updateMemoryUsage(delta);</b>
+<b class="fc"><i class="no-highlight">1609</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">1610</i>&nbsp;            addReadLock(lsn);</b>
+<i class="no-highlight">1611</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1612</i>&nbsp;    }</b>
+<i class="no-highlight">1613</i>&nbsp;
+<i class="no-highlight">1614</i>&nbsp;    private void addReadLock(Long lsn) {
+<b class="nc"><i class="no-highlight">1615</i>&nbsp;        int delta = 0;</b>
+<b class="nc"><i class="no-highlight">1616</i>&nbsp;        if (readLocks == null) {</b>
+<b class="nc"><i class="no-highlight">1617</i>&nbsp;            readLocks = new HashSet&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">1618</i>&nbsp;            delta = MemoryBudget.HASHSET_OVERHEAD;</b>
+<i class="no-highlight">1619</i>&nbsp;        }
+<i class="no-highlight">1620</i>&nbsp;
+<b class="nc"><i class="no-highlight">1621</i>&nbsp;        readLocks.add(lsn);</b>
+<b class="nc"><i class="no-highlight">1622</i>&nbsp;        delta += READ_LOCK_OVERHEAD;</b>
+<b class="nc"><i class="no-highlight">1623</i>&nbsp;        updateMemoryUsage(delta);</b>
+<b class="nc"><i class="no-highlight">1624</i>&nbsp;    }</b>
+<i class="no-highlight">1625</i>&nbsp;
+<i class="no-highlight">1626</i>&nbsp;    /**
+<i class="no-highlight">1627</i>&nbsp;     * Remove the lock from the set owned by this transaction. If specified to
+<i class="no-highlight">1628</i>&nbsp;     * LockManager.release, the lock manager will call this when its releasing
+<i class="no-highlight">1629</i>&nbsp;     * a lock. Usually done because the transaction doesn&#39;t need to really keep
+<i class="no-highlight">1630</i>&nbsp;     * the lock, i.e for a deleted record.
+<i class="no-highlight">1631</i>&nbsp;     */
+<i class="no-highlight">1632</i>&nbsp;    @Override
+<i class="no-highlight">1633</i>&nbsp;    protected
+<i class="no-highlight">1634</i>&nbsp;    synchronized void removeLock(long lsn) {
+<i class="no-highlight">1635</i>&nbsp;
+<i class="no-highlight">1636</i>&nbsp;        /*
+<i class="no-highlight">1637</i>&nbsp;         * We could optimize by passing the lock type so we know which
+<i class="no-highlight">1638</i>&nbsp;         * collection to look in. Be careful of demoted locks, which have
+<i class="no-highlight">1639</i>&nbsp;         * shifted collection.
+<i class="no-highlight">1640</i>&nbsp;         *
+<i class="no-highlight">1641</i>&nbsp;         * Don&#39;t bother updating memory utilization here -- we&#39;ll update at
+<i class="no-highlight">1642</i>&nbsp;         * transaction end.
+<i class="no-highlight">1643</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1644</i>&nbsp;        if ((readLocks != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1645</i>&nbsp;            readLocks.remove(lsn)) {</b>
+<b class="nc"><i class="no-highlight">1646</i>&nbsp;            updateMemoryUsage(0 - READ_LOCK_OVERHEAD);</b>
+<b class="nc"><i class="no-highlight">1647</i>&nbsp;        } else if ((writeInfo != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1648</i>&nbsp;                   (writeInfo.remove(lsn) != null)) {</b>
+<b class="nc"><i class="no-highlight">1649</i>&nbsp;            updateMemoryUsage(0 - WRITE_LOCK_OVERHEAD);</b>
+<i class="no-highlight">1650</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1651</i>&nbsp;    }</b>
+<i class="no-highlight">1652</i>&nbsp;
+<i class="no-highlight">1653</i>&nbsp;    /**
+<i class="no-highlight">1654</i>&nbsp;     * A lock is being demoted. Move it from the write collection into the read
+<i class="no-highlight">1655</i>&nbsp;     * collection.
+<i class="no-highlight">1656</i>&nbsp;     */
+<i class="no-highlight">1657</i>&nbsp;    @Override
+<i class="no-highlight">1658</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">1659</i>&nbsp;    synchronized void moveWriteToReadLock(long lsn, Lock lock) {
+<i class="no-highlight">1660</i>&nbsp;
+<b class="nc"><i class="no-highlight">1661</i>&nbsp;        boolean found = false;</b>
+<b class="nc"><i class="no-highlight">1662</i>&nbsp;        if ((writeInfo != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1663</i>&nbsp;            (writeInfo.remove(lsn) != null)) {</b>
+<b class="nc"><i class="no-highlight">1664</i>&nbsp;            found = true;</b>
+<b class="nc"><i class="no-highlight">1665</i>&nbsp;            updateMemoryUsage(0 - WRITE_LOCK_OVERHEAD);</b>
+<i class="no-highlight">1666</i>&nbsp;        }
+<i class="no-highlight">1667</i>&nbsp;
+<b class="nc"><i class="no-highlight">1668</i>&nbsp;        assert found : &quot;Couldn&#39;t find lock for Node &quot; + lsn +</b>
+<i class="no-highlight">1669</i>&nbsp;            &quot; in writeInfo Map.&quot;;
+<b class="nc"><i class="no-highlight">1670</i>&nbsp;        addReadLock(lsn);</b>
+<b class="nc"><i class="no-highlight">1671</i>&nbsp;    }</b>
+<i class="no-highlight">1672</i>&nbsp;
+<i class="no-highlight">1673</i>&nbsp;    private void updateMemoryUsage(int delta) {
+<b class="fc"><i class="no-highlight">1674</i>&nbsp;        inMemorySize += delta;</b>
+<b class="fc"><i class="no-highlight">1675</i>&nbsp;        accumulatedDelta += delta;</b>
+<b class="fc"><i class="no-highlight">1676</i>&nbsp;        if (accumulatedDelta &gt; ACCUMULATED_LIMIT ||</b>
+<i class="no-highlight">1677</i>&nbsp;            accumulatedDelta &lt; -ACCUMULATED_LIMIT) {
+<b class="nc"><i class="no-highlight">1678</i>&nbsp;            envImpl.getMemoryBudget().updateTxnMemoryUsage(accumulatedDelta);</b>
+<b class="nc"><i class="no-highlight">1679</i>&nbsp;            accumulatedDelta = 0;</b>
+<i class="no-highlight">1680</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1681</i>&nbsp;    }</b>
+<i class="no-highlight">1682</i>&nbsp;
+<i class="no-highlight">1683</i>&nbsp;    /**
+<i class="no-highlight">1684</i>&nbsp;     * Returns the amount of memory currently budgeted for this transaction.
+<i class="no-highlight">1685</i>&nbsp;     */
+<i class="no-highlight">1686</i>&nbsp;    int getBudgetedMemorySize() {
+<b class="fc"><i class="no-highlight">1687</i>&nbsp;        return inMemorySize - accumulatedDelta;</b>
+<i class="no-highlight">1688</i>&nbsp;    }
+<i class="no-highlight">1689</i>&nbsp;
+<i class="no-highlight">1690</i>&nbsp;    /**
+<i class="no-highlight">1691</i>&nbsp;     * @return the WriteLockInfo for this node.
+<i class="no-highlight">1692</i>&nbsp;     */
+<i class="no-highlight">1693</i>&nbsp;    @Override
+<i class="no-highlight">1694</i>&nbsp;    public WriteLockInfo getWriteLockInfo(long lsn) {
+<b class="nc"><i class="no-highlight">1695</i>&nbsp;        WriteLockInfo wli = null;</b>
+<b class="nc"><i class="no-highlight">1696</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">1697</i>&nbsp;            if (writeInfo != null) {</b>
+<b class="nc"><i class="no-highlight">1698</i>&nbsp;                wli = writeInfo.get(lsn);</b>
+<i class="no-highlight">1699</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1700</i>&nbsp;        }</b>
+<i class="no-highlight">1701</i>&nbsp;
+<b class="nc"><i class="no-highlight">1702</i>&nbsp;        if (wli == null) {</b>
+<b class="nc"><i class="no-highlight">1703</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1704</i>&nbsp;                (&quot;writeInfo is null in Txn.getWriteLockInfo&quot;);</b>
+<i class="no-highlight">1705</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1706</i>&nbsp;        return wli;</b>
+<i class="no-highlight">1707</i>&nbsp;    }
+<i class="no-highlight">1708</i>&nbsp;
+<i class="no-highlight">1709</i>&nbsp;    /**
+<i class="no-highlight">1710</i>&nbsp;     * Is always transactional.
+<i class="no-highlight">1711</i>&nbsp;     */
+<i class="no-highlight">1712</i>&nbsp;    @Override
+<i class="no-highlight">1713</i>&nbsp;    public boolean isTransactional() {
+<b class="fc"><i class="no-highlight">1714</i>&nbsp;        return true;</b>
+<i class="no-highlight">1715</i>&nbsp;    }
+<i class="no-highlight">1716</i>&nbsp;
+<i class="no-highlight">1717</i>&nbsp;    /**
+<i class="no-highlight">1718</i>&nbsp;     * Determines whether this is an auto transaction.
+<i class="no-highlight">1719</i>&nbsp;     */
+<i class="no-highlight">1720</i>&nbsp;    public boolean isAutoTxn() {
+<b class="nc"><i class="no-highlight">1721</i>&nbsp;        return isAutoCommit;</b>
+<i class="no-highlight">1722</i>&nbsp;    }
+<i class="no-highlight">1723</i>&nbsp;
+<i class="no-highlight">1724</i>&nbsp;    @Override
+<i class="no-highlight">1725</i>&nbsp;    public boolean isReadOnly() {
+<b class="nc"><i class="no-highlight">1726</i>&nbsp;        return readOnly;</b>
+<i class="no-highlight">1727</i>&nbsp;    }
+<i class="no-highlight">1728</i>&nbsp;
+<i class="no-highlight">1729</i>&nbsp;    /**
+<i class="no-highlight">1730</i>&nbsp;     * Is serializable isolation if so configured.
+<i class="no-highlight">1731</i>&nbsp;     */
+<i class="no-highlight">1732</i>&nbsp;    @Override
+<i class="no-highlight">1733</i>&nbsp;    public boolean isSerializableIsolation() {
+<b class="fc"><i class="no-highlight">1734</i>&nbsp;        return serializableIsolation;</b>
+<i class="no-highlight">1735</i>&nbsp;    }
+<i class="no-highlight">1736</i>&nbsp;
+<i class="no-highlight">1737</i>&nbsp;    /**
+<i class="no-highlight">1738</i>&nbsp;     * Is read-committed isolation if so configured.
+<i class="no-highlight">1739</i>&nbsp;     */
+<i class="no-highlight">1740</i>&nbsp;    @Override
+<i class="no-highlight">1741</i>&nbsp;    public boolean isReadCommittedIsolation() {
+<b class="nc"><i class="no-highlight">1742</i>&nbsp;        return readCommittedIsolation;</b>
+<i class="no-highlight">1743</i>&nbsp;    }
+<i class="no-highlight">1744</i>&nbsp;
+<i class="no-highlight">1745</i>&nbsp;    /**
+<i class="no-highlight">1746</i>&nbsp;     * Returns true if the sync api was used for configuration
+<i class="no-highlight">1747</i>&nbsp;     */
+<i class="no-highlight">1748</i>&nbsp;    public boolean getExplicitSyncConfigured() {
+<b class="nc"><i class="no-highlight">1749</i>&nbsp;        return explicitSyncConfigured;</b>
+<i class="no-highlight">1750</i>&nbsp;    }
+<i class="no-highlight">1751</i>&nbsp;
+<i class="no-highlight">1752</i>&nbsp;    /**
+<i class="no-highlight">1753</i>&nbsp;     * Returns true if the durability api was used for configuration.
+<i class="no-highlight">1754</i>&nbsp;     */
+<i class="no-highlight">1755</i>&nbsp;    public boolean getExplicitDurabilityConfigured() {
+<b class="nc"><i class="no-highlight">1756</i>&nbsp;        return explicitDurabilityConfigured;</b>
+<i class="no-highlight">1757</i>&nbsp;    }
+<i class="no-highlight">1758</i>&nbsp;
+<i class="no-highlight">1759</i>&nbsp;    /**
+<i class="no-highlight">1760</i>&nbsp;     * This is a transactional locker.
+<i class="no-highlight">1761</i>&nbsp;     */
+<i class="no-highlight">1762</i>&nbsp;    @Override
+<i class="no-highlight">1763</i>&nbsp;    public Txn getTxnLocker() {
+<b class="fc"><i class="no-highlight">1764</i>&nbsp;        return this;</b>
+<i class="no-highlight">1765</i>&nbsp;    }
+<i class="no-highlight">1766</i>&nbsp;
+<i class="no-highlight">1767</i>&nbsp;    /**
+<i class="no-highlight">1768</i>&nbsp;     * Returns &#39;this&#39;, since this locker holds no non-transactional locks.
+<i class="no-highlight">1769</i>&nbsp;     * Since this is returned, sharing of locks is obviously supported.
+<i class="no-highlight">1770</i>&nbsp;     */
+<i class="no-highlight">1771</i>&nbsp;    @Override
+<i class="no-highlight">1772</i>&nbsp;    public Locker newNonTxnLocker() {
+<b class="nc"><i class="no-highlight">1773</i>&nbsp;        return this;</b>
+<i class="no-highlight">1774</i>&nbsp;    }
+<i class="no-highlight">1775</i>&nbsp;
+<i class="no-highlight">1776</i>&nbsp;    /**
+<i class="no-highlight">1777</i>&nbsp;     * This locker holds no non-transactional locks.
+<i class="no-highlight">1778</i>&nbsp;     */
+<i class="no-highlight">1779</i>&nbsp;    @Override
+<i class="no-highlight">1780</i>&nbsp;    public void releaseNonTxnLocks() {
+<b class="nc"><i class="no-highlight">1781</i>&nbsp;    }</b>
+<i class="no-highlight">1782</i>&nbsp;
+<i class="no-highlight">1783</i>&nbsp;    /**
+<i class="no-highlight">1784</i>&nbsp;     * Created transactions do nothing at the end of the operation.
+<i class="no-highlight">1785</i>&nbsp;     */
+<i class="no-highlight">1786</i>&nbsp;    @Override
+<i class="no-highlight">1787</i>&nbsp;    public void nonTxnOperationEnd() {
+<b class="nc"><i class="no-highlight">1788</i>&nbsp;    }</b>
+<i class="no-highlight">1789</i>&nbsp;
+<i class="no-highlight">1790</i>&nbsp;    /*
+<i class="no-highlight">1791</i>&nbsp;     * @see com.sleepycat.je.txn.Locker#operationEnd(boolean)
+<i class="no-highlight">1792</i>&nbsp;     */
+<i class="no-highlight">1793</i>&nbsp;    @Override
+<i class="no-highlight">1794</i>&nbsp;    public void operationEnd(boolean operationOK)
+<i class="no-highlight">1795</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1796</i>&nbsp;
+<b class="fc"><i class="no-highlight">1797</i>&nbsp;        if (!isAutoCommit) {</b>
+<i class="no-highlight">1798</i>&nbsp;            /* Created transactions do nothing at the end of the operation. */
+<b class="nc"><i class="no-highlight">1799</i>&nbsp;            return;</b>
+<i class="no-highlight">1800</i>&nbsp;        }
+<i class="no-highlight">1801</i>&nbsp;
+<b class="fc"><i class="no-highlight">1802</i>&nbsp;        if (operationOK) {</b>
+<b class="fc"><i class="no-highlight">1803</i>&nbsp;            commit();</b>
+<i class="no-highlight">1804</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1805</i>&nbsp;            abort(false); // no sync required</b>
+<i class="no-highlight">1806</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1807</i>&nbsp;    }</b>
+<i class="no-highlight">1808</i>&nbsp;
+<i class="no-highlight">1809</i>&nbsp;    /**
+<i class="no-highlight">1810</i>&nbsp;     * Called at the end of a database open operation to add the database
+<i class="no-highlight">1811</i>&nbsp;     * handle to a user txn.  When a user txn aborts, handles opened using that
+<i class="no-highlight">1812</i>&nbsp;     * txn are invalidated.
+<i class="no-highlight">1813</i>&nbsp;     *
+<i class="no-highlight">1814</i>&nbsp;     * A non-txnal locker or auto-commit txn does not retain the handle,
+<i class="no-highlight">1815</i>&nbsp;     * because the open database operation will succeed or fail atomically and
+<i class="no-highlight">1816</i>&nbsp;     * no database invalidation is needed at a later time.
+<i class="no-highlight">1817</i>&nbsp;     *
+<i class="no-highlight">1818</i>&nbsp;     * @see HandleLocker
+<i class="no-highlight">1819</i>&nbsp;     */
+<i class="no-highlight">1820</i>&nbsp;    @Override
+<i class="no-highlight">1821</i>&nbsp;    public synchronized void addOpenedDatabase(Database dbHandle) {
+<b class="nc"><i class="no-highlight">1822</i>&nbsp;        if (isAutoCommit) {</b>
+<b class="nc"><i class="no-highlight">1823</i>&nbsp;            return;</b>
+<i class="no-highlight">1824</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1825</i>&nbsp;        if (openedDatabaseHandles == null) {</b>
+<b class="nc"><i class="no-highlight">1826</i>&nbsp;            openedDatabaseHandles = new HashSet&lt;Database&gt;();</b>
+<i class="no-highlight">1827</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1828</i>&nbsp;        openedDatabaseHandles.add(dbHandle);</b>
+<b class="nc"><i class="no-highlight">1829</i>&nbsp;    }</b>
+<i class="no-highlight">1830</i>&nbsp;
+<i class="no-highlight">1831</i>&nbsp;    /**
+<i class="no-highlight">1832</i>&nbsp;     * Increase the counter if a new Cursor is opened under this transaction.
+<i class="no-highlight">1833</i>&nbsp;     */
+<i class="no-highlight">1834</i>&nbsp;    @Override
+<i class="no-highlight">1835</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">1836</i>&nbsp;    public void registerCursor(CursorImpl cursor) {
+<b class="fc"><i class="no-highlight">1837</i>&nbsp;        cursors.getAndIncrement();</b>
+<b class="fc"><i class="no-highlight">1838</i>&nbsp;    }</b>
+<i class="no-highlight">1839</i>&nbsp;
+<i class="no-highlight">1840</i>&nbsp;    /**
+<i class="no-highlight">1841</i>&nbsp;     * Decrease the counter if a Cursor is closed under this transaction.
+<i class="no-highlight">1842</i>&nbsp;     */
+<i class="no-highlight">1843</i>&nbsp;    @Override
+<i class="no-highlight">1844</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">1845</i>&nbsp;    public void unRegisterCursor(CursorImpl cursor) {
+<b class="fc"><i class="no-highlight">1846</i>&nbsp;        cursors.getAndDecrement();</b>
+<b class="fc"><i class="no-highlight">1847</i>&nbsp;    }</b>
+<i class="no-highlight">1848</i>&nbsp;
+<i class="no-highlight">1849</i>&nbsp;    /*
+<i class="no-highlight">1850</i>&nbsp;     * Txns always require locking.
+<i class="no-highlight">1851</i>&nbsp;     */
+<i class="no-highlight">1852</i>&nbsp;    @Override
+<i class="no-highlight">1853</i>&nbsp;    public boolean lockingRequired() {
+<b class="nc"><i class="no-highlight">1854</i>&nbsp;        return true;</b>
+<i class="no-highlight">1855</i>&nbsp;    }
+<i class="no-highlight">1856</i>&nbsp;
+<i class="no-highlight">1857</i>&nbsp;    /**
+<i class="no-highlight">1858</i>&nbsp;     * Check if all cursors associated with the txn are closed. If not, those
+<i class="no-highlight">1859</i>&nbsp;     * open cursors will be forcibly closed.
+<i class="no-highlight">1860</i>&nbsp;     * @return true if open cursors exist
+<i class="no-highlight">1861</i>&nbsp;     */
+<i class="no-highlight">1862</i>&nbsp;    private boolean checkCursorsForClose() {
+<b class="fc"><i class="no-highlight">1863</i>&nbsp;      return (cursors.get() != 0);</b>
+<i class="no-highlight">1864</i>&nbsp;    }
+<i class="no-highlight">1865</i>&nbsp;
+<i class="no-highlight">1866</i>&nbsp;    /**
+<i class="no-highlight">1867</i>&nbsp;     * stats
+<i class="no-highlight">1868</i>&nbsp;     */
+<i class="no-highlight">1869</i>&nbsp;    @Override
+<i class="no-highlight">1870</i>&nbsp;    public StatGroup collectStats() {
+<b class="nc"><i class="no-highlight">1871</i>&nbsp;        StatGroup stats =</b>
+<i class="no-highlight">1872</i>&nbsp;            new StatGroup(&quot;Transaction lock counts&quot; ,
+<i class="no-highlight">1873</i>&nbsp;                          &quot;Read and write locks held by transaction &quot; + id);
+<i class="no-highlight">1874</i>&nbsp;
+<b class="nc"><i class="no-highlight">1875</i>&nbsp;        IntStat statReadLocks = new IntStat(stats, LOCK_READ_LOCKS);</b>
+<b class="nc"><i class="no-highlight">1876</i>&nbsp;        IntStat statWriteLocks = new IntStat(stats, LOCK_WRITE_LOCKS);</b>
+<b class="nc"><i class="no-highlight">1877</i>&nbsp;        IntStat statTotalLocks = new IntStat(stats, LOCK_TOTAL);</b>
+<i class="no-highlight">1878</i>&nbsp;
+<b class="nc"><i class="no-highlight">1879</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">1880</i>&nbsp;            int nReadLocks = (readLocks == null) ? 0 : readLocks.size();</b>
+<b class="nc"><i class="no-highlight">1881</i>&nbsp;            statReadLocks.add(nReadLocks);</b>
+<b class="nc"><i class="no-highlight">1882</i>&nbsp;            int nWriteLocks = (writeInfo == null) ? 0 : writeInfo.size();</b>
+<b class="nc"><i class="no-highlight">1883</i>&nbsp;            statWriteLocks.add(nWriteLocks);</b>
+<b class="nc"><i class="no-highlight">1884</i>&nbsp;            statTotalLocks.add(nReadLocks + nWriteLocks);</b>
+<b class="nc"><i class="no-highlight">1885</i>&nbsp;        }</b>
+<i class="no-highlight">1886</i>&nbsp;
+<b class="nc"><i class="no-highlight">1887</i>&nbsp;        return stats;</b>
+<i class="no-highlight">1888</i>&nbsp;    }
+<i class="no-highlight">1889</i>&nbsp;
+<i class="no-highlight">1890</i>&nbsp;    /**
+<i class="no-highlight">1891</i>&nbsp;     * Set the state of a transaction to abort-only.  Should ONLY be called
+<i class="no-highlight">1892</i>&nbsp;     * by OperationFailureException.
+<i class="no-highlight">1893</i>&nbsp;     */
+<i class="no-highlight">1894</i>&nbsp;    @Override
+<i class="no-highlight">1895</i>&nbsp;    public void setOnlyAbortable(OperationFailureException cause) {
+<b class="nc"><i class="no-highlight">1896</i>&nbsp;        assert cause != null;</b>
+<b class="nc"><i class="no-highlight">1897</i>&nbsp;        setState(Transaction.State.MUST_ABORT);</b>
+<b class="nc"><i class="no-highlight">1898</i>&nbsp;        onlyAbortableCause = cause;</b>
+<b class="nc"><i class="no-highlight">1899</i>&nbsp;    }</b>
+<i class="no-highlight">1900</i>&nbsp;
+<i class="no-highlight">1901</i>&nbsp;    /**
+<i class="no-highlight">1902</i>&nbsp;     * Set the state of a transaction&#39;s IMPORTUNATE bit.
+<i class="no-highlight">1903</i>&nbsp;     */
+<i class="no-highlight">1904</i>&nbsp;    @Override
+<i class="no-highlight">1905</i>&nbsp;    public void setImportunate(boolean importunate) {
+<b class="nc"><i class="no-highlight">1906</i>&nbsp;        if (importunate) {</b>
+<b class="nc"><i class="no-highlight">1907</i>&nbsp;            txnFlags |= IMPORTUNATE;</b>
+<i class="no-highlight">1908</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1909</i>&nbsp;            txnFlags &amp;= ~IMPORTUNATE;</b>
+<i class="no-highlight">1910</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1911</i>&nbsp;    }</b>
+<i class="no-highlight">1912</i>&nbsp;
+<i class="no-highlight">1913</i>&nbsp;    /**
+<i class="no-highlight">1914</i>&nbsp;     * Get the state of a transaction&#39;s IMPORTUNATE bit.
+<i class="no-highlight">1915</i>&nbsp;     */
+<i class="no-highlight">1916</i>&nbsp;    @Override
+<i class="no-highlight">1917</i>&nbsp;    public boolean getImportunate() {
+<b class="nc"><i class="no-highlight">1918</i>&nbsp;        return (txnFlags &amp; IMPORTUNATE) != 0;</b>
+<i class="no-highlight">1919</i>&nbsp;    }
+<i class="no-highlight">1920</i>&nbsp;
+<i class="no-highlight">1921</i>&nbsp;    /**
+<i class="no-highlight">1922</i>&nbsp;     * Checks for preemption in this locker and all its child buddies.  Does
+<i class="no-highlight">1923</i>&nbsp;     * NOT call checkPreempted on its child buddies, since this would cause an
+<i class="no-highlight">1924</i>&nbsp;     * infinite recursion.
+<i class="no-highlight">1925</i>&nbsp;     */
+<i class="no-highlight">1926</i>&nbsp;    @Override
+<i class="no-highlight">1927</i>&nbsp;    public void checkPreempted(final Locker allowPreemptedLocker)
+<i class="no-highlight">1928</i>&nbsp;        throws OperationFailureException {
+<i class="no-highlight">1929</i>&nbsp;
+<i class="no-highlight">1930</i>&nbsp;        /* First check this locker. */
+<b class="fc"><i class="no-highlight">1931</i>&nbsp;        throwIfPreempted(allowPreemptedLocker);</b>
+<i class="no-highlight">1932</i>&nbsp;
+<i class="no-highlight">1933</i>&nbsp;        /*
+<i class="no-highlight">1934</i>&nbsp;         * Then check our buddy lockers. It&#39;s OK to call throwIfPreempted while
+<i class="no-highlight">1935</i>&nbsp;         * synchronized on buddyLockers, since it takes no locks.
+<i class="no-highlight">1936</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1937</i>&nbsp;        if (buddyLockers != null) {</b>
+<b class="nc"><i class="no-highlight">1938</i>&nbsp;            synchronized (buddyLockers) {</b>
+<b class="nc"><i class="no-highlight">1939</i>&nbsp;                for (BuddyLocker buddy : buddyLockers) {</b>
+<b class="nc"><i class="no-highlight">1940</i>&nbsp;                    buddy.throwIfPreempted(allowPreemptedLocker);</b>
+<b class="nc"><i class="no-highlight">1941</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">1942</i>&nbsp;            }</b>
+<i class="no-highlight">1943</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1944</i>&nbsp;    }</b>
+<i class="no-highlight">1945</i>&nbsp;
+<i class="no-highlight">1946</i>&nbsp;    /**
+<i class="no-highlight">1947</i>&nbsp;     * Throw an exception if the transaction is not open.
+<i class="no-highlight">1948</i>&nbsp;     *
+<i class="no-highlight">1949</i>&nbsp;     * If calledByAbort is true, it means we&#39;re being called from abort(). But
+<i class="no-highlight">1950</i>&nbsp;     * once closed, a Transaction never calls abort(). See comment at the top
+<i class="no-highlight">1951</i>&nbsp;     * of abortInternal.
+<i class="no-highlight">1952</i>&nbsp;     *
+<i class="no-highlight">1953</i>&nbsp;     * Caller must invoke with &quot;this&quot; synchronized.
+<i class="no-highlight">1954</i>&nbsp;     */
+<i class="no-highlight">1955</i>&nbsp;    @Override
+<i class="no-highlight">1956</i>&nbsp;    public void checkState(boolean calledByAbort)
+<i class="no-highlight">1957</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1958</i>&nbsp;
+<b class="fc"><i class="no-highlight">1959</i>&nbsp;        switch (txnState) {</b>
+<i class="no-highlight">1960</i>&nbsp;
+<i class="no-highlight">1961</i>&nbsp;            case OPEN:
+<b class="fc"><i class="no-highlight">1962</i>&nbsp;                return;</b>
+<i class="no-highlight">1963</i>&nbsp;
+<i class="no-highlight">1964</i>&nbsp;            case MUST_ABORT:
+<i class="no-highlight">1965</i>&nbsp;
+<i class="no-highlight">1966</i>&nbsp;                /* Don&#39;t complain if the user is doing what we asked. */
+<b class="nc"><i class="no-highlight">1967</i>&nbsp;                if (calledByAbort) {</b>
+<b class="nc"><i class="no-highlight">1968</i>&nbsp;                    return;</b>
+<i class="no-highlight">1969</i>&nbsp;                }
+<i class="no-highlight">1970</i>&nbsp;
+<i class="no-highlight">1971</i>&nbsp;                /*
+<i class="no-highlight">1972</i>&nbsp;                 * Throw the original exception that caused the txn to be set
+<i class="no-highlight">1973</i>&nbsp;                 * to abort-only, wrapped in a new exception of the same class.
+<i class="no-highlight">1974</i>&nbsp;                 * That way, both stack traces are available and the user can
+<i class="no-highlight">1975</i>&nbsp;                 * specify a meaningful class in their catch statement.
+<i class="no-highlight">1976</i>&nbsp;                 *
+<i class="no-highlight">1977</i>&nbsp;                 * It&#39;s ok for FindBugs to whine about id not being
+<i class="no-highlight">1978</i>&nbsp;                 * synchronized.
+<i class="no-highlight">1979</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1980</i>&nbsp;                throw onlyAbortableCause.wrapSelf</b>
+<b class="nc"><i class="no-highlight">1981</i>&nbsp;                    (&quot;Transaction &quot; + id  +</b>
+<i class="no-highlight">1982</i>&nbsp;                     &quot; must be aborted, caused by: &quot; + onlyAbortableCause);
+<i class="no-highlight">1983</i>&nbsp;
+<i class="no-highlight">1984</i>&nbsp;            default:
+<i class="no-highlight">1985</i>&nbsp;                /* All other states are equivalent to closed. */
+<i class="no-highlight">1986</i>&nbsp;
+<i class="no-highlight">1987</i>&nbsp;                /*
+<i class="no-highlight">1988</i>&nbsp;                 * It&#39;s ok for FindBugs to whine about id not being
+<i class="no-highlight">1989</i>&nbsp;                 * synchronized.
+<i class="no-highlight">1990</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1991</i>&nbsp;                throw new IllegalStateException</b>
+<i class="no-highlight">1992</i>&nbsp;                    (&quot;Transaction &quot; + id + &quot; has been closed.&quot;);
+<i class="no-highlight">1993</i>&nbsp;        }
+<i class="no-highlight">1994</i>&nbsp;    }
+<i class="no-highlight">1995</i>&nbsp;
+<i class="no-highlight">1996</i>&nbsp;    /**
+<i class="no-highlight">1997</i>&nbsp;     * Close and unregister this txn.
+<i class="no-highlight">1998</i>&nbsp;     */
+<i class="no-highlight">1999</i>&nbsp;    public void close(boolean isCommit) {
+<i class="no-highlight">2000</i>&nbsp;
+<b class="fc"><i class="no-highlight">2001</i>&nbsp;        if (isCommit) {</b>
+<i class="no-highlight">2002</i>&nbsp;            /* Set final state to COMMITTED, if not set earlier. */
+<b class="fc"><i class="no-highlight">2003</i>&nbsp;            if (txnState == Transaction.State.OPEN) {</b>
+<b class="fc"><i class="no-highlight">2004</i>&nbsp;                setState(Transaction.State.COMMITTED);</b>
+<i class="no-highlight">2005</i>&nbsp;            }
+<i class="no-highlight">2006</i>&nbsp;        } else {
+<i class="no-highlight">2007</i>&nbsp;            /* This was set earlier by abort, but here also for safety. */
+<b class="nc"><i class="no-highlight">2008</i>&nbsp;            setState(Transaction.State.ABORTED);</b>
+<i class="no-highlight">2009</i>&nbsp;        }
+<i class="no-highlight">2010</i>&nbsp;
+<i class="no-highlight">2011</i>&nbsp;        /*
+<i class="no-highlight">2012</i>&nbsp;         * UnregisterTxn must be called outside the synchronization on this
+<i class="no-highlight">2013</i>&nbsp;         * txn, because it gets the TxnManager&#39;s allTxns latch. The
+<i class="no-highlight">2014</i>&nbsp;         * checkpointer also gets the allTxns latch, and within that latch,
+<i class="no-highlight">2015</i>&nbsp;         * needs to synchronize on individual txns, so we must avoid a latching
+<i class="no-highlight">2016</i>&nbsp;         * hierarchy conflict.
+<i class="no-highlight">2017</i>&nbsp;         *
+<i class="no-highlight">2018</i>&nbsp;         * [#16861] FUTURE: Perhaps this special handling is no longer needed,
+<i class="no-highlight">2019</i>&nbsp;         * now that firstLoggedLsn is volatile and getFirstActiveLsn is not
+<i class="no-highlight">2020</i>&nbsp;         * synchronized.
+<i class="no-highlight">2021</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">2022</i>&nbsp;        envImpl.getTxnManager().unRegisterTxn(this, isCommit);</b>
+<i class="no-highlight">2023</i>&nbsp;
+<i class="no-highlight">2024</i>&nbsp;        /* Set the superclass Locker state to closed. */
+<b class="fc"><i class="no-highlight">2025</i>&nbsp;        close();</b>
+<b class="fc"><i class="no-highlight">2026</i>&nbsp;    }</b>
+<i class="no-highlight">2027</i>&nbsp;
+<i class="no-highlight">2028</i>&nbsp;    private synchronized void setState(Transaction.State state) {
+<b class="fc"><i class="no-highlight">2029</i>&nbsp;        txnState = state;</b>
+<b class="fc"><i class="no-highlight">2030</i>&nbsp;    }</b>
+<i class="no-highlight">2031</i>&nbsp;
+<i class="no-highlight">2032</i>&nbsp;    public Transaction.State getState() {
+<b class="nc"><i class="no-highlight">2033</i>&nbsp;        return txnState;</b>
+<i class="no-highlight">2034</i>&nbsp;    }
+<i class="no-highlight">2035</i>&nbsp;
+<i class="no-highlight">2036</i>&nbsp;    @Override
+<i class="no-highlight">2037</i>&nbsp;    public boolean isValid() {
+<b class="nc"><i class="no-highlight">2038</i>&nbsp;        return txnState == Transaction.State.OPEN;</b>
+<i class="no-highlight">2039</i>&nbsp;    }
+<i class="no-highlight">2040</i>&nbsp;
+<i class="no-highlight">2041</i>&nbsp;    public boolean isClosed() {
+<b class="nc"><i class="no-highlight">2042</i>&nbsp;        return txnState != Transaction.State.OPEN &amp;&amp;</b>
+<i class="no-highlight">2043</i>&nbsp;               txnState != Transaction.State.MUST_ABORT;
+<i class="no-highlight">2044</i>&nbsp;    }
+<i class="no-highlight">2045</i>&nbsp;
+<i class="no-highlight">2046</i>&nbsp;    public boolean isOnlyAbortable() {
+<b class="nc"><i class="no-highlight">2047</i>&nbsp;        return txnState == Transaction.State.MUST_ABORT;</b>
+<i class="no-highlight">2048</i>&nbsp;    }
+<i class="no-highlight">2049</i>&nbsp;
+<i class="no-highlight">2050</i>&nbsp;    /**
+<i class="no-highlight">2051</i>&nbsp;     * This method is overridden by HA txn subclasses and returns the node id
+<i class="no-highlight">2052</i>&nbsp;     * of the master node that committed or aborted the txn.
+<i class="no-highlight">2053</i>&nbsp;     */
+<i class="no-highlight">2054</i>&nbsp;    protected int getReplicatorNodeId() {
+<i class="no-highlight">2055</i>&nbsp;        /* Non replicated txns don&#39;t use a node ID. */
+<b class="fc"><i class="no-highlight">2056</i>&nbsp;        return 0;</b>
+<i class="no-highlight">2057</i>&nbsp;    }
+<i class="no-highlight">2058</i>&nbsp;
+<i class="no-highlight">2059</i>&nbsp;    /**
+<i class="no-highlight">2060</i>&nbsp;     * This method is overridden by replication txn subclasses and returns the
+<i class="no-highlight">2061</i>&nbsp;     * DTVLSN associated with the Txn.
+<i class="no-highlight">2062</i>&nbsp;     */
+<i class="no-highlight">2063</i>&nbsp;    protected long getDTVLSN() {
+<i class="no-highlight">2064</i>&nbsp;       /*  Non replicated txns don&#39;t use VLSNs. */
+<b class="fc"><i class="no-highlight">2065</i>&nbsp;        return VLSN.UNINITIALIZED_VLSN_SEQUENCE;</b>
+<i class="no-highlight">2066</i>&nbsp;    }
+<i class="no-highlight">2067</i>&nbsp;
+<i class="no-highlight">2068</i>&nbsp;    /*
+<i class="no-highlight">2069</i>&nbsp;     * Log support
+<i class="no-highlight">2070</i>&nbsp;     */
+<i class="no-highlight">2071</i>&nbsp;
+<i class="no-highlight">2072</i>&nbsp;    @Override
+<i class="no-highlight">2073</i>&nbsp;    public int getLastFormatChange() {
+<b class="nc"><i class="no-highlight">2074</i>&nbsp;        return LAST_FORMAT_CHANGE;</b>
+<i class="no-highlight">2075</i>&nbsp;    }
+<i class="no-highlight">2076</i>&nbsp;
+<i class="no-highlight">2077</i>&nbsp;    @Override
+<i class="no-highlight">2078</i>&nbsp;    public Collection&lt;VersionedWriteLoggable&gt; getEmbeddedLoggables() {
+<b class="nc"><i class="no-highlight">2079</i>&nbsp;        return Collections.emptyList();</b>
+<i class="no-highlight">2080</i>&nbsp;    }
+<i class="no-highlight">2081</i>&nbsp;
+<i class="no-highlight">2082</i>&nbsp;    @Override
+<i class="no-highlight">2083</i>&nbsp;    public int getLogSize() {
+<b class="nc"><i class="no-highlight">2084</i>&nbsp;        return getLogSize(LogEntryType.LOG_VERSION, false /*forReplication*/);</b>
+<i class="no-highlight">2085</i>&nbsp;    }
+<i class="no-highlight">2086</i>&nbsp;
+<i class="no-highlight">2087</i>&nbsp;    @Override
+<i class="no-highlight">2088</i>&nbsp;    public void writeToLog(final ByteBuffer logBuffer) {
+<b class="nc"><i class="no-highlight">2089</i>&nbsp;        writeToLog(</b>
+<i class="no-highlight">2090</i>&nbsp;            logBuffer, LogEntryType.LOG_VERSION, false /*forReplication*/);
+<b class="nc"><i class="no-highlight">2091</i>&nbsp;    }</b>
+<i class="no-highlight">2092</i>&nbsp;
+<i class="no-highlight">2093</i>&nbsp;    @Override
+<i class="no-highlight">2094</i>&nbsp;    public int getLogSize(final int logVersion, final boolean forReplication) {
+<b class="fc"><i class="no-highlight">2095</i>&nbsp;        return LogUtils.getPackedLongLogSize(id) +</b>
+<b class="fc"><i class="no-highlight">2096</i>&nbsp;               LogUtils.getPackedLongLogSize(</b>
+<i class="no-highlight">2097</i>&nbsp;                   forReplication ? DbLsn.NULL_LSN : lastLoggedLsn);
+<i class="no-highlight">2098</i>&nbsp;    }
+<i class="no-highlight">2099</i>&nbsp;
+<i class="no-highlight">2100</i>&nbsp;    /**
+<i class="no-highlight">2101</i>&nbsp;     * It&#39;s ok for FindBugs to whine about id not being synchronized.
+<i class="no-highlight">2102</i>&nbsp;     */
+<i class="no-highlight">2103</i>&nbsp;    @Override
+<i class="no-highlight">2104</i>&nbsp;    public void writeToLog(final ByteBuffer logBuffer,
+<i class="no-highlight">2105</i>&nbsp;                           final int logVersion,
+<i class="no-highlight">2106</i>&nbsp;                           final boolean forReplication) {
+<b class="fc"><i class="no-highlight">2107</i>&nbsp;        LogUtils.writePackedLong(logBuffer, id);</b>
+<b class="fc"><i class="no-highlight">2108</i>&nbsp;        LogUtils.writePackedLong(logBuffer,</b>
+<i class="no-highlight">2109</i>&nbsp;            forReplication ? DbLsn.NULL_LSN : lastLoggedLsn);
+<b class="fc"><i class="no-highlight">2110</i>&nbsp;    }</b>
+<i class="no-highlight">2111</i>&nbsp;
+<i class="no-highlight">2112</i>&nbsp;    /**
+<i class="no-highlight">2113</i>&nbsp;     * It&#39;s ok for FindBugs to whine about id not being synchronized.
+<i class="no-highlight">2114</i>&nbsp;     */
+<i class="no-highlight">2115</i>&nbsp;    @Override
+<i class="no-highlight">2116</i>&nbsp;    public void readFromLog(ByteBuffer logBuffer, int entryVersion) {
+<b class="fc"><i class="no-highlight">2117</i>&nbsp;        id = LogUtils.readLong(logBuffer, (entryVersion &lt; 6));</b>
+<b class="fc"><i class="no-highlight">2118</i>&nbsp;        lastLoggedLsn = LogUtils.readLong(logBuffer, (entryVersion &lt; 6));</b>
+<b class="fc"><i class="no-highlight">2119</i>&nbsp;    }</b>
+<i class="no-highlight">2120</i>&nbsp;
+<i class="no-highlight">2121</i>&nbsp;    @Override
+<i class="no-highlight">2122</i>&nbsp;    public boolean hasReplicationFormat() {
+<b class="nc"><i class="no-highlight">2123</i>&nbsp;        return false;</b>
+<i class="no-highlight">2124</i>&nbsp;    }
+<i class="no-highlight">2125</i>&nbsp;
+<i class="no-highlight">2126</i>&nbsp;    @Override
+<i class="no-highlight">2127</i>&nbsp;    public boolean isReplicationFormatWorthwhile(final ByteBuffer logBuffer,
+<i class="no-highlight">2128</i>&nbsp;                                                 final int srcVersion,
+<i class="no-highlight">2129</i>&nbsp;                                                 final int destVersion) {
+<b class="nc"><i class="no-highlight">2130</i>&nbsp;        return false;</b>
+<i class="no-highlight">2131</i>&nbsp;    }
+<i class="no-highlight">2132</i>&nbsp;
+<i class="no-highlight">2133</i>&nbsp;    @Override
+<i class="no-highlight">2134</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">2135</i>&nbsp;    public void dumpLog(StringBuilder sb, boolean verbose) {
+<b class="nc"><i class="no-highlight">2136</i>&nbsp;        sb.append(&quot;&lt;txn id=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">2137</i>&nbsp;        sb.append(getId());</b>
+<b class="nc"><i class="no-highlight">2138</i>&nbsp;        sb.append(&quot;\&quot;&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">2139</i>&nbsp;        sb.append(DbLsn.toString(lastLoggedLsn));</b>
+<b class="nc"><i class="no-highlight">2140</i>&nbsp;        sb.append(&quot;&lt;/txn&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">2141</i>&nbsp;    }</b>
+<i class="no-highlight">2142</i>&nbsp;
+<i class="no-highlight">2143</i>&nbsp;    @Override
+<i class="no-highlight">2144</i>&nbsp;    public long getTransactionId() {
+<b class="nc"><i class="no-highlight">2145</i>&nbsp;        return getId();</b>
+<i class="no-highlight">2146</i>&nbsp;    }
+<i class="no-highlight">2147</i>&nbsp;
+<i class="no-highlight">2148</i>&nbsp;    @Override
+<i class="no-highlight">2149</i>&nbsp;    public boolean logicalEquals(Loggable other) {
+<i class="no-highlight">2150</i>&nbsp;
+<b class="nc"><i class="no-highlight">2151</i>&nbsp;        if (!(other instanceof Txn)) {</b>
+<b class="nc"><i class="no-highlight">2152</i>&nbsp;            return false;</b>
+<i class="no-highlight">2153</i>&nbsp;        }
+<i class="no-highlight">2154</i>&nbsp;
+<b class="nc"><i class="no-highlight">2155</i>&nbsp;        return id == ((Txn) other).id;</b>
+<i class="no-highlight">2156</i>&nbsp;    }
+<i class="no-highlight">2157</i>&nbsp;
+<i class="no-highlight">2158</i>&nbsp;    /**
+<i class="no-highlight">2159</i>&nbsp;     * Send trace messages to the java.util.logger. Don&#39;t rely on the logger
+<i class="no-highlight">2160</i>&nbsp;     * alone to conditionalize whether we send this message, we don&#39;t even want
+<i class="no-highlight">2161</i>&nbsp;     * to construct the message if the level is not enabled. The string
+<i class="no-highlight">2162</i>&nbsp;     * construction can be numerous enough to show up on a performance profile.
+<i class="no-highlight">2163</i>&nbsp;     */
+<i class="no-highlight">2164</i>&nbsp;    private void traceCommit(int numWriteLocks, int numReadLocks) {
+<b class="fc"><i class="no-highlight">2165</i>&nbsp;        Logger logger = envImpl.getLogger();</b>
+<b class="fc"><i class="no-highlight">2166</i>&nbsp;        if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">2167</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">2168</i>&nbsp;            sb.append(&quot; Commit: id = &quot;).append(id);</b>
+<b class="nc"><i class="no-highlight">2169</i>&nbsp;            sb.append(&quot; numWriteLocks=&quot;).append(numWriteLocks);</b>
+<b class="nc"><i class="no-highlight">2170</i>&nbsp;            sb.append(&quot; numReadLocks = &quot;).append(numReadLocks);</b>
+<b class="nc"><i class="no-highlight">2171</i>&nbsp;            LoggerUtils.fine(logger, envImpl, sb.toString());</b>
+<i class="no-highlight">2172</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">2173</i>&nbsp;    }</b>
+<i class="no-highlight">2174</i>&nbsp;
+<i class="no-highlight">2175</i>&nbsp;    /**
+<i class="no-highlight">2176</i>&nbsp;     * Store information about a DatabaseImpl that will have to be
+<i class="no-highlight">2177</i>&nbsp;     * purged at transaction commit or abort. This handles cleanup after
+<i class="no-highlight">2178</i>&nbsp;     * operations like Environment.truncateDatabase,
+<i class="no-highlight">2179</i>&nbsp;     * Environment.removeDatabase. Cleanup like this is done outside the
+<i class="no-highlight">2180</i>&nbsp;     * usual transaction commit or node undo processing, because
+<i class="no-highlight">2181</i>&nbsp;     * the mapping tree is always auto Txn&#39;ed to avoid deadlock and is
+<i class="no-highlight">2182</i>&nbsp;     * essentially  non-transactional.
+<i class="no-highlight">2183</i>&nbsp;     */
+<i class="no-highlight">2184</i>&nbsp;    public static class DatabaseCleanupInfo {
+<i class="no-highlight">2185</i>&nbsp;        DatabaseImpl dbImpl;
+<i class="no-highlight">2186</i>&nbsp;
+<i class="no-highlight">2187</i>&nbsp;        /* if true, clean on commit. If false, clean on abort. */
+<i class="no-highlight">2188</i>&nbsp;        boolean deleteAtCommit;
+<i class="no-highlight">2189</i>&nbsp;
+<i class="no-highlight">2190</i>&nbsp;        DatabaseCleanupInfo(DatabaseImpl dbImpl,
+<b class="nc"><i class="no-highlight">2191</i>&nbsp;                            boolean deleteAtCommit) {</b>
+<b class="nc"><i class="no-highlight">2192</i>&nbsp;            this.dbImpl = dbImpl;</b>
+<b class="nc"><i class="no-highlight">2193</i>&nbsp;            this.deleteAtCommit = deleteAtCommit;</b>
+<i class="no-highlight">2194</i>&nbsp;        }
+<i class="no-highlight">2195</i>&nbsp;
+<i class="no-highlight">2196</i>&nbsp;        /**
+<i class="no-highlight">2197</i>&nbsp;         * Make sure that a set of DatabaseCleanupInfo only has one entry
+<i class="no-highlight">2198</i>&nbsp;         * per databaseImpl/deleteAtCommit tuple.
+<i class="no-highlight">2199</i>&nbsp;         */
+<i class="no-highlight">2200</i>&nbsp;        @Override
+<i class="no-highlight">2201</i>&nbsp;        public boolean equals(Object obj) {
+<b class="nc"><i class="no-highlight">2202</i>&nbsp;            if (!(obj instanceof DatabaseCleanupInfo)) {</b>
+<b class="nc"><i class="no-highlight">2203</i>&nbsp;                return false;</b>
+<i class="no-highlight">2204</i>&nbsp;            }
+<i class="no-highlight">2205</i>&nbsp;
+<b class="nc"><i class="no-highlight">2206</i>&nbsp;            DatabaseCleanupInfo other = (DatabaseCleanupInfo) obj;</b>
+<b class="nc"><i class="no-highlight">2207</i>&nbsp;            return (dbImpl.equals(other.dbImpl)) &amp;&amp;</b>
+<i class="no-highlight">2208</i>&nbsp;                (deleteAtCommit == other.deleteAtCommit);
+<i class="no-highlight">2209</i>&nbsp;        }
+<i class="no-highlight">2210</i>&nbsp;
+<i class="no-highlight">2211</i>&nbsp;        @Override
+<i class="no-highlight">2212</i>&nbsp;        public int hashCode() {
+<b class="nc"><i class="no-highlight">2213</i>&nbsp;            return dbImpl.hashCode();</b>
+<i class="no-highlight">2214</i>&nbsp;        }
+<i class="no-highlight">2215</i>&nbsp;    }
+<i class="no-highlight">2216</i>&nbsp;
+<i class="no-highlight">2217</i>&nbsp;    /* Transaction hooks used for replication support. */
+<i class="no-highlight">2218</i>&nbsp;
+<i class="no-highlight">2219</i>&nbsp;    /**
+<i class="no-highlight">2220</i>&nbsp;     * A replicated environment introduces some new considerations when
+<i class="no-highlight">2221</i>&nbsp;     * entering a transaction scope via an Environment.transactionBegin()
+<i class="no-highlight">2222</i>&nbsp;     * operation.
+<i class="no-highlight">2223</i>&nbsp;     *
+<i class="no-highlight">2224</i>&nbsp;     * On a Replica, the transactionBegin() operation must wait until the
+<i class="no-highlight">2225</i>&nbsp;     * Replica has synched up to where it satisfies the ConsistencyPolicy that
+<i class="no-highlight">2226</i>&nbsp;     * is in effect.
+<i class="no-highlight">2227</i>&nbsp;     *
+<i class="no-highlight">2228</i>&nbsp;     * On a Master, the transactionBegin() must wait until the Feeder has
+<i class="no-highlight">2229</i>&nbsp;     * sufficient connections to ensure that it can satisfy the
+<i class="no-highlight">2230</i>&nbsp;     * ReplicaAckPolicy, since if it does not, it will fail at commit() and the
+<i class="no-highlight">2231</i>&nbsp;     * work done in the transaction will need to be undone.
+<i class="no-highlight">2232</i>&nbsp;     *
+<i class="no-highlight">2233</i>&nbsp;     * This hook provides the mechanism for implementing the above support for
+<i class="no-highlight">2234</i>&nbsp;     * replicated transactions. It ignores all non-replicated transactions.
+<i class="no-highlight">2235</i>&nbsp;     *
+<i class="no-highlight">2236</i>&nbsp;     * The hook throws ReplicaStateException, if a Master switches to a Replica
+<i class="no-highlight">2237</i>&nbsp;     * state while waiting for its Replicas connections. Changes from a Replica
+<i class="no-highlight">2238</i>&nbsp;     * to a Master are handled transparently to the application. Exceptions
+<i class="no-highlight">2239</i>&nbsp;     * manifest themselves as DatabaseException at the interface to minimize
+<i class="no-highlight">2240</i>&nbsp;     * use of Replication based exceptions in core JE.
+<i class="no-highlight">2241</i>&nbsp;     *
+<i class="no-highlight">2242</i>&nbsp;     * @param config the transaction config that applies to the txn
+<i class="no-highlight">2243</i>&nbsp;     *
+<i class="no-highlight">2244</i>&nbsp;     * @throws DatabaseException if there is a failure
+<i class="no-highlight">2245</i>&nbsp;     */
+<i class="no-highlight">2246</i>&nbsp;    protected void txnBeginHook(TransactionConfig config)
+<i class="no-highlight">2247</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">2248</i>&nbsp;
+<i class="no-highlight">2249</i>&nbsp;        /* Overridden by Txn subclasses when appropriate */
+<b class="fc"><i class="no-highlight">2250</i>&nbsp;    }</b>
+<i class="no-highlight">2251</i>&nbsp;
+<i class="no-highlight">2252</i>&nbsp;    /**
+<i class="no-highlight">2253</i>&nbsp;     * This hook is invoked before the commit of a transaction that made
+<i class="no-highlight">2254</i>&nbsp;     * changes to a replicated environment. It&#39;s invoked for transactions
+<i class="no-highlight">2255</i>&nbsp;     * executed on the master or replica, but is only relevant to transactions
+<i class="no-highlight">2256</i>&nbsp;     * being done on the master. When invoked for a transaction on a replica
+<i class="no-highlight">2257</i>&nbsp;     * the implementation just returns.
+<i class="no-highlight">2258</i>&nbsp;     *
+<i class="no-highlight">2259</i>&nbsp;     * The hook is invoked at a very specific point in the normal commit
+<i class="no-highlight">2260</i>&nbsp;     * sequence: immediately before the commit log entry is written to the log.
+<i class="no-highlight">2261</i>&nbsp;     * It represents the last chance to abort the transaction and provides an
+<i class="no-highlight">2262</i>&nbsp;     * opportunity to make some final checks before allowing the commit can go
+<i class="no-highlight">2263</i>&nbsp;     * ahead. Note that it should be possible to abort the transaction at the
+<i class="no-highlight">2264</i>&nbsp;     * time the hook is invoked.
+<i class="no-highlight">2265</i>&nbsp;     *
+<i class="no-highlight">2266</i>&nbsp;     * After invocation of the &quot;pre&quot; hook one of the &quot;post&quot; hooks:
+<i class="no-highlight">2267</i>&nbsp;     * postLogCommitHook or postLogAbortHook must always be invoked.
+<i class="no-highlight">2268</i>&nbsp;     *
+<i class="no-highlight">2269</i>&nbsp;     * Exceptions thrown by this hook result in the transaction being aborted
+<i class="no-highlight">2270</i>&nbsp;     * and the exception being propagated back to the application.
+<i class="no-highlight">2271</i>&nbsp;     *
+<i class="no-highlight">2272</i>&nbsp;     * @throws DatabaseException if there was a problem and that the
+<i class="no-highlight">2273</i>&nbsp;     * transaction should be aborted.
+<i class="no-highlight">2274</i>&nbsp;     */
+<i class="no-highlight">2275</i>&nbsp;    protected void preLogCommitHook()
+<i class="no-highlight">2276</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">2277</i>&nbsp;
+<i class="no-highlight">2278</i>&nbsp;        /* Overridden by Txn subclasses when appropriate */
+<b class="fc"><i class="no-highlight">2279</i>&nbsp;    }</b>
+<i class="no-highlight">2280</i>&nbsp;
+<i class="no-highlight">2281</i>&nbsp;    /**
+<i class="no-highlight">2282</i>&nbsp;     * This hook is invoked after the commit record has been written to the
+<i class="no-highlight">2283</i>&nbsp;     * log, but before write locks have been released, so that other
+<i class="no-highlight">2284</i>&nbsp;     * application cannot see the changes made by the transaction. At this
+<i class="no-highlight">2285</i>&nbsp;     * point the transaction has been committed by the Master.
+<i class="no-highlight">2286</i>&nbsp;     *
+<i class="no-highlight">2287</i>&nbsp;     * Exceptions thrown by this hook result in the transaction being completed
+<i class="no-highlight">2288</i>&nbsp;     * on the Master, that is, locks are released, etc. and the exception is
+<i class="no-highlight">2289</i>&nbsp;     * propagated back to the application.
+<i class="no-highlight">2290</i>&nbsp;     *
+<i class="no-highlight">2291</i>&nbsp;     * @param commitItem the commit item that was just logged
+<i class="no-highlight">2292</i>&nbsp;     *
+<i class="no-highlight">2293</i>&nbsp;     * @throws DatabaseException to indicate that there was a replication
+<i class="no-highlight">2294</i>&nbsp;     * related problem that needs to be communicated back to the application.
+<i class="no-highlight">2295</i>&nbsp;     */
+<i class="no-highlight">2296</i>&nbsp;    protected void postLogCommitHook(LogItem commitItem)
+<i class="no-highlight">2297</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">2298</i>&nbsp;
+<i class="no-highlight">2299</i>&nbsp;        /* Overridden by Txn subclasses when appropriate */
+<b class="fc"><i class="no-highlight">2300</i>&nbsp;    }</b>
+<i class="no-highlight">2301</i>&nbsp;
+<i class="no-highlight">2302</i>&nbsp;    protected void preLogAbortHook()
+<i class="no-highlight">2303</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">2304</i>&nbsp;
+<i class="no-highlight">2305</i>&nbsp;        /* Override by Txn subclasses when appropriate */
+<b class="nc"><i class="no-highlight">2306</i>&nbsp;    }</b>
+<i class="no-highlight">2307</i>&nbsp;
+<i class="no-highlight">2308</i>&nbsp;    /**
+<i class="no-highlight">2309</i>&nbsp;     * Invoked if the transaction associated with the preLogCommitHook was
+<i class="no-highlight">2310</i>&nbsp;     * subsequently aborted, for example due to a lack of disk space. This
+<i class="no-highlight">2311</i>&nbsp;     * method is responsible for any cleanup that may need to be done as a
+<i class="no-highlight">2312</i>&nbsp;     * result of the abort.
+<i class="no-highlight">2313</i>&nbsp;     *
+<i class="no-highlight">2314</i>&nbsp;     * Note that only one of the &quot;post&quot; hooks (commit or abort) is invoked
+<i class="no-highlight">2315</i>&nbsp;     * following the invocation of the &quot;pre&quot; hook.
+<i class="no-highlight">2316</i>&nbsp;     */
+<i class="no-highlight">2317</i>&nbsp;    protected void postLogCommitAbortHook() {
+<i class="no-highlight">2318</i>&nbsp;        /* Overridden by Txn subclasses when appropriate */
+<b class="nc"><i class="no-highlight">2319</i>&nbsp;    }</b>
+<i class="no-highlight">2320</i>&nbsp;
+<i class="no-highlight">2321</i>&nbsp;    protected void postLogAbortHook() {
+<i class="no-highlight">2322</i>&nbsp;        /* Overridden by Txn subclasses when appropriate */
+<b class="nc"><i class="no-highlight">2323</i>&nbsp;    }</b>
+<i class="no-highlight">2324</i>&nbsp;
+<i class="no-highlight">2325</i>&nbsp;    /**
+<i class="no-highlight">2326</i>&nbsp;     * Returns the CommitToken associated with a successful replicated commit.
+<i class="no-highlight">2327</i>&nbsp;     *
+<i class="no-highlight">2328</i>&nbsp;     * @see com.sleepycat.je.Transaction#getCommitToken
+<i class="no-highlight">2329</i>&nbsp;     */
+<i class="no-highlight">2330</i>&nbsp;    public CommitToken getCommitToken() {
+<b class="nc"><i class="no-highlight">2331</i>&nbsp;        return null;</b>
+<i class="no-highlight">2332</i>&nbsp;    }
+<i class="no-highlight">2333</i>&nbsp;
+<i class="no-highlight">2334</i>&nbsp;    /**
+<i class="no-highlight">2335</i>&nbsp;     * Identifies exceptions that may be propagated back to the caller during
+<i class="no-highlight">2336</i>&nbsp;     * the postCommit phase of a transaction commit.
+<i class="no-highlight">2337</i>&nbsp;     *
+<i class="no-highlight">2338</i>&nbsp;     * @param postCommitException the exception being evaluated
+<i class="no-highlight">2339</i>&nbsp;     *
+<i class="no-highlight">2340</i>&nbsp;     * @return true if the exception must be propagated back to the caller,
+<i class="no-highlight">2341</i>&nbsp;     * false if the exception indicates there is a serious problem with the
+<i class="no-highlight">2342</i>&nbsp;     * commit operation and the environment should be invalidated.
+<i class="no-highlight">2343</i>&nbsp;     */
+<i class="no-highlight">2344</i>&nbsp;    protected boolean
+<i class="no-highlight">2345</i>&nbsp;        propagatePostCommitException(DatabaseException postCommitException) {
+<b class="nc"><i class="no-highlight">2346</i>&nbsp;        return false;</b>
+<i class="no-highlight">2347</i>&nbsp;    }
+<i class="no-highlight">2348</i>&nbsp;
+<i class="no-highlight">2349</i>&nbsp;    /**
+<i class="no-highlight">2350</i>&nbsp;     * Use the marker Sets to record whether this is the first time we&#39;ve see
+<i class="no-highlight">2351</i>&nbsp;     * this logical node.
+<i class="no-highlight">2352</i>&nbsp;     */
+<i class="no-highlight">2353</i>&nbsp;    private boolean firstInstance(Set&lt;Long&gt; seenLsns,
+<i class="no-highlight">2354</i>&nbsp;                                  Set&lt;CompareSlot&gt; seenSlots,
+<i class="no-highlight">2355</i>&nbsp;                                  UndoReader undo) {
+<b class="nc"><i class="no-highlight">2356</i>&nbsp;        final LNLogEntry&lt;?&gt; undoEntry = undo.logEntry;</b>
+<b class="nc"><i class="no-highlight">2357</i>&nbsp;        final long abortLsn1 = undoEntry.getAbortLsn();</b>
+<b class="nc"><i class="no-highlight">2358</i>&nbsp;        if (abortLsn1 != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">2359</i>&nbsp;            return seenLsns.add(abortLsn1);</b>
+<i class="no-highlight">2360</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">2361</i>&nbsp;        final CompareSlot slot = new CompareSlot(undo.db, undoEntry);</b>
+<b class="nc"><i class="no-highlight">2362</i>&nbsp;        return seenSlots.add(slot);</b>
+<i class="no-highlight">2363</i>&nbsp;    }
+<i class="no-highlight">2364</i>&nbsp;
+<i class="no-highlight">2365</i>&nbsp;    /**
+<i class="no-highlight">2366</i>&nbsp;     * Accumulates the set of databases for which transaction commit/abort
+<i class="no-highlight">2367</i>&nbsp;     * triggers must be run.
+<i class="no-highlight">2368</i>&nbsp;     *
+<i class="no-highlight">2369</i>&nbsp;     * @param dbImpl the database that associated with the trigger
+<i class="no-highlight">2370</i>&nbsp;     */
+<i class="no-highlight">2371</i>&nbsp;    public void noteTriggerDb(DatabaseImpl dbImpl) {
+<b class="nc"><i class="no-highlight">2372</i>&nbsp;        if (triggerDbs == null) {</b>
+<b class="nc"><i class="no-highlight">2373</i>&nbsp;            triggerDbs =</b>
+<b class="nc"><i class="no-highlight">2374</i>&nbsp;                Collections.synchronizedSet(new HashSet&lt;DatabaseImpl&gt;());</b>
+<i class="no-highlight">2375</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">2376</i>&nbsp;        triggerDbs.add(dbImpl);</b>
+<b class="nc"><i class="no-highlight">2377</i>&nbsp;    }</b>
+<i class="no-highlight">2378</i>&nbsp;
+<i class="no-highlight">2379</i>&nbsp;    /**
+<i class="no-highlight">2380</i>&nbsp;     * Returns the set of databases for which transaction commit/abort
+<i class="no-highlight">2381</i>&nbsp;     * triggers must be run. Returns Null if no triggers need to be run.
+<i class="no-highlight">2382</i>&nbsp;     */
+<i class="no-highlight">2383</i>&nbsp;    public Set&lt;DatabaseImpl&gt; getTriggerDbs() {
+<b class="fc"><i class="no-highlight">2384</i>&nbsp;        return triggerDbs;</b>
+<i class="no-highlight">2385</i>&nbsp;    }
+<i class="no-highlight">2386</i>&nbsp;
+<i class="no-highlight">2387</i>&nbsp;    /** Get the set of lock ids owned by this transaction */
+<i class="no-highlight">2388</i>&nbsp;    public Set&lt;Long&gt; getWriteLockIds() {
+<b class="nc"><i class="no-highlight">2389</i>&nbsp;        if (writeInfo == null) {</b>
+<b class="nc"><i class="no-highlight">2390</i>&nbsp;            Set&lt;Long&gt; empty = Collections.emptySet();</b>
+<b class="nc"><i class="no-highlight">2391</i>&nbsp;            return empty;</b>
+<i class="no-highlight">2392</i>&nbsp;        }
+<i class="no-highlight">2393</i>&nbsp;
+<b class="nc"><i class="no-highlight">2394</i>&nbsp;        return writeInfo.keySet();</b>
+<i class="no-highlight">2395</i>&nbsp;    }
+<i class="no-highlight">2396</i>&nbsp;
+<i class="no-highlight">2397</i>&nbsp;    /* For unit tests. */
+<i class="no-highlight">2398</i>&nbsp;    public Set&lt;Long&gt; getReadLockIds() {
+<b class="nc"><i class="no-highlight">2399</i>&nbsp;        if (readLocks == null) {</b>
+<b class="nc"><i class="no-highlight">2400</i>&nbsp;            return new HashSet&lt;Long&gt;();</b>
+<i class="no-highlight">2401</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">2402</i>&nbsp;        return new HashSet&lt;Long&gt;(readLocks);</b>
+<i class="no-highlight">2403</i>&nbsp;    }
+<i class="no-highlight">2404</i>&nbsp;
+<i class="no-highlight">2405</i>&nbsp;    public EnvironmentImpl getEnvironmentImpl() {
+<b class="nc"><i class="no-highlight">2406</i>&nbsp;        return envImpl;</b>
+<i class="no-highlight">2407</i>&nbsp;    }
+<i class="no-highlight">2408</i>&nbsp;
+<i class="no-highlight">2409</i>&nbsp;    public void setTransaction(Transaction transaction) {
+<b class="nc"><i class="no-highlight">2410</i>&nbsp;        this.transaction = transaction;</b>
+<b class="nc"><i class="no-highlight">2411</i>&nbsp;    }</b>
+<i class="no-highlight">2412</i>&nbsp;
+<i class="no-highlight">2413</i>&nbsp;    @Override
+<i class="no-highlight">2414</i>&nbsp;    public Transaction getTransaction() {
+<b class="nc"><i class="no-highlight">2415</i>&nbsp;        return (transaction != null) ?</b>
+<i class="no-highlight">2416</i>&nbsp;                transaction :
+<i class="no-highlight">2417</i>&nbsp;                (transaction = new AutoTransaction(this));
+<i class="no-highlight">2418</i>&nbsp;    }
+<i class="no-highlight">2419</i>&nbsp;
+<i class="no-highlight">2420</i>&nbsp;    private static class AutoTransaction extends Transaction {
+<i class="no-highlight">2421</i>&nbsp;
+<i class="no-highlight">2422</i>&nbsp;        protected AutoTransaction(Txn txn) {
+<i class="no-highlight">2423</i>&nbsp;            /* AutoTransactions do not have a convenient environment handle. */
+<b class="nc"><i class="no-highlight">2424</i>&nbsp;            super(txn.getEnvironmentImpl().getInternalEnvHandle(), txn);</b>
+<b class="nc"><i class="no-highlight">2425</i>&nbsp;        }</b>
+<i class="no-highlight">2426</i>&nbsp;
+<i class="no-highlight">2427</i>&nbsp;        @Override
+<i class="no-highlight">2428</i>&nbsp;        public synchronized void commit()
+<i class="no-highlight">2429</i>&nbsp;            throws DatabaseException {
+<i class="no-highlight">2430</i>&nbsp;
+<b class="nc"><i class="no-highlight">2431</i>&nbsp;            EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">2432</i>&nbsp;                (&quot;commit() not permitted on an auto transaction&quot;);</b>
+<b class="nc"><i class="no-highlight">2433</i>&nbsp;        }</b>
+<i class="no-highlight">2434</i>&nbsp;
+<i class="no-highlight">2435</i>&nbsp;        @Override
+<i class="no-highlight">2436</i>&nbsp;        public synchronized void commit
+<i class="no-highlight">2437</i>&nbsp;            (@SuppressWarnings(&quot;unused&quot;) Durability durability) {
+<b class="nc"><i class="no-highlight">2438</i>&nbsp;            EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">2439</i>&nbsp;            (&quot;commit() not permitted on an auto transaction&quot;);</b>
+<b class="nc"><i class="no-highlight">2440</i>&nbsp;        }</b>
+<i class="no-highlight">2441</i>&nbsp;
+<i class="no-highlight">2442</i>&nbsp;        @Override
+<i class="no-highlight">2443</i>&nbsp;        public synchronized void commitNoSync()
+<i class="no-highlight">2444</i>&nbsp;            throws DatabaseException {
+<i class="no-highlight">2445</i>&nbsp;
+<b class="nc"><i class="no-highlight">2446</i>&nbsp;            EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">2447</i>&nbsp;                (&quot;commit() not permitted on an auto transaction&quot;);</b>
+<b class="nc"><i class="no-highlight">2448</i>&nbsp;        }</b>
+<i class="no-highlight">2449</i>&nbsp;
+<i class="no-highlight">2450</i>&nbsp;        @Override
+<i class="no-highlight">2451</i>&nbsp;        public synchronized void commitWriteNoSync()
+<i class="no-highlight">2452</i>&nbsp;            throws DatabaseException {
+<i class="no-highlight">2453</i>&nbsp;
+<b class="nc"><i class="no-highlight">2454</i>&nbsp;            EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">2455</i>&nbsp;                (&quot;commit() not permitted on an auto transaction&quot;);</b>
+<b class="nc"><i class="no-highlight">2456</i>&nbsp;        }</b>
+<i class="no-highlight">2457</i>&nbsp;
+<i class="no-highlight">2458</i>&nbsp;        @Override
+<i class="no-highlight">2459</i>&nbsp;        public synchronized void abort()
+<i class="no-highlight">2460</i>&nbsp;            throws DatabaseException {
+<i class="no-highlight">2461</i>&nbsp;
+<b class="nc"><i class="no-highlight">2462</i>&nbsp;            EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">2463</i>&nbsp;                (&quot;abort() not permitted on an auto transaction&quot;);</b>
+<b class="nc"><i class="no-highlight">2464</i>&nbsp;        }</b>
+<i class="no-highlight">2465</i>&nbsp;    }
+<i class="no-highlight">2466</i>&nbsp;
+<i class="no-highlight">2467</i>&nbsp;    public Map&lt;DatabaseId, DatabaseImpl&gt; getUndoDatabases() {
+<b class="nc"><i class="no-highlight">2468</i>&nbsp;        return undoDatabases;</b>
+<i class="no-highlight">2469</i>&nbsp;    }
+<i class="no-highlight">2470</i>&nbsp;
+<i class="no-highlight">2471</i>&nbsp;    /**
+<i class="no-highlight">2472</i>&nbsp;     * Txn freezing is used to prevent changes to transaction lock contents.  A
+<i class="no-highlight">2473</i>&nbsp;     * frozen transaction should ignore any transaction commit/abort
+<i class="no-highlight">2474</i>&nbsp;     * requests. This is used only by MasterTxns, as a way of holding a
+<i class="no-highlight">2475</i>&nbsp;     * transaction stable while cloning it to serve as a ReplayTxn during
+<i class="no-highlight">2476</i>&nbsp;     * master-&gt;replica transitions.
+<i class="no-highlight">2477</i>&nbsp;     * @param isCommit true if called by commit.
+<i class="no-highlight">2478</i>&nbsp;     */
+<i class="no-highlight">2479</i>&nbsp;    protected void checkIfFrozen(boolean isCommit)
+<i class="no-highlight">2480</i>&nbsp;        throws DatabaseException {
+<b class="fc"><i class="no-highlight">2481</i>&nbsp;        return;</b>
+<i class="no-highlight">2482</i>&nbsp;    }
+<i class="no-highlight">2483</i>&nbsp;
+<i class="no-highlight">2484</i>&nbsp;    /*
+<i class="no-highlight">2485</i>&nbsp;     * Used when creating a subset of MasterTxns. Using an explicit method
+<i class="no-highlight">2486</i>&nbsp;     * like this rather than checking class types insulates us from any
+<i class="no-highlight">2487</i>&nbsp;     * assumptions about the class hierarchy.
+<i class="no-highlight">2488</i>&nbsp;     */
+<i class="no-highlight">2489</i>&nbsp;    public boolean isMasterTxn() {
+<b class="nc"><i class="no-highlight">2490</i>&nbsp;        return false;</b>
+<i class="no-highlight">2491</i>&nbsp;    }
+<i class="no-highlight">2492</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

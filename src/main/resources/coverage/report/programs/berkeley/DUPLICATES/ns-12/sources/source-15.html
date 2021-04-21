@@ -1,0 +1,494 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LogBuffer</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: LogBuffer (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LogBuffer</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    76.2%
+  </span>
+  <span class="absValue">
+    (16/21)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    86.2%
+  </span>
+  <span class="absValue">
+    (75/87)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.locks.LockSupport;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.latch.Latch;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.latch.LatchFactory;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;/**
+<i class="no-highlight">28</i>&nbsp; * LogBuffers hold outgoing, newly written log entries.
+<i class="no-highlight">29</i>&nbsp; * Space is allocated via the allocate() method that
+<i class="no-highlight">30</i>&nbsp; * returns a LogBufferSegment object. The LogBuffer.writePinCount
+<i class="no-highlight">31</i>&nbsp; * is incremented each time space is allocated. Once the
+<i class="no-highlight">32</i>&nbsp; * caller copies data into the log buffer, the
+<i class="no-highlight">33</i>&nbsp; * pin count is decremented via the free() method.
+<i class="no-highlight">34</i>&nbsp; * Readers of a log buffer wait until the pin count
+<i class="no-highlight">35</i>&nbsp; * is zero.
+<i class="no-highlight">36</i>&nbsp; *
+<i class="no-highlight">37</i>&nbsp; * The pin count is incremented under the readLatch. The
+<i class="no-highlight">38</i>&nbsp; * pin count is decremented without holding the latch.
+<i class="no-highlight">39</i>&nbsp; * Holding the readLatch will prevent the pin count from
+<i class="no-highlight">40</i>&nbsp; * being incremented.
+<i class="no-highlight">41</i>&nbsp; *
+<i class="no-highlight">42</i>&nbsp; * Apart from the pin count, access to the buffer is protected by the
+<i class="no-highlight">43</i>&nbsp; * readLatch and the LWL:
+<i class="no-highlight">44</i>&nbsp; * - Write access requires holding both the LWL and the readLatch.
+<i class="no-highlight">45</i>&nbsp; * - Read access requires holding either the LWL or the readLatch.
+<i class="no-highlight">46</i>&nbsp; *
+<i class="no-highlight">47</i>&nbsp; * Of course, for buffers outside the buffer pool, or in the process of being
+<i class="no-highlight">48</i>&nbsp; * constructed, these rules do not apply and no latching is necessary.
+<i class="no-highlight">49</i>&nbsp; *
+<i class="no-highlight">50</i>&nbsp; * TODO:
+<i class="no-highlight">51</i>&nbsp; * Although the above statement about latching reflects the current
+<i class="no-highlight">52</i>&nbsp; * implementation, it would be better if we can remove the reliance on the LWL
+<i class="no-highlight">53</i>&nbsp; * and protect all access to the buffer using the readLatch. To do this, the
+<i class="no-highlight">54</i>&nbsp; * callers of getFirstLsn and hasRoom will have to acquire the readLatch.
+<i class="no-highlight">55</i>&nbsp; *
+<i class="no-highlight">56</i>&nbsp; * @see LogBufferPool
+<i class="no-highlight">57</i>&nbsp; */
+<b class="fc"><i class="no-highlight">58</i>&nbsp;public class LogBuffer implements LogSource {</b>
+<i class="no-highlight">59</i>&nbsp;
+<b class="fc"><i class="no-highlight">60</i>&nbsp;    private static final String DEBUG_NAME = LogBuffer.class.getName();</b>
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /* Storage */
+<i class="no-highlight">63</i>&nbsp;    private final ByteBuffer buffer;
+<i class="no-highlight">64</i>&nbsp;
+<i class="no-highlight">65</i>&nbsp;    /* Information about what log entries are held here. */
+<i class="no-highlight">66</i>&nbsp;    private long firstLsn;
+<i class="no-highlight">67</i>&nbsp;    private long lastLsn;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /*
+<i class="no-highlight">70</i>&nbsp;     * The read latch protects all modifications to the buffer, and protects
+<i class="no-highlight">71</i>&nbsp;     * read access to the buffer when the LWL is not held. Decrementing the pin
+<i class="no-highlight">72</i>&nbsp;     * count is the only exception, and this can be done with no latching.
+<i class="no-highlight">73</i>&nbsp;     */
+<i class="no-highlight">74</i>&nbsp;    private Latch readLatch;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /*
+<i class="no-highlight">77</i>&nbsp;     * Buffer may be rewritten because an IOException previously occurred.
+<i class="no-highlight">78</i>&nbsp;     */
+<i class="no-highlight">79</i>&nbsp;    private boolean rewriteAllowed;
+<i class="no-highlight">80</i>&nbsp;
+<b class="fc"><i class="no-highlight">81</i>&nbsp;    private AtomicInteger writePinCount = new AtomicInteger();</b>
+<i class="no-highlight">82</i>&nbsp;    private byte[] data;
+<i class="no-highlight">83</i>&nbsp;    private EnvironmentImpl env;
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    LogBuffer(int capacity, EnvironmentImpl env)
+<b class="fc"><i class="no-highlight">86</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">87</i>&nbsp;
+<b class="fc"><i class="no-highlight">88</i>&nbsp;        data = new byte[capacity];</b>
+<b class="fc"><i class="no-highlight">89</i>&nbsp;        buffer = ByteBuffer.wrap(data);</b>
+<b class="fc"><i class="no-highlight">90</i>&nbsp;        readLatch = LatchFactory.createExclusiveLatch(</b>
+<i class="no-highlight">91</i>&nbsp;            env, DEBUG_NAME, false /*collectStats*/);
+<b class="fc"><i class="no-highlight">92</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">93</i>&nbsp;        reinit();</b>
+<b class="fc"><i class="no-highlight">94</i>&nbsp;    }</b>
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    /*
+<i class="no-highlight">97</i>&nbsp;     * Used by LogManager for the case when we have a temporary buffer in hand
+<i class="no-highlight">98</i>&nbsp;     * and no LogBuffers in the LogBufferPool are large enough to hold the
+<i class="no-highlight">99</i>&nbsp;     * current entry being written.  We just wrap the temporary ByteBuffer
+<i class="no-highlight">100</i>&nbsp;     * in a LogBuffer and pass it to FileManager. [#12674].
+<i class="no-highlight">101</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">102</i>&nbsp;    LogBuffer(ByteBuffer buffer, long firstLsn) {</b>
+<b class="fc"><i class="no-highlight">103</i>&nbsp;        this.buffer = buffer;</b>
+<b class="fc"><i class="no-highlight">104</i>&nbsp;        this.firstLsn = firstLsn;</b>
+<b class="fc"><i class="no-highlight">105</i>&nbsp;        this.lastLsn = firstLsn;</b>
+<b class="fc"><i class="no-highlight">106</i>&nbsp;        rewriteAllowed = false;</b>
+<b class="fc"><i class="no-highlight">107</i>&nbsp;    }</b>
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /**
+<i class="no-highlight">110</i>&nbsp;     * The LWL and buffer pool latch must be held.
+<i class="no-highlight">111</i>&nbsp;     */
+<i class="no-highlight">112</i>&nbsp;    void reinit()
+<i class="no-highlight">113</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">114</i>&nbsp;
+<b class="fc"><i class="no-highlight">115</i>&nbsp;        readLatch.acquireExclusive();</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;        buffer.clear();</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;        firstLsn = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">118</i>&nbsp;        lastLsn = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">119</i>&nbsp;        rewriteAllowed = false;</b>
+<b class="fc"><i class="no-highlight">120</i>&nbsp;        writePinCount.set(0);</b>
+<b class="fc"><i class="no-highlight">121</i>&nbsp;        readLatch.release();</b>
+<b class="fc"><i class="no-highlight">122</i>&nbsp;    }</b>
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /*
+<i class="no-highlight">125</i>&nbsp;     * Write support
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    /**
+<i class="no-highlight">129</i>&nbsp;     * Return first LSN held in this buffer.
+<i class="no-highlight">130</i>&nbsp;     *
+<i class="no-highlight">131</i>&nbsp;     * The LWL or readLatch must be held.
+<i class="no-highlight">132</i>&nbsp;     */
+<i class="no-highlight">133</i>&nbsp;    public long getFirstLsn() {
+<b class="fc"><i class="no-highlight">134</i>&nbsp;        return firstLsn;</b>
+<i class="no-highlight">135</i>&nbsp;    }
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;    /**
+<i class="no-highlight">138</i>&nbsp;     * Register the LSN for a buffer segment that has been allocated in this
+<i class="no-highlight">139</i>&nbsp;     * buffer.
+<i class="no-highlight">140</i>&nbsp;     *
+<i class="no-highlight">141</i>&nbsp;     * The LWL and readLatch must be held.
+<i class="no-highlight">142</i>&nbsp;     */
+<i class="no-highlight">143</i>&nbsp;    void registerLsn(long lsn) {
+<b class="fc"><i class="no-highlight">144</i>&nbsp;        assert readLatch.isExclusiveOwner();</b>
+<i class="no-highlight">145</i>&nbsp;
+<b class="fc"><i class="no-highlight">146</i>&nbsp;        if (lastLsn != DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">147</i>&nbsp;            assert (DbLsn.compareTo(lsn, lastLsn) &gt; 0):</b>
+<i class="no-highlight">148</i>&nbsp;                &quot;lsn=&quot; + lsn + &quot; lastlsn=&quot; + lastLsn;
+<i class="no-highlight">149</i>&nbsp;        }
+<i class="no-highlight">150</i>&nbsp;
+<b class="fc"><i class="no-highlight">151</i>&nbsp;        lastLsn = lsn;</b>
+<i class="no-highlight">152</i>&nbsp;
+<b class="fc"><i class="no-highlight">153</i>&nbsp;        if (firstLsn == DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">154</i>&nbsp;            firstLsn = lsn;</b>
+<i class="no-highlight">155</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">156</i>&nbsp;    }</b>
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * Check capacity of buffer.
+<i class="no-highlight">160</i>&nbsp;     *
+<i class="no-highlight">161</i>&nbsp;     * The LWL or readLatch must be held.
+<i class="no-highlight">162</i>&nbsp;     *
+<i class="no-highlight">163</i>&nbsp;     * @return true if this buffer can hold this many more bytes.
+<i class="no-highlight">164</i>&nbsp;     */
+<i class="no-highlight">165</i>&nbsp;    boolean hasRoom(int numBytes) {
+<b class="fc"><i class="no-highlight">166</i>&nbsp;        return (numBytes &lt;= (buffer.capacity() - buffer.position()));</b>
+<i class="no-highlight">167</i>&nbsp;    }
+<i class="no-highlight">168</i>&nbsp;
+<i class="no-highlight">169</i>&nbsp;    /**
+<i class="no-highlight">170</i>&nbsp;     * Returns the buffer for read access (although some tests may write to the
+<i class="no-highlight">171</i>&nbsp;     * buffer).
+<i class="no-highlight">172</i>&nbsp;     *
+<i class="no-highlight">173</i>&nbsp;     * The LWL or readLatch must be held.
+<i class="no-highlight">174</i>&nbsp;     *
+<i class="no-highlight">175</i>&nbsp;     * @return the actual data buffer.
+<i class="no-highlight">176</i>&nbsp;     */
+<i class="no-highlight">177</i>&nbsp;    public ByteBuffer getDataBuffer() {
+<b class="fc"><i class="no-highlight">178</i>&nbsp;        return buffer;</b>
+<i class="no-highlight">179</i>&nbsp;    }
+<i class="no-highlight">180</i>&nbsp;
+<i class="no-highlight">181</i>&nbsp;    /**
+<i class="no-highlight">182</i>&nbsp;     * The LWL or readLatch must be held.
+<i class="no-highlight">183</i>&nbsp;     *
+<i class="no-highlight">184</i>&nbsp;     * @return capacity in bytes
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    int getCapacity() {
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        return buffer.capacity();</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /*
+<i class="no-highlight">191</i>&nbsp;     * Read support
+<i class="no-highlight">192</i>&nbsp;     */
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;    /**
+<i class="no-highlight">195</i>&nbsp;     * Support for reading out of a still-in-memory log.  Can be used to
+<i class="no-highlight">196</i>&nbsp;     * determine if a log entry with a given LSN is contained in this buffer,
+<i class="no-highlight">197</i>&nbsp;     * or whether an arbitrary LSN location is present in the buffer.
+<i class="no-highlight">198</i>&nbsp;     *
+<i class="no-highlight">199</i>&nbsp;     * No latches need be held. The buffer is latched for read if true is
+<i class="no-highlight">200</i>&nbsp;     * returned.
+<i class="no-highlight">201</i>&nbsp;     *
+<i class="no-highlight">202</i>&nbsp;     * This method must wait until the buffer&#39;s pin count goes to zero. When
+<i class="no-highlight">203</i>&nbsp;     * writing is active and this is the currentWriteBuffer, it may have to
+<i class="no-highlight">204</i>&nbsp;     * wait until the buffer is full.
+<i class="no-highlight">205</i>&nbsp;     *
+<i class="no-highlight">206</i>&nbsp;     * @return true if this buffer holds the data at this LSN location. If true
+<i class="no-highlight">207</i>&nbsp;     * is returned, the buffer will be latched for read. Returns false if LSN
+<i class="no-highlight">208</i>&nbsp;     * is not here, and releases the read latch.
+<i class="no-highlight">209</i>&nbsp;     */
+<i class="no-highlight">210</i>&nbsp;    boolean containsLsn(long lsn) {
+<b class="fc"><i class="no-highlight">211</i>&nbsp;        assert lsn != DbLsn.NULL_LSN;</b>
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;        /*
+<i class="no-highlight">214</i>&nbsp;         * Latch before we look at the LSNs. We do not have to wait
+<i class="no-highlight">215</i>&nbsp;         * for zero to check the LSN field but need to have the count
+<i class="no-highlight">216</i>&nbsp;         * zero for a reader to read the buffer.
+<i class="no-highlight">217</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">218</i>&nbsp;        waitForZeroAndLatch();</b>
+<b class="fc"><i class="no-highlight">219</i>&nbsp;        boolean found = false;</b>
+<i class="no-highlight">220</i>&nbsp;
+<b class="fc"><i class="no-highlight">221</i>&nbsp;        if ((firstLsn != DbLsn.NULL_LSN) &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">222</i>&nbsp;            (DbLsn.getFileNumber(firstLsn) == DbLsn.getFileNumber(lsn))) {</b>
+<i class="no-highlight">223</i>&nbsp;
+<b class="fc"><i class="no-highlight">224</i>&nbsp;            final long fileOffset = DbLsn.getFileOffset(lsn);</b>
+<i class="no-highlight">225</i>&nbsp;            final int contentSize;
+<b class="fc"><i class="no-highlight">226</i>&nbsp;            if (buffer.position() == 0) {</b>
+<i class="no-highlight">227</i>&nbsp;                /* Buffer was flipped for reading. */
+<b class="nc"><i class="no-highlight">228</i>&nbsp;                contentSize = buffer.limit();</b>
+<i class="no-highlight">229</i>&nbsp;            } else {
+<i class="no-highlight">230</i>&nbsp;                /* Buffer is still being written into. */
+<b class="fc"><i class="no-highlight">231</i>&nbsp;                contentSize = buffer.position();</b>
+<i class="no-highlight">232</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">233</i>&nbsp;            final long firstLsnOffset = DbLsn.getFileOffset(firstLsn);</b>
+<b class="fc"><i class="no-highlight">234</i>&nbsp;            final long lastContentOffset = firstLsnOffset + contentSize;</b>
+<i class="no-highlight">235</i>&nbsp;
+<b class="fc"><i class="no-highlight">236</i>&nbsp;            if ((firstLsnOffset &lt;= fileOffset) &amp;&amp;</b>
+<i class="no-highlight">237</i>&nbsp;                (lastContentOffset &gt; fileOffset)) {
+<b class="fc"><i class="no-highlight">238</i>&nbsp;                found = true;</b>
+<i class="no-highlight">239</i>&nbsp;            }
+<i class="no-highlight">240</i>&nbsp;        }
+<i class="no-highlight">241</i>&nbsp;
+<b class="fc"><i class="no-highlight">242</i>&nbsp;        if (found) {</b>
+<b class="fc"><i class="no-highlight">243</i>&nbsp;            return true;</b>
+<i class="no-highlight">244</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">245</i>&nbsp;            readLatch.release();</b>
+<b class="fc"><i class="no-highlight">246</i>&nbsp;            return false;</b>
+<i class="no-highlight">247</i>&nbsp;        }
+<i class="no-highlight">248</i>&nbsp;    }
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /**
+<i class="no-highlight">251</i>&nbsp;     * Acquires the readLatch, providing exclusive access to the buffer.
+<i class="no-highlight">252</i>&nbsp;     * When modifying the buffer, both the LWL and buffer latch must be held.
+<i class="no-highlight">253</i>&nbsp;     *
+<i class="no-highlight">254</i>&nbsp;     * Note that containsLsn() acquires the latch for reading.
+<i class="no-highlight">255</i>&nbsp;     *
+<i class="no-highlight">256</i>&nbsp;     * Call release() to release the latch.
+<i class="no-highlight">257</i>&nbsp;     *
+<i class="no-highlight">258</i>&nbsp;     * TODO:
+<i class="no-highlight">259</i>&nbsp;     * It would be possible to use a shared buffer latch to allow concurrent
+<i class="no-highlight">260</i>&nbsp;     * access by multiple readers. The access rules for would then be:
+<i class="no-highlight">261</i>&nbsp;     * - Write access requires holding both the LWL and the buffer latch EX.
+<i class="no-highlight">262</i>&nbsp;     * - Read access requires holding either the LWL or the buffer latch SH.
+<i class="no-highlight">263</i>&nbsp;     * Note that LogBufferPool.bumpCurrent calls latchForWrite, but it may
+<i class="no-highlight">264</i>&nbsp;     * actually only need read access.
+<i class="no-highlight">265</i>&nbsp;     */
+<i class="no-highlight">266</i>&nbsp;    public void latchForWrite()
+<i class="no-highlight">267</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">268</i>&nbsp;
+<b class="fc"><i class="no-highlight">269</i>&nbsp;        readLatch.acquireExclusive();</b>
+<b class="fc"><i class="no-highlight">270</i>&nbsp;    }</b>
+<i class="no-highlight">271</i>&nbsp;
+<i class="no-highlight">272</i>&nbsp;    /*
+<i class="no-highlight">273</i>&nbsp;     * LogSource support
+<i class="no-highlight">274</i>&nbsp;     */
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    /**
+<i class="no-highlight">277</i>&nbsp;     * Releases the readLatch.
+<i class="no-highlight">278</i>&nbsp;     *
+<i class="no-highlight">279</i>&nbsp;     * @see LogSource#release
+<i class="no-highlight">280</i>&nbsp;     */
+<i class="no-highlight">281</i>&nbsp;    public void release() {
+<b class="fc"><i class="no-highlight">282</i>&nbsp;        readLatch.releaseIfOwner();</b>
+<b class="fc"><i class="no-highlight">283</i>&nbsp;    }</b>
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;    boolean getRewriteAllowed() {
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        return rewriteAllowed;</b>
+<i class="no-highlight">287</i>&nbsp;    }
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    void setRewriteAllowed() {
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        rewriteAllowed = true;</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;    }</b>
+<i class="no-highlight">292</i>&nbsp;
+<i class="no-highlight">293</i>&nbsp;    /**
+<i class="no-highlight">294</i>&nbsp;     * Allocate a segment out of the buffer.
+<i class="no-highlight">295</i>&nbsp;     *
+<i class="no-highlight">296</i>&nbsp;     * The LWL and readLatch must be held.
+<i class="no-highlight">297</i>&nbsp;     *
+<i class="no-highlight">298</i>&nbsp;     * @param size of buffer to allocate
+<i class="no-highlight">299</i>&nbsp;     *
+<i class="no-highlight">300</i>&nbsp;     * @return null if not enough room, otherwise a
+<i class="no-highlight">301</i>&nbsp;     *         LogBufferSegment for the data.
+<i class="no-highlight">302</i>&nbsp;     */
+<i class="no-highlight">303</i>&nbsp;    public LogBufferSegment allocate(int size) {
+<b class="fc"><i class="no-highlight">304</i>&nbsp;        assert readLatch.isExclusiveOwner();</b>
+<i class="no-highlight">305</i>&nbsp;
+<b class="fc"><i class="no-highlight">306</i>&nbsp;        if (hasRoom(size)) {</b>
+<b class="fc"><i class="no-highlight">307</i>&nbsp;            ByteBuffer buf =</b>
+<b class="fc"><i class="no-highlight">308</i>&nbsp;                ByteBuffer.wrap(data, buffer.position(), size);</b>
+<b class="fc"><i class="no-highlight">309</i>&nbsp;            buffer.position(buffer.position() + size);</b>
+<b class="fc"><i class="no-highlight">310</i>&nbsp;            writePinCount.incrementAndGet();</b>
+<b class="fc"><i class="no-highlight">311</i>&nbsp;            return new LogBufferSegment(this, buf);</b>
+<i class="no-highlight">312</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">313</i>&nbsp;        return null;</b>
+<i class="no-highlight">314</i>&nbsp;    }
+<i class="no-highlight">315</i>&nbsp;
+<i class="no-highlight">316</i>&nbsp;    /**
+<i class="no-highlight">317</i>&nbsp;     * Called with the buffer not latched.
+<i class="no-highlight">318</i>&nbsp;     */
+<i class="no-highlight">319</i>&nbsp;    public void free() {
+<b class="fc"><i class="no-highlight">320</i>&nbsp;        writePinCount.decrementAndGet();</b>
+<b class="fc"><i class="no-highlight">321</i>&nbsp;    }</b>
+<i class="no-highlight">322</i>&nbsp;
+<i class="no-highlight">323</i>&nbsp;    /**
+<i class="no-highlight">324</i>&nbsp;     * Acquire the buffer latched and with the buffer pin count equal to zero.
+<i class="no-highlight">325</i>&nbsp;     */
+<i class="no-highlight">326</i>&nbsp;    public void waitForZeroAndLatch() {
+<b class="fc"><i class="no-highlight">327</i>&nbsp;        boolean done = false;</b>
+<b class="fc"><i class="no-highlight">328</i>&nbsp;        while (!done) {</b>
+<b class="fc"><i class="no-highlight">329</i>&nbsp;            if (writePinCount.get() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;                LockSupport.parkNanos(this, 100);</b>
+<i class="no-highlight">331</i>&nbsp;                /*
+<i class="no-highlight">332</i>&nbsp;                 * This may be overkill to check if a thread was
+<i class="no-highlight">333</i>&nbsp;                 * interrupted. There should be no interrupt of the
+<i class="no-highlight">334</i>&nbsp;                 * thread pinning and unpinning the buffer.
+<i class="no-highlight">335</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">336</i>&nbsp;                if (Thread.interrupted()) {</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;                    throw new ThreadInterruptedException(</b>
+<i class="no-highlight">338</i>&nbsp;                        env, &quot;Interrupt during read operation&quot;);
+<i class="no-highlight">339</i>&nbsp;                }
+<i class="no-highlight">340</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">341</i>&nbsp;                readLatch.acquireExclusive();</b>
+<b class="fc"><i class="no-highlight">342</i>&nbsp;                if (writePinCount.get() == 0) {</b>
+<b class="fc"><i class="no-highlight">343</i>&nbsp;                   done = true;</b>
+<i class="no-highlight">344</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">345</i>&nbsp;                    readLatch.release();</b>
+<i class="no-highlight">346</i>&nbsp;                }
+<i class="no-highlight">347</i>&nbsp;            }
+<i class="no-highlight">348</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">349</i>&nbsp;    }</b>
+<i class="no-highlight">350</i>&nbsp;
+<i class="no-highlight">351</i>&nbsp;    /**
+<i class="no-highlight">352</i>&nbsp;     * Make a copy of this buffer (doesn&#39;t copy data, only buffer state)
+<i class="no-highlight">353</i>&nbsp;     * and position it to read the requested data.
+<i class="no-highlight">354</i>&nbsp;     *
+<i class="no-highlight">355</i>&nbsp;     * The LWL or readLatch must be held.
+<i class="no-highlight">356</i>&nbsp;     *
+<i class="no-highlight">357</i>&nbsp;     * @see LogSource#getBytes
+<i class="no-highlight">358</i>&nbsp;     */
+<i class="no-highlight">359</i>&nbsp;    public ByteBuffer getBytes(long fileOffset) {
+<b class="fc"><i class="no-highlight">360</i>&nbsp;        ByteBuffer copy = buffer.duplicate();</b>
+<b class="fc"><i class="no-highlight">361</i>&nbsp;        copy.position((int) (fileOffset - DbLsn.getFileOffset(firstLsn)));</b>
+<b class="fc"><i class="no-highlight">362</i>&nbsp;        return copy;</b>
+<i class="no-highlight">363</i>&nbsp;    }
+<i class="no-highlight">364</i>&nbsp;
+<i class="no-highlight">365</i>&nbsp;    /**
+<i class="no-highlight">366</i>&nbsp;     * Same as getBytes(long fileOffset) since buffer should always hold a
+<i class="no-highlight">367</i>&nbsp;     * whole entry.
+<i class="no-highlight">368</i>&nbsp;     *
+<i class="no-highlight">369</i>&nbsp;     * The LWL or readLatch must be held.
+<i class="no-highlight">370</i>&nbsp;     *
+<i class="no-highlight">371</i>&nbsp;     * @see LogSource#getBytes
+<i class="no-highlight">372</i>&nbsp;     */
+<i class="no-highlight">373</i>&nbsp;    public ByteBuffer getBytes(long fileOffset, int numBytes) {
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        return getBytes(fileOffset);</b>
+<i class="no-highlight">375</i>&nbsp;    }
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;    /**
+<i class="no-highlight">378</i>&nbsp;     * Entries in write buffers are always the current version.
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    public int getLogVersion() {
+<b class="fc"><i class="no-highlight">381</i>&nbsp;        return LogEntryType.LOG_VERSION;</b>
+<i class="no-highlight">382</i>&nbsp;    }
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;    @Override
+<i class="no-highlight">385</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">386</i>&nbsp;        return</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;            &quot;[LogBuffer firstLsn=&quot; + DbLsn.getNoFormatString(firstLsn) + &quot;]&quot;;</b>
+<i class="no-highlight">388</i>&nbsp;    }
+<i class="no-highlight">389</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

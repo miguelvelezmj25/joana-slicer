@@ -1,0 +1,626 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > JoinCursor</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: JoinCursor (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">JoinCursor</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/96)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">JoinCursor$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/12)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/108)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.Closeable;
+<i class="no-highlight">17</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">18</i>&nbsp;import java.util.Comparator;
+<i class="no-highlight">19</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.dbi.GetMode;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.SearchMode;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;/**
+<i class="no-highlight">26</i>&nbsp; * A specialized join cursor for use in performing equality or natural joins on
+<i class="no-highlight">27</i>&nbsp; * secondary indices.
+<i class="no-highlight">28</i>&nbsp; *
+<i class="no-highlight">29</i>&nbsp; * &lt;p&gt;A join cursor is returned when calling {@link Database#join
+<i class="no-highlight">30</i>&nbsp; * Database.join}.&lt;/p&gt;
+<i class="no-highlight">31</i>&nbsp; *
+<i class="no-highlight">32</i>&nbsp; * &lt;p&gt;To open a join cursor using two secondary cursors:&lt;/p&gt;
+<i class="no-highlight">33</i>&nbsp; *
+<i class="no-highlight">34</i>&nbsp; * &lt;pre&gt;
+<i class="no-highlight">35</i>&nbsp; *     Transaction txn = ...
+<i class="no-highlight">36</i>&nbsp; *     Database primaryDb = ...
+<i class="no-highlight">37</i>&nbsp; *     SecondaryDatabase secondaryDb1 = ...
+<i class="no-highlight">38</i>&nbsp; *     SecondaryDatabase secondaryDb2 = ...
+<i class="no-highlight">39</i>&nbsp; *     &lt;p&gt;
+<i class="no-highlight">40</i>&nbsp; *     SecondaryCursor cursor1 = null;
+<i class="no-highlight">41</i>&nbsp; *     SecondaryCursor cursor2 = null;
+<i class="no-highlight">42</i>&nbsp; *     JoinCursor joinCursor = null;
+<i class="no-highlight">43</i>&nbsp; *     try {
+<i class="no-highlight">44</i>&nbsp; *         DatabaseEntry key = new DatabaseEntry();
+<i class="no-highlight">45</i>&nbsp; *         DatabaseEntry data = new DatabaseEntry();
+<i class="no-highlight">46</i>&nbsp; *         &lt;p&gt;
+<i class="no-highlight">47</i>&nbsp; *         cursor1 = secondaryDb1.openSecondaryCursor(txn, null);
+<i class="no-highlight">48</i>&nbsp; *         cursor2 = secondaryDb2.openSecondaryCursor(txn, null);
+<i class="no-highlight">49</i>&nbsp; *         &lt;p&gt;
+<i class="no-highlight">50</i>&nbsp; *         key.setData(...); // initialize key for secondary index 1
+<i class="no-highlight">51</i>&nbsp; *         OperationStatus status1 =
+<i class="no-highlight">52</i>&nbsp; *         cursor1.getSearchKey(key, data, LockMode.DEFAULT);
+<i class="no-highlight">53</i>&nbsp; *         key.setData(...); // initialize key for secondary index 2
+<i class="no-highlight">54</i>&nbsp; *         OperationStatus status2 =
+<i class="no-highlight">55</i>&nbsp; *         cursor2.getSearchKey(key, data, LockMode.DEFAULT);
+<i class="no-highlight">56</i>&nbsp; *         &lt;p&gt;
+<i class="no-highlight">57</i>&nbsp; *         if (status1 == OperationStatus.SUCCESS &amp;amp;&amp;amp;
+<i class="no-highlight">58</i>&nbsp; *                 status2 == OperationStatus.SUCCESS) {
+<i class="no-highlight">59</i>&nbsp; *             &lt;p&gt;
+<i class="no-highlight">60</i>&nbsp; *             SecondaryCursor[] cursors = {cursor1, cursor2};
+<i class="no-highlight">61</i>&nbsp; *             joinCursor = primaryDb.join(cursors, null);
+<i class="no-highlight">62</i>&nbsp; *             &lt;p&gt;
+<i class="no-highlight">63</i>&nbsp; *             while (true) {
+<i class="no-highlight">64</i>&nbsp; *                 OperationStatus joinStatus = joinCursor.getNext(key, data,
+<i class="no-highlight">65</i>&nbsp; *                     LockMode.DEFAULT);
+<i class="no-highlight">66</i>&nbsp; *                 if (joinStatus == OperationStatus.SUCCESS) {
+<i class="no-highlight">67</i>&nbsp; *                      // Do something with the key and data.
+<i class="no-highlight">68</i>&nbsp; *                 } else {
+<i class="no-highlight">69</i>&nbsp; *                     break;
+<i class="no-highlight">70</i>&nbsp; *                 }
+<i class="no-highlight">71</i>&nbsp; *             }
+<i class="no-highlight">72</i>&nbsp; *         }
+<i class="no-highlight">73</i>&nbsp; *     } finally {
+<i class="no-highlight">74</i>&nbsp; *         if (cursor1 != null) {
+<i class="no-highlight">75</i>&nbsp; *             cursor1.close();
+<i class="no-highlight">76</i>&nbsp; *         }
+<i class="no-highlight">77</i>&nbsp; *         if (cursor2 != null) {
+<i class="no-highlight">78</i>&nbsp; *             cursor2.close();
+<i class="no-highlight">79</i>&nbsp; *         }
+<i class="no-highlight">80</i>&nbsp; *         if (joinCursor != null) {
+<i class="no-highlight">81</i>&nbsp; *             joinCursor.close();
+<i class="no-highlight">82</i>&nbsp; *         }
+<i class="no-highlight">83</i>&nbsp; *     }
+<i class="no-highlight">84</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">85</i>&nbsp; *
+<i class="no-highlight">86</i>&nbsp; * &lt;p&gt;The join algorithm is described here so that its cost can be estimated and
+<i class="no-highlight">87</i>&nbsp; * compared to other approaches for performing a query.  Say that N cursors are
+<i class="no-highlight">88</i>&nbsp; * provided for the join operation. According to the order they appear in the
+<i class="no-highlight">89</i>&nbsp; * array the cursors are labeled C(1) through C(n), and the keys at each cursor
+<i class="no-highlight">90</i>&nbsp; * position are labeled K(1) through K(n).&lt;/p&gt;
+<i class="no-highlight">91</i>&nbsp; *
+<i class="no-highlight">92</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">93</i>&nbsp; *
+<i class="no-highlight">94</i>&nbsp; * &lt;li&gt;Using C(1), the join algorithm iterates sequentially through all records
+<i class="no-highlight">95</i>&nbsp; * having K(1).  This iteration is equivalent to a {@link Cursor#getNextDup
+<i class="no-highlight">96</i>&nbsp; * Cursor.getNextDup} operation on the secondary index.  The primary key of a
+<i class="no-highlight">97</i>&nbsp; * candidate record is determined in this manner.  The primary record itself is
+<i class="no-highlight">98</i>&nbsp; * not retrieved and the primary database is not accessed.&lt;/li&gt;
+<i class="no-highlight">99</i>&nbsp; *
+<i class="no-highlight">100</i>&nbsp; * &lt;li&gt;For each candidate primary key found in step 1, a Btree lookup is
+<i class="no-highlight">101</i>&nbsp; * performed using C(2) through C(n), in that order.  The Btree lookups are
+<i class="no-highlight">102</i>&nbsp; * exact searches to determine whether the candidate record also contains
+<i class="no-highlight">103</i>&nbsp; * secondary keys K(2) through K(n).  The lookups are equivalent to a {@link
+<i class="no-highlight">104</i>&nbsp; * Cursor#getSearchBoth Cursor.getSearchBoth} operation on the secondary index.
+<i class="no-highlight">105</i>&nbsp; * The primary record itself is not retrieved and the primary database is not
+<i class="no-highlight">106</i>&nbsp; * accessed.&lt;/li&gt;
+<i class="no-highlight">107</i>&nbsp; *
+<i class="no-highlight">108</i>&nbsp; * &lt;li&gt;If any lookup in step 2 fails, the algorithm advances to the next
+<i class="no-highlight">109</i>&nbsp; * candidate record using C(1).  Lookups are performed in the order of the
+<i class="no-highlight">110</i>&nbsp; * cursor array, and the algorithm proceeds to the next C(1) candidate key as
+<i class="no-highlight">111</i>&nbsp; * soon as a single lookup fails.&lt;/li&gt;
+<i class="no-highlight">112</i>&nbsp; *
+<i class="no-highlight">113</i>&nbsp; * &lt;li&gt;If all lookups in step 2 succeed, then the matching key and/or data is
+<i class="no-highlight">114</i>&nbsp; * returned by the {@code getNext} method.  If the {@link
+<i class="no-highlight">115</i>&nbsp; * #getNext(DatabaseEntry,DatabaseEntry,LockMode)} method signature is used,
+<i class="no-highlight">116</i>&nbsp; * then the primary database is read to obtain the record data, as if {@link
+<i class="no-highlight">117</i>&nbsp; * Cursor#getSearchKey Cursor.getSearchKey} were called for the primary
+<i class="no-highlight">118</i>&nbsp; * database.  If the {@link #getNext(DatabaseEntry,LockMode)} method signature
+<i class="no-highlight">119</i>&nbsp; * is used, then only the primary key is returned and the primary database is
+<i class="no-highlight">120</i>&nbsp; * not accessed.&lt;/li&gt;
+<i class="no-highlight">121</i>&nbsp; *
+<i class="no-highlight">122</i>&nbsp; * &lt;li&gt;The algorithm ends when C(1) has no more candidate records with K(1),
+<i class="no-highlight">123</i>&nbsp; * and the {@code getNext} method will then return {@link
+<i class="no-highlight">124</i>&nbsp; * com.sleepycat.je.OperationStatus#NOTFOUND OperationStatus.NOTFOUND}.&lt;/li&gt;
+<i class="no-highlight">125</i>&nbsp; *
+<i class="no-highlight">126</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">127</i>&nbsp; */
+<b class="nc"><i class="no-highlight">128</i>&nbsp;public class JoinCursor implements ForwardCursor, Closeable {</b>
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    private JoinConfig config;
+<i class="no-highlight">131</i>&nbsp;    private Database priDb;
+<i class="no-highlight">132</i>&nbsp;    private Cursor[] secCursors;
+<i class="no-highlight">133</i>&nbsp;    private DatabaseEntry[] cursorScratchEntries;
+<i class="no-highlight">134</i>&nbsp;    private DatabaseEntry scratchEntry;
+<i class="no-highlight">135</i>&nbsp;    private DatabaseEntry firstSecKey;
+<i class="no-highlight">136</i>&nbsp;    private boolean[] cursorFetchedFirst;
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /**
+<i class="no-highlight">139</i>&nbsp;     * Creates a join cursor without parameter checking.
+<i class="no-highlight">140</i>&nbsp;     */
+<i class="no-highlight">141</i>&nbsp;    JoinCursor(final Database primaryDb,
+<i class="no-highlight">142</i>&nbsp;               final Cursor[] cursors,
+<i class="no-highlight">143</i>&nbsp;               final JoinConfig configParam)
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        priDb = primaryDb;</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        config = (configParam != null) ? configParam.clone()</b>
+<i class="no-highlight">148</i>&nbsp;                                       : JoinConfig.DEFAULT;
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        scratchEntry = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        firstSecKey = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        cursorScratchEntries = new DatabaseEntry[cursors.length];</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        for (int i = 0; i &lt; cursors.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;            cursorScratchEntries[i] = new DatabaseEntry();</b>
+<i class="no-highlight">154</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        cursorFetchedFirst = new boolean[cursors.length];</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        Cursor[] sortedCursors = new Cursor[cursors.length];</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        System.arraycopy(cursors, 0, sortedCursors, 0, cursors.length);</b>
+<i class="no-highlight">158</i>&nbsp;
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        if (!config.getNoSort()) {</b>
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;            /*
+<i class="no-highlight">162</i>&nbsp;             * Sort ascending by duplicate count.  Collect counts before
+<i class="no-highlight">163</i>&nbsp;             * sorting so that countEstimate is called only once per cursor.
+<i class="no-highlight">164</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">165</i>&nbsp;            final long[] counts = new long[cursors.length];</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;            for (int i = 0; i &lt; cursors.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                counts[i] = cursors[i].countEstimateInternal();</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;                assert counts[i] &gt;= 0;</b>
+<i class="no-highlight">169</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">170</i>&nbsp;            Arrays.sort(sortedCursors, new Comparator&lt;Cursor&gt;() {</b>
+<i class="no-highlight">171</i>&nbsp;                public int compare(Cursor o1, Cursor o2) {
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                    long count1 = -1;</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;                    long count2 = -1;</b>
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;                    /*
+<i class="no-highlight">176</i>&nbsp;                     * Scan for objects in cursors not sortedCursors since
+<i class="no-highlight">177</i>&nbsp;                     * sortedCursors is being sorted in place.
+<i class="no-highlight">178</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                    for (int i = 0; i &lt; cursors.length &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;                                    (count1 &lt; 0 || count2 &lt; 0); i += 1) {</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;                        if (cursors[i] == o1) {</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;                            count1 = counts[i];</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;                        } else if (cursors[i] == o2) {</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                            count2 = counts[i];</b>
+<i class="no-highlight">185</i>&nbsp;                        }
+<i class="no-highlight">186</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                    assert count1 &gt;= 0 &amp;&amp; count2 &gt;= 0;</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                    long cmp = count1 - count2;</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;                    return (cmp &lt; 0) ? (-1) : ((cmp &gt; 0) ? 1 : 0);</b>
+<i class="no-highlight">190</i>&nbsp;                }
+<i class="no-highlight">191</i>&nbsp;            });
+<i class="no-highlight">192</i>&nbsp;        }
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;        /*
+<i class="no-highlight">195</i>&nbsp;         * Dup cursors last.  If an error occurs before the constructor is
+<i class="no-highlight">196</i>&nbsp;         * complete, close them and ignore exceptions during close.
+<i class="no-highlight">197</i>&nbsp;         */
+<i class="no-highlight">198</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            secCursors = new Cursor[cursors.length];</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            for (int i = 0; i &lt; cursors.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                secCursors[i] = sortedCursors[i].dup(true);</b>
+<i class="no-highlight">202</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">203</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            close(e); /* will throw e */</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        }</b>
+<i class="no-highlight">206</i>&nbsp;    }
+<i class="no-highlight">207</i>&nbsp;
+<i class="no-highlight">208</i>&nbsp;    /**
+<i class="no-highlight">209</i>&nbsp;     * Closes the cursors that have been opened by this join cursor.
+<i class="no-highlight">210</i>&nbsp;     *
+<i class="no-highlight">211</i>&nbsp;     * &lt;p&gt;The cursors passed to {@link Database#join Database.join} are not
+<i class="no-highlight">212</i>&nbsp;     * closed by this method, and should be closed by the caller.&lt;/p&gt;
+<i class="no-highlight">213</i>&nbsp;     *
+<i class="no-highlight">214</i>&nbsp;     * &lt;p&gt;WARNING: To guard against memory leaks, the application should
+<i class="no-highlight">215</i>&nbsp;     * discard all references to the closed handle.  While BDB makes an effort
+<i class="no-highlight">216</i>&nbsp;     * to discard references from closed objects to the allocated memory for an
+<i class="no-highlight">217</i>&nbsp;     * environment, this behavior is not guaranteed.  The safe course of action
+<i class="no-highlight">218</i>&nbsp;     * for an application is to discard all references to closed BDB
+<i class="no-highlight">219</i>&nbsp;     * objects.&lt;/p&gt;
+<i class="no-highlight">220</i>&nbsp;     *
+<i class="no-highlight">221</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">222</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">223</i>&nbsp;     */
+<i class="no-highlight">224</i>&nbsp;    public void close()
+<i class="no-highlight">225</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        if (priDb == null) {</b>
+<i class="no-highlight">228</i>&nbsp;            return;
+<i class="no-highlight">229</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        close(null);</b>
+<i class="no-highlight">231</i>&nbsp;    }
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;    /**
+<i class="no-highlight">234</i>&nbsp;     * Close all cursors we own, throwing only the first exception that occurs.
+<i class="no-highlight">235</i>&nbsp;     *
+<i class="no-highlight">236</i>&nbsp;     * @param firstException an exception that has already occured, or null.
+<i class="no-highlight">237</i>&nbsp;     */
+<i class="no-highlight">238</i>&nbsp;    private void close(DatabaseException firstException)
+<i class="no-highlight">239</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">240</i>&nbsp;
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        priDb = null;</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        for (int i = 0; i &lt; secCursors.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            if (secCursors[i] != null) {</b>
+<i class="no-highlight">244</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                    secCursors[i].close();</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;                } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;                    if (firstException == null) {</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;                        firstException = e;</b>
+<i class="no-highlight">249</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">250</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                secCursors[i] = null;</b>
+<i class="no-highlight">252</i>&nbsp;            }
+<i class="no-highlight">253</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        if (firstException != null) {</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            throw firstException;</b>
+<i class="no-highlight">256</i>&nbsp;        }
+<i class="no-highlight">257</i>&nbsp;    }
+<i class="no-highlight">258</i>&nbsp;
+<i class="no-highlight">259</i>&nbsp;    /**
+<i class="no-highlight">260</i>&nbsp;     * For unit testing.
+<i class="no-highlight">261</i>&nbsp;     */
+<i class="no-highlight">262</i>&nbsp;    Cursor[] getSortedCursors() {
+<b class="nc"><i class="no-highlight">263</i>&nbsp;        return secCursors;</b>
+<i class="no-highlight">264</i>&nbsp;    }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;    /**
+<i class="no-highlight">267</i>&nbsp;     * Returns the primary database handle associated with this cursor.
+<i class="no-highlight">268</i>&nbsp;     *
+<i class="no-highlight">269</i>&nbsp;     * @return the primary database handle associated with this cursor.
+<i class="no-highlight">270</i>&nbsp;     */
+<i class="no-highlight">271</i>&nbsp;    public Database getDatabase() {
+<i class="no-highlight">272</i>&nbsp;
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        return priDb;</b>
+<i class="no-highlight">274</i>&nbsp;    }
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    /**
+<i class="no-highlight">277</i>&nbsp;     * Returns this object&#39;s configuration.
+<i class="no-highlight">278</i>&nbsp;     *
+<i class="no-highlight">279</i>&nbsp;     * @return this object&#39;s configuration.
+<i class="no-highlight">280</i>&nbsp;     */
+<i class="no-highlight">281</i>&nbsp;    public JoinConfig getConfig() {
+<i class="no-highlight">282</i>&nbsp;
+<b class="nc"><i class="no-highlight">283</i>&nbsp;        return config.clone();</b>
+<i class="no-highlight">284</i>&nbsp;    }
+<i class="no-highlight">285</i>&nbsp;
+<i class="no-highlight">286</i>&nbsp;    /**
+<i class="no-highlight">287</i>&nbsp;     * Returns the next primary key and data resulting from the join operation.
+<i class="no-highlight">288</i>&nbsp;     *
+<i class="no-highlight">289</i>&nbsp;     * @param getType is {@link Get#NEXT}.
+<i class="no-highlight">290</i>&nbsp;     */
+<i class="no-highlight">291</i>&nbsp;    @Override
+<i class="no-highlight">292</i>&nbsp;    public OperationResult get(
+<i class="no-highlight">293</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">294</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">295</i>&nbsp;        final Get getType,
+<i class="no-highlight">296</i>&nbsp;        final ReadOptions options) {
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        if (getType != Get.NEXT) {</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">300</i>&nbsp;                &quot;Get type not allowed: &quot; + getType);
+<i class="no-highlight">301</i>&nbsp;        }
+<i class="no-highlight">302</i>&nbsp;
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        final LockMode lockMode =</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            (options != null) ? options.getLockMode() : null;</b>
+<i class="no-highlight">305</i>&nbsp;
+<b class="nc"><i class="no-highlight">306</i>&nbsp;        final CacheMode cacheMode =</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            (options != null) ? options.getCacheMode() : null;</b>
+<i class="no-highlight">308</i>&nbsp;
+<i class="no-highlight">309</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">310</i>&nbsp;            secCursors[0].checkEnv();</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;            secCursors[0].trace(Level.FINEST, getType.toString(), lockMode);</b>
+<i class="no-highlight">312</i>&nbsp;
+<b class="nc"><i class="no-highlight">313</i>&nbsp;            return retrieveNext(key, data, lockMode, cacheMode);</b>
+<i class="no-highlight">314</i>&nbsp;
+<b class="nc"><i class="no-highlight">315</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            priDb.getEnv().invalidate(E);</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            throw E;</b>
+<i class="no-highlight">318</i>&nbsp;        }
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    /**
+<i class="no-highlight">322</i>&nbsp;     * This operation is not allowed on a join cursor. {@link
+<i class="no-highlight">323</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">324</i>&nbsp;     */
+<i class="no-highlight">325</i>&nbsp;    @Override
+<i class="no-highlight">326</i>&nbsp;    public OperationStatus getCurrent(final DatabaseEntry key,
+<i class="no-highlight">327</i>&nbsp;                                      final DatabaseEntry data,
+<i class="no-highlight">328</i>&nbsp;                                      final LockMode lockMode) {
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        throw new UnsupportedOperationException();</b>
+<i class="no-highlight">330</i>&nbsp;    }
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;    /**
+<i class="no-highlight">333</i>&nbsp;     * Returns the next primary key resulting from the join operation.
+<i class="no-highlight">334</i>&nbsp;     *
+<i class="no-highlight">335</i>&nbsp;     * &lt;p&gt;An entry is returned by the join cursor for each primary key/data
+<i class="no-highlight">336</i>&nbsp;     * pair having all secondary key values that were specified using the array
+<i class="no-highlight">337</i>&nbsp;     * of secondary cursors passed to {@link Database#join Database.join}.&lt;/p&gt;
+<i class="no-highlight">338</i>&nbsp;     *
+<i class="no-highlight">339</i>&nbsp;     * @param key the key returned as
+<i class="no-highlight">340</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;.
+<i class="no-highlight">341</i>&nbsp;     *
+<i class="no-highlight">342</i>&nbsp;     * @param lockMode the locking attributes; if null, default attributes are
+<i class="no-highlight">343</i>&nbsp;     * used. {@link LockMode#READ_COMMITTED} is not allowed.
+<i class="no-highlight">344</i>&nbsp;     *
+<i class="no-highlight">345</i>&nbsp;     * @return {@link com.sleepycat.je.OperationStatus#NOTFOUND
+<i class="no-highlight">346</i>&nbsp;     * OperationStatus.NOTFOUND} if no matching key/data pair is found;
+<i class="no-highlight">347</i>&nbsp;     * otherwise, {@link com.sleepycat.je.OperationStatus#SUCCESS
+<i class="no-highlight">348</i>&nbsp;     * OperationStatus.SUCCESS}.
+<i class="no-highlight">349</i>&nbsp;     *
+<i class="no-highlight">350</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">351</i>&nbsp;     * href=&quot;OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">352</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">353</i>&nbsp;     *
+<i class="no-highlight">354</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">355</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">356</i>&nbsp;     *
+<i class="no-highlight">357</i>&nbsp;     * @throws IllegalStateException if the cursor or database has been closed,
+<i class="no-highlight">358</i>&nbsp;     * or the non-transactional cursor was created in a different thread.
+<i class="no-highlight">359</i>&nbsp;     *
+<i class="no-highlight">360</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">361</i>&nbsp;     */
+<i class="no-highlight">362</i>&nbsp;    public OperationStatus getNext(final DatabaseEntry key,
+<i class="no-highlight">363</i>&nbsp;                                   final LockMode lockMode) {
+<b class="nc"><i class="no-highlight">364</i>&nbsp;        return getNext(key, null, lockMode);</b>
+<i class="no-highlight">365</i>&nbsp;    }
+<i class="no-highlight">366</i>&nbsp;
+<i class="no-highlight">367</i>&nbsp;    /**
+<i class="no-highlight">368</i>&nbsp;     * Returns the next primary key and data resulting from the join operation.
+<i class="no-highlight">369</i>&nbsp;     *
+<i class="no-highlight">370</i>&nbsp;     * &lt;p&gt;An entry is returned by the join cursor for each primary key/data
+<i class="no-highlight">371</i>&nbsp;     * pair having all secondary key values that were specified using the array
+<i class="no-highlight">372</i>&nbsp;     * of secondary cursors passed to {@link Database#join Database.join}.&lt;/p&gt;
+<i class="no-highlight">373</i>&nbsp;     */
+<i class="no-highlight">374</i>&nbsp;    public OperationStatus getNext(final DatabaseEntry key,
+<i class="no-highlight">375</i>&nbsp;                                   final DatabaseEntry data,
+<i class="no-highlight">376</i>&nbsp;                                   LockMode lockMode) {
+<i class="no-highlight">377</i>&nbsp;
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        final OperationResult result = get(</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;            key, data, Get.NEXT, DbInternal.getReadOptions(lockMode));</b>
+<i class="no-highlight">380</i>&nbsp;
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        return result == null ?</b>
+<i class="no-highlight">382</i>&nbsp;            OperationStatus.NOTFOUND : OperationStatus.SUCCESS;
+<i class="no-highlight">383</i>&nbsp;    }
+<i class="no-highlight">384</i>&nbsp;
+<i class="no-highlight">385</i>&nbsp;    /**
+<i class="no-highlight">386</i>&nbsp;     * Internal version of getNext(), with an optional data param.
+<i class="no-highlight">387</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">388</i>&nbsp;     * Since duplicates are always sorted and duplicate-duplicates are not
+<i class="no-highlight">389</i>&nbsp;     * allowed, a natural join can be implemented by simply traversing through
+<i class="no-highlight">390</i>&nbsp;     * the duplicates of the first cursor to find candidate keys, and then
+<i class="no-highlight">391</i>&nbsp;     * looking for each candidate key in the duplicate set of the other
+<i class="no-highlight">392</i>&nbsp;     * cursors, without ever reseting a cursor to the beginning of the
+<i class="no-highlight">393</i>&nbsp;     * duplicate set.
+<i class="no-highlight">394</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">395</i>&nbsp;     * This only works when the same duplicate comparison method is used for
+<i class="no-highlight">396</i>&nbsp;     * all cursors.  We don&#39;t check for that, we just assume the user won&#39;t
+<i class="no-highlight">397</i>&nbsp;     * violate that rule.
+<i class="no-highlight">398</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">399</i>&nbsp;     * A future optimization would be to add a SearchMode.BOTH_DUPS operation
+<i class="no-highlight">400</i>&nbsp;     * and use it instead of using SearchMode.BOTH.  This would be the
+<i class="no-highlight">401</i>&nbsp;     * equivalent of the undocumented DB_GET_BOTHC operation used by DB core&#39;s
+<i class="no-highlight">402</i>&nbsp;     * join() implementation.
+<i class="no-highlight">403</i>&nbsp;     */
+<i class="no-highlight">404</i>&nbsp;    private OperationResult retrieveNext(final DatabaseEntry keyParam,
+<i class="no-highlight">405</i>&nbsp;                                         final DatabaseEntry dataParam,
+<i class="no-highlight">406</i>&nbsp;                                         final LockMode lockMode,
+<i class="no-highlight">407</i>&nbsp;                                         final CacheMode cacheMode) {
+<b class="nc"><i class="no-highlight">408</i>&nbsp;        boolean readUncommitted =</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            secCursors[0].isReadUncommittedMode(lockMode);</b>
+<i class="no-highlight">410</i>&nbsp;
+<i class="no-highlight">411</i>&nbsp;        outerLoop: while (true) {
+<i class="no-highlight">412</i>&nbsp;
+<i class="no-highlight">413</i>&nbsp;            /* Process the first cursor to get a candidate key. */
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            Cursor secCursor = secCursors[0];</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;            DatabaseEntry candidateKey = cursorScratchEntries[0];</b>
+<i class="no-highlight">416</i>&nbsp;            OperationResult result;
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            if (!cursorFetchedFirst[0]) {</b>
+<i class="no-highlight">418</i>&nbsp;                /* Get first duplicate at initial cursor position. */
+<b class="nc"><i class="no-highlight">419</i>&nbsp;                result = secCursor.getCurrentInternal(</b>
+<i class="no-highlight">420</i>&nbsp;                    firstSecKey, candidateKey, lockMode, cacheMode);
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                if (readUncommitted &amp;&amp; result == null) {</b>
+<i class="no-highlight">422</i>&nbsp;                    /* Deleted underneath read-uncommitted cursor; skip it. */
+<b class="nc"><i class="no-highlight">423</i>&nbsp;                    cursorFetchedFirst[0] = true;</b>
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                    continue;</b>
+<i class="no-highlight">425</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">426</i>&nbsp;                cursorFetchedFirst[0] = true;</b>
+<i class="no-highlight">427</i>&nbsp;            } else {
+<i class="no-highlight">428</i>&nbsp;                /* Already initialized, move to the next candidate key. */
+<b class="nc"><i class="no-highlight">429</i>&nbsp;                result = secCursor.retrieveNext(</b>
+<i class="no-highlight">430</i>&nbsp;                    firstSecKey, candidateKey, lockMode, cacheMode,
+<i class="no-highlight">431</i>&nbsp;                    GetMode.NEXT_DUP);
+<i class="no-highlight">432</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            if (result == null) {</b>
+<i class="no-highlight">434</i>&nbsp;                /* No more candidate keys. */
+<b class="nc"><i class="no-highlight">435</i>&nbsp;                return null;</b>
+<i class="no-highlight">436</i>&nbsp;            }
+<i class="no-highlight">437</i>&nbsp;
+<i class="no-highlight">438</i>&nbsp;            /* Process the second and following cursors. */
+<b class="nc"><i class="no-highlight">439</i>&nbsp;            for (int i = 1; i &lt; secCursors.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">440</i>&nbsp;                secCursor = secCursors[i];</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;                DatabaseEntry secKey = cursorScratchEntries[i];</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;                if (!cursorFetchedFirst[i]) {</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;                    result = secCursor.getCurrentInternal(</b>
+<i class="no-highlight">444</i>&nbsp;                        secKey, scratchEntry, lockMode, cacheMode);
+<b class="nc"><i class="no-highlight">445</i>&nbsp;                    if (readUncommitted &amp;&amp;</b>
+<i class="no-highlight">446</i>&nbsp;                        result == null) {
+<i class="no-highlight">447</i>&nbsp;                        /* Deleted underneath read-uncommitted; skip it. */
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                        result = secCursor.retrieveNext(</b>
+<i class="no-highlight">449</i>&nbsp;                            secKey, scratchEntry, lockMode, cacheMode,
+<i class="no-highlight">450</i>&nbsp;                            GetMode.NEXT_DUP);
+<b class="nc"><i class="no-highlight">451</i>&nbsp;                        if (result == null) {</b>
+<i class="no-highlight">452</i>&nbsp;                            /* All keys were deleted; no possible match. */
+<b class="nc"><i class="no-highlight">453</i>&nbsp;                            return null;</b>
+<i class="no-highlight">454</i>&nbsp;                        }
+<i class="no-highlight">455</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">456</i>&nbsp;                    cursorFetchedFirst[i] = true;</b>
+<i class="no-highlight">457</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">458</i>&nbsp;                scratchEntry.setData(secKey.getData(), secKey.getOffset(),</b>
+<b class="nc"><i class="no-highlight">459</i>&nbsp;                                     secKey.getSize());</b>
+<b class="nc"><i class="no-highlight">460</i>&nbsp;                result = secCursor.search(</b>
+<i class="no-highlight">461</i>&nbsp;                    scratchEntry, candidateKey, lockMode, cacheMode,
+<i class="no-highlight">462</i>&nbsp;                    SearchMode.BOTH, true);
+<b class="nc"><i class="no-highlight">463</i>&nbsp;                if (result == null) {</b>
+<i class="no-highlight">464</i>&nbsp;                    /* No match, get another candidate key. */
+<b class="nc"><i class="no-highlight">465</i>&nbsp;                    continue outerLoop;</b>
+<i class="no-highlight">466</i>&nbsp;                }
+<i class="no-highlight">467</i>&nbsp;            }
+<i class="no-highlight">468</i>&nbsp;
+<i class="no-highlight">469</i>&nbsp;            /* The candidate key was found for all cursors. */
+<b class="nc"><i class="no-highlight">470</i>&nbsp;            if (dataParam != null) {</b>
+<b class="nc"><i class="no-highlight">471</i>&nbsp;                if (!secCursors[0].readPrimaryAfterGet(</b>
+<i class="no-highlight">472</i>&nbsp;                        priDb, firstSecKey, candidateKey, dataParam, lockMode,
+<i class="no-highlight">473</i>&nbsp;                        readUncommitted, false /*lockPrimaryOnly*/,
+<i class="no-highlight">474</i>&nbsp;                        false /*verifyPrimary*/,
+<b class="nc"><i class="no-highlight">475</i>&nbsp;                        secCursors[0].getCursorImpl().getLocker(),</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;                        secCursors[0].getDatabase(), null)) {</b>
+<i class="no-highlight">477</i>&nbsp;                    /* Deleted underneath read-uncommitted cursor; skip it. */
+<b class="nc"><i class="no-highlight">478</i>&nbsp;                    continue;</b>
+<i class="no-highlight">479</i>&nbsp;                }
+<i class="no-highlight">480</i>&nbsp;
+<i class="no-highlight">481</i>&nbsp;                /*
+<i class="no-highlight">482</i>&nbsp;                 * Copy primary info to all secondary cursors. The 0th cursor
+<i class="no-highlight">483</i>&nbsp;                 * was updated above with the primary info.
+<i class="no-highlight">484</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                final CursorImpl firstSecCursor = secCursors[0].cursorImpl;</b>
+<b class="nc"><i class="no-highlight">486</i>&nbsp;                for (int i = 1; i &lt; secCursors.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">487</i>&nbsp;                    secCursors[i].cursorImpl.setPriInfo(firstSecCursor);</b>
+<i class="no-highlight">488</i>&nbsp;                }
+<i class="no-highlight">489</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">490</i>&nbsp;            keyParam.setData(candidateKey.getData(), candidateKey.getOffset(),</b>
+<b class="nc"><i class="no-highlight">491</i>&nbsp;                             candidateKey.getSize());</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            return result;</b>
+<i class="no-highlight">493</i>&nbsp;        }
+<i class="no-highlight">494</i>&nbsp;    }
+<i class="no-highlight">495</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

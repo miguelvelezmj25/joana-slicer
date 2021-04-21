@@ -1,0 +1,1083 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Monitor</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.monitor</a>
+</div>
+
+<h1>Coverage Summary for Class: Monitor (com.sleepycat.je.rep.monitor)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Monitor</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/17)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/117)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Monitor$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Monitor$MasterChangeListener</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Monitor$PingThread</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/85)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/217)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.monitor;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">18</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;import java.util.Set;
+<i class="no-highlight">22</i>&nbsp;import java.util.concurrent.ConcurrentHashMap;
+<i class="no-highlight">23</i>&nbsp;import java.util.concurrent.atomic.AtomicBoolean;
+<i class="no-highlight">24</i>&nbsp;import java.util.logging.Formatter;
+<i class="no-highlight">25</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">26</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">27</i>&nbsp;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.JEVersion;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.NodeState;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.rep.NodeType;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.rep.RepInternal;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.ReplicationConfig;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.ReplicationGroup;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.ReplicationNode;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.UnknownMasterException;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.elections.Learner;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.elections.MasterValue;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.elections.Proposer.Proposal;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.elections.Protocol;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.elections.Protocol.Value;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.elections.TimebasedProposalGenerator;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.impl.NodeStateProtocol;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.impl.NodeStateProtocol.NodeStateResponse;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.impl.NodeStateService;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupImpl;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.impl.RepNodeImpl;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.MessageExchange;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.ResponseMessage;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.rep.monitor.GroupChangeEvent.GroupChangeType;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.rep.monitor.LeaveGroupEvent.LeaveReason;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.rep.util.DbPing;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.rep.util.ReplicationGroupAdmin;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.ProtocolException;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.rep.utilint.ReplicationFormatter;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher.ServiceConnectFailedException;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.rep.utilint.net.DataChannelFactoryBuilder;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;/**
+<i class="no-highlight">65</i>&nbsp; * Provides a lightweight mechanism to track the current master node and the
+<i class="no-highlight">66</i>&nbsp; * members of the replication group. The information provided by the monitor
+<i class="no-highlight">67</i>&nbsp; * can be used to route update requests to the node that is currently the
+<i class="no-highlight">68</i>&nbsp; * master and distribute read requests across the other members of the group.
+<i class="no-highlight">69</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">70</i>&nbsp; * The Monitor is typically run on a machine that participates in load
+<i class="no-highlight">71</i>&nbsp; * balancing, request routing or is simply serving as a basis for application
+<i class="no-highlight">72</i>&nbsp; * level monitoring and does not have a replicated environment. To avoid
+<i class="no-highlight">73</i>&nbsp; * creating a single point of failure, an application may need to create
+<i class="no-highlight">74</i>&nbsp; * multiple monitor instances, with each monitor running on a distinct machine.
+<i class="no-highlight">75</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">76</i>&nbsp; * Applications with direct access to a {@link
+<i class="no-highlight">77</i>&nbsp; * com.sleepycat.je.rep.ReplicatedEnvironment ReplicatedEnvironment} can use
+<i class="no-highlight">78</i>&nbsp; * its {@link &lt;a href=&quot;{@docRoot}/../ReplicationGuide/replicawrites.html&quot;&gt;
+<i class="no-highlight">79</i>&nbsp; * synchronous and asynchronous mechanisms&lt;/a&gt;} for determining the master node
+<i class="no-highlight">80</i>&nbsp; * and group composition changes. The Monitor class is not needed by such
+<i class="no-highlight">81</i>&nbsp; * applications.
+<i class="no-highlight">82</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">83</i>&nbsp; * The Monitor generally learns about changes to group status through events
+<i class="no-highlight">84</i>&nbsp; * issued by replication group members. In addition, the Monitor maintains a
+<i class="no-highlight">85</i>&nbsp; * daemon thread which periodically pings members of the group so that the
+<i class="no-highlight">86</i>&nbsp; * Monitor can proactively discover group status changes that occur when it is
+<i class="no-highlight">87</i>&nbsp; * down or has lost network connectivity.
+<i class="no-highlight">88</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">89</i>&nbsp; * The following code excerpt illustrates the typical code sequence used to
+<i class="no-highlight">90</i>&nbsp; * initiate a Monitor. Exception handling has been omitted to simplify the
+<i class="no-highlight">91</i>&nbsp; * example.
+<i class="no-highlight">92</i>&nbsp; *
+<i class="no-highlight">93</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">94</i>&nbsp; * MonitorConfig monConfig = new MonitorConfig();
+<i class="no-highlight">95</i>&nbsp; * monConfig.setGroupName(&quot;PlanetaryRepGroup&quot;);
+<i class="no-highlight">96</i>&nbsp; * monConfig.setNodeName(&quot;mon1&quot;);
+<i class="no-highlight">97</i>&nbsp; * monConfig.setNodeHostPort(&quot;monhost1.acme.com:7000&quot;);
+<i class="no-highlight">98</i>&nbsp; * monConfig.setHelperHosts(&quot;mars.acme.com:5000,jupiter.acme.com:5000&quot;);
+<i class="no-highlight">99</i>&nbsp; *
+<i class="no-highlight">100</i>&nbsp; * Monitor monitor = new Monitor(monConfig);
+<i class="no-highlight">101</i>&nbsp; *
+<i class="no-highlight">102</i>&nbsp; * // If the monitor has not been registered as a member of the group,
+<i class="no-highlight">103</i>&nbsp; * // register it now. register() returns the current node that is the
+<i class="no-highlight">104</i>&nbsp; * // master.
+<i class="no-highlight">105</i>&nbsp; *
+<i class="no-highlight">106</i>&nbsp; * ReplicationNode currentMaster = monitor.register();
+<i class="no-highlight">107</i>&nbsp; *
+<i class="no-highlight">108</i>&nbsp; * // Start up the listener, so that it can be used to track changes
+<i class="no-highlight">109</i>&nbsp; * // in the master node, or group composition. It can also be used to help
+<i class="no-highlight">110</i>&nbsp; * // determine the electable nodes that are currently active and participating
+<i class="no-highlight">111</i>&nbsp; * // in the replication group.
+<i class="no-highlight">112</i>&nbsp; * monitor.startListener(new MyChangeListener());
+<i class="no-highlight">113</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">114</i>&nbsp; *
+<i class="no-highlight">115</i>&nbsp; * @see MonitorChangeListener
+<i class="no-highlight">116</i>&nbsp; * @see &lt;a href=&quot;{@docRoot}../ReplicationGuide/monitors.html&quot;&gt;Writing Monitor
+<i class="no-highlight">117</i>&nbsp; * Nodes&lt;/a&gt;
+<i class="no-highlight">118</i>&nbsp; * @see &lt;a
+<i class="no-highlight">119</i>&nbsp; * href=&quot;{@docRoot}../examples/je/rep/quote/package-summary.html&quot;&gt;je.rep.quote
+<i class="no-highlight">120</i>&nbsp; * Examples&lt;/a&gt;
+<i class="no-highlight">121</i>&nbsp; */
+<b class="nc"><i class="no-highlight">122</i>&nbsp;public class Monitor {</b>
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /* The Monitor Id */
+<i class="no-highlight">125</i>&nbsp;    private final NameIdPair nameIdPair;
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;    /* The configuration in use by this Monitor. */
+<i class="no-highlight">128</i>&nbsp;    private final MonitorConfig monitorConfig;
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    /* Provides the admin functionality for the monitor. */
+<i class="no-highlight">131</i>&nbsp;    private final ReplicationGroupAdmin repGroupAdmin;
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;    /* The underlying learner that drives the Monitor. */
+<i class="no-highlight">134</i>&nbsp;    private Learner learner;
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    /* The Master change listener used by the Learner agent */
+<i class="no-highlight">137</i>&nbsp;    private MasterChangeListener masterChangeListener;
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    /* The Monitor&#39;s logger. */
+<i class="no-highlight">140</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">141</i>&nbsp;    private final Formatter formatter;
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /* The user designated monitor change listener to be invoked. */
+<i class="no-highlight">144</i>&nbsp;    private MonitorChangeListener monitorChangeListener;
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    /* The channel factory */
+<i class="no-highlight">147</i>&nbsp;    private DataChannelFactory channelFactory;
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /* The service dispatcher used by the Learner Agent and the Monitor. */
+<i class="no-highlight">150</i>&nbsp;    private ServiceDispatcher serviceDispatcher;
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    /* Set to true to force a shutdown of this monitor. */
+<b class="nc"><i class="no-highlight">153</i>&nbsp;    final AtomicBoolean shutdown = new AtomicBoolean(false);</b>
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;    /*
+<i class="no-highlight">156</i>&nbsp;     * The groupMembers set saves the names of all nodes known to be part of
+<i class="no-highlight">157</i>&nbsp;     * the group.
+<i class="no-highlight">158</i>&nbsp;     *
+<i class="no-highlight">159</i>&nbsp;     * 1. If a node is not in the set, it means this node has not been added to
+<i class="no-highlight">160</i>&nbsp;     *    the group or has been removed from the group already.  Note that a
+<i class="no-highlight">161</i>&nbsp;     *    node not in the groupMembers set may have an entry in the joinEvents
+<i class="no-highlight">162</i>&nbsp;     *    map if a join event arrived for the node without an associated group
+<i class="no-highlight">163</i>&nbsp;     *    add event, possibly because of an event delivery failure.
+<i class="no-highlight">164</i>&nbsp;     * 2. If a node is in the set, but does not have an entry in the joinEvents
+<i class="no-highlight">165</i>&nbsp;     *    map, this node may have closed itself (due to either crash or normal
+<i class="no-highlight">166</i>&nbsp;     *    close) or has issued an ADD GroupChangeEvent. However, it hasn&#39;t
+<i class="no-highlight">167</i>&nbsp;     *    issued a JoinGroupChangeEvent yet (because ADD GroupChangeEvent and
+<i class="no-highlight">168</i>&nbsp;     *    JoinGroupEvent are notified in two phases).
+<i class="no-highlight">169</i>&nbsp;     * 3. If a node is in the set, and is also in the joinEvents map, the node
+<i class="no-highlight">170</i>&nbsp;     *    has already issued a JoinGroupEvent.
+<i class="no-highlight">171</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">172</i>&nbsp;    private final Set&lt;String&gt; groupMembers = Collections.newSetFromMap(</b>
+<i class="no-highlight">173</i>&nbsp;        new ConcurrentHashMap&lt;String, Boolean&gt;());
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;    /*
+<i class="no-highlight">176</i>&nbsp;     * This map records whether a JoinGroupEvent has been issued for this node.
+<i class="no-highlight">177</i>&nbsp;     * Used when the ping thread is issuing a LeaveGroupEvent.
+<i class="no-highlight">178</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">179</i>&nbsp;    private final ConcurrentHashMap&lt;String, JoinGroupEvent&gt; joinEvents =</b>
+<i class="no-highlight">180</i>&nbsp;        new ConcurrentHashMap&lt;String, JoinGroupEvent&gt;();
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;    /*
+<i class="no-highlight">183</i>&nbsp;     * A thread which proactively checks on group status. TODO: ideally
+<i class="no-highlight">184</i>&nbsp;     * implementation would be changed to use an ExecutorService rather than
+<i class="no-highlight">185</i>&nbsp;     * a Thread.
+<i class="no-highlight">186</i>&nbsp;     */
+<i class="no-highlight">187</i>&nbsp;    private PingThread pingThread;
+<i class="no-highlight">188</i>&nbsp;
+<i class="no-highlight">189</i>&nbsp;    /*
+<i class="no-highlight">190</i>&nbsp;     * A TestHook, used by unit tests. If it&#39;s true, no MonitorChangeEvents
+<i class="no-highlight">191</i>&nbsp;     * except NewMasterEvent will be issued.
+<i class="no-highlight">192</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">193</i>&nbsp;    private boolean disableNotify = false;</b>
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    /**
+<i class="no-highlight">196</i>&nbsp;     * Deprecated as of JE5. Creates a monitor instance using a {@link
+<i class="no-highlight">197</i>&nbsp;     * ReplicationConfig}. Monitor-specific properties that are not available
+<i class="no-highlight">198</i>&nbsp;     * in ReplicationConfig use default settings.
+<i class="no-highlight">199</i>&nbsp;     *
+<i class="no-highlight">200</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">201</i>&nbsp;     *
+<i class="no-highlight">202</i>&nbsp;     * @deprecated As of JE 5, replaced by
+<i class="no-highlight">203</i>&nbsp;     * {@link Monitor#Monitor(MonitorConfig)}
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    @Deprecated
+<i class="no-highlight">206</i>&nbsp;    public Monitor(ReplicationConfig monitorConfig) {
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        this(new MonitorConfig(monitorConfig));</b>
+<i class="no-highlight">208</i>&nbsp;    }
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;    /**
+<i class="no-highlight">211</i>&nbsp;     * Creates a monitor instance.
+<i class="no-highlight">212</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">213</i>&nbsp;     * @param monitorConfig configuration used by a Monitor
+<i class="no-highlight">214</i>&nbsp;     *
+<i class="no-highlight">215</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">216</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">217</i>&nbsp;    public Monitor(MonitorConfig monitorConfig) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;        String groupName = monitorConfig.getGroupName();</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;        if (groupName == null) {</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;            throw new IllegalArgumentException(&quot;Missing group name&quot;);</b>
+<i class="no-highlight">221</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        nameIdPair = new NameIdPair(monitorConfig.getNodeName());</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;        String nodeHost = monitorConfig.getNodeHostPort();</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        if (nodeHost == null) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            throw new IllegalArgumentException(&quot;Missing nodeHost&quot;);</b>
+<i class="no-highlight">226</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        this.monitorConfig = monitorConfig.clone();</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        this.channelFactory =</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;            DataChannelFactoryBuilder.construct(</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                monitorConfig.getRepNetConfig(), groupName);</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        repGroupAdmin =</b>
+<i class="no-highlight">232</i>&nbsp;            new ReplicationGroupAdmin(groupName,
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                                      monitorConfig.getHelperSockets(),</b>
+<i class="no-highlight">234</i>&nbsp;                                      channelFactory);
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        logger = LoggerUtils.getLoggerFormatterNeeded(getClass());</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        formatter = new ReplicationFormatter(nameIdPair);</b>
+<i class="no-highlight">237</i>&nbsp;    }
+<i class="no-highlight">238</i>&nbsp;
+<i class="no-highlight">239</i>&nbsp;    /**
+<i class="no-highlight">240</i>&nbsp;     * Returns the name of the group associated with the Monitor.
+<i class="no-highlight">241</i>&nbsp;     *
+<i class="no-highlight">242</i>&nbsp;     * @return the group name
+<i class="no-highlight">243</i>&nbsp;     */
+<i class="no-highlight">244</i>&nbsp;    public String getGroupName() {
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        return monitorConfig.getGroupName();</b>
+<i class="no-highlight">246</i>&nbsp;    }
+<i class="no-highlight">247</i>&nbsp;
+<i class="no-highlight">248</i>&nbsp;    /**
+<i class="no-highlight">249</i>&nbsp;     * @hidden
+<i class="no-highlight">250</i>&nbsp;     * Returns the group-wide unique id associated with the monitor
+<i class="no-highlight">251</i>&nbsp;     *
+<i class="no-highlight">252</i>&nbsp;     * @return the monitor id
+<i class="no-highlight">253</i>&nbsp;     */
+<i class="no-highlight">254</i>&nbsp;    public NameIdPair getMonitorNameIdPair() {
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        return nameIdPair;</b>
+<i class="no-highlight">256</i>&nbsp;    }
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;    /**
+<i class="no-highlight">259</i>&nbsp;     * Returns the group-wide unique name associated with the monitor
+<i class="no-highlight">260</i>&nbsp;     *
+<i class="no-highlight">261</i>&nbsp;     * @return the monitor name
+<i class="no-highlight">262</i>&nbsp;     */
+<i class="no-highlight">263</i>&nbsp;    public String getNodeName() {
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        return nameIdPair.getName();</b>
+<i class="no-highlight">265</i>&nbsp;    }
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;    /**
+<i class="no-highlight">268</i>&nbsp;     * Returns the socket used by this monitor to listen for group changes
+<i class="no-highlight">269</i>&nbsp;     *
+<i class="no-highlight">270</i>&nbsp;     * @return the monitor socket address
+<i class="no-highlight">271</i>&nbsp;     */
+<i class="no-highlight">272</i>&nbsp;    public InetSocketAddress getMonitorSocketAddress() {
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        return monitorConfig.getNodeSocketAddress();</b>
+<i class="no-highlight">274</i>&nbsp;    }
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    /**
+<i class="no-highlight">277</i>&nbsp;     * Registers the monitor with the group so that it can be kept informed
+<i class="no-highlight">278</i>&nbsp;     * of the outcome of elections and group membership changes. The
+<i class="no-highlight">279</i>&nbsp;     * monitor, just like a replication node, is identified by its nodeName.
+<i class="no-highlight">280</i>&nbsp;     * The Monitor uses the helper nodes to locate a master with which it can
+<i class="no-highlight">281</i>&nbsp;     * register itself. If the helper nodes are not available the registration
+<i class="no-highlight">282</i>&nbsp;     * will fail.
+<i class="no-highlight">283</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">284</i>&nbsp;     * A monitor must be registered at least once in order to be informed of
+<i class="no-highlight">285</i>&nbsp;     * ongoing election results and group changes. Attempts to re-register the
+<i class="no-highlight">286</i>&nbsp;     * same monitor are ignored. Registration, once it has been completed
+<i class="no-highlight">287</i>&nbsp;     * successfully, persists beyond the lifetime of the Monitor instance and
+<i class="no-highlight">288</i>&nbsp;     * does not need to be repeated. Repeated registrations are benign and
+<i class="no-highlight">289</i>&nbsp;     * merely confirm that the current monitor configuration is consistent with
+<i class="no-highlight">290</i>&nbsp;     * earlier registrations of this monitor.
+<i class="no-highlight">291</i>&nbsp;     *
+<i class="no-highlight">292</i>&nbsp;     * @return the node that is the current master
+<i class="no-highlight">293</i>&nbsp;     *
+<i class="no-highlight">294</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">295</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">296</i>&nbsp;     *
+<i class="no-highlight">297</i>&nbsp;     * @throws IllegalStateException if the monitor has been shutdown, or no
+<i class="no-highlight">298</i>&nbsp;     * helper sockets were specified at Monitor initialization.
+<i class="no-highlight">299</i>&nbsp;     */
+<i class="no-highlight">300</i>&nbsp;    public ReplicationNode register()
+<i class="no-highlight">301</i>&nbsp;        throws EnvironmentFailureException {
+<i class="no-highlight">302</i>&nbsp;
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        if (shutdown.get()) {</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            throw new IllegalStateException(&quot;The monitor has been shutdown&quot;);</b>
+<i class="no-highlight">305</i>&nbsp;        }
+<i class="no-highlight">306</i>&nbsp;
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        if (repGroupAdmin.getHelperSockets().size() == 0) {</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">309</i>&nbsp;                (&quot;No helper sockets were specified at Monitor initialization&quot;);
+<i class="no-highlight">310</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        RepNodeImpl monitorNode =</b>
+<i class="no-highlight">312</i>&nbsp;            new RepNodeImpl(nameIdPair,
+<i class="no-highlight">313</i>&nbsp;                            NodeType.MONITOR,
+<b class="nc"><i class="no-highlight">314</i>&nbsp;                            monitorConfig.getNodeHostname(),</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;                            monitorConfig.getNodePort(),</b>
+<i class="no-highlight">316</i>&nbsp;                            JEVersion.CURRENT_VERSION);
+<i class="no-highlight">317</i>&nbsp;        /* Ensure that the monitor is part of the group. */
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        return repGroupAdmin.ensureMonitor(monitorNode);</b>
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    /**
+<i class="no-highlight">322</i>&nbsp;     * Starts the listener so it&#39;s actively listening for election results and
+<i class="no-highlight">323</i>&nbsp;     * broadcasts of replication group changes.
+<i class="no-highlight">324</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">325</i>&nbsp;     * {@link Monitor#register} should be called before starting the listener.
+<i class="no-highlight">326</i>&nbsp;     * If the monitor has not been registered, it will not be updated, and its
+<i class="no-highlight">327</i>&nbsp;     * listener will not be invoked.
+<i class="no-highlight">328</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">329</i>&nbsp;     * Once the registration has been completed, the Monitor can start
+<i class="no-highlight">330</i>&nbsp;     * listening even if none of the other nodes in the group are available.
+<i class="no-highlight">331</i>&nbsp;     * It will be contacted automatically by the other nodes as they come up.
+<i class="no-highlight">332</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">333</i>&nbsp;     * If the group has a Master, invoking &lt;code&gt;startListener&lt;/code&gt; results
+<i class="no-highlight">334</i>&nbsp;     * in a synchronous callback to the application via the {@link
+<i class="no-highlight">335</i>&nbsp;     * MonitorChangeListener#notify(NewMasterEvent)} method.  If there is no
+<i class="no-highlight">336</i>&nbsp;     * Master at this time, the callback takes place asynchronously, after the
+<i class="no-highlight">337</i>&nbsp;     * method returns, when a Master is eventually elected.
+<i class="no-highlight">338</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">339</i>&nbsp;     * Starting the listener will start the underlying ping thread, which
+<i class="no-highlight">340</i>&nbsp;     * proactively checks group status for changes that might have been
+<i class="no-highlight">341</i>&nbsp;     * missed when this Monitor instance has lost network connectivity or
+<i class="no-highlight">342</i>&nbsp;     * is down.
+<i class="no-highlight">343</i>&nbsp;     *
+<i class="no-highlight">344</i>&nbsp;     * @param newListener the listener used to monitor events of interest.
+<i class="no-highlight">345</i>&nbsp;     *
+<i class="no-highlight">346</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">347</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">348</i>&nbsp;     *
+<i class="no-highlight">349</i>&nbsp;     * @throws IOException if the monitor socket could not be set up
+<i class="no-highlight">350</i>&nbsp;     *
+<i class="no-highlight">351</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">352</i>&nbsp;     *
+<i class="no-highlight">353</i>&nbsp;     * @throws IllegalStateException if the monitor has been shutdown, or a
+<i class="no-highlight">354</i>&nbsp;     * listener has already been established.
+<i class="no-highlight">355</i>&nbsp;     */
+<i class="no-highlight">356</i>&nbsp;    public void startListener(MonitorChangeListener newListener)
+<i class="no-highlight">357</i>&nbsp;        throws DatabaseException, IOException {
+<i class="no-highlight">358</i>&nbsp;
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        if (shutdown.get()) {</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;            throw new IllegalStateException(&quot;The monitor has been shutdown&quot;);</b>
+<i class="no-highlight">361</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">362</i>&nbsp;        if (newListener == null) {</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">364</i>&nbsp;                (&quot;A MonitorChangeListener must be associated with &quot;  +
+<i class="no-highlight">365</i>&nbsp;                 &quot; this Monitor when invoking this method&quot;);
+<i class="no-highlight">366</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">367</i>&nbsp;        if (this.monitorChangeListener != null) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">369</i>&nbsp;                (&quot;A Listener has already been established&quot;);
+<i class="no-highlight">370</i>&nbsp;        }
+<i class="no-highlight">371</i>&nbsp;
+<b class="nc"><i class="no-highlight">372</i>&nbsp;        this.monitorChangeListener = newListener;</b>
+<i class="no-highlight">373</i>&nbsp;
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        serviceDispatcher =</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;            new ServiceDispatcher(monitorConfig.getNodeSocketAddress(),</b>
+<i class="no-highlight">376</i>&nbsp;                                  channelFactory);
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        serviceDispatcher.start();</b>
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        Protocol electionProtocol =</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;            new Protocol(TimebasedProposalGenerator.getParser(),</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;                         MasterValue.getParser(),</b>
+<b class="nc"><i class="no-highlight">381</i>&nbsp;                         monitorConfig.getGroupName(),</b>
+<i class="no-highlight">382</i>&nbsp;                         nameIdPair,
+<i class="no-highlight">383</i>&nbsp;                         null,
+<i class="no-highlight">384</i>&nbsp;                         channelFactory);
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        learner = new Learner(electionProtocol, serviceDispatcher);</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;        serviceDispatcher.register(new MonitorService(this,</b>
+<i class="no-highlight">387</i>&nbsp;                                                      serviceDispatcher));
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        masterChangeListener = new MasterChangeListener();</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        learner.addListener(masterChangeListener);</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        learner.start();</b>
+<i class="no-highlight">391</i>&nbsp;        try {
+<i class="no-highlight">392</i>&nbsp;            /* Notify the listener about the current master. */
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            final ReplicationGroup repGroup = repGroupAdmin.getGroup();</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;            final RepGroupImpl group = RepInternal.getRepGroupImpl(repGroup);</b>
+<i class="no-highlight">395</i>&nbsp;
+<i class="no-highlight">396</i>&nbsp;            /*
+<i class="no-highlight">397</i>&nbsp;             * In the absence of a network failure, the query should result in
+<i class="no-highlight">398</i>&nbsp;             * a call to the notify method of MonitorChangeListener.
+<i class="no-highlight">399</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">400</i>&nbsp;            learner.queryForMaster(group.getAllLearnerSockets());</b>
+<i class="no-highlight">401</i>&nbsp;
+<i class="no-highlight">402</i>&nbsp;            /* Notify JoinGroupEvents for those current active nodes. */
+<b class="nc"><i class="no-highlight">403</i>&nbsp;            notifyJoinGroupEventsForActiveNodes(repGroup);</b>
+<i class="no-highlight">404</i>&nbsp;
+<i class="no-highlight">405</i>&nbsp;            /* Start an underlying ping thread. */
+<b class="nc"><i class="no-highlight">406</i>&nbsp;            pingThread = new PingThread(repGroup);</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;            pingThread.start();</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;        } catch (UnknownMasterException ume) {</b>
+<i class="no-highlight">409</i>&nbsp;            /* The Listener will be informed when a Master is elected. */
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            LoggerUtils.logMsg</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;                (logger, formatter, Level.INFO, &quot;No current master.&quot;);</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        }</b>
+<i class="no-highlight">413</i>&nbsp;    }
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;    /*
+<i class="no-highlight">416</i>&nbsp;     * Used by unit test, disable notifying any GroupChangeEvents or
+<i class="no-highlight">417</i>&nbsp;     * JoinGroupEvents.
+<i class="no-highlight">418</i>&nbsp;     */
+<i class="no-highlight">419</i>&nbsp;    void disableNotify(@SuppressWarnings(&quot;hiding&quot;)
+<i class="no-highlight">420</i>&nbsp;                       final boolean disableNotify) {
+<b class="nc"><i class="no-highlight">421</i>&nbsp;        this.disableNotify = disableNotify;</b>
+<i class="no-highlight">422</i>&nbsp;    }
+<i class="no-highlight">423</i>&nbsp;
+<i class="no-highlight">424</i>&nbsp;    /**
+<i class="no-highlight">425</i>&nbsp;     * Notify JoinGroupEvents for currently active nodes in replication group,
+<i class="no-highlight">426</i>&nbsp;     * and update the list of group members.
+<i class="no-highlight">427</i>&nbsp;     */
+<i class="no-highlight">428</i>&nbsp;    private void notifyJoinGroupEventsForActiveNodes(ReplicationGroup group) {
+<b class="nc"><i class="no-highlight">429</i>&nbsp;        NodeStateProtocol stateProtocol =</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;            new NodeStateProtocol(group.getName(),</b>
+<i class="no-highlight">431</i>&nbsp;                                  NameIdPair.NOCHECK,
+<i class="no-highlight">432</i>&nbsp;                                  null,
+<i class="no-highlight">433</i>&nbsp;                                  channelFactory);
+<b class="nc"><i class="no-highlight">434</i>&nbsp;        for (ReplicationNode repNode : group.getNodes()) {</b>
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;            /*
+<i class="no-highlight">437</i>&nbsp;             * Note any existing nodes with persistent id as group
+<i class="no-highlight">438</i>&nbsp;             * members. Nodes w/ transient id never send add or remove
+<i class="no-highlight">439</i>&nbsp;             * events, so they are not included in groupMembers.
+<i class="no-highlight">440</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">441</i>&nbsp;            if (!repNode.getType().hasTransientId()) {</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;                groupMembers.add(repNode.getName());</b>
+<i class="no-highlight">443</i>&nbsp;            }
+<i class="no-highlight">444</i>&nbsp;
+<i class="no-highlight">445</i>&nbsp;            /*
+<i class="no-highlight">446</i>&nbsp;             * Send out a NodeState request message for this node, but only for
+<i class="no-highlight">447</i>&nbsp;             * electable and secondary nodes, since monitor nodes don&#39;t support
+<i class="no-highlight">448</i>&nbsp;             * the NodeStateService.
+<i class="no-highlight">449</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">450</i>&nbsp;            if (repNode.getType().isMonitor()) {</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;                continue;</b>
+<i class="no-highlight">452</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">453</i>&nbsp;            MessageExchange me = stateProtocol.new MessageExchange</b>
+<b class="nc"><i class="no-highlight">454</i>&nbsp;                (repNode.getSocketAddress(),</b>
+<i class="no-highlight">455</i>&nbsp;                 NodeStateService.SERVICE_NAME,
+<b class="nc"><i class="no-highlight">456</i>&nbsp;                 stateProtocol.new NodeStateRequest(repNode.getName()));</b>
+<b class="nc"><i class="no-highlight">457</i>&nbsp;            me.run();</b>
+<b class="nc"><i class="no-highlight">458</i>&nbsp;            ResponseMessage resp = me.getResponseMessage();</b>
+<b class="nc"><i class="no-highlight">459</i>&nbsp;            if (resp instanceof NodeStateResponse) {</b>
+<b class="nc"><i class="no-highlight">460</i>&nbsp;                NodeStateResponse response = (NodeStateResponse) resp;</b>
+<b class="nc"><i class="no-highlight">461</i>&nbsp;                notifyJoin(new JoinGroupEvent(response.getNodeName(),</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;                                              response.getMasterName(),</b>
+<b class="nc"><i class="no-highlight">463</i>&nbsp;                                              response.getJoinTime()));</b>
+<i class="no-highlight">464</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">465</i>&nbsp;        }</b>
+<i class="no-highlight">466</i>&nbsp;    }
+<i class="no-highlight">467</i>&nbsp;
+<i class="no-highlight">468</i>&nbsp;    /**
+<i class="no-highlight">469</i>&nbsp;     * Identifies the master of the replication group, resulting from the last
+<i class="no-highlight">470</i>&nbsp;     * successful election. This method relies on the helper nodes supplied
+<i class="no-highlight">471</i>&nbsp;     * to the monitor and queries them for the master.
+<i class="no-highlight">472</i>&nbsp;     *
+<i class="no-highlight">473</i>&nbsp;     * This method is useful when a Monitor first starts up and the Master
+<i class="no-highlight">474</i>&nbsp;     * needs to be determined. Once a Monitor is registered and the Listener
+<i class="no-highlight">475</i>&nbsp;     * has been started, it&#39;s kept up to date via events that are delivered
+<i class="no-highlight">476</i>&nbsp;     * to the Listener.
+<i class="no-highlight">477</i>&nbsp;     *
+<i class="no-highlight">478</i>&nbsp;     * @return the id associated with the master replication node.
+<i class="no-highlight">479</i>&nbsp;     *
+<i class="no-highlight">480</i>&nbsp;     * @throws UnknownMasterException if the master could not be determined
+<i class="no-highlight">481</i>&nbsp;     * from the set of helpers made available to the Monitor.
+<i class="no-highlight">482</i>&nbsp;     *
+<i class="no-highlight">483</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">484</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">485</i>&nbsp;     *
+<i class="no-highlight">486</i>&nbsp;     * @throws IllegalStateException if the monitor has been shutdown.
+<i class="no-highlight">487</i>&nbsp;     */
+<i class="no-highlight">488</i>&nbsp;    public String getMasterNodeName()
+<i class="no-highlight">489</i>&nbsp;        throws UnknownMasterException {
+<i class="no-highlight">490</i>&nbsp;
+<b class="nc"><i class="no-highlight">491</i>&nbsp;        if (shutdown.get()) {</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            throw new IllegalStateException(&quot;The monitor has been shutdown&quot;);</b>
+<i class="no-highlight">493</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">494</i>&nbsp;        return repGroupAdmin.getMasterNodeName();</b>
+<i class="no-highlight">495</i>&nbsp;    }
+<i class="no-highlight">496</i>&nbsp;
+<i class="no-highlight">497</i>&nbsp;    /**
+<i class="no-highlight">498</i>&nbsp;     * Returns the current composition of the group. It does so by first
+<i class="no-highlight">499</i>&nbsp;     * querying the helpers to determine the master and then obtaining the
+<i class="no-highlight">500</i>&nbsp;     * group information from the master.
+<i class="no-highlight">501</i>&nbsp;     *
+<i class="no-highlight">502</i>&nbsp;     * @return an instance of RepGroup denoting the current composition of the
+<i class="no-highlight">503</i>&nbsp;     * group
+<i class="no-highlight">504</i>&nbsp;     *
+<i class="no-highlight">505</i>&nbsp;     * @throws UnknownMasterException if the master could not be determined
+<i class="no-highlight">506</i>&nbsp;     * from the set of helpers made available to the Monitor.
+<i class="no-highlight">507</i>&nbsp;     *
+<i class="no-highlight">508</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">509</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">510</i>&nbsp;     *
+<i class="no-highlight">511</i>&nbsp;     * @throws IllegalStateException if the monitor has been shutdown.
+<i class="no-highlight">512</i>&nbsp;     */
+<i class="no-highlight">513</i>&nbsp;    public ReplicationGroup getGroup()
+<i class="no-highlight">514</i>&nbsp;        throws UnknownMasterException, DatabaseException {
+<i class="no-highlight">515</i>&nbsp;
+<b class="nc"><i class="no-highlight">516</i>&nbsp;        if (shutdown.get()) {</b>
+<b class="nc"><i class="no-highlight">517</i>&nbsp;            throw new IllegalStateException(&quot;The monitor has been shutdown&quot;);</b>
+<i class="no-highlight">518</i>&nbsp;        }
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;        /*
+<i class="no-highlight">521</i>&nbsp;         * TODO: Should we use this information to update the helper set as an
+<i class="no-highlight">522</i>&nbsp;         * optimization?
+<i class="no-highlight">523</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">524</i>&nbsp;        return repGroupAdmin.getGroup();</b>
+<i class="no-highlight">525</i>&nbsp;    }
+<i class="no-highlight">526</i>&nbsp;
+<i class="no-highlight">527</i>&nbsp;    /**
+<i class="no-highlight">528</i>&nbsp;     * Release monitor resources and shut down the monitor.
+<i class="no-highlight">529</i>&nbsp;     * @throws InterruptedException
+<i class="no-highlight">530</i>&nbsp;     */
+<i class="no-highlight">531</i>&nbsp;    public synchronized void shutdown()
+<i class="no-highlight">532</i>&nbsp;        throws InterruptedException {
+<i class="no-highlight">533</i>&nbsp;
+<b class="nc"><i class="no-highlight">534</i>&nbsp;        boolean changed = shutdown.compareAndSet(false, true);</b>
+<b class="nc"><i class="no-highlight">535</i>&nbsp;        if (!changed) {</b>
+<i class="no-highlight">536</i>&nbsp;            return;
+<i class="no-highlight">537</i>&nbsp;        }
+<i class="no-highlight">538</i>&nbsp;
+<b class="nc"><i class="no-highlight">539</i>&nbsp;        LoggerUtils.logMsg(logger, formatter, Level.INFO,</b>
+<i class="no-highlight">540</i>&nbsp;                           &quot;Shutting down monitor &quot; + nameIdPair);
+<i class="no-highlight">541</i>&nbsp;
+<i class="no-highlight">542</i>&nbsp;        /* Shutdown the Ping thread. */
+<b class="nc"><i class="no-highlight">543</i>&nbsp;        if (pingThread != null) {</b>
+<b class="nc"><i class="no-highlight">544</i>&nbsp;            pingThread.stopThread();</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;            pingThread = null;</b>
+<i class="no-highlight">546</i>&nbsp;        }
+<i class="no-highlight">547</i>&nbsp;
+<b class="nc"><i class="no-highlight">548</i>&nbsp;        if (learner != null) {</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;            learner.shutdown();</b>
+<i class="no-highlight">550</i>&nbsp;        }
+<i class="no-highlight">551</i>&nbsp;
+<b class="nc"><i class="no-highlight">552</i>&nbsp;        if (serviceDispatcher != null) {</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            serviceDispatcher.shutdown();</b>
+<i class="no-highlight">554</i>&nbsp;        }
+<i class="no-highlight">555</i>&nbsp;    }
+<i class="no-highlight">556</i>&nbsp;
+<i class="no-highlight">557</i>&nbsp;    /**
+<i class="no-highlight">558</i>&nbsp;     * Notify the MonitorChangeListener that a GroupChangeEvent occurred.
+<i class="no-highlight">559</i>&nbsp;     */
+<i class="no-highlight">560</i>&nbsp;    synchronized void notifyGroupChange(GroupChangeEvent event) {
+<b class="nc"><i class="no-highlight">561</i>&nbsp;        if (disableNotify) {</b>
+<i class="no-highlight">562</i>&nbsp;            return;
+<i class="no-highlight">563</i>&nbsp;        }
+<i class="no-highlight">564</i>&nbsp;
+<b class="nc"><i class="no-highlight">565</i>&nbsp;        final String name = event.getNodeName();</b>
+<b class="nc"><i class="no-highlight">566</i>&nbsp;        switch (event.getChangeType()) {</b>
+<i class="no-highlight">567</i>&nbsp;            case REMOVE:
+<i class="no-highlight">568</i>&nbsp;                /* If the REMOVE event has been fired before, do nothing. */
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                if (!groupMembers.contains(name)) {</b>
+<i class="no-highlight">570</i>&nbsp;                    return;
+<i class="no-highlight">571</i>&nbsp;                }
+<i class="no-highlight">572</i>&nbsp;                /* Remove the deleted node from the group members set. */
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                groupMembers.remove(name);</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;                break;</b>
+<i class="no-highlight">575</i>&nbsp;            case ADD:
+<i class="no-highlight">576</i>&nbsp;                /* If the ADD event has been fired before, do nothing. */
+<b class="nc"><i class="no-highlight">577</i>&nbsp;                if (groupMembers.contains(name)) {</b>
+<i class="no-highlight">578</i>&nbsp;                    return;
+<i class="no-highlight">579</i>&nbsp;                }
+<i class="no-highlight">580</i>&nbsp;
+<i class="no-highlight">581</i>&nbsp;                /* Add the node to the group members set. */
+<b class="nc"><i class="no-highlight">582</i>&nbsp;                groupMembers.add(name);</b>
+<b class="nc"><i class="no-highlight">583</i>&nbsp;                break;</b>
+<i class="no-highlight">584</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">585</i>&nbsp;                throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">586</i>&nbsp;                    (&quot;Unrecognized GroupChangeType: &quot; + event.getChangeType());</b>
+<i class="no-highlight">587</i>&nbsp;        }
+<i class="no-highlight">588</i>&nbsp;
+<b class="nc"><i class="no-highlight">589</i>&nbsp;        monitorChangeListener.notify(event);</b>
+<i class="no-highlight">590</i>&nbsp;    }
+<i class="no-highlight">591</i>&nbsp;
+<i class="no-highlight">592</i>&nbsp;    /**
+<i class="no-highlight">593</i>&nbsp;     * Notify the MonitorChangeListener that a JoinGroupEvent happens.
+<i class="no-highlight">594</i>&nbsp;     */
+<i class="no-highlight">595</i>&nbsp;    synchronized void notifyJoin(JoinGroupEvent event) {
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        if (disableNotify) {</b>
+<i class="no-highlight">597</i>&nbsp;            return;
+<i class="no-highlight">598</i>&nbsp;        }
+<i class="no-highlight">599</i>&nbsp;
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        final String name = event.getNodeName();</b>
+<i class="no-highlight">601</i>&nbsp;        /* If this JoinGroupEvent has been fired before, do nothing. */
+<b class="nc"><i class="no-highlight">602</i>&nbsp;        if (joinEvents.containsKey(name)) {</b>
+<i class="no-highlight">603</i>&nbsp;            return;
+<i class="no-highlight">604</i>&nbsp;        }
+<i class="no-highlight">605</i>&nbsp;
+<i class="no-highlight">606</i>&nbsp;        /*
+<i class="no-highlight">607</i>&nbsp;         * Save the JoinGroupEvent for this node so that it can be used while
+<i class="no-highlight">608</i>&nbsp;         * notifying an abnormal LeaveGroupEvent for this node.
+<i class="no-highlight">609</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">610</i>&nbsp;        joinEvents.put(name, event);</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;        monitorChangeListener.notify(event);</b>
+<i class="no-highlight">612</i>&nbsp;    }
+<i class="no-highlight">613</i>&nbsp;
+<i class="no-highlight">614</i>&nbsp;    /**
+<i class="no-highlight">615</i>&nbsp;     * Notify the MonitorChangeListener that a LeaveGroupEvent occurred.
+<i class="no-highlight">616</i>&nbsp;     */
+<i class="no-highlight">617</i>&nbsp;    synchronized void notifyLeave(LeaveGroupEvent event) {
+<i class="no-highlight">618</i>&nbsp;
+<i class="no-highlight">619</i>&nbsp;        /* Only notify a leave event if the node is currently joined */
+<b class="nc"><i class="no-highlight">620</i>&nbsp;        if (joinEvents.remove(event.getNodeName()) != null) {</b>
+<b class="nc"><i class="no-highlight">621</i>&nbsp;            monitorChangeListener.notify(event);</b>
+<i class="no-highlight">622</i>&nbsp;        }
+<i class="no-highlight">623</i>&nbsp;    }
+<i class="no-highlight">624</i>&nbsp;
+<i class="no-highlight">625</i>&nbsp;    /**
+<i class="no-highlight">626</i>&nbsp;     * The Listener used to learn about new Masters
+<i class="no-highlight">627</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">628</i>&nbsp;    private class MasterChangeListener implements Learner.Listener {</b>
+<i class="no-highlight">629</i>&nbsp;        /* The current learned value. */
+<b class="nc"><i class="no-highlight">630</i>&nbsp;        private MasterValue currentValue = null;</b>
+<i class="no-highlight">631</i>&nbsp;
+<i class="no-highlight">632</i>&nbsp;        /**
+<i class="no-highlight">633</i>&nbsp;         * Implements the Listener protocol.
+<i class="no-highlight">634</i>&nbsp;         */
+<i class="no-highlight">635</i>&nbsp;        @Override
+<i class="no-highlight">636</i>&nbsp;        public void notify(Proposal proposal, Value value) {
+<i class="no-highlight">637</i>&nbsp;            /* We have a winning new proposal, is it truly different? */
+<b class="nc"><i class="no-highlight">638</i>&nbsp;            if (value.equals(currentValue)) {</b>
+<i class="no-highlight">639</i>&nbsp;                return;
+<i class="no-highlight">640</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">641</i>&nbsp;            currentValue = (MasterValue) value;</b>
+<i class="no-highlight">642</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">643</i>&nbsp;                String currentMasterName = currentValue.getNodeName();</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                LoggerUtils.logMsg(logger, formatter, Level.INFO,</b>
+<i class="no-highlight">645</i>&nbsp;                                   &quot;Monitor notified of new Master: &quot; +
+<i class="no-highlight">646</i>&nbsp;                                   currentMasterName);
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                if (monitorChangeListener == null) {</b>
+<i class="no-highlight">648</i>&nbsp;                    /* No interest */
+<i class="no-highlight">649</i>&nbsp;                    return;
+<i class="no-highlight">650</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">651</i>&nbsp;                monitorChangeListener.notify</b>
+<b class="nc"><i class="no-highlight">652</i>&nbsp;                    (new NewMasterEvent(currentValue));</b>
+<b class="nc"><i class="no-highlight">653</i>&nbsp;            } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">654</i>&nbsp;                LoggerUtils.logMsg</b>
+<b class="nc"><i class="no-highlight">655</i>&nbsp;                    (logger, formatter, Level.SEVERE,</b>
+<i class="no-highlight">656</i>&nbsp;                     &quot;Monitor change event processing exception: &quot; +
+<b class="nc"><i class="no-highlight">657</i>&nbsp;                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">658</i>&nbsp;            }</b>
+<i class="no-highlight">659</i>&nbsp;        }
+<i class="no-highlight">660</i>&nbsp;    }
+<i class="no-highlight">661</i>&nbsp;
+<i class="no-highlight">662</i>&nbsp;    /*
+<i class="no-highlight">663</i>&nbsp;     * PingThread periodically queries the replication group state in order
+<i class="no-highlight">664</i>&nbsp;     * to proactively find group changes that this monitor may have missed
+<i class="no-highlight">665</i>&nbsp;     * if the monitor was down or had network connectivity problems. Any
+<i class="no-highlight">666</i>&nbsp;     * missed changes are propagated as the appropriate type of events.
+<i class="no-highlight">667</i>&nbsp;     *
+<i class="no-highlight">668</i>&nbsp;     * PingThread takes these steps:
+<i class="no-highlight">669</i>&nbsp;     * 1. Get the current group information. If not available, use the last
+<i class="no-highlight">670</i>&nbsp;     *    valid group information. Get information for both removed and
+<i class="no-highlight">671</i>&nbsp;     *    non-removed nodes.
+<i class="no-highlight">672</i>&nbsp;     * 2. Walk through the removed nodes set. If there is a node which is in
+<i class="no-highlight">673</i>&nbsp;     *    the removed nodes set but still contained in groupMembers, send a
+<i class="no-highlight">674</i>&nbsp;     *    REMOVE GroupChangeEvent.
+<i class="no-highlight">675</i>&nbsp;     * 2a. Also walk through the group members remembered by the monitor, and
+<i class="no-highlight">676</i>&nbsp;     *     send REMOVE GroupChangeEvent for each one that is not recorded in
+<i class="no-highlight">677</i>&nbsp;     *     the current group info for removed or unremoved nodes, to account
+<i class="no-highlight">678</i>&nbsp;     *     for deleted nodes.
+<i class="no-highlight">679</i>&nbsp;     * 3. Walk through all unremoved nodes. There are three cases:
+<i class="no-highlight">680</i>&nbsp;     *    a. If a node is reachable (it acks state request), but it&#39;s not
+<i class="no-highlight">681</i>&nbsp;     *       in groupMembers, emit an ADD GroupChangeEvent.  Only do this for
+<i class="no-highlight">682</i>&nbsp;     *       electable and monitor nodes -- secondary nodes don&#39;t send these
+<i class="no-highlight">683</i>&nbsp;     *       events.
+<i class="no-highlight">684</i>&nbsp;     *    b. If a node is reachable, but joinEvents.containsKey(node name)
+<i class="no-highlight">685</i>&nbsp;     *       returns false, send a JoinGroupEvent.
+<i class="no-highlight">686</i>&nbsp;     *    c. If a node is unreachable, but joinEvents.containsKey(node name)
+<i class="no-highlight">687</i>&nbsp;     *       returns true, we want to send a LeaveGroupEvent, but guard against
+<i class="no-highlight">688</i>&nbsp;     *       this being a transient situation. We do some retries and if we get
+<i class="no-highlight">689</i>&nbsp;     *       the same result for all retries, send a missed LeaveGroupEvent.
+<i class="no-highlight">690</i>&nbsp;     * 3a. Also walk through all nodes removed nodes, and do cases 3.b. and
+<i class="no-highlight">691</i>&nbsp;     *     3.c. for those nodes
+<i class="no-highlight">692</i>&nbsp;     * 4. Walk through all nodes in joinEvents, and perform 3.c. for ones which
+<i class="no-highlight">693</i>&nbsp;     *    are not present as removed or unremoved nodes in the group.  These
+<i class="no-highlight">694</i>&nbsp;     *    nodes are secondary nodes, which are removed from the group when the
+<i class="no-highlight">695</i>&nbsp;     *    node becomes unavailable.
+<i class="no-highlight">696</i>&nbsp;     */
+<i class="no-highlight">697</i>&nbsp;    private class PingThread extends Thread {
+<b class="nc"><i class="no-highlight">698</i>&nbsp;        private volatile boolean running = true;</b>
+<i class="no-highlight">699</i>&nbsp;        private ReplicationGroup group;
+<i class="no-highlight">700</i>&nbsp;        private final int retries;
+<i class="no-highlight">701</i>&nbsp;        private final long retryInterval;
+<i class="no-highlight">702</i>&nbsp;        private final int socketConnectTimeout;
+<i class="no-highlight">703</i>&nbsp;
+<i class="no-highlight">704</i>&nbsp;        /*
+<i class="no-highlight">705</i>&nbsp;         * Track the missed LeaveEvents, mapping from the node name to the
+<i class="no-highlight">706</i>&nbsp;         * frequency it is thought to be missed.
+<i class="no-highlight">707</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">708</i>&nbsp;        private final Map&lt;String, Integer&gt; missedLeaveEvents =</b>
+<i class="no-highlight">709</i>&nbsp;            new HashMap&lt;String, Integer&gt;();
+<i class="no-highlight">710</i>&nbsp;
+<i class="no-highlight">711</i>&nbsp;        /* Construct an underlying PingThread. */
+<b class="nc"><i class="no-highlight">712</i>&nbsp;        public PingThread(ReplicationGroup group) {</b>
+<b class="nc"><i class="no-highlight">713</i>&nbsp;            this.group = group;</b>
+<b class="nc"><i class="no-highlight">714</i>&nbsp;            this.retries = monitorConfig.getNumRetries();</b>
+<b class="nc"><i class="no-highlight">715</i>&nbsp;            this.retryInterval = monitorConfig.getRetryInterval();</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            this.socketConnectTimeout =</b>
+<b class="nc"><i class="no-highlight">717</i>&nbsp;                monitorConfig.getSocketConnectTimeout();</b>
+<b class="nc"><i class="no-highlight">718</i>&nbsp;            setDaemon(true);</b>
+<i class="no-highlight">719</i>&nbsp;        }
+<i class="no-highlight">720</i>&nbsp;
+<i class="no-highlight">721</i>&nbsp;        @Override
+<i class="no-highlight">722</i>&nbsp;        public void run() {
+<i class="no-highlight">723</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                while (running) {</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                    for (int i = 0; i &lt; retries &amp;&amp; running; i++) {</b>
+<i class="no-highlight">726</i>&nbsp;
+<b class="nc"><i class="no-highlight">727</i>&nbsp;                        queryNodes();</b>
+<i class="no-highlight">728</i>&nbsp;
+<i class="no-highlight">729</i>&nbsp;                        /*
+<i class="no-highlight">730</i>&nbsp;                         * Ensure that the monitor hasn&#39;t missed any election
+<i class="no-highlight">731</i>&nbsp;                         * results due to network interruptions by explicitly
+<i class="no-highlight">732</i>&nbsp;                         * querying for a new master on a periodic basis.
+<i class="no-highlight">733</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">734</i>&nbsp;                        RepGroupImpl groupImpl =</b>
+<b class="nc"><i class="no-highlight">735</i>&nbsp;                            RepInternal.getRepGroupImpl(group);</b>
+<i class="no-highlight">736</i>&nbsp;                        /*
+<i class="no-highlight">737</i>&nbsp;                         * The query for a master will result in
+<i class="no-highlight">738</i>&nbsp;                         * NewMasterEvents, if there are any changes in the
+<i class="no-highlight">739</i>&nbsp;                         * master.
+<i class="no-highlight">740</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">741</i>&nbsp;                        learner.queryForMaster(</b>
+<b class="nc"><i class="no-highlight">742</i>&nbsp;                            groupImpl.getAllLearnerSockets());</b>
+<i class="no-highlight">743</i>&nbsp;
+<i class="no-highlight">744</i>&nbsp;                        /* Sleep a while after querying all the nodes. */
+<b class="nc"><i class="no-highlight">745</i>&nbsp;                        sleep(retryInterval);</b>
+<i class="no-highlight">746</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">747</i>&nbsp;                    missedLeaveEvents.clear();</b>
+<i class="no-highlight">748</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">749</i>&nbsp;            } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;                 LoggerUtils.logMsg(logger, formatter, Level.INFO,</b>
+<i class="no-highlight">751</i>&nbsp;                                    &quot;The daemon PingThread is interrupted: &quot; +
+<b class="nc"><i class="no-highlight">752</i>&nbsp;                                    e.getMessage());</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;            }</b>
+<i class="no-highlight">754</i>&nbsp;        }
+<i class="no-highlight">755</i>&nbsp;
+<i class="no-highlight">756</i>&nbsp;        /**
+<i class="no-highlight">757</i>&nbsp;         * Ping all nodes to find out about possible missed events.
+<i class="no-highlight">758</i>&nbsp;         * Manufacture notifications for any missed events.
+<i class="no-highlight">759</i>&nbsp;         */
+<i class="no-highlight">760</i>&nbsp;        private void queryNodes() {
+<i class="no-highlight">761</i>&nbsp;            /* Get the current valid group information. */
+<b class="nc"><i class="no-highlight">762</i>&nbsp;            final ReplicationGroup repGroup = getValidGroup();</b>
+<i class="no-highlight">763</i>&nbsp;
+<b class="nc"><i class="no-highlight">764</i>&nbsp;            final Set&lt;? extends ReplicationNode&gt; removedNodes =</b>
+<b class="nc"><i class="no-highlight">765</i>&nbsp;                repGroup.getRepGroupImpl().getRemovedNodes();</b>
+<i class="no-highlight">766</i>&nbsp;
+<i class="no-highlight">767</i>&nbsp;            /* Send missed REMOVE GroupChangeEvents for removed nodes. */
+<b class="nc"><i class="no-highlight">768</i>&nbsp;            for (final ReplicationNode repNode : removedNodes) {</b>
+<b class="nc"><i class="no-highlight">769</i>&nbsp;                notifyGroupChange</b>
+<b class="nc"><i class="no-highlight">770</i>&nbsp;                    (new GroupChangeEvent(repGroup,</b>
+<b class="nc"><i class="no-highlight">771</i>&nbsp;                                          repNode.getName(),</b>
+<i class="no-highlight">772</i>&nbsp;                                          GroupChangeType.REMOVE));
+<b class="nc"><i class="no-highlight">773</i>&nbsp;            }</b>
+<i class="no-highlight">774</i>&nbsp;
+<i class="no-highlight">775</i>&nbsp;            /*
+<i class="no-highlight">776</i>&nbsp;             * Also send REMOVE GroupChangeEvents for nodes in groupMembers
+<i class="no-highlight">777</i>&nbsp;             * that are no longer in the replication group, to account for
+<i class="no-highlight">778</i>&nbsp;             * deleted nodes, which will not be remembered as removed nodes
+<i class="no-highlight">779</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">780</i>&nbsp;            for (final String nodeName : groupMembers) {</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;                if (repGroup.getRepGroupImpl().getNode(nodeName) == null) {</b>
+<b class="nc"><i class="no-highlight">782</i>&nbsp;                    notifyGroupChange(</b>
+<i class="no-highlight">783</i>&nbsp;                        new GroupChangeEvent(
+<i class="no-highlight">784</i>&nbsp;                            repGroup, nodeName, GroupChangeType.REMOVE));
+<i class="no-highlight">785</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">786</i>&nbsp;            }</b>
+<i class="no-highlight">787</i>&nbsp;
+<i class="no-highlight">788</i>&nbsp;            /*
+<i class="no-highlight">789</i>&nbsp;             * Ping nodes to send missed ADD GroupChangeEvents, JoinGroupEvent
+<i class="no-highlight">790</i>&nbsp;             * and LeaveGroupEvent.
+<i class="no-highlight">791</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">792</i>&nbsp;            for (ReplicationNode repNode : repGroup.getNodes()) {</b>
+<b class="nc"><i class="no-highlight">793</i>&nbsp;                pingNode(repNode, repGroup, false);</b>
+<b class="nc"><i class="no-highlight">794</i>&nbsp;            }</b>
+<i class="no-highlight">795</i>&nbsp;
+<i class="no-highlight">796</i>&nbsp;            /* Also ping removed nodes for missed leave events */
+<b class="nc"><i class="no-highlight">797</i>&nbsp;            for (final ReplicationNode repNode : removedNodes) {</b>
+<b class="nc"><i class="no-highlight">798</i>&nbsp;                pingNode(repNode, repGroup, true);</b>
+<b class="nc"><i class="no-highlight">799</i>&nbsp;            }</b>
+<i class="no-highlight">800</i>&nbsp;
+<i class="no-highlight">801</i>&nbsp;            /*
+<i class="no-highlight">802</i>&nbsp;             * Send leave events for secondary nodes that no longer appear in
+<i class="no-highlight">803</i>&nbsp;             * the group, since those nodes are completely removed as soon as
+<i class="no-highlight">804</i>&nbsp;             * they disconnect from the feeder, which, because they are not
+<i class="no-highlight">805</i>&nbsp;             * removed from the feeder otherwise, should only happen due to a
+<i class="no-highlight">806</i>&nbsp;             * shutdown or network failure.
+<i class="no-highlight">807</i>&nbsp;             *
+<i class="no-highlight">808</i>&nbsp;             * TODO: Provide for distinguishing secondary and deleted electable
+<i class="no-highlight">809</i>&nbsp;             * nodes.
+<i class="no-highlight">810</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">811</i>&nbsp;            for (final String nodeName : joinEvents.keySet()) {</b>
+<b class="nc"><i class="no-highlight">812</i>&nbsp;                final ReplicationNode repNode =</b>
+<b class="nc"><i class="no-highlight">813</i>&nbsp;                    repGroup.getRepGroupImpl().getNode(nodeName);</b>
+<b class="nc"><i class="no-highlight">814</i>&nbsp;                if (repNode == null) {</b>
+<b class="nc"><i class="no-highlight">815</i>&nbsp;                    notifyMissedLeaveEvents(nodeName);</b>
+<i class="no-highlight">816</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">817</i>&nbsp;            }</b>
+<i class="no-highlight">818</i>&nbsp;        }
+<i class="no-highlight">819</i>&nbsp;
+<i class="no-highlight">820</i>&nbsp;        /** Ping node to issue missed events. */
+<i class="no-highlight">821</i>&nbsp;        private void pingNode(ReplicationNode repNode,
+<i class="no-highlight">822</i>&nbsp;                              ReplicationGroup repGroup,
+<i class="no-highlight">823</i>&nbsp;                              boolean removed) {
+<i class="no-highlight">824</i>&nbsp;
+<i class="no-highlight">825</i>&nbsp;            /* Monitor nodes don&#39;t respond to pings */
+<b class="nc"><i class="no-highlight">826</i>&nbsp;            if (repNode.getType().isMonitor()) {</b>
+<i class="no-highlight">827</i>&nbsp;                return;
+<i class="no-highlight">828</i>&nbsp;            }
+<i class="no-highlight">829</i>&nbsp;
+<b class="nc"><i class="no-highlight">830</i>&nbsp;            final String name = repNode.getName();</b>
+<i class="no-highlight">831</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">832</i>&nbsp;                DbPing ping = new DbPing(repNode,</b>
+<b class="nc"><i class="no-highlight">833</i>&nbsp;                                         getGroupName(),</b>
+<i class="no-highlight">834</i>&nbsp;                                         socketConnectTimeout,
+<b class="nc"><i class="no-highlight">835</i>&nbsp;                                         channelFactory);</b>
+<b class="nc"><i class="no-highlight">836</i>&nbsp;                NodeState state = ping.getNodeState();</b>
+<i class="no-highlight">837</i>&nbsp;
+<i class="no-highlight">838</i>&nbsp;                /* Send ADD GroupChangeEvent if needed */
+<b class="nc"><i class="no-highlight">839</i>&nbsp;                if (!groupMembers.contains(name) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">840</i>&nbsp;                    !repNode.getType().isSecondary() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">841</i>&nbsp;                    !repNode.getType().isExternal() &amp;&amp;</b>
+<i class="no-highlight">842</i>&nbsp;                    !removed) {
+<b class="nc"><i class="no-highlight">843</i>&nbsp;                    notifyGroupChange(</b>
+<i class="no-highlight">844</i>&nbsp;                        new GroupChangeEvent(repGroup,
+<i class="no-highlight">845</i>&nbsp;                                             name,
+<i class="no-highlight">846</i>&nbsp;                                             GroupChangeType.ADD));
+<i class="no-highlight">847</i>&nbsp;                }
+<i class="no-highlight">848</i>&nbsp;
+<i class="no-highlight">849</i>&nbsp;                /* Send JoinGroupEvent if needed */
+<b class="nc"><i class="no-highlight">850</i>&nbsp;                if (!joinEvents.containsKey(name)) {</b>
+<b class="nc"><i class="no-highlight">851</i>&nbsp;                    notifyJoin(new JoinGroupEvent(name,</b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;                                                  state.getMasterName(),</b>
+<b class="nc"><i class="no-highlight">853</i>&nbsp;                                                  state.getJoinTime()));</b>
+<i class="no-highlight">854</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">855</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">856</i>&nbsp;                /* Increase the counter of this down node. */
+<b class="nc"><i class="no-highlight">857</i>&nbsp;                notifyMissedLeaveEvents(name);</b>
+<b class="nc"><i class="no-highlight">858</i>&nbsp;            } catch (ServiceConnectFailedException e) {</b>
+<i class="no-highlight">859</i>&nbsp;                /* Increase the counter of this down node. */
+<b class="nc"><i class="no-highlight">860</i>&nbsp;                notifyMissedLeaveEvents(name);</b>
+<b class="nc"><i class="no-highlight">861</i>&nbsp;            } catch (ProtocolException e) {</b>
+<i class="no-highlight">862</i>&nbsp;
+<i class="no-highlight">863</i>&nbsp;                /*
+<i class="no-highlight">864</i>&nbsp;                 * Thrown if a node is restarted with a new name on a
+<i class="no-highlight">865</i>&nbsp;                 * hostname/port combination used for an earlier node, meaning
+<i class="no-highlight">866</i>&nbsp;                 * the old node is offline.  Increase the counter of this down
+<i class="no-highlight">867</i>&nbsp;                 * node.
+<i class="no-highlight">868</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">869</i>&nbsp;                notifyMissedLeaveEvents(name);</b>
+<b class="nc"><i class="no-highlight">870</i>&nbsp;            }</b>
+<i class="no-highlight">871</i>&nbsp;        }
+<i class="no-highlight">872</i>&nbsp;
+<i class="no-highlight">873</i>&nbsp;        /*
+<i class="no-highlight">874</i>&nbsp;         * If the master is currently unknown, use the last valid group
+<i class="no-highlight">875</i>&nbsp;         * information so that the ping thread can continue working.
+<i class="no-highlight">876</i>&nbsp;         */
+<i class="no-highlight">877</i>&nbsp;        private ReplicationGroup getValidGroup() {
+<b class="nc"><i class="no-highlight">878</i>&nbsp;            ReplicationGroup repGroup = null;</b>
+<i class="no-highlight">879</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">880</i>&nbsp;                repGroup = getGroup();</b>
+<b class="nc"><i class="no-highlight">881</i>&nbsp;                group = repGroup;</b>
+<b class="nc"><i class="no-highlight">882</i>&nbsp;            } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">883</i>&nbsp;                repGroup = group;</b>
+<b class="nc"><i class="no-highlight">884</i>&nbsp;            }</b>
+<i class="no-highlight">885</i>&nbsp;
+<b class="nc"><i class="no-highlight">886</i>&nbsp;            return repGroup;</b>
+<i class="no-highlight">887</i>&nbsp;        }
+<i class="no-highlight">888</i>&nbsp;
+<i class="no-highlight">889</i>&nbsp;        /* Notify a missed LeaveGroupEvent. */
+<i class="no-highlight">890</i>&nbsp;        private void notifyMissedLeaveEvents(String name) {
+<b class="nc"><i class="no-highlight">891</i>&nbsp;            final JoinGroupEvent event = joinEvents.get(name);</b>
+<b class="nc"><i class="no-highlight">892</i>&nbsp;            if (event == null) {</b>
+<i class="no-highlight">893</i>&nbsp;                return;
+<i class="no-highlight">894</i>&nbsp;            }
+<i class="no-highlight">895</i>&nbsp;
+<b class="nc"><i class="no-highlight">896</i>&nbsp;            int counter = (missedLeaveEvents.get(name) == null) ?</b>
+<b class="nc"><i class="no-highlight">897</i>&nbsp;                1 : missedLeaveEvents.get(name) + 1;</b>
+<b class="nc"><i class="no-highlight">898</i>&nbsp;            missedLeaveEvents.put(name, counter);</b>
+<i class="no-highlight">899</i>&nbsp;
+<b class="nc"><i class="no-highlight">900</i>&nbsp;            if (missedLeaveEvents.get(name) == retries) {</b>
+<b class="nc"><i class="no-highlight">901</i>&nbsp;                notifyLeave(new LeaveGroupEvent(</b>
+<b class="nc"><i class="no-highlight">902</i>&nbsp;                                name, event.getMasterName(),</b>
+<i class="no-highlight">903</i>&nbsp;                                LeaveReason.ABNORMAL_TERMINATION,
+<b class="nc"><i class="no-highlight">904</i>&nbsp;                                event.getJoinTime().getTime(),</b>
+<b class="nc"><i class="no-highlight">905</i>&nbsp;                                System.currentTimeMillis()));</b>
+<i class="no-highlight">906</i>&nbsp;            }
+<i class="no-highlight">907</i>&nbsp;
+<i class="no-highlight">908</i>&nbsp;        }
+<i class="no-highlight">909</i>&nbsp;
+<i class="no-highlight">910</i>&nbsp;        public void stopThread() {
+<b class="nc"><i class="no-highlight">911</i>&nbsp;            running = false;</b>
+<i class="no-highlight">912</i>&nbsp;        }
+<i class="no-highlight">913</i>&nbsp;    }
+<i class="no-highlight">914</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

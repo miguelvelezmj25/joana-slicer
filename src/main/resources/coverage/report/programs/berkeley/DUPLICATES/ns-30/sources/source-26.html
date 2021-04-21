@@ -1,0 +1,357 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LongAvgRate</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: LongAvgRate (com.sleepycat.je.utilint)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LongAvgRate</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/18)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/70)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static java.util.concurrent.TimeUnit.MILLISECONDS;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">19</i>&nbsp;import java.io.ObjectInputStream;
+<i class="no-highlight">20</i>&nbsp;import java.io.ObjectOutputStream;
+<i class="no-highlight">21</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;/**
+<i class="no-highlight">24</i>&nbsp; * A long JE stat component generated from an exponential moving average over a
+<i class="no-highlight">25</i>&nbsp; * specified time period of the rate of change in a long value over time.
+<i class="no-highlight">26</i>&nbsp; */
+<b class="nc"><i class="no-highlight">27</i>&nbsp;public class LongAvgRate extends MapStatComponent&lt;Long, LongAvgRate&gt; {</b>
+<i class="no-highlight">28</i>&nbsp;    private static final long serialVersionUID = 1L;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;    /**
+<i class="no-highlight">31</i>&nbsp;     * The minimum number of milliseconds for computing rate changes, to avoid
+<i class="no-highlight">32</i>&nbsp;     * quantizing errors.
+<i class="no-highlight">33</i>&nbsp;     */
+<i class="no-highlight">34</i>&nbsp;    public static final long MIN_PERIOD = 200;
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;    /** The time unit for reporting the result. */
+<i class="no-highlight">37</i>&nbsp;    private final TimeUnit reportTimeUnit;
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;    /** The average of the rate values. */
+<i class="no-highlight">40</i>&nbsp;    private final DoubleExpMovingAvg avg;
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;    /**
+<i class="no-highlight">43</i>&nbsp;     * The previous value, or 0.  Synchronize on this instance when accessing
+<i class="no-highlight">44</i>&nbsp;     * this field.
+<i class="no-highlight">45</i>&nbsp;     */
+<i class="no-highlight">46</i>&nbsp;    private long prevValue;
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /**
+<i class="no-highlight">49</i>&nbsp;     * The time in milliseconds of the previous value, or 0.  Synchronize on
+<i class="no-highlight">50</i>&nbsp;     * this instance when accessing this field.
+<i class="no-highlight">51</i>&nbsp;     */
+<i class="no-highlight">52</i>&nbsp;    private long prevTime;
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /**
+<i class="no-highlight">55</i>&nbsp;     * Creates an instance of this class.
+<i class="no-highlight">56</i>&nbsp;     *
+<i class="no-highlight">57</i>&nbsp;     * @param name the name of this stat
+<i class="no-highlight">58</i>&nbsp;     * @param periodMillis the averaging period in milliseconds
+<i class="no-highlight">59</i>&nbsp;     * @param reportTimeUnit the time unit for reporting the result
+<i class="no-highlight">60</i>&nbsp;     */
+<i class="no-highlight">61</i>&nbsp;    public LongAvgRate(String name,
+<i class="no-highlight">62</i>&nbsp;                       long periodMillis,
+<b class="nc"><i class="no-highlight">63</i>&nbsp;                       TimeUnit reportTimeUnit) {</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;        avg = new DoubleExpMovingAvg(name, periodMillis);</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;        assert reportTimeUnit != null;</b>
+<b class="nc"><i class="no-highlight">66</i>&nbsp;        this.reportTimeUnit = reportTimeUnit;</b>
+<i class="no-highlight">67</i>&nbsp;    }
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /**
+<i class="no-highlight">70</i>&nbsp;     * Creates an instance of this class as a copy of another instance.
+<i class="no-highlight">71</i>&nbsp;     *
+<i class="no-highlight">72</i>&nbsp;     * @param other the other instance to copy
+<i class="no-highlight">73</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">74</i>&nbsp;    private LongAvgRate(LongAvgRate other) {</b>
+<b class="nc"><i class="no-highlight">75</i>&nbsp;        avg = new DoubleExpMovingAvg(other.avg.copy());</b>
+<b class="nc"><i class="no-highlight">76</i>&nbsp;        reportTimeUnit = other.reportTimeUnit;</b>
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">78</i>&nbsp;            synchronized (other) {</b>
+<b class="nc"><i class="no-highlight">79</i>&nbsp;                prevValue = other.prevValue;</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;                prevTime = other.prevTime;</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">82</i>&nbsp;        }</b>
+<i class="no-highlight">83</i>&nbsp;    }
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    /**
+<i class="no-highlight">86</i>&nbsp;     * Returns the name of this stat.
+<i class="no-highlight">87</i>&nbsp;     *
+<i class="no-highlight">88</i>&nbsp;     * @return the name of this stat
+<i class="no-highlight">89</i>&nbsp;     */
+<i class="no-highlight">90</i>&nbsp;    public String getName() {
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        return avg.getName();</b>
+<i class="no-highlight">92</i>&nbsp;    }
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /**
+<i class="no-highlight">95</i>&nbsp;     * Adds a new value to the average, ignoring values that are less than
+<i class="no-highlight">96</i>&nbsp;     * {@link #MIN_PERIOD} milliseconds older than the last entry.
+<i class="no-highlight">97</i>&nbsp;     *
+<i class="no-highlight">98</i>&nbsp;     * @param value the new value
+<i class="no-highlight">99</i>&nbsp;     * @param time the current time in milliseconds
+<i class="no-highlight">100</i>&nbsp;     */
+<i class="no-highlight">101</i>&nbsp;    public synchronized void add(long value, long time) {
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        assert time &gt; 0;</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        if (prevTime != 0) {</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;            final long deltaTime = time - prevTime;</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;            if (deltaTime &lt; MIN_PERIOD) {</b>
+<i class="no-highlight">106</i>&nbsp;                return;
+<i class="no-highlight">107</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">108</i>&nbsp;            avg.add(((double) (value - prevValue)) / ((double) deltaTime),</b>
+<i class="no-highlight">109</i>&nbsp;                    time);
+<i class="no-highlight">110</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        prevValue = value;</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        prevTime = time;</b>
+<i class="no-highlight">113</i>&nbsp;    }
+<i class="no-highlight">114</i>&nbsp;
+<i class="no-highlight">115</i>&nbsp;    /**
+<i class="no-highlight">116</i>&nbsp;     * Update with more recent values from another stat.
+<i class="no-highlight">117</i>&nbsp;     *
+<i class="no-highlight">118</i>&nbsp;     * @param other the other stat
+<i class="no-highlight">119</i>&nbsp;     */
+<i class="no-highlight">120</i>&nbsp;    public void add(LongAvgRate other) {
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        final LongAvgRate copyOther = other.copy();</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;            synchronized (copyOther) {</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;                addInternal(copyOther);</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;        }</b>
+<i class="no-highlight">127</i>&nbsp;    }
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;    /**
+<i class="no-highlight">130</i>&nbsp;     * Do an  add, letting the caller  arrange to synchronize on  this instance
+<i class="no-highlight">131</i>&nbsp;     * and the argument safely.
+<i class="no-highlight">132</i>&nbsp;     */
+<i class="no-highlight">133</i>&nbsp;    private void addInternal(LongAvgRate other) {
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        assert(Thread.holdsLock(this));</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        assert(Thread.holdsLock(other));</b>
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;        /*
+<i class="no-highlight">138</i>&nbsp;         * Only use the other values if they are newer by more than the
+<i class="no-highlight">139</i>&nbsp;         * minimum
+<i class="no-highlight">140</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        if ((other.prevTime - prevTime) &gt; MIN_PERIOD) {</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            avg.add(other.avg);</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;            prevValue = other.prevValue;</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;            prevTime = other.prevTime;</b>
+<i class="no-highlight">145</i>&nbsp;        }
+<i class="no-highlight">146</i>&nbsp;    }
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;    /**
+<i class="no-highlight">149</i>&nbsp;     * Create and return a new stat that includes the most recent values from
+<i class="no-highlight">150</i>&nbsp;     * this stat and another stat.
+<i class="no-highlight">151</i>&nbsp;     *
+<i class="no-highlight">152</i>&nbsp;     * @param other the other stat
+<i class="no-highlight">153</i>&nbsp;     * @return a copy containing all new values
+<i class="no-highlight">154</i>&nbsp;     */
+<i class="no-highlight">155</i>&nbsp;    public LongAvgRate copyLatest(LongAvgRate other) {
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        final LongAvgRate otherCopy = other.copy();</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            synchronized (otherCopy) {</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;                if (prevTime &gt; otherCopy.prevTime) {</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                    otherCopy.addInternal(this);</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                    return otherCopy;</b>
+<i class="no-highlight">162</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                final LongAvgRate result = copy();</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                synchronized (result) {</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;                    result.addInternal(otherCopy);</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                    return result;</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;        }</b>
+<i class="no-highlight">170</i>&nbsp;    }
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;    /**
+<i class="no-highlight">173</i>&nbsp;     * Returns the time the last new value was added, or 0 if no values have
+<i class="no-highlight">174</i>&nbsp;     * been added.
+<i class="no-highlight">175</i>&nbsp;     *
+<i class="no-highlight">176</i>&nbsp;     * @return the time or 0
+<i class="no-highlight">177</i>&nbsp;     */
+<i class="no-highlight">178</i>&nbsp;    synchronized long getPrevTime() {
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        return prevTime;</b>
+<i class="no-highlight">180</i>&nbsp;    }
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;    /**
+<i class="no-highlight">183</i>&nbsp;     * Returns the current average rate, or 0 if no rate has been computed.
+<i class="no-highlight">184</i>&nbsp;     */
+<i class="no-highlight">185</i>&nbsp;    @Override
+<i class="no-highlight">186</i>&nbsp;    public Long get() {
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        return getPrimitive();</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /** Returns the current average rate as a primitive value. */
+<i class="no-highlight">191</i>&nbsp;    private long getPrimitive() {
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        final double inMillis = avg.getPrimitive();</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        if (reportTimeUnit == MILLISECONDS) {</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            return Math.round(inMillis);</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;        } else if (reportTimeUnit.compareTo(MILLISECONDS) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">196</i>&nbsp;            return Math.round(</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                inMillis / reportTimeUnit.convert(1, MILLISECONDS));</b>
+<i class="no-highlight">198</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            return Math.round(inMillis * reportTimeUnit.toMillis(1));</b>
+<i class="no-highlight">200</i>&nbsp;        }
+<i class="no-highlight">201</i>&nbsp;    }
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    @Override
+<i class="no-highlight">204</i>&nbsp;    public synchronized void clear() {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        avg.clear();</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        prevValue = 0;</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        prevTime = 0;</b>
+<i class="no-highlight">208</i>&nbsp;    }
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;    @Override
+<i class="no-highlight">211</i>&nbsp;    public LongAvgRate copy() {
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        return new LongAvgRate(this);</b>
+<i class="no-highlight">213</i>&nbsp;    }
+<i class="no-highlight">214</i>&nbsp;
+<i class="no-highlight">215</i>&nbsp;    @Override
+<i class="no-highlight">216</i>&nbsp;    protected String getFormattedValue(boolean useCommas) {
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        if (isNotSet()) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            return &quot;unknown&quot;;</b>
+<i class="no-highlight">219</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        final long val = getPrimitive();</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;        if (useCommas) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;            return Stat.FORMAT.format(val);</b>
+<i class="no-highlight">223</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">224</i>&nbsp;            return Long.toString(val);</b>
+<i class="no-highlight">225</i>&nbsp;        }
+<i class="no-highlight">226</i>&nbsp;    }
+<i class="no-highlight">227</i>&nbsp;
+<i class="no-highlight">228</i>&nbsp;    @Override
+<i class="no-highlight">229</i>&nbsp;    public boolean isNotSet() {
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        return avg.isNotSet();</b>
+<i class="no-highlight">231</i>&nbsp;    }
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;    @Override
+<i class="no-highlight">234</i>&nbsp;    public synchronized String toString() {
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        return &quot;LongAvgRate[&quot; + avg + &quot;, prevValue=&quot; + prevValue +</b>
+<i class="no-highlight">236</i>&nbsp;            &quot;, prevTime=&quot; + prevTime + &quot;]&quot;;
+<i class="no-highlight">237</i>&nbsp;    }
+<i class="no-highlight">238</i>&nbsp;
+<i class="no-highlight">239</i>&nbsp;    /** Synchronize access to fields. */
+<i class="no-highlight">240</i>&nbsp;    private synchronized void readObject(ObjectInputStream in)
+<i class="no-highlight">241</i>&nbsp;        throws IOException, ClassNotFoundException {
+<i class="no-highlight">242</i>&nbsp;
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        in.defaultReadObject();</b>
+<i class="no-highlight">244</i>&nbsp;    }
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;    /** Synchronize access to fields. */
+<i class="no-highlight">247</i>&nbsp;    private synchronized void writeObject(ObjectOutputStream out)
+<i class="no-highlight">248</i>&nbsp;        throws IOException {
+<i class="no-highlight">249</i>&nbsp;
+<b class="nc"><i class="no-highlight">250</i>&nbsp;        out.defaultWriteObject();</b>
+<i class="no-highlight">251</i>&nbsp;    }
+<i class="no-highlight">252</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,2472 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > RepImpl</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: RepImpl (com.sleepycat.je.rep.impl)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">RepImpl</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/118)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/577)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">RepImpl$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">RepImpl$InternalReplicatedEnvironment</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">RepImpl$VLSNIndexAccess</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/12)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/126)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/595)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.rep.NoConsistencyRequiredPolicy.NO_CONSISTENCY;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.NODE_NAME;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.REPLAY_FREE_DISK_PERCENT;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.TEST_JE_VERSION;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.VLSN_MAX_DIST;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.VLSN_MAX_MAP;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.VLSN_STRIDE;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;import java.io.File;
+<i class="no-highlight">25</i>&nbsp;import java.io.FileNotFoundException;
+<i class="no-highlight">26</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">27</i>&nbsp;import java.io.PrintWriter;
+<i class="no-highlight">28</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">29</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">30</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">31</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">32</i>&nbsp;import java.util.List;
+<i class="no-highlight">33</i>&nbsp;import java.util.Map;
+<i class="no-highlight">34</i>&nbsp;import java.util.Set;
+<i class="no-highlight">35</i>&nbsp;import java.util.SortedSet;
+<i class="no-highlight">36</i>&nbsp;import java.util.UUID;
+<i class="no-highlight">37</i>&nbsp;import java.util.concurrent.CountDownLatch;
+<i class="no-highlight">38</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">39</i>&nbsp;import java.util.concurrent.locks.ReentrantLock;
+<i class="no-highlight">40</i>&nbsp;import java.util.concurrent.locks.ReentrantReadWriteLock;
+<i class="no-highlight">41</i>&nbsp;import java.util.logging.Formatter;
+<i class="no-highlight">42</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">43</i>&nbsp;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.CheckpointConfig;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.DatabaseConfig;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.DatabaseNotFoundException;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.Durability;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.Durability.ReplicaAckPolicy;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.Durability.SyncPolicy;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.EnvironmentLockedException;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.EnvironmentNotFoundException;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.JEVersion;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.ProgressListener;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.ReplicaConsistencyPolicy;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">63</i>&nbsp;import com.sleepycat.je.TransactionTimeoutException;
+<i class="no-highlight">64</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">65</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">66</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">67</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">68</i>&nbsp;import com.sleepycat.je.dbi.DbType;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">70</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">71</i>&nbsp;import com.sleepycat.je.dbi.RepConfigProxy;
+<i class="no-highlight">72</i>&nbsp;import com.sleepycat.je.dbi.StartupTracker.Phase;
+<i class="no-highlight">73</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">74</i>&nbsp;import com.sleepycat.je.log.LogEntryHeader;
+<i class="no-highlight">75</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">76</i>&nbsp;import com.sleepycat.je.log.LogItem;
+<i class="no-highlight">77</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">78</i>&nbsp;import com.sleepycat.je.log.entry.RestoreRequired;
+<i class="no-highlight">79</i>&nbsp;import com.sleepycat.je.recovery.RecoveryInfo;
+<i class="no-highlight">80</i>&nbsp;import com.sleepycat.je.recovery.VLSNRecoveryProxy;
+<i class="no-highlight">81</i>&nbsp;import com.sleepycat.je.rep.DatabasePreemptedException;
+<i class="no-highlight">82</i>&nbsp;import com.sleepycat.je.rep.InsufficientAcksException;
+<i class="no-highlight">83</i>&nbsp;import com.sleepycat.je.rep.InsufficientLogException;
+<i class="no-highlight">84</i>&nbsp;import com.sleepycat.je.rep.InsufficientReplicasException;
+<i class="no-highlight">85</i>&nbsp;import com.sleepycat.je.rep.LockPreemptedException;
+<i class="no-highlight">86</i>&nbsp;import com.sleepycat.je.rep.LogFileRewriteListener;
+<i class="no-highlight">87</i>&nbsp;import com.sleepycat.je.rep.LogOverwriteException;
+<i class="no-highlight">88</i>&nbsp;import com.sleepycat.je.rep.QuorumPolicy;
+<i class="no-highlight">89</i>&nbsp;import com.sleepycat.je.rep.RepInternal;
+<i class="no-highlight">90</i>&nbsp;import com.sleepycat.je.rep.RepStatManager;
+<i class="no-highlight">91</i>&nbsp;import com.sleepycat.je.rep.ReplicaConsistencyException;
+<i class="no-highlight">92</i>&nbsp;import com.sleepycat.je.rep.ReplicaWriteException;
+<i class="no-highlight">93</i>&nbsp;import com.sleepycat.je.rep.ReplicatedEnvironment;
+<i class="no-highlight">94</i>&nbsp;import com.sleepycat.je.rep.ReplicatedEnvironmentStats;
+<i class="no-highlight">95</i>&nbsp;import com.sleepycat.je.rep.ReplicationConfig;
+<i class="no-highlight">96</i>&nbsp;import com.sleepycat.je.rep.ReplicationMutableConfig;
+<i class="no-highlight">97</i>&nbsp;import com.sleepycat.je.rep.ReplicationNetworkConfig;
+<i class="no-highlight">98</i>&nbsp;import com.sleepycat.je.rep.RestartRequiredException;
+<i class="no-highlight">99</i>&nbsp;import com.sleepycat.je.rep.RollbackException;
+<i class="no-highlight">100</i>&nbsp;import com.sleepycat.je.rep.StateChangeEvent;
+<i class="no-highlight">101</i>&nbsp;import com.sleepycat.je.rep.StateChangeListener;
+<i class="no-highlight">102</i>&nbsp;import com.sleepycat.je.rep.SyncupProgress;
+<i class="no-highlight">103</i>&nbsp;import com.sleepycat.je.rep.UnknownMasterException;
+<i class="no-highlight">104</i>&nbsp;import com.sleepycat.je.rep.impl.node.Feeder;
+<i class="no-highlight">105</i>&nbsp;import com.sleepycat.je.rep.impl.node.cbvlsn.LocalCBVLSNUpdater;
+<i class="no-highlight">106</i>&nbsp;import com.sleepycat.je.rep.impl.node.MasterTransfer;
+<i class="no-highlight">107</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">108</i>&nbsp;import com.sleepycat.je.rep.impl.node.NodeState;
+<i class="no-highlight">109</i>&nbsp;import com.sleepycat.je.rep.impl.node.RepNode;
+<i class="no-highlight">110</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replay;
+<i class="no-highlight">111</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory;
+<i class="no-highlight">112</i>&nbsp;import com.sleepycat.je.rep.stream.ArbiterFeederSource;
+<i class="no-highlight">113</i>&nbsp;import com.sleepycat.je.rep.stream.FeederFilter;
+<i class="no-highlight">114</i>&nbsp;import com.sleepycat.je.rep.stream.FeederReader;
+<i class="no-highlight">115</i>&nbsp;import com.sleepycat.je.rep.stream.FeederTxns;
+<i class="no-highlight">116</i>&nbsp;import com.sleepycat.je.rep.subscription.StreamAuthenticator;
+<i class="no-highlight">117</i>&nbsp;import com.sleepycat.je.rep.txn.MasterThreadLocker;
+<i class="no-highlight">118</i>&nbsp;import com.sleepycat.je.rep.txn.MasterTxn;
+<i class="no-highlight">119</i>&nbsp;import com.sleepycat.je.rep.txn.ReadonlyTxn;
+<i class="no-highlight">120</i>&nbsp;import com.sleepycat.je.rep.txn.ReplayTxn;
+<i class="no-highlight">121</i>&nbsp;import com.sleepycat.je.rep.txn.ReplicaThreadLocker;
+<i class="no-highlight">122</i>&nbsp;import com.sleepycat.je.rep.utilint.HostPortPair;
+<i class="no-highlight">123</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">124</i>&nbsp;import com.sleepycat.je.rep.utilint.ReplicationFormatter;
+<i class="no-highlight">125</i>&nbsp;import com.sleepycat.je.rep.utilint.StatCaptureRepDefinitions;
+<i class="no-highlight">126</i>&nbsp;import com.sleepycat.je.rep.utilint.net.DataChannelFactoryBuilder;
+<i class="no-highlight">127</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNIndex;
+<i class="no-highlight">128</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRange;
+<i class="no-highlight">129</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRecoveryTracker;
+<i class="no-highlight">130</i>&nbsp;import com.sleepycat.je.statcap.StatManager;
+<i class="no-highlight">131</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">132</i>&nbsp;import com.sleepycat.je.txn.ThreadLocker;
+<i class="no-highlight">133</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">134</i>&nbsp;import com.sleepycat.je.txn.TxnEnd;
+<i class="no-highlight">135</i>&nbsp;import com.sleepycat.je.txn.VersionedWriteTxnEnd;
+<i class="no-highlight">136</i>&nbsp;import com.sleepycat.je.util.DbBackup;
+<i class="no-highlight">137</i>&nbsp;import com.sleepycat.je.utilint.BooleanStat;
+<i class="no-highlight">138</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">139</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">140</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">141</i>&nbsp;import com.sleepycat.je.utilint.StringStat;
+<i class="no-highlight">142</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">143</i>&nbsp;
+<b class="nc"><i class="no-highlight">144</i>&nbsp;public class RepImpl</b>
+<i class="no-highlight">145</i>&nbsp;    extends EnvironmentImpl
+<i class="no-highlight">146</i>&nbsp;    implements RepEnvConfigObserver {
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;    private VLSNIndex vlsnIndex;
+<i class="no-highlight">149</i>&nbsp;    /* VLSNIndexAccess coordinates the closing of the vlsn index */
+<b class="nc"><i class="no-highlight">150</i>&nbsp;    private final VLSNIndexAccess vlsnIndexAccess = new VLSNIndexAccess();</b>
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    private final FeederTxns feederTxns;
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    /*
+<i class="no-highlight">155</i>&nbsp;     * The repNode is only non-null when the replicated environment has joined
+<i class="no-highlight">156</i>&nbsp;     * a group. It&#39;s null otherwise.
+<i class="no-highlight">157</i>&nbsp;     */
+<i class="no-highlight">158</i>&nbsp;    private volatile RepNode repNode;
+<i class="no-highlight">159</i>&nbsp;    private Replay replay;
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;    /*
+<i class="no-highlight">162</i>&nbsp;     * This is the canonical nameIdPair instance used by the node. The internal
+<i class="no-highlight">163</i>&nbsp;     * Id part of the pair will be updated when the node actually joins the
+<i class="no-highlight">164</i>&nbsp;     * group.
+<i class="no-highlight">165</i>&nbsp;     */
+<i class="no-highlight">166</i>&nbsp;    private NameIdPair nameIdPair;
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;    private final NodeState nodeState;
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    /*
+<i class="no-highlight">171</i>&nbsp;     * The clockskew used by this environment in ms. It&#39;s only used by testing
+<i class="no-highlight">172</i>&nbsp;     * to inject clock skew between ReplicatedEnvironments.
+<i class="no-highlight">173</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">174</i>&nbsp;    private static int clockSkewMs = 0;</b>
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;    /*
+<i class="no-highlight">177</i>&nbsp;     * A handle to the group database. This handle is initialized lazily when
+<i class="no-highlight">178</i>&nbsp;     * the contents of the database are first required. It&#39;s set to null upon
+<i class="no-highlight">179</i>&nbsp;     * shutdown. The handle must be initialized lazily because the database is
+<i class="no-highlight">180</i>&nbsp;     * created by the master, and we only know master identity later.  The
+<i class="no-highlight">181</i>&nbsp;     * RepImpl manages the rep group database, so that the lifetime of the
+<i class="no-highlight">182</i>&nbsp;     * databaseImpl handle can be managed more easily to mesh with the opening
+<i class="no-highlight">183</i>&nbsp;     * and closing of the RepImpl.
+<i class="no-highlight">184</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">185</i>&nbsp;    private DatabaseImpl groupDbImpl = null;</b>
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    /* The status presents whether this replica is doing rollback. */
+<b class="nc"><i class="no-highlight">188</i>&nbsp;    private boolean backupProhibited = false;</b>
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /*
+<i class="no-highlight">191</i>&nbsp;     * Represents whether this Environment is allowed to convert a
+<i class="no-highlight">192</i>&nbsp;     * non-replicated Environment to replicated.
+<i class="no-highlight">193</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">194</i>&nbsp;    private boolean allowConvert = false;</b>
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;    /** Config params for preserving and caching the VLSN. */
+<i class="no-highlight">197</i>&nbsp;    private boolean preserveVLSN;
+<i class="no-highlight">198</i>&nbsp;    private boolean cacheVLSN;
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;    /*
+<i class="no-highlight">201</i>&nbsp;     * True if TTL is available. Volatile is not used, since checking more than
+<i class="no-highlight">202</i>&nbsp;     * once is idempotent.
+<i class="no-highlight">203</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">204</i>&nbsp;    private boolean isTTLAvailable = false;</b>
+<i class="no-highlight">205</i>&nbsp;
+<i class="no-highlight">206</i>&nbsp;    /* Keep an eye on the ongoing DbBackups. */
+<b class="nc"><i class="no-highlight">207</i>&nbsp;    private final Set&lt;DbBackup&gt; backups = new HashSet&lt;DbBackup&gt;();</b>
+<i class="no-highlight">208</i>&nbsp;
+<i class="no-highlight">209</i>&nbsp;    /*
+<i class="no-highlight">210</i>&nbsp;     * The list of observers who are notified when a mutable rep param changes.
+<i class="no-highlight">211</i>&nbsp;     */
+<i class="no-highlight">212</i>&nbsp;    private final List&lt;RepEnvConfigObserver&gt; repConfigObservers;
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;    /*
+<i class="no-highlight">215</i>&nbsp;     * Lock used to control access and lazy initialization of groupDbImpl,
+<i class="no-highlight">216</i>&nbsp;     * ensuring that there is exactly one database made. A mutex is used rather
+<i class="no-highlight">217</i>&nbsp;     * than synchronization to allow us to probe for contention on the
+<i class="no-highlight">218</i>&nbsp;     * groupDbImpl.
+<i class="no-highlight">219</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">220</i>&nbsp;    private final ReentrantLock groupDbLock = new ReentrantLock();</b>
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;    private int replicaAckTimeout;
+<i class="no-highlight">223</i>&nbsp;    private int arbiterAckTimeout;
+<i class="no-highlight">224</i>&nbsp;    private int insufficientReplicasTimeout;
+<i class="no-highlight">225</i>&nbsp;    private int replayTxnTimeout;
+<i class="no-highlight">226</i>&nbsp;    private ReplicaConsistencyPolicy defaultConsistencyPolicy;
+<i class="no-highlight">227</i>&nbsp;    private boolean allowArbiterAck;
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    /*
+<i class="no-highlight">230</i>&nbsp;     * Arbiters, subscribers and networkBackup use RepImpls which are read
+<i class="no-highlight">231</i>&nbsp;     * only and have some daemon functionality disabled.
+<i class="no-highlight">232</i>&nbsp;     */
+<i class="no-highlight">233</i>&nbsp;    private boolean isArbiter;
+<i class="no-highlight">234</i>&nbsp;    private boolean isSubscriber;
+<i class="no-highlight">235</i>&nbsp;    private boolean isNetworkBackup;
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    /*
+<i class="no-highlight">238</i>&nbsp;     * NodeStats are currently not public, but we may want to evaluate
+<i class="no-highlight">239</i>&nbsp;     * and decide if they would be useful, perhaps as a debugging aid.
+<i class="no-highlight">240</i>&nbsp;     */
+<i class="no-highlight">241</i>&nbsp;    private final StatGroup nodeStats;
+<i class="no-highlight">242</i>&nbsp;    private final BooleanStat hardRecoveryStat;
+<i class="no-highlight">243</i>&nbsp;    private final StringStat hardRecoveryInfoStat;
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    /*
+<i class="no-highlight">246</i>&nbsp;     * Used to block transaction commit/abort execution just before completing
+<i class="no-highlight">247</i>&nbsp;     * a Master Transfer operation.
+<i class="no-highlight">248</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">249</i>&nbsp;    private volatile CountDownLatch blockTxnLatch = new CountDownLatch(0);</b>
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;    /**
+<i class="no-highlight">252</i>&nbsp;     * A lock used to coordinate access to {@link #blockTxnLatch}.
+<i class="no-highlight">253</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">254</i>&nbsp;     * When a Master Transfer operation completes Phase 1, it sets a new {@code
+<i class="no-highlight">255</i>&nbsp;     * CountDownLatch} in order to block the completion of transactions at the
+<i class="no-highlight">256</i>&nbsp;     * commit or abort stage.  We must avoid having it do so at an awkward
+<i class="no-highlight">257</i>&nbsp;     * moment.  There are two (unrelated) cases:
+<i class="no-highlight">258</i>&nbsp;     * &lt;ol&gt;
+<i class="no-highlight">259</i>&nbsp;     * &lt;li&gt;There is a brief period between the time a transaction &quot;awaits&quot; the
+<i class="no-highlight">260</i>&nbsp;     * latch (in {@code checkBlock()}) and the time it publishes its VLSN.  We
+<i class="no-highlight">261</i>&nbsp;     * must avoid having Master Transfer read its &quot;ultimate goal&quot; VLSN during
+<i class="no-highlight">262</i>&nbsp;     * that interval.
+<i class="no-highlight">263</i>&nbsp;     * &lt;li&gt;The Feeder input thread occasionally updates the GroupDB, upon
+<i class="no-highlight">264</i>&nbsp;     * receiving a Heartbeat response.  That happens in a transaction, like any
+<i class="no-highlight">265</i>&nbsp;     * other, so it could be subject to the normal blockage in Phase 2.  But
+<i class="no-highlight">266</i>&nbsp;     * the Feeder input thread is of course also the thread that we rely on for
+<i class="no-highlight">267</i>&nbsp;     * making progress towards the goal of Master Transfer; so blocking it is
+<i class="no-highlight">268</i>&nbsp;     * counterproductive.
+<i class="no-highlight">269</i>&nbsp;     * &lt;/ol&gt;
+<i class="no-highlight">270</i>&nbsp;     *
+<i class="no-highlight">271</i>&nbsp;     * @see MasterTransfer
+<i class="no-highlight">272</i>&nbsp;     * @see ReplicatedEnvironment#transferMaster
+<i class="no-highlight">273</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">274</i>&nbsp;    private final ReentrantReadWriteLock blockLatchLock =</b>
+<i class="no-highlight">275</i>&nbsp;        new ReentrantReadWriteLock(true);
+<i class="no-highlight">276</i>&nbsp;
+<i class="no-highlight">277</i>&nbsp;    /* application listener for syncups. */
+<i class="no-highlight">278</i>&nbsp;    private final ProgressListener&lt;SyncupProgress&gt; syncupProgressListener;
+<i class="no-highlight">279</i>&nbsp;
+<i class="no-highlight">280</i>&nbsp;    /* Application callback to be notified before we overwrite log files. */
+<i class="no-highlight">281</i>&nbsp;    private final LogFileRewriteListener logRewriteListener;
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;    /* Configuration for ServiceDispatcher communication */
+<i class="no-highlight">284</i>&nbsp;    private final ReplicationNetworkConfig repNetConfig;
+<i class="no-highlight">285</i>&nbsp;
+<i class="no-highlight">286</i>&nbsp;    /*
+<i class="no-highlight">287</i>&nbsp;     * Factory for creating channel instances.  Not available until
+<i class="no-highlight">288</i>&nbsp;     * initializeChannelFactory is called.
+<i class="no-highlight">289</i>&nbsp;     */
+<i class="no-highlight">290</i>&nbsp;    private volatile DataChannelFactory channelFactory;
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;    /**
+<i class="no-highlight">293</i>&nbsp;     * Used for testing, to create log files with
+<i class="no-highlight">294</i>&nbsp;     * VLSN.UNINITIALIZED_VLSN_SEQUENCE as the value for the dtvlsn
+<i class="no-highlight">295</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">296</i>&nbsp;    private static boolean simulatePreDTVLSNMaster = false;</b>
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    /*
+<i class="no-highlight">299</i>&nbsp;     * Used to verify VLSN invariants as they are written to the log on the
+<i class="no-highlight">300</i>&nbsp;     * master
+<i class="no-highlight">301</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">302</i>&nbsp;    private long prevLoggedVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;    private long prevLoggedDTVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">304</i>&nbsp;
+<i class="no-highlight">305</i>&nbsp;    /*
+<i class="no-highlight">306</i>&nbsp;     * The filter transmitted to a Feeder so that records can be filtered at
+<i class="no-highlight">307</i>&nbsp;     * the source
+<i class="no-highlight">308</i>&nbsp;     */
+<i class="no-highlight">309</i>&nbsp;    private final FeederFilter feederFilter;
+<i class="no-highlight">310</i>&nbsp;
+<i class="no-highlight">311</i>&nbsp;    /**
+<i class="no-highlight">312</i>&nbsp;     * The feeder authenticator generator is instantiated by the replicated
+<i class="no-highlight">313</i>&nbsp;     * environment creator.
+<i class="no-highlight">314</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">315</i>&nbsp;    private volatile StreamAuthenticator authenticator = null;</b>
+<i class="no-highlight">316</i>&nbsp;
+<i class="no-highlight">317</i>&nbsp;    public RepImpl(File envHome,
+<i class="no-highlight">318</i>&nbsp;                   EnvironmentConfig envConfig,
+<i class="no-highlight">319</i>&nbsp;                   EnvironmentImpl sharedCacheEnv,
+<i class="no-highlight">320</i>&nbsp;                   RepConfigProxy repConfigProxy)
+<i class="no-highlight">321</i>&nbsp;        throws EnvironmentNotFoundException, EnvironmentLockedException {
+<i class="no-highlight">322</i>&nbsp;
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        super(envHome, envConfig, sharedCacheEnv, repConfigProxy);</b>
+<i class="no-highlight">324</i>&nbsp;
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        allowConvert =</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            RepInternal.getAllowConvert(((ReplicationConfig) repConfigProxy));</b>
+<i class="no-highlight">327</i>&nbsp;
+<b class="nc"><i class="no-highlight">328</i>&nbsp;        repConfigObservers = new ArrayList&lt;RepEnvConfigObserver&gt;();</b>
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        addRepConfigObserver(this);</b>
+<i class="no-highlight">330</i>&nbsp;
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        repNetConfig =</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;                ((ReplicationConfig)repConfigProxy).getRepNetConfig();</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;        nodeState = new NodeState(nameIdPair, this);</b>
+<i class="no-highlight">334</i>&nbsp;
+<b class="nc"><i class="no-highlight">335</i>&nbsp;        if (isArbiter || isSubscriber || isNetworkBackup ) {</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;            nodeStats = null;</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            syncupProgressListener = null;</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;            logRewriteListener = null;</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            hardRecoveryStat = null;</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;            hardRecoveryInfoStat = null;</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;            feederTxns = null;</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            feederFilter = null;</b>
+<i class="no-highlight">343</i>&nbsp;            return;
+<i class="no-highlight">344</i>&nbsp;        }
+<i class="no-highlight">345</i>&nbsp;
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        feederTxns = new FeederTxns(this);</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        replay = new Replay(this, nameIdPair);</b>
+<i class="no-highlight">348</i>&nbsp;
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        nodeStats = new StatGroup(RepImplStatDefinition.GROUP_NAME,</b>
+<i class="no-highlight">350</i>&nbsp;                                  RepImplStatDefinition.GROUP_DESC);
+<b class="nc"><i class="no-highlight">351</i>&nbsp;        hardRecoveryStat = new BooleanStat(nodeStats,</b>
+<i class="no-highlight">352</i>&nbsp;                                           RepImplStatDefinition.HARD_RECOVERY);
+<b class="nc"><i class="no-highlight">353</i>&nbsp;        hardRecoveryInfoStat =</b>
+<i class="no-highlight">354</i>&nbsp;            new StringStat(nodeStats, RepImplStatDefinition.HARD_RECOVERY_INFO,
+<i class="no-highlight">355</i>&nbsp;                           &quot;This node did not incur a hard recovery.&quot;);
+<i class="no-highlight">356</i>&nbsp;
+<b class="nc"><i class="no-highlight">357</i>&nbsp;        syncupProgressListener =</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;            ((ReplicationConfig)repConfigProxy).getSyncupProgressListener();</b>
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        logRewriteListener =</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;            ((ReplicationConfig)repConfigProxy).getLogFileRewriteListener();</b>
+<i class="no-highlight">361</i>&nbsp;
+<b class="nc"><i class="no-highlight">362</i>&nbsp;        feederFilter =</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;            ((ReplicationConfig)repConfigProxy).getFeederFilter();</b>
+<i class="no-highlight">364</i>&nbsp;
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        authenticator = ((ReplicationConfig)repConfigProxy).getAuthenticator();</b>
+<i class="no-highlight">366</i>&nbsp;    }
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    /**
+<i class="no-highlight">369</i>&nbsp;     * Called by the EnvironmentImpl constructor.  Some rep params,
+<i class="no-highlight">370</i>&nbsp;     * preserveVLSN for example, are accessed by the EnvironmentImpl via
+<i class="no-highlight">371</i>&nbsp;     * methods (getPreserveVLSN for example), so they need to be initialized
+<i class="no-highlight">372</i>&nbsp;     * early.
+<i class="no-highlight">373</i>&nbsp;     */
+<i class="no-highlight">374</i>&nbsp;    @Override
+<i class="no-highlight">375</i>&nbsp;    protected void initConfigParams(EnvironmentConfig envConfig,
+<i class="no-highlight">376</i>&nbsp;                                    RepConfigProxy repConfigProxy) {
+<i class="no-highlight">377</i>&nbsp;
+<i class="no-highlight">378</i>&nbsp;        /* Init standalone config params first. */
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        super.initConfigParams(envConfig, repConfigProxy);</b>
+<i class="no-highlight">380</i>&nbsp;
+<i class="no-highlight">381</i>&nbsp;        /* Init rep config params. */
+<b class="nc"><i class="no-highlight">382</i>&nbsp;        replicaAckTimeout =</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;            configManager.getDuration(RepParams.REPLICA_ACK_TIMEOUT);</b>
+<b class="nc"><i class="no-highlight">384</i>&nbsp;        insufficientReplicasTimeout =</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;            configManager.getDuration(RepParams.INSUFFICIENT_REPLICAS_TIMEOUT);</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;        replayTxnTimeout =</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;            configManager.getDuration(RepParams.REPLAY_TXN_LOCK_TIMEOUT);</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        defaultConsistencyPolicy = RepUtils.getReplicaConsistencyPolicy</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;            (configManager.get(RepParams.CONSISTENCY_POLICY));</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        preserveVLSN =</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;            configManager.getBoolean(RepParams.PRESERVE_RECORD_VERSION);</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        cacheVLSN =</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            configManager.getBoolean(RepParams.CACHE_RECORD_VERSION);</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;        allowArbiterAck =</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;            configManager.getBoolean(RepParams.ALLOW_ARBITER_ACK);</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;        isArbiter =</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;            configManager.getBoolean(RepParams.ARBITER_USE);</b>
+<b class="nc"><i class="no-highlight">398</i>&nbsp;        isSubscriber =</b>
+<b class="nc"><i class="no-highlight">399</i>&nbsp;            configManager.getBoolean(RepParams.SUBSCRIBER_USE);</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;        isNetworkBackup =</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;            configManager.getBoolean(RepParams.NETWORKBACKUP_USE);</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;        arbiterAckTimeout =</b>
+<b class="nc"><i class="no-highlight">403</i>&nbsp;            configManager.getDuration(RepParams.ARBITER_ACK_TIMEOUT);</b>
+<i class="no-highlight">404</i>&nbsp;    }
+<i class="no-highlight">405</i>&nbsp;
+<i class="no-highlight">406</i>&nbsp;    @Override
+<i class="no-highlight">407</i>&nbsp;    protected Formatter initFormatter() {
+<i class="no-highlight">408</i>&nbsp;
+<i class="no-highlight">409</i>&nbsp;        /*
+<i class="no-highlight">410</i>&nbsp;         * The nameIdPair field is assigned here rather than in the constructor
+<i class="no-highlight">411</i>&nbsp;         * because of base class/subclass dependencies. initFormatter() is
+<i class="no-highlight">412</i>&nbsp;         * called by the base class constructor, and nameIdPair must be
+<i class="no-highlight">413</i>&nbsp;         * available at that time.
+<i class="no-highlight">414</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        nameIdPair = new NameIdPair(configManager.get(NODE_NAME));</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;        return new ReplicationFormatter(nameIdPair);</b>
+<i class="no-highlight">417</i>&nbsp;    }
+<i class="no-highlight">418</i>&nbsp;
+<i class="no-highlight">419</i>&nbsp;    @Override
+<i class="no-highlight">420</i>&nbsp;    public String getMonitorClassName() {
+<b class="nc"><i class="no-highlight">421</i>&nbsp;        return &quot;com.sleepycat.je.rep.jmx.RepJEMonitor&quot;;</b>
+<i class="no-highlight">422</i>&nbsp;    }
+<i class="no-highlight">423</i>&nbsp;
+<i class="no-highlight">424</i>&nbsp;    @Override
+<i class="no-highlight">425</i>&nbsp;    public String getDiagnosticsClassName() {
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        return &quot;com.sleepycat.je.rep.jmx.RepJEDiagnostics&quot;;</b>
+<i class="no-highlight">427</i>&nbsp;    }
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;    /**
+<i class="no-highlight">430</i>&nbsp;     * @see super#initConfigManager
+<i class="no-highlight">431</i>&nbsp;     */
+<i class="no-highlight">432</i>&nbsp;    @Override
+<i class="no-highlight">433</i>&nbsp;    protected DbConfigManager
+<i class="no-highlight">434</i>&nbsp;        initConfigManager(EnvironmentConfig envConfig,
+<i class="no-highlight">435</i>&nbsp;                          RepConfigProxy repConfigProxy) {
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        return new RepConfigManager(envConfig, repConfigProxy);</b>
+<i class="no-highlight">437</i>&nbsp;    }
+<i class="no-highlight">438</i>&nbsp;
+<i class="no-highlight">439</i>&nbsp;    @Override
+<i class="no-highlight">440</i>&nbsp;    public boolean getAllowRepConvert() {
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        return allowConvert;</b>
+<i class="no-highlight">442</i>&nbsp;    }
+<i class="no-highlight">443</i>&nbsp;
+<i class="no-highlight">444</i>&nbsp;    /**
+<i class="no-highlight">445</i>&nbsp;     * @see super#resetConfigManager
+<i class="no-highlight">446</i>&nbsp;     */
+<i class="no-highlight">447</i>&nbsp;    @Override
+<i class="no-highlight">448</i>&nbsp;    protected DbConfigManager resetConfigManager(EnvironmentConfig newConfig) {
+<i class="no-highlight">449</i>&nbsp;        /* Save all the replication related properties. */
+<b class="nc"><i class="no-highlight">450</i>&nbsp;        RepConfigManager repConfigManager = (RepConfigManager) configManager;</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        ReplicationConfig repConfig = repConfigManager.makeReplicationConfig();</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;        return new RepConfigManager(newConfig, repConfig);</b>
+<i class="no-highlight">453</i>&nbsp;    }
+<i class="no-highlight">454</i>&nbsp;
+<i class="no-highlight">455</i>&nbsp;    public ReplicationConfig cloneRepConfig() {
+<b class="nc"><i class="no-highlight">456</i>&nbsp;        RepConfigManager repConfigManager = (RepConfigManager) configManager;</b>
+<b class="nc"><i class="no-highlight">457</i>&nbsp;        return repConfigManager.makeReplicationConfig();</b>
+<i class="no-highlight">458</i>&nbsp;    }
+<i class="no-highlight">459</i>&nbsp;
+<i class="no-highlight">460</i>&nbsp;    /* Make an ReplicatedEnvironment handle for this RepImpl. */
+<i class="no-highlight">461</i>&nbsp;    public ReplicatedEnvironment makeEnvironment() {
+<b class="nc"><i class="no-highlight">462</i>&nbsp;        return new ReplicatedEnvironment(getEnvironmentHome(),</b>
+<b class="nc"><i class="no-highlight">463</i>&nbsp;                                         cloneRepConfig(),</b>
+<b class="nc"><i class="no-highlight">464</i>&nbsp;                                         cloneConfig());</b>
+<i class="no-highlight">465</i>&nbsp;    }
+<i class="no-highlight">466</i>&nbsp;
+<i class="no-highlight">467</i>&nbsp;    public ReplicationMutableConfig cloneRepMutableConfig() {
+<b class="nc"><i class="no-highlight">468</i>&nbsp;        RepConfigManager repConfigManager = (RepConfigManager) configManager;</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;        return repConfigManager.makeReplicationConfig();</b>
+<i class="no-highlight">470</i>&nbsp;    }
+<i class="no-highlight">471</i>&nbsp;
+<i class="no-highlight">472</i>&nbsp;    public void setRepMutableConfig(ReplicationMutableConfig config)
+<i class="no-highlight">473</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">474</i>&nbsp;
+<i class="no-highlight">475</i>&nbsp;        /* Clone the current config. */
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        RepConfigManager repConfigManager = (RepConfigManager) configManager;</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;        ReplicationConfig newConfig = repConfigManager.makeReplicationConfig();</b>
+<i class="no-highlight">478</i>&nbsp;
+<i class="no-highlight">479</i>&nbsp;        /* Copy in the mutable props. */
+<b class="nc"><i class="no-highlight">480</i>&nbsp;        config.copyMutablePropsTo(newConfig);</b>
+<b class="nc"><i class="no-highlight">481</i>&nbsp;        repConfigManager = new RepConfigManager</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;            (configManager.getEnvironmentConfig(), newConfig);</b>
+<i class="no-highlight">483</i>&nbsp;
+<i class="no-highlight">484</i>&nbsp;        /*
+<i class="no-highlight">485</i>&nbsp;         * Update the current config and notify observers.  The config manager
+<i class="no-highlight">486</i>&nbsp;         * is replaced with a new instance that uses the new configuration.
+<i class="no-highlight">487</i>&nbsp;         * This avoids synchronization issues: other threads that have a
+<i class="no-highlight">488</i>&nbsp;         * reference to the old configuration object are not impacted.
+<i class="no-highlight">489</i>&nbsp;         *
+<i class="no-highlight">490</i>&nbsp;         * Notify listeners in reverse order of registration so that the
+<i class="no-highlight">491</i>&nbsp;         * environment listener is notified last and can start daemon threads
+<i class="no-highlight">492</i>&nbsp;         * after they are configured.
+<i class="no-highlight">493</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">494</i>&nbsp;        for (int i = repConfigObservers.size() - 1; i &gt;= 0; i -= 1) {</b>
+<b class="nc"><i class="no-highlight">495</i>&nbsp;            RepEnvConfigObserver o = repConfigObservers.get(i);</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;            o.repEnvConfigUpdate(repConfigManager, newConfig);</b>
+<i class="no-highlight">497</i>&nbsp;        }
+<i class="no-highlight">498</i>&nbsp;    }
+<i class="no-highlight">499</i>&nbsp;
+<i class="no-highlight">500</i>&nbsp;    @Override
+<i class="no-highlight">501</i>&nbsp;    public void repEnvConfigUpdate(RepConfigManager configMgr,
+<i class="no-highlight">502</i>&nbsp;                                   ReplicationMutableConfig newConfig)
+<i class="no-highlight">503</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">504</i>&nbsp;
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        allowArbiterAck =</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;            configMgr.getBoolean(RepParams.ALLOW_ARBITER_ACK);</b>
+<i class="no-highlight">507</i>&nbsp;
+<b class="nc"><i class="no-highlight">508</i>&nbsp;        if (repNode == null) {</b>
+<i class="no-highlight">509</i>&nbsp;            return;
+<i class="no-highlight">510</i>&nbsp;        }
+<i class="no-highlight">511</i>&nbsp;
+<b class="nc"><i class="no-highlight">512</i>&nbsp;        repNode.getArbiter().processConfigChange(newConfig);</b>
+<i class="no-highlight">513</i>&nbsp;
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        repNode.getElectionQuorum().setElectableGroupSizeOverride</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            (newConfig.getElectableGroupSizeOverride());</b>
+<i class="no-highlight">516</i>&nbsp;
+<i class="no-highlight">517</i>&nbsp;        /* Account for mutation of deprecated HA LogFlusher params. */
+<b class="nc"><i class="no-highlight">518</i>&nbsp;        getLogFlusher().configFlushTask(configMgr);</b>
+<i class="no-highlight">519</i>&nbsp;
+<b class="nc"><i class="no-highlight">520</i>&nbsp;        repNode.getReplica().getDbCache().setConfig(configMgr);</b>
+<i class="no-highlight">521</i>&nbsp;    }
+<i class="no-highlight">522</i>&nbsp;
+<i class="no-highlight">523</i>&nbsp;    public synchronized void addRepConfigObserver(RepEnvConfigObserver o) {
+<b class="nc"><i class="no-highlight">524</i>&nbsp;        repConfigObservers.add(o);</b>
+<i class="no-highlight">525</i>&nbsp;    }
+<i class="no-highlight">526</i>&nbsp;
+<i class="no-highlight">527</i>&nbsp;    /**
+<i class="no-highlight">528</i>&nbsp;     * The VLSNIndex must be created, merged and flushed before the recovery
+<i class="no-highlight">529</i>&nbsp;     * checkpoint. This method should be called even if there is no recovery
+<i class="no-highlight">530</i>&nbsp;     * checkpoint, because it sets up needed data structures.
+<i class="no-highlight">531</i>&nbsp;     *
+<i class="no-highlight">532</i>&nbsp;     * On the face of it, it seems that one could flush the VLSNIndex cache
+<i class="no-highlight">533</i>&nbsp;     * after the recovery checkpoint, before the Replicator constructor returns
+<i class="no-highlight">534</i>&nbsp;     * and before any user level HA operations can start. That&#39;s not sufficient
+<i class="no-highlight">535</i>&nbsp;     * because the recovery checkpoint is shortening the recovery interval for
+<i class="no-highlight">536</i>&nbsp;     * future recoveries, and any information that has been garnered must be
+<i class="no-highlight">537</i>&nbsp;     * persisted. Here&#39;s an example of what might happen after a series of
+<i class="no-highlight">538</i>&nbsp;     * recoveries if we fail to flush VLSNIndex as part of the recovery
+<i class="no-highlight">539</i>&nbsp;     * checkpoint:
+<i class="no-highlight">540</i>&nbsp;     *
+<i class="no-highlight">541</i>&nbsp;     * Environment recovers for first time, brand new environment
+<i class="no-highlight">542</i>&nbsp;     *    recovery did not find any VLSNs in log, because log is brand new
+<i class="no-highlight">543</i>&nbsp;     *    recovery logs ckpt 1start
+<i class="no-highlight">544</i>&nbsp;     *    recovery logs ckpt 1 end
+<i class="no-highlight">545</i>&nbsp;     *
+<i class="no-highlight">546</i>&nbsp;     *    VLSN 1 logged
+<i class="no-highlight">547</i>&nbsp;     *    VLSN 2 logged
+<i class="no-highlight">548</i>&nbsp;     *    VLSN 3 logged
+<i class="no-highlight">549</i>&nbsp;     *
+<i class="no-highlight">550</i>&nbsp;     *  crash .... Environment recovers
+<i class="no-highlight">551</i>&nbsp;     *  recovery crawls log from ckpt 1 start onward, finds VLSNs 1-3
+<i class="no-highlight">552</i>&nbsp;     *  recovery logs ckpt 2 start
+<i class="no-highlight">553</i>&nbsp;     *  recovery logs ckpt 2 end
+<i class="no-highlight">554</i>&nbsp;     *  VLSN index instantiated, VLSNs 1-3 added in but not written too disk
+<i class="no-highlight">555</i>&nbsp;     *
+<i class="no-highlight">556</i>&nbsp;     *  crash ... Environment recovers
+<i class="no-highlight">557</i>&nbsp;     *  recovery crawls log from ckpt start 2 start onward, finds no VLSNs.
+<i class="no-highlight">558</i>&nbsp;     *
+<i class="no-highlight">559</i>&nbsp;     * Instead, the flushed VLSN has to be logged before the checkpoint end
+<i class="no-highlight">560</i>&nbsp;     * record that is used for the next recovery.
+<i class="no-highlight">561</i>&nbsp;     */
+<i class="no-highlight">562</i>&nbsp;    @Override
+<i class="no-highlight">563</i>&nbsp;    public void preRecoveryCheckpointInit(RecoveryInfo recoveryInfo) {
+<i class="no-highlight">564</i>&nbsp;
+<b class="nc"><i class="no-highlight">565</i>&nbsp;        int stride = configManager.getInt(VLSN_STRIDE);</b>
+<b class="nc"><i class="no-highlight">566</i>&nbsp;        int maxMappings = configManager.getInt(VLSN_MAX_MAP);</b>
+<b class="nc"><i class="no-highlight">567</i>&nbsp;        int maxDist = configManager.getInt(VLSN_MAX_DIST);</b>
+<i class="no-highlight">568</i>&nbsp;
+<i class="no-highlight">569</i>&nbsp;        /*
+<i class="no-highlight">570</i>&nbsp;         * Our local nameIdPair field isn&#39;t set yet because we haven&#39;t finished
+<i class="no-highlight">571</i>&nbsp;         * our initialization, so get it from the config manager.
+<i class="no-highlight">572</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">573</i>&nbsp;        NameIdPair useNameIdPair =</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            new NameIdPair(configManager.get(NODE_NAME));</b>
+<i class="no-highlight">575</i>&nbsp;
+<b class="nc"><i class="no-highlight">576</i>&nbsp;        vlsnIndex = new VLSNIndex(this, DbType.VLSN_MAP.getInternalName(),</b>
+<i class="no-highlight">577</i>&nbsp;                                  useNameIdPair, stride, maxMappings, maxDist,
+<i class="no-highlight">578</i>&nbsp;                                  recoveryInfo);
+<b class="nc"><i class="no-highlight">579</i>&nbsp;        replay.preRecoveryCheckpointInit(recoveryInfo);</b>
+<i class="no-highlight">580</i>&nbsp;    }
+<i class="no-highlight">581</i>&nbsp;
+<i class="no-highlight">582</i>&nbsp;    /**
+<i class="no-highlight">583</i>&nbsp;     * Returns the current state associated with this ReplicatedEnvironment
+<i class="no-highlight">584</i>&nbsp;     *
+<i class="no-highlight">585</i>&nbsp;     * @return the externally visible ReplicatedEnvironment state
+<i class="no-highlight">586</i>&nbsp;     */
+<i class="no-highlight">587</i>&nbsp;    public ReplicatedEnvironment.State getState() {
+<b class="nc"><i class="no-highlight">588</i>&nbsp;        return nodeState.getRepEnvState();</b>
+<i class="no-highlight">589</i>&nbsp;    }
+<i class="no-highlight">590</i>&nbsp;
+<i class="no-highlight">591</i>&nbsp;    /**
+<i class="no-highlight">592</i>&nbsp;     * Returns the state change event that transitioned the
+<i class="no-highlight">593</i>&nbsp;     * ReplicatedEnviroment to its current state.
+<i class="no-highlight">594</i>&nbsp;     */
+<i class="no-highlight">595</i>&nbsp;    public StateChangeEvent getStateChangeEvent() {
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        return nodeState.getStateChangeEvent();</b>
+<i class="no-highlight">597</i>&nbsp;    }
+<i class="no-highlight">598</i>&nbsp;
+<i class="no-highlight">599</i>&nbsp;    public NodeState getNodeState() {
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        return nodeState;</b>
+<i class="no-highlight">601</i>&nbsp;    }
+<i class="no-highlight">602</i>&nbsp;
+<i class="no-highlight">603</i>&nbsp;    /**
+<i class="no-highlight">604</i>&nbsp;     * Wait for this node to join a replication group and return whether it is
+<i class="no-highlight">605</i>&nbsp;     * a MASTER or REPLICA. Note that any method that creates or clears the
+<i class="no-highlight">606</i>&nbsp;     * repNode field must be synchronized.
+<i class="no-highlight">607</i>&nbsp;     */
+<i class="no-highlight">608</i>&nbsp;    public synchronized ReplicatedEnvironment.State
+<i class="no-highlight">609</i>&nbsp;        joinGroup(ReplicaConsistencyPolicy consistency,
+<i class="no-highlight">610</i>&nbsp;                  QuorumPolicy initialElectionPolicy)
+<i class="no-highlight">611</i>&nbsp;        throws ReplicaConsistencyException, DatabaseException {
+<i class="no-highlight">612</i>&nbsp;
+<b class="nc"><i class="no-highlight">613</i>&nbsp;        startupTracker.start(Phase.TOTAL_JOIN_GROUP);</b>
+<i class="no-highlight">614</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">615</i>&nbsp;            if (repNode == null) {</b>
+<b class="nc"><i class="no-highlight">616</i>&nbsp;                repNode = new RepNode(this, replay, nodeState);</b>
+<i class="no-highlight">617</i>&nbsp;            }
+<i class="no-highlight">618</i>&nbsp;
+<b class="nc"><i class="no-highlight">619</i>&nbsp;            return repNode.joinGroup(consistency, initialElectionPolicy);</b>
+<b class="nc"><i class="no-highlight">620</i>&nbsp;        } catch (IOException ioe) {</b>
+<b class="nc"><i class="no-highlight">621</i>&nbsp;            throw EnvironmentFailureException.unexpectedException</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;                (this, &quot;Problem attempting to join on &quot; + getSocket(), ioe);</b>
+<i class="no-highlight">623</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">624</i>&nbsp;            startupTracker.stop(Phase.TOTAL_JOIN_GROUP);</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;        }</b>
+<i class="no-highlight">626</i>&nbsp;    }
+<i class="no-highlight">627</i>&nbsp;
+<i class="no-highlight">628</i>&nbsp;    /**
+<i class="no-highlight">629</i>&nbsp;     * Initialize the DataChannelFactory in our configuration for use.
+<i class="no-highlight">630</i>&nbsp;     * This is public to allow access by the ReplicatedEnvironment constructor.
+<i class="no-highlight">631</i>&nbsp;     * @throws IllegalArgumentException if the ReplicationNetworkConfig
+<i class="no-highlight">632</i>&nbsp;     * is invalid.
+<i class="no-highlight">633</i>&nbsp;     */
+<i class="no-highlight">634</i>&nbsp;    public void initializeChannelFactory() {
+<b class="nc"><i class="no-highlight">635</i>&nbsp;        if (channelFactory != null) {</b>
+<i class="no-highlight">636</i>&nbsp;            return;
+<i class="no-highlight">637</i>&nbsp;        }
+<i class="no-highlight">638</i>&nbsp;
+<b class="nc"><i class="no-highlight">639</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">640</i>&nbsp;            if (channelFactory == null) {</b>
+<b class="nc"><i class="no-highlight">641</i>&nbsp;                channelFactory =</b>
+<b class="nc"><i class="no-highlight">642</i>&nbsp;                    DataChannelFactoryBuilder.construct(</b>
+<i class="no-highlight">643</i>&nbsp;                        repNetConfig,
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                        DataChannelFactoryBuilder.makeLoggerFactory(this));</b>
+<i class="no-highlight">645</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">646</i>&nbsp;        }</b>
+<i class="no-highlight">647</i>&nbsp;    }
+<i class="no-highlight">648</i>&nbsp;
+<i class="no-highlight">649</i>&nbsp;    @Override
+<i class="no-highlight">650</i>&nbsp;    protected Environment createInternalEnvironment() {
+<b class="nc"><i class="no-highlight">651</i>&nbsp;        return new InternalReplicatedEnvironment</b>
+<b class="nc"><i class="no-highlight">652</i>&nbsp;            (getEnvironmentHome(), cloneRepConfig(), cloneConfig(), this);</b>
+<i class="no-highlight">653</i>&nbsp;    }
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;    /**
+<i class="no-highlight">656</i>&nbsp;     * @see EnvironmentImpl#setupClose
+<i class="no-highlight">657</i>&nbsp;     * Release all replication resources that can be released before the
+<i class="no-highlight">658</i>&nbsp;     * checkpoint. Note that any method that creates or clears the repNode
+<i class="no-highlight">659</i>&nbsp;     * field must be called from a synchronized caller.
+<i class="no-highlight">660</i>&nbsp;     *
+<i class="no-highlight">661</i>&nbsp;     * Note that the vlsnIndex is closed as a callback, from
+<i class="no-highlight">662</i>&nbsp;     * postCheckpointPreEnvClose()
+<i class="no-highlight">663</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">664</i>&nbsp;     *
+<i class="no-highlight">665</i>&nbsp;     */
+<i class="no-highlight">666</i>&nbsp;    @Override
+<i class="no-highlight">667</i>&nbsp;    protected synchronized void setupClose(PrintWriter errors)
+<i class="no-highlight">668</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">669</i>&nbsp;
+<b class="nc"><i class="no-highlight">670</i>&nbsp;        if (groupDbImpl != null) {</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;            getDbTree().releaseDb(groupDbImpl);</b>
+<b class="nc"><i class="no-highlight">672</i>&nbsp;            groupDbImpl = null;</b>
+<b class="nc"><i class="no-highlight">673</i>&nbsp;            LoggerUtils.fine</b>
+<b class="nc"><i class="no-highlight">674</i>&nbsp;                (envLogger, this, &quot;Group member database shutdown&quot;);</b>
+<i class="no-highlight">675</i>&nbsp;        }
+<i class="no-highlight">676</i>&nbsp;
+<i class="no-highlight">677</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">678</i>&nbsp;            if (repNode != null) {</b>
+<b class="nc"><i class="no-highlight">679</i>&nbsp;                repNode.shutdown();</b>
+<b class="nc"><i class="no-highlight">680</i>&nbsp;                repNode = null;</b>
+<i class="no-highlight">681</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">682</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">683</i>&nbsp;            appendException(errors, e, &quot;shutting down node &quot; + nameIdPair);</b>
+<b class="nc"><i class="no-highlight">684</i>&nbsp;        }</b>
+<i class="no-highlight">685</i>&nbsp;    }
+<i class="no-highlight">686</i>&nbsp;
+<i class="no-highlight">687</i>&nbsp;    /**
+<i class="no-highlight">688</i>&nbsp;     * Close any resources that need to be closed after the closing checkpoint.
+<i class="no-highlight">689</i>&nbsp;     * Note that since Replay.close closes open transactions, it must be
+<i class="no-highlight">690</i>&nbsp;     * invoked after the checkpoint has been completed, so that the checkpoint
+<i class="no-highlight">691</i>&nbsp;     * operation can correctly account for the open transactions.
+<i class="no-highlight">692</i>&nbsp;     */
+<i class="no-highlight">693</i>&nbsp;    @Override
+<i class="no-highlight">694</i>&nbsp;    protected synchronized void postCheckpointClose(boolean checkpointed)
+<i class="no-highlight">695</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">696</i>&nbsp;
+<b class="nc"><i class="no-highlight">697</i>&nbsp;        if (replay != null) {</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;            replay.close();</b>
+<b class="nc"><i class="no-highlight">699</i>&nbsp;            replay = null;</b>
+<i class="no-highlight">700</i>&nbsp;        }
+<i class="no-highlight">701</i>&nbsp;
+<b class="nc"><i class="no-highlight">702</i>&nbsp;        vlsnIndexAccess.closeVLSNIndex(checkpointed);</b>
+<i class="no-highlight">703</i>&nbsp;    }
+<i class="no-highlight">704</i>&nbsp;
+<i class="no-highlight">705</i>&nbsp;    /**
+<i class="no-highlight">706</i>&nbsp;     * @see EnvironmentImpl#setupClose
+<i class="no-highlight">707</i>&nbsp;     *
+<i class="no-highlight">708</i>&nbsp;     * Note: this conversion process will iterate over all user created
+<i class="no-highlight">709</i>&nbsp;     * databases in the environment, which could be potentially be a costly
+<i class="no-highlight">710</i>&nbsp;     * affair. However, let&#39;s opt for simplicity and defer any optimizations
+<i class="no-highlight">711</i>&nbsp;     * until we see whether this is an important use case.
+<i class="no-highlight">712</i>&nbsp;     */
+<i class="no-highlight">713</i>&nbsp;    @Override
+<i class="no-highlight">714</i>&nbsp;    protected void postRecoveryConversion() {
+<i class="no-highlight">715</i>&nbsp;
+<b class="nc"><i class="no-highlight">716</i>&nbsp;        super.postRecoveryConversion();</b>
+<i class="no-highlight">717</i>&nbsp;
+<b class="nc"><i class="no-highlight">718</i>&nbsp;        if (needRepConvert) {</b>
+<i class="no-highlight">719</i>&nbsp;            /* Set NameDb to replicated. */
+<b class="nc"><i class="no-highlight">720</i>&nbsp;            DatabaseImpl nameDb = null;</b>
+<i class="no-highlight">721</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">722</i>&nbsp;                nameDb = dbMapTree.getDb(DbTree.NAME_DB_ID);</b>
+<b class="nc"><i class="no-highlight">723</i>&nbsp;                if (!nameDb.isReplicated()) {</b>
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                    nameDb.setIsReplicatedBit();</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                    nameDb.setDirty();</b>
+<i class="no-highlight">726</i>&nbsp;                }
+<i class="no-highlight">727</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                if (nameDb != null) {</b>
+<b class="nc"><i class="no-highlight">729</i>&nbsp;                    dbMapTree.releaseDb(nameDb);</b>
+<i class="no-highlight">730</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">731</i>&nbsp;            }</b>
+<i class="no-highlight">732</i>&nbsp;
+<i class="no-highlight">733</i>&nbsp;            /* Set user defined databases to replicated. */
+<b class="nc"><i class="no-highlight">734</i>&nbsp;            Map&lt;DatabaseId, String&gt; idNameMap = dbMapTree.getDbNamesAndIds();</b>
+<b class="nc"><i class="no-highlight">735</i>&nbsp;            for (DatabaseId id : idNameMap.keySet()) {</b>
+<b class="nc"><i class="no-highlight">736</i>&nbsp;                DatabaseImpl db = null;</b>
+<i class="no-highlight">737</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">738</i>&nbsp;                    db = dbMapTree.getDb(id);</b>
+<b class="nc"><i class="no-highlight">739</i>&nbsp;                    if (db != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">740</i>&nbsp;                        !DbTree.isReservedDbName(idNameMap.get(id))) {</b>
+<i class="no-highlight">741</i>&nbsp;
+<b class="nc"><i class="no-highlight">742</i>&nbsp;                        db.setIsReplicatedBit();</b>
+<b class="nc"><i class="no-highlight">743</i>&nbsp;                        db.setDirty();</b>
+<i class="no-highlight">744</i>&nbsp;                    }
+<i class="no-highlight">745</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">746</i>&nbsp;                    if (db != null) {</b>
+<b class="nc"><i class="no-highlight">747</i>&nbsp;                        dbMapTree.releaseDb(db);</b>
+<i class="no-highlight">748</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;            }</b>
+<i class="no-highlight">751</i>&nbsp;
+<i class="no-highlight">752</i>&nbsp;            /*
+<i class="no-highlight">753</i>&nbsp;             * Do a checkpointer to flush dirty datbaseImpls that are converted
+<i class="no-highlight">754</i>&nbsp;             * to replicated and write the current VLSNRange to the log.
+<i class="no-highlight">755</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">756</i>&nbsp;            CheckpointConfig ckptConfig = new CheckpointConfig();</b>
+<b class="nc"><i class="no-highlight">757</i>&nbsp;            ckptConfig.setForce(true);</b>
+<b class="nc"><i class="no-highlight">758</i>&nbsp;            ckptConfig.setMinimizeRecoveryTime(true);</b>
+<b class="nc"><i class="no-highlight">759</i>&nbsp;            invokeCheckpoint(ckptConfig, &quot;Environment conversion&quot;);</b>
+<i class="no-highlight">760</i>&nbsp;        }
+<i class="no-highlight">761</i>&nbsp;    }
+<i class="no-highlight">762</i>&nbsp;
+<i class="no-highlight">763</i>&nbsp;    /*
+<i class="no-highlight">764</i>&nbsp;     * Close enough resources to support reopening the environment in the same
+<i class="no-highlight">765</i>&nbsp;     * JVM.
+<i class="no-highlight">766</i>&nbsp;     * @see EnvironmentImpl#doCloseAfterInvalid()
+<i class="no-highlight">767</i>&nbsp;     */
+<i class="no-highlight">768</i>&nbsp;    @Override
+<i class="no-highlight">769</i>&nbsp;    public synchronized void doCloseAfterInvalid() {
+<i class="no-highlight">770</i>&nbsp;
+<i class="no-highlight">771</i>&nbsp;        try {
+<i class="no-highlight">772</i>&nbsp;            /* Release the repNode, in order to release sockets. */
+<b class="nc"><i class="no-highlight">773</i>&nbsp;            if (repNode != null) {</b>
+<b class="nc"><i class="no-highlight">774</i>&nbsp;                repNode.shutdown();</b>
+<b class="nc"><i class="no-highlight">775</i>&nbsp;                repNode = null;</b>
+<i class="no-highlight">776</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">777</i>&nbsp;        } catch (Exception ignore) {</b>
+<b class="nc"><i class="no-highlight">778</i>&nbsp;        }</b>
+<i class="no-highlight">779</i>&nbsp;
+<b class="nc"><i class="no-highlight">780</i>&nbsp;        super.doCloseAfterInvalid();</b>
+<i class="no-highlight">781</i>&nbsp;    }
+<i class="no-highlight">782</i>&nbsp;
+<i class="no-highlight">783</i>&nbsp;    /**
+<i class="no-highlight">784</i>&nbsp;     * Used by error handling to forcibly close an environment, and by tests to
+<i class="no-highlight">785</i>&nbsp;     * close an environment to simulate a crash.  Database handles do not have
+<i class="no-highlight">786</i>&nbsp;     * to be closed before calling this method.  A checkpoint is not performed.
+<i class="no-highlight">787</i>&nbsp;     * The various thread pools will be shutdown abruptly.
+<i class="no-highlight">788</i>&nbsp;     *
+<i class="no-highlight">789</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">790</i>&nbsp;     */
+<i class="no-highlight">791</i>&nbsp;    @Override
+<i class="no-highlight">792</i>&nbsp;    public void abnormalClose()
+<i class="no-highlight">793</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">794</i>&nbsp;
+<i class="no-highlight">795</i>&nbsp;        /*
+<i class="no-highlight">796</i>&nbsp;         * Shutdown the daemons, and the checkpointer in particular, before
+<i class="no-highlight">797</i>&nbsp;         * nulling out the vlsnIndex.
+<i class="no-highlight">798</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">799</i>&nbsp;        shutdownDaemons();</b>
+<i class="no-highlight">800</i>&nbsp;
+<i class="no-highlight">801</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">802</i>&nbsp;            if (repNode != null) {</b>
+<i class="no-highlight">803</i>&nbsp;
+<i class="no-highlight">804</i>&nbsp;                /*
+<i class="no-highlight">805</i>&nbsp;                 * Don&#39;t fire a LeaveGroupEvent if it&#39;s an abnormal close,
+<i class="no-highlight">806</i>&nbsp;                 * otherwise an EnvironmentFailureException would be thrown
+<i class="no-highlight">807</i>&nbsp;                 * because daemons of this Environment have been shutdown.
+<i class="no-highlight">808</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">809</i>&nbsp;                repNode.getMonitorEventManager().disableLeaveGroupEvent();</b>
+<b class="nc"><i class="no-highlight">810</i>&nbsp;                repNode.shutdown();</b>
+<b class="nc"><i class="no-highlight">811</i>&nbsp;                repNode = null;</b>
+<i class="no-highlight">812</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">813</i>&nbsp;        } catch (InterruptedException ignore) {</b>
+<i class="no-highlight">814</i>&nbsp;            /* ignore */
+<b class="nc"><i class="no-highlight">815</i>&nbsp;        }</b>
+<i class="no-highlight">816</i>&nbsp;
+<i class="no-highlight">817</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">818</i>&nbsp;            vlsnIndexAccess.abnormalCloseVLSNIndex();</b>
+<b class="nc"><i class="no-highlight">819</i>&nbsp;        } catch (DatabaseException ignore) {</b>
+<i class="no-highlight">820</i>&nbsp;            /* ignore */
+<b class="nc"><i class="no-highlight">821</i>&nbsp;        }</b>
+<i class="no-highlight">822</i>&nbsp;
+<i class="no-highlight">823</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">824</i>&nbsp;            super.abnormalClose();</b>
+<b class="nc"><i class="no-highlight">825</i>&nbsp;        } catch (DatabaseException ignore) {</b>
+<i class="no-highlight">826</i>&nbsp;            /* ignore */
+<b class="nc"><i class="no-highlight">827</i>&nbsp;        }</b>
+<i class="no-highlight">828</i>&nbsp;    }
+<i class="no-highlight">829</i>&nbsp;
+<i class="no-highlight">830</i>&nbsp;    /**
+<i class="no-highlight">831</i>&nbsp;     * A replicated log entry has been written on this node. Update the
+<i class="no-highlight">832</i>&nbsp;     * VLSN-&gt;LSN mapping. Called outside the log write latch.
+<i class="no-highlight">833</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">834</i>&nbsp;     */
+<i class="no-highlight">835</i>&nbsp;    @Override
+<i class="no-highlight">836</i>&nbsp;    public void registerVLSN(LogItem logItem) {
+<b class="nc"><i class="no-highlight">837</i>&nbsp;        LogEntryHeader header = logItem.header;</b>
+<b class="nc"><i class="no-highlight">838</i>&nbsp;        VLSN vlsn = header.getVLSN();</b>
+<i class="no-highlight">839</i>&nbsp;
+<i class="no-highlight">840</i>&nbsp;        /*
+<i class="no-highlight">841</i>&nbsp;         * Although the very first replicated entry of the system is never a
+<i class="no-highlight">842</i>&nbsp;         * syncable log entry type, the first GlobalCBVLSN of the system must
+<i class="no-highlight">843</i>&nbsp;         * start at 1. If we only track the first syncable entry, the
+<i class="no-highlight">844</i>&nbsp;         * GlobalCBVLSN will start a a value &gt; 1, and replicas that are
+<i class="no-highlight">845</i>&nbsp;         * starting up from VLSN 1 will be caught in spurious network restores
+<i class="no-highlight">846</i>&nbsp;         * because VLSN 1 &lt; the GlobalCBVLSN. Therefore treat the VLSN 1 as a
+<i class="no-highlight">847</i>&nbsp;         * syncable entry for the sake of the GlobalCBVLSN.
+<i class="no-highlight">848</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">849</i>&nbsp;        if (LogEntryType.isSyncPoint(header.getType()) ||</b>
+<b class="nc"><i class="no-highlight">850</i>&nbsp;            VLSN.FIRST_VLSN.equals(vlsn)) {</b>
+<b class="nc"><i class="no-highlight">851</i>&nbsp;            repNode.trackSyncableVLSN(vlsn, logItem.lsn);</b>
+<i class="no-highlight">852</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">853</i>&nbsp;        vlsnIndex.put(logItem);</b>
+<i class="no-highlight">854</i>&nbsp;    }
+<i class="no-highlight">855</i>&nbsp;
+<i class="no-highlight">856</i>&nbsp;    /**
+<i class="no-highlight">857</i>&nbsp;     * Generate the next VLSN and update the DTVLSN value in the item. Note
+<i class="no-highlight">858</i>&nbsp;     * that this method is only invoked when the node is in the Master state,
+<i class="no-highlight">859</i>&nbsp;     * since the master assigns new VLSNs and DTVLSNs, and the replicas simply
+<i class="no-highlight">860</i>&nbsp;     * preserve them.
+<i class="no-highlight">861</i>&nbsp;     *
+<i class="no-highlight">862</i>&nbsp;     * The DTVLSN value must be calculated under the same latch as the updating
+<i class="no-highlight">863</i>&nbsp;     * of the VLSN to ensure that the following invariants are maintained:
+<i class="no-highlight">864</i>&nbsp;     *
+<i class="no-highlight">865</i>&nbsp;     * lsn1 &gt; lsn2 ==&gt; VLSN(lsn1) &gt; VLSN(lsn2)
+<i class="no-highlight">866</i>&nbsp;     * vlsn2 &gt; vlsn1 ==&gt; DTVLSN(vlsn2) &gt;= DTVLSN(vlsn1)
+<i class="no-highlight">867</i>&nbsp;     *
+<i class="no-highlight">868</i>&nbsp;     * where vlsn2 and vlsn1 are transaction commit or abort records.
+<i class="no-highlight">869</i>&nbsp;     *
+<i class="no-highlight">870</i>&nbsp;     * Replicas, when replaying their stream, verify that this invariant is
+<i class="no-highlight">871</i>&nbsp;     * maintained.
+<i class="no-highlight">872</i>&nbsp;     *
+<i class="no-highlight">873</i>&nbsp;     * Commit/Abort records for Replication groups that have a single electable
+<i class="no-highlight">874</i>&nbsp;     * and durable node have their dtvlsn written as the associated VLSN, that
+<i class="no-highlight">875</i>&nbsp;     * is, DTVLSN(vlsn) == vlsn. For all other RG configurations, DTVLSN(vlsn)
+<i class="no-highlight">876</i>&nbsp;     * &lt; vlsn.
+<i class="no-highlight">877</i>&nbsp;     *
+<i class="no-highlight">878</i>&nbsp;     * Commit/Abort Log records that are created by replaying an HA stream from
+<i class="no-highlight">879</i>&nbsp;     * a pre DTVLSN feeder, will have their dtvlsns set to
+<i class="no-highlight">880</i>&nbsp;     * VLSN.UNINITIALIZED_VLSN_SEQUENCE during replica replay. They do not
+<i class="no-highlight">881</i>&nbsp;     * follow this code path.
+<i class="no-highlight">882</i>&nbsp;     *
+<i class="no-highlight">883</i>&nbsp;     * @param entry the log entry with which the VLSN will be associated. If
+<i class="no-highlight">884</i>&nbsp;     * the log entry represents a commit or abort entry, its DTVLSN is modified
+<i class="no-highlight">885</i>&nbsp;     * so that it&#39;s correct when it&#39;s serialized out.
+<i class="no-highlight">886</i>&nbsp;     */
+<i class="no-highlight">887</i>&nbsp;    @Override
+<i class="no-highlight">888</i>&nbsp;    public VLSN assignVLSNs(LogEntry entry) {
+<b class="nc"><i class="no-highlight">889</i>&nbsp;        final VLSN vlsn = vlsnIndex.bump();</b>
+<i class="no-highlight">890</i>&nbsp;
+<b class="nc"><i class="no-highlight">891</i>&nbsp;        final byte itemType = entry.getLogType().getTypeNum();</b>
+<b class="nc"><i class="no-highlight">892</i>&nbsp;        if (itemType != LogEntryType.LOG_TXN_COMMIT.getTypeNum() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">893</i>&nbsp;            itemType !=  LogEntryType.LOG_TXN_ABORT.getTypeNum()) {</b>
+<b class="nc"><i class="no-highlight">894</i>&nbsp;            return  vlsn;</b>
+<i class="no-highlight">895</i>&nbsp;        }
+<i class="no-highlight">896</i>&nbsp;
+<i class="no-highlight">897</i>&nbsp;        /*
+<i class="no-highlight">898</i>&nbsp;         * A commit or abort record. Compute the DTVLSN value to associate with
+<i class="no-highlight">899</i>&nbsp;         * the commit record and store it into the buffer at the appropriate
+<i class="no-highlight">900</i>&nbsp;         * position.
+<i class="no-highlight">901</i>&nbsp;         */
+<i class="no-highlight">902</i>&nbsp;        final long dtvlsn;
+<i class="no-highlight">903</i>&nbsp;
+<b class="nc"><i class="no-highlight">904</i>&nbsp;        if (simulatePreDTVLSNMaster) {</b>
+<b class="nc"><i class="no-highlight">905</i>&nbsp;            dtvlsn = VLSN.UNINITIALIZED_VLSN_SEQUENCE;</b>
+<b class="nc"><i class="no-highlight">906</i>&nbsp;        } else if (repNode.isNeedsAcks()) {</b>
+<i class="no-highlight">907</i>&nbsp;            /*
+<i class="no-highlight">908</i>&nbsp;             * Use the dtvlsn value being tracked via acknowledgments from
+<i class="no-highlight">909</i>&nbsp;             * replicas when replication is being used for durability.
+<i class="no-highlight">910</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">911</i>&nbsp;            dtvlsn = getRepNode().getDTVLSN();</b>
+<i class="no-highlight">912</i>&nbsp;        } else {
+<i class="no-highlight">913</i>&nbsp;            /*
+<i class="no-highlight">914</i>&nbsp;             * Replicated environment, but replication is not being used for
+<i class="no-highlight">915</i>&nbsp;             * durability. That is, the commit is self-acknowledged, set dtvlsn
+<i class="no-highlight">916</i>&nbsp;             * == vlsn.
+<i class="no-highlight">917</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">918</i>&nbsp;            dtvlsn = getRepNode().updateDTVLSN(vlsn.getSequence());</b>
+<i class="no-highlight">919</i>&nbsp;        }
+<i class="no-highlight">920</i>&nbsp;
+<b class="nc"><i class="no-highlight">921</i>&nbsp;        final VersionedWriteTxnEnd txnEnd =</b>
+<b class="nc"><i class="no-highlight">922</i>&nbsp;            (VersionedWriteTxnEnd)entry.getMainItem();</b>
+<i class="no-highlight">923</i>&nbsp;
+<i class="no-highlight">924</i>&nbsp;        /*
+<i class="no-highlight">925</i>&nbsp;         * As a cheap sanity check, commits/aborts on the master are created
+<i class="no-highlight">926</i>&nbsp;         * with VLSN.NULL values, so they can be verified here.
+<i class="no-highlight">927</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">928</i>&nbsp;        final long checkDTVLSN = txnEnd.getDTVLSN();</b>
+<b class="nc"><i class="no-highlight">929</i>&nbsp;        if (checkDTVLSN != VLSN.NULL_VLSN_SEQUENCE) {</b>
+<b class="nc"><i class="no-highlight">930</i>&nbsp;            throw new IllegalStateException(&quot;NULL DTVLSN expected at VLSN:&quot; +</b>
+<i class="no-highlight">931</i>&nbsp;                                            vlsn + &quot; not &quot; + checkDTVLSN);
+<i class="no-highlight">932</i>&nbsp;        }
+<i class="no-highlight">933</i>&nbsp;
+<b class="nc"><i class="no-highlight">934</i>&nbsp;        txnEnd.setDTVLSN(dtvlsn);</b>
+<i class="no-highlight">935</i>&nbsp;
+<i class="no-highlight">936</i>&nbsp;        /* Verify invariant */
+<b class="nc"><i class="no-highlight">937</i>&nbsp;        if (prevLoggedVLSN &gt; vlsn.getSequence()) {</b>
+<b class="nc"><i class="no-highlight">938</i>&nbsp;            if (dtvlsn &lt; prevLoggedDTVLSN) {</b>
+<b class="nc"><i class="no-highlight">939</i>&nbsp;                String msg =</b>
+<i class="no-highlight">940</i>&nbsp;                    &quot;DTVLSNs must be in ascending order in the stream. &quot; +
+<i class="no-highlight">941</i>&nbsp;                    &quot; prev DTVLSN:&quot; + prevLoggedDTVLSN +
+<i class="no-highlight">942</i>&nbsp;                    &quot; next DTVLSN:&quot; + dtvlsn + &quot; at VLSN: &quot; + vlsn;
+<b class="nc"><i class="no-highlight">943</i>&nbsp;                throw EnvironmentFailureException.unexpectedState(this, msg);</b>
+<i class="no-highlight">944</i>&nbsp;            }
+<i class="no-highlight">945</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">946</i>&nbsp;        prevLoggedVLSN = vlsn.getSequence();</b>
+<b class="nc"><i class="no-highlight">947</i>&nbsp;        prevLoggedDTVLSN = dtvlsn;</b>
+<i class="no-highlight">948</i>&nbsp;
+<b class="nc"><i class="no-highlight">949</i>&nbsp;        return vlsn;</b>
+<i class="no-highlight">950</i>&nbsp;    }
+<i class="no-highlight">951</i>&nbsp;
+<i class="no-highlight">952</i>&nbsp;    /**
+<i class="no-highlight">953</i>&nbsp;     * Flush any information that needs to go out at checkpoint.  Specifically,
+<i class="no-highlight">954</i>&nbsp;     * write any in-memory VLSN-&gt;LSN mappings to the VLSNIndex database so we
+<i class="no-highlight">955</i>&nbsp;     * are guaranteed that the VLSNIndex database will recover properly.
+<i class="no-highlight">956</i>&nbsp;     * This must be committed with noSync because
+<i class="no-highlight">957</i>&nbsp;     *  - the ensuing checkpoint end record will be logged with an fsync and
+<i class="no-highlight">958</i>&nbsp;     *    will effectively force this out
+<i class="no-highlight">959</i>&nbsp;     *  - it&#39;s important to minmize lock contention on the vlsn index and
+<i class="no-highlight">960</i>&nbsp;     *    any fsync done during a checkpoint will be expensive, as there may
+<i class="no-highlight">961</i>&nbsp;     *    be quite a lot to push to disk. We don&#39;t want to incur that cost
+<i class="no-highlight">962</i>&nbsp;     *    while holding locks on the vlsn index. [#20702]
+<i class="no-highlight">963</i>&nbsp;     */
+<i class="no-highlight">964</i>&nbsp;    @Override
+<i class="no-highlight">965</i>&nbsp;    public void preCheckpointEndFlush()
+<i class="no-highlight">966</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">967</i>&nbsp;
+<b class="nc"><i class="no-highlight">968</i>&nbsp;        if (vlsnIndex != null) {</b>
+<b class="nc"><i class="no-highlight">969</i>&nbsp;            vlsnIndex.flushToDatabase(Durability.COMMIT_NO_SYNC);</b>
+<i class="no-highlight">970</i>&nbsp;        }
+<i class="no-highlight">971</i>&nbsp;    }
+<i class="no-highlight">972</i>&nbsp;
+<i class="no-highlight">973</i>&nbsp;    @Override
+<i class="no-highlight">974</i>&nbsp;    public boolean isMaster() {
+<i class="no-highlight">975</i>&nbsp;
+<i class="no-highlight">976</i>&nbsp;        /*
+<i class="no-highlight">977</i>&nbsp;         * The volatile repNode field might be modified by joinGroup(),
+<i class="no-highlight">978</i>&nbsp;         * leaveGroup, or close(), which are synchronized. Keep this method
+<i class="no-highlight">979</i>&nbsp;         * unsynchronized, assign to a temporary field to guard against a
+<i class="no-highlight">980</i>&nbsp;         * change.
+<i class="no-highlight">981</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">982</i>&nbsp;        RepNode useNode = repNode;</b>
+<b class="nc"><i class="no-highlight">983</i>&nbsp;        if (useNode == null) {</b>
+<b class="nc"><i class="no-highlight">984</i>&nbsp;            return false;</b>
+<i class="no-highlight">985</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">986</i>&nbsp;        return useNode.isMaster();</b>
+<i class="no-highlight">987</i>&nbsp;    }
+<i class="no-highlight">988</i>&nbsp;
+<i class="no-highlight">989</i>&nbsp;    public void setChangeListener(StateChangeListener listener) {
+<b class="nc"><i class="no-highlight">990</i>&nbsp;        StateChangeListener prevListener = nodeState.getChangeListener();</b>
+<b class="nc"><i class="no-highlight">991</i>&nbsp;        nodeState.setChangeListener(listener);</b>
+<i class="no-highlight">992</i>&nbsp;
+<i class="no-highlight">993</i>&nbsp;        /*
+<i class="no-highlight">994</i>&nbsp;         * Call back so that it&#39;s aware of the last state change event and
+<i class="no-highlight">995</i>&nbsp;         * the application can initialize itself correctly as a master or
+<i class="no-highlight">996</i>&nbsp;         * replica.
+<i class="no-highlight">997</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">998</i>&nbsp;        final StateChangeEvent stateChangeEvent =</b>
+<b class="nc"><i class="no-highlight">999</i>&nbsp;            nodeState.getStateChangeEvent();</b>
+<i class="no-highlight">1000</i>&nbsp;        try {
+<i class="no-highlight">1001</i>&nbsp;            /* Invoke application code and handle any app exceptions. */
+<b class="nc"><i class="no-highlight">1002</i>&nbsp;            listener.stateChange(stateChangeEvent);</b>
+<b class="nc"><i class="no-highlight">1003</i>&nbsp;        } catch (Exception e) {</b>
+<i class="no-highlight">1004</i>&nbsp;            /* Revert the change. */
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;            nodeState.setChangeListener(prevListener);</b>
+<b class="nc"><i class="no-highlight">1006</i>&nbsp;            LoggerUtils.severe</b>
+<b class="nc"><i class="no-highlight">1007</i>&nbsp;                (envLogger, this,</b>
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;                 &quot;State Change listener exception: &quot; + e.getMessage());</b>
+<i class="no-highlight">1009</i>&nbsp;            /* An application error. */
+<b class="nc"><i class="no-highlight">1010</i>&nbsp;            throw new EnvironmentFailureException</b>
+<i class="no-highlight">1011</i>&nbsp;                (this, EnvironmentFailureReason.LISTENER_EXCEPTION, e);
+<b class="nc"><i class="no-highlight">1012</i>&nbsp;        }</b>
+<i class="no-highlight">1013</i>&nbsp;    }
+<i class="no-highlight">1014</i>&nbsp;
+<i class="no-highlight">1015</i>&nbsp;    public StateChangeListener getChangeListener() {
+<b class="nc"><i class="no-highlight">1016</i>&nbsp;        return nodeState.getChangeListener();</b>
+<i class="no-highlight">1017</i>&nbsp;    }
+<i class="no-highlight">1018</i>&nbsp;
+<i class="no-highlight">1019</i>&nbsp;    public VLSNIndex getVLSNIndex() {
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;        return vlsnIndex;</b>
+<i class="no-highlight">1021</i>&nbsp;    }
+<i class="no-highlight">1022</i>&nbsp;
+<i class="no-highlight">1023</i>&nbsp;    public FeederTxns getFeederTxns() {
+<b class="nc"><i class="no-highlight">1024</i>&nbsp;        return feederTxns;</b>
+<i class="no-highlight">1025</i>&nbsp;    }
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;    public ReplicatedEnvironmentStats getStats(StatsConfig config) {
+<b class="nc"><i class="no-highlight">1028</i>&nbsp;        return getStats(config, statKey);</b>
+<i class="no-highlight">1029</i>&nbsp;    }
+<i class="no-highlight">1030</i>&nbsp;
+<i class="no-highlight">1031</i>&nbsp;    @Override
+<i class="no-highlight">1032</i>&nbsp;    public Collection&lt;StatGroup&gt; getRepStatGroups(StatsConfig config,
+<i class="no-highlight">1033</i>&nbsp;                                                  Integer statKey1) {
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;        ReplicatedEnvironmentStats res = getStats(config, statKey1);</b>
+<b class="nc"><i class="no-highlight">1035</i>&nbsp;        return (res == null) ? null : res.getStatGroups();</b>
+<i class="no-highlight">1036</i>&nbsp;    }
+<i class="no-highlight">1037</i>&nbsp;
+<i class="no-highlight">1038</i>&nbsp;    @Override
+<i class="no-highlight">1039</i>&nbsp;    public SortedSet&lt;String&gt; getStatCaptureProjections() {
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;        return new StatCaptureRepDefinitions().getStatisticProjections();</b>
+<i class="no-highlight">1041</i>&nbsp;    }
+<i class="no-highlight">1042</i>&nbsp;
+<i class="no-highlight">1043</i>&nbsp;    @Override
+<i class="no-highlight">1044</i>&nbsp;    public StatManager createStatManager() {
+<b class="nc"><i class="no-highlight">1045</i>&nbsp;        return new RepStatManager(this);</b>
+<i class="no-highlight">1046</i>&nbsp;    }
+<i class="no-highlight">1047</i>&nbsp;
+<i class="no-highlight">1048</i>&nbsp;    public FeederFilter getFeederFilter() {
+<b class="nc"><i class="no-highlight">1049</i>&nbsp;        return feederFilter;</b>
+<i class="no-highlight">1050</i>&nbsp;    }
+<i class="no-highlight">1051</i>&nbsp;
+<i class="no-highlight">1052</i>&nbsp;    public ReplicatedEnvironmentStats getStatsInternal(StatsConfig config) {
+<b class="nc"><i class="no-highlight">1053</i>&nbsp;        if (repNode == null) {</b>
+<b class="nc"><i class="no-highlight">1054</i>&nbsp;            return null;</b>
+<i class="no-highlight">1055</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1056</i>&nbsp;        return repNode.getStats(config);</b>
+<i class="no-highlight">1057</i>&nbsp;    }
+<i class="no-highlight">1058</i>&nbsp;
+<i class="no-highlight">1059</i>&nbsp;    public ReplicatedEnvironmentStats getStats(
+<i class="no-highlight">1060</i>&nbsp;            StatsConfig config,
+<i class="no-highlight">1061</i>&nbsp;            Integer contextKey) {
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;        return ((RepStatManager)statManager).getRepStats(config, contextKey);</b>
+<i class="no-highlight">1063</i>&nbsp;    }
+<i class="no-highlight">1064</i>&nbsp;
+<i class="no-highlight">1065</i>&nbsp;    public Replay getReplay() {
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;        return replay;</b>
+<i class="no-highlight">1067</i>&nbsp;    }
+<i class="no-highlight">1068</i>&nbsp;
+<i class="no-highlight">1069</i>&nbsp;    /**
+<i class="no-highlight">1070</i>&nbsp;     * Ensures that the environment is currently a Master before proceeding
+<i class="no-highlight">1071</i>&nbsp;     * with an operation that requires it to be the master.
+<i class="no-highlight">1072</i>&nbsp;     *
+<i class="no-highlight">1073</i>&nbsp;     * @throws UnknownMasterException if the node is disconnected
+<i class="no-highlight">1074</i>&nbsp;     * @throws ReplicaWriteException if the node is currently a replica
+<i class="no-highlight">1075</i>&nbsp;     */
+<i class="no-highlight">1076</i>&nbsp;    public void checkIfMaster(Locker locker)
+<i class="no-highlight">1077</i>&nbsp;        throws UnknownMasterException, ReplicaWriteException {
+<i class="no-highlight">1078</i>&nbsp;
+<b class="nc"><i class="no-highlight">1079</i>&nbsp;        final StateChangeEvent event = nodeState.getStateChangeEvent();</b>
+<i class="no-highlight">1080</i>&nbsp;
+<b class="nc"><i class="no-highlight">1081</i>&nbsp;        switch (nodeState.getRepEnvState()) {</b>
+<i class="no-highlight">1082</i>&nbsp;            case MASTER:
+<b class="nc"><i class="no-highlight">1083</i>&nbsp;                break;</b>
+<i class="no-highlight">1084</i>&nbsp;
+<i class="no-highlight">1085</i>&nbsp;            case REPLICA:
+<b class="nc"><i class="no-highlight">1086</i>&nbsp;                throw new ReplicaWriteException(locker, event);</b>
+<i class="no-highlight">1087</i>&nbsp;
+<i class="no-highlight">1088</i>&nbsp;            case UNKNOWN:
+<b class="nc"><i class="no-highlight">1089</i>&nbsp;                throw new UnknownMasterException(locker, event);</b>
+<i class="no-highlight">1090</i>&nbsp;
+<i class="no-highlight">1091</i>&nbsp;            case DETACHED:
+<b class="nc"><i class="no-highlight">1092</i>&nbsp;                throw new UnknownMasterException(locker, event);</b>
+<i class="no-highlight">1093</i>&nbsp;
+<i class="no-highlight">1094</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">1095</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1096</i>&nbsp;                    (&quot;Unexpected state: &quot; + nodeState.getRepEnvState());</b>
+<i class="no-highlight">1097</i>&nbsp;        }
+<i class="no-highlight">1098</i>&nbsp;    }
+<i class="no-highlight">1099</i>&nbsp;
+<i class="no-highlight">1100</i>&nbsp;    /**
+<i class="no-highlight">1101</i>&nbsp;     * @return the repNode. May return null.
+<i class="no-highlight">1102</i>&nbsp;     */
+<i class="no-highlight">1103</i>&nbsp;    public RepNode getRepNode() {
+<b class="nc"><i class="no-highlight">1104</i>&nbsp;        return repNode;</b>
+<i class="no-highlight">1105</i>&nbsp;    }
+<i class="no-highlight">1106</i>&nbsp;
+<i class="no-highlight">1107</i>&nbsp;    /**
+<i class="no-highlight">1108</i>&nbsp;     * Create an appropriate type of ThreadLocker. Specifically, it creates an
+<i class="no-highlight">1109</i>&nbsp;     * MasterThreadLocker if the node is currently a Master, and a
+<i class="no-highlight">1110</i>&nbsp;     * ReplicaThreadLocker otherwise, that is, if the node is a Replica, or
+<i class="no-highlight">1111</i>&nbsp;     * it&#39;s currently in a DETACHED state.
+<i class="no-highlight">1112</i>&nbsp;     *
+<i class="no-highlight">1113</i>&nbsp;     * @return an instance of MasterThreadLocker or ReplicaThreadLocker
+<i class="no-highlight">1114</i>&nbsp;     */
+<i class="no-highlight">1115</i>&nbsp;    @Override
+<i class="no-highlight">1116</i>&nbsp;    public ThreadLocker createRepThreadLocker() {
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;        return (isMaster() ?</b>
+<i class="no-highlight">1118</i>&nbsp;                new MasterThreadLocker(this) :
+<i class="no-highlight">1119</i>&nbsp;                new ReplicaThreadLocker(this));
+<i class="no-highlight">1120</i>&nbsp;    }
+<i class="no-highlight">1121</i>&nbsp;
+<i class="no-highlight">1122</i>&nbsp;    /**
+<i class="no-highlight">1123</i>&nbsp;     * Create an appropriate type of Replicated transaction. Specifically,
+<i class="no-highlight">1124</i>&nbsp;     * it creates a MasterTxn, if the node is currently a Master, a ReadonlyTxn
+<i class="no-highlight">1125</i>&nbsp;     * otherwise, that is, if the node is a Replica, or it&#39;s currently in a
+<i class="no-highlight">1126</i>&nbsp;     * DETACHED state.
+<i class="no-highlight">1127</i>&nbsp;     *
+<i class="no-highlight">1128</i>&nbsp;     * Note that a ReplicaTxn, used for transaction replay on a Replica is not
+<i class="no-highlight">1129</i>&nbsp;     * created on this path. It&#39;s created explicitly in the Replay loop by a
+<i class="no-highlight">1130</i>&nbsp;     * Replica.
+<i class="no-highlight">1131</i>&nbsp;     *
+<i class="no-highlight">1132</i>&nbsp;     * @param config  the transaction configuration
+<i class="no-highlight">1133</i>&nbsp;     *
+<i class="no-highlight">1134</i>&nbsp;     * @return an instance of MasterTxn or ReadonlyTxn
+<i class="no-highlight">1135</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">1136</i>&nbsp;     */
+<i class="no-highlight">1137</i>&nbsp;    @Override
+<i class="no-highlight">1138</i>&nbsp;    public Txn createRepUserTxn(TransactionConfig config)
+<i class="no-highlight">1139</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1140</i>&nbsp;
+<b class="nc"><i class="no-highlight">1141</i>&nbsp;        return (isMaster() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1142</i>&nbsp;            !config.getReadOnly() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1143</i>&nbsp;            !config.getLocalWrite()) ?</b>
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;            MasterTxn.create(this, config, nameIdPair) :</b>
+<i class="no-highlight">1145</i>&nbsp;            new ReadonlyTxn(this, config);
+<i class="no-highlight">1146</i>&nbsp;    }
+<i class="no-highlight">1147</i>&nbsp;
+<i class="no-highlight">1148</i>&nbsp;    /**
+<i class="no-highlight">1149</i>&nbsp;     * Ensure that a  sufficient number of feeders are available before
+<i class="no-highlight">1150</i>&nbsp;     * proceeding with a master transaction begin.
+<i class="no-highlight">1151</i>&nbsp;     *
+<i class="no-highlight">1152</i>&nbsp;     * @param txn the master transaction being initiated.
+<i class="no-highlight">1153</i>&nbsp;     *
+<i class="no-highlight">1154</i>&nbsp;     * @throws InterruptedException
+<i class="no-highlight">1155</i>&nbsp;     * @throws DatabaseException if there were insufficient Replicas after the
+<i class="no-highlight">1156</i>&nbsp;     * timeout period.
+<i class="no-highlight">1157</i>&nbsp;     */
+<i class="no-highlight">1158</i>&nbsp;    public void txnBeginHook(MasterTxn txn)
+<i class="no-highlight">1159</i>&nbsp;        throws InterruptedException,
+<i class="no-highlight">1160</i>&nbsp;               DatabaseException {
+<i class="no-highlight">1161</i>&nbsp;
+<b class="nc"><i class="no-highlight">1162</i>&nbsp;        checkIfInvalid();</b>
+<b class="nc"><i class="no-highlight">1163</i>&nbsp;        final long txnTimeout = txn.getTxnTimeout();</b>
+<b class="nc"><i class="no-highlight">1164</i>&nbsp;        int timeout = insufficientReplicasTimeout;</b>
+<i class="no-highlight">1165</i>&nbsp;
+<b class="nc"><i class="no-highlight">1166</i>&nbsp;        if ((txnTimeout != 0) &amp;&amp; (txnTimeout &lt; insufficientReplicasTimeout)) {</b>
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;            timeout = (int) txnTimeout;</b>
+<i class="no-highlight">1168</i>&nbsp;        }
+<i class="no-highlight">1169</i>&nbsp;
+<b class="nc"><i class="no-highlight">1170</i>&nbsp;        repNode.getDurabilityQuorum().ensureReplicasForCommit(txn, timeout);</b>
+<i class="no-highlight">1171</i>&nbsp;    }
+<i class="no-highlight">1172</i>&nbsp;
+<i class="no-highlight">1173</i>&nbsp;    /**
+<i class="no-highlight">1174</i>&nbsp;     * Installs the commit-blocking latch that is used to halt the commit/abort
+<i class="no-highlight">1175</i>&nbsp;     * of transactions, in the final phase of a master transfer.
+<i class="no-highlight">1176</i>&nbsp;     *
+<i class="no-highlight">1177</i>&nbsp;     * @see #updateCBVLSN(LocalCBVLSNUpdater)
+<i class="no-highlight">1178</i>&nbsp;     */
+<i class="no-highlight">1179</i>&nbsp;    public void blockTxnCompletion(CountDownLatch blocker)
+<i class="no-highlight">1180</i>&nbsp;        throws InterruptedException {
+<i class="no-highlight">1181</i>&nbsp;
+<b class="nc"><i class="no-highlight">1182</i>&nbsp;        ReentrantReadWriteLock.WriteLock lock = blockLatchLock.writeLock();</b>
+<b class="nc"><i class="no-highlight">1183</i>&nbsp;        lock.lockInterruptibly();</b>
+<i class="no-highlight">1184</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1185</i>&nbsp;            blockTxnLatch = blocker;</b>
+<i class="no-highlight">1186</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1187</i>&nbsp;            lock.unlock();</b>
+<b class="nc"><i class="no-highlight">1188</i>&nbsp;        }</b>
+<i class="no-highlight">1189</i>&nbsp;    }
+<i class="no-highlight">1190</i>&nbsp;
+<i class="no-highlight">1191</i>&nbsp;    /**
+<i class="no-highlight">1192</i>&nbsp;     * If the GlobalCBVLSN is not defunct, updates the CBVLSN on behalf of a
+<i class="no-highlight">1193</i>&nbsp;     * Feeder input thread (or FeederManager running in the RepNode thread).
+<i class="no-highlight">1194</i>&nbsp;     * If the GlobalCBVLSN is defunct, does nothing.
+<i class="no-highlight">1195</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1196</i>&nbsp;     * Does the update while avoiding the possibility that any resulting
+<i class="no-highlight">1197</i>&nbsp;     * GroupDB update may get blocked behind the final phase of a master
+<i class="no-highlight">1198</i>&nbsp;     * transfer.
+<i class="no-highlight">1199</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1200</i>&nbsp;     * We skip the update if we&#39;re at the point of blocking new transactions
+<i class="no-highlight">1201</i>&nbsp;     * for a master transfer.  And we use a read/write lock in order to be able
+<i class="no-highlight">1202</i>&nbsp;     * to examine that state safely.
+<i class="no-highlight">1203</i>&nbsp;     */
+<i class="no-highlight">1204</i>&nbsp;    public void updateCBVLSN(LocalCBVLSNUpdater updater) {
+<i class="no-highlight">1205</i>&nbsp;
+<b class="nc"><i class="no-highlight">1206</i>&nbsp;        if (repNode.isGlobalCBVLSNDefunct()) {</b>
+<i class="no-highlight">1207</i>&nbsp;            return;
+<i class="no-highlight">1208</i>&nbsp;        }
+<i class="no-highlight">1209</i>&nbsp;
+<b class="nc"><i class="no-highlight">1210</i>&nbsp;        ReentrantReadWriteLock.ReadLock lock = blockLatchLock.readLock();</b>
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;        lock.lock();</b>
+<i class="no-highlight">1212</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1213</i>&nbsp;            if (blockTxnLatch.getCount() &gt; 0) {</b>
+<i class="no-highlight">1214</i>&nbsp;                return;
+<i class="no-highlight">1215</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1216</i>&nbsp;            updater.update();</b>
+<i class="no-highlight">1217</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1218</i>&nbsp;            lock.unlock();</b>
+<b class="nc"><i class="no-highlight">1219</i>&nbsp;        }</b>
+<i class="no-highlight">1220</i>&nbsp;    }
+<i class="no-highlight">1221</i>&nbsp;
+<i class="no-highlight">1222</i>&nbsp;    /**
+<i class="no-highlight">1223</i>&nbsp;     * Releases the transaction block latch.
+<i class="no-highlight">1224</i>&nbsp;     */
+<i class="no-highlight">1225</i>&nbsp;    public void unblockTxnCompletion() {
+<b class="nc"><i class="no-highlight">1226</i>&nbsp;        LoggerUtils.info(envLogger, this, &quot;Releasing commit block latch&quot;);</b>
+<b class="nc"><i class="no-highlight">1227</i>&nbsp;        blockTxnLatch.countDown();</b>
+<i class="no-highlight">1228</i>&nbsp;    }
+<i class="no-highlight">1229</i>&nbsp;
+<i class="no-highlight">1230</i>&nbsp;    /**
+<i class="no-highlight">1231</i>&nbsp;     * This hook is used primarily to perform the final checks before allowing
+<i class="no-highlight">1232</i>&nbsp;     * the commit operation to proceed. The following checks are performed
+<i class="no-highlight">1233</i>&nbsp;     * here:
+<i class="no-highlight">1234</i>&nbsp;     *
+<i class="no-highlight">1235</i>&nbsp;     * 1) Check for master
+<i class="no-highlight">1236</i>&nbsp;     * 2) Check for sufficient Feeder connections to ensure that the commit
+<i class="no-highlight">1237</i>&nbsp;     *    policy could be implemented. There is no guarantee that they will all
+<i class="no-highlight">1238</i>&nbsp;     *    ack the commit request.
+<i class="no-highlight">1239</i>&nbsp;     *
+<i class="no-highlight">1240</i>&nbsp;     * The method also associates a latch with the transaction. The latch is
+<i class="no-highlight">1241</i>&nbsp;     * used to delay the commit operation until a sufficient number of commits
+<i class="no-highlight">1242</i>&nbsp;     * have been received.
+<i class="no-highlight">1243</i>&nbsp;     *
+<i class="no-highlight">1244</i>&nbsp;     * In addition, when mastership transfers are done, and this node is the
+<i class="no-highlight">1245</i>&nbsp;     * original master, commits and aborts are blocked so as to avoid hard
+<i class="no-highlight">1246</i>&nbsp;     * recovery after electing a new master, see [#18081].
+<i class="no-highlight">1247</i>&nbsp;     *
+<i class="no-highlight">1248</i>&nbsp;     * @param txn the master transaction being committed
+<i class="no-highlight">1249</i>&nbsp;     *
+<i class="no-highlight">1250</i>&nbsp;     * @throws InsufficientReplicasException if the feeder is not in contact
+<i class="no-highlight">1251</i>&nbsp;     * with enough replicas.
+<i class="no-highlight">1252</i>&nbsp;     * @throws RestartRequiredException if the environment is invalid.
+<i class="no-highlight">1253</i>&nbsp;     * @throws UnknownMasterException if the current master is unknown.
+<i class="no-highlight">1254</i>&nbsp;     * @throws ReplicaWriteException if the node transitioned to a Replica
+<i class="no-highlight">1255</i>&nbsp;     * after the transaction was initiated.
+<i class="no-highlight">1256</i>&nbsp;     */
+<i class="no-highlight">1257</i>&nbsp;    public void preLogCommitHook(MasterTxn txn)
+<i class="no-highlight">1258</i>&nbsp;        throws InsufficientReplicasException,
+<i class="no-highlight">1259</i>&nbsp;               RestartRequiredException,
+<i class="no-highlight">1260</i>&nbsp;               UnknownMasterException,
+<i class="no-highlight">1261</i>&nbsp;               ReplicaWriteException,
+<i class="no-highlight">1262</i>&nbsp;               EnvironmentFailureException {
+<i class="no-highlight">1263</i>&nbsp;
+<b class="nc"><i class="no-highlight">1264</i>&nbsp;        checkIfInvalid();</b>
+<b class="nc"><i class="no-highlight">1265</i>&nbsp;        checkIfMaster(txn);</b>
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;        checkBlock(txn);</b>
+<i class="no-highlight">1267</i>&nbsp;
+<i class="no-highlight">1268</i>&nbsp;        /* Still a master, check for a sufficient number of connections */
+<b class="nc"><i class="no-highlight">1269</i>&nbsp;        int activeReplicaCount =</b>
+<b class="nc"><i class="no-highlight">1270</i>&nbsp;            repNode.feederManager().activeAckReplicaCount();</b>
+<b class="nc"><i class="no-highlight">1271</i>&nbsp;        ReplicaAckPolicy ackPolicy =</b>
+<b class="nc"><i class="no-highlight">1272</i>&nbsp;            txn.getCommitDurability().getReplicaAck();</b>
+<b class="nc"><i class="no-highlight">1273</i>&nbsp;        int requiredAckCount = txn.getRequiredAckCount();</b>
+<i class="no-highlight">1274</i>&nbsp;
+<b class="nc"><i class="no-highlight">1275</i>&nbsp;        if (envLogger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">1276</i>&nbsp;            LoggerUtils.fine(envLogger, this,</b>
+<b class="nc"><i class="no-highlight">1277</i>&nbsp;                             &quot;Txn &quot; + txn.getId() + &quot; requires: &quot; +</b>
+<i class="no-highlight">1278</i>&nbsp;                             requiredAckCount + &quot; active: &quot; +
+<i class="no-highlight">1279</i>&nbsp;                             activeReplicaCount +
+<i class="no-highlight">1280</i>&nbsp;                             &quot; replica acks. Commit Policy: &quot; + ackPolicy);
+<i class="no-highlight">1281</i>&nbsp;        }
+<i class="no-highlight">1282</i>&nbsp;
+<b class="nc"><i class="no-highlight">1283</i>&nbsp;        if (requiredAckCount &gt; activeReplicaCount) {</b>
+<i class="no-highlight">1284</i>&nbsp;            /* Check for possible activation of Primary */
+<b class="nc"><i class="no-highlight">1285</i>&nbsp;            if (ackPolicy.equals(ReplicaAckPolicy.SIMPLE_MAJORITY) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1286</i>&nbsp;                repNode.getArbiter().activateArbitration()) {</b>
+<b class="nc"><i class="no-highlight">1287</i>&nbsp;                txn.resetRequiredAckCount();</b>
+<b class="nc"><i class="no-highlight">1288</i>&nbsp;            } else if (useArbiter(txn)) {</b>
+<i class="no-highlight">1289</i>&nbsp;                /*
+<i class="no-highlight">1290</i>&nbsp;                 * Note we could change the check to allow a degraded
+<i class="no-highlight">1291</i>&nbsp;                 * write from any group size. Limit is place at rep group
+<i class="no-highlight">1292</i>&nbsp;                 * size of two due to the priority of requirements
+<i class="no-highlight">1293</i>&nbsp;                 * and lower cost of testing.
+<i class="no-highlight">1294</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1295</i>&nbsp;                txn.setArbiterAck(true);</b>
+<i class="no-highlight">1296</i>&nbsp;            } else {
+<i class="no-highlight">1297</i>&nbsp;                /*
+<i class="no-highlight">1298</i>&nbsp;                 * Capture the set to ensure it&#39;s consistent with the exception
+<i class="no-highlight">1299</i>&nbsp;                 * message.
+<i class="no-highlight">1300</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1301</i>&nbsp;                final boolean includeArbiters =</b>
+<b class="nc"><i class="no-highlight">1302</i>&nbsp;                    !ackPolicy.equals(ReplicaAckPolicy.ALL);</b>
+<b class="nc"><i class="no-highlight">1303</i>&nbsp;                final Set&lt;String&gt; activeAckRepSet =</b>
+<b class="nc"><i class="no-highlight">1304</i>&nbsp;                    repNode.feederManager().activeAckReplicas(includeArbiters);</b>
+<i class="no-highlight">1305</i>&nbsp;
+<b class="nc"><i class="no-highlight">1306</i>&nbsp;                if (requiredAckCount &gt; activeAckRepSet.size()) {</b>
+<i class="no-highlight">1307</i>&nbsp;                    /* No change in window, throw exception */
+<b class="nc"><i class="no-highlight">1308</i>&nbsp;                    InsufficientReplicasException ire =</b>
+<i class="no-highlight">1309</i>&nbsp;                    new InsufficientReplicasException
+<i class="no-highlight">1310</i>&nbsp;                        (txn, ackPolicy, requiredAckCount, activeAckRepSet);
+<b class="nc"><i class="no-highlight">1311</i>&nbsp;                    LoggerUtils.info(envLogger, this, ire.getMessage());</b>
+<b class="nc"><i class="no-highlight">1312</i>&nbsp;                    throw ire;</b>
+<i class="no-highlight">1313</i>&nbsp;                }
+<i class="no-highlight">1314</i>&nbsp;
+<i class="no-highlight">1315</i>&nbsp;                /**
+<i class="no-highlight">1316</i>&nbsp;                 * A new replica became active in the window between the
+<i class="no-highlight">1317</i>&nbsp;                 * first fast check and the second slower check, just continue
+<i class="no-highlight">1318</i>&nbsp;                 */
+<i class="no-highlight">1319</i>&nbsp;            }
+<i class="no-highlight">1320</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1321</i>&nbsp;        feederTxns.setupForAcks(txn);</b>
+<i class="no-highlight">1322</i>&nbsp;    }
+<i class="no-highlight">1323</i>&nbsp;
+<i class="no-highlight">1324</i>&nbsp;    /*
+<i class="no-highlight">1325</i>&nbsp;     * Block transaction commits/aborts if this node is the original master
+<i class="no-highlight">1326</i>&nbsp;     * and we&#39;re doing Master Transfer.
+<i class="no-highlight">1327</i>&nbsp;     */
+<i class="no-highlight">1328</i>&nbsp;    private void checkBlock(MasterTxn txn) {
+<i class="no-highlight">1329</i>&nbsp;        try {
+<i class="no-highlight">1330</i>&nbsp;
+<i class="no-highlight">1331</i>&nbsp;            /*
+<i class="no-highlight">1332</i>&nbsp;             * Lock out the setting of the block latch by Master Transfer in
+<i class="no-highlight">1333</i>&nbsp;             * the interval between waiting on the latch and setting the VLSN
+<i class="no-highlight">1334</i>&nbsp;             * for the commit: Master Transfer needs to get a coherent idea of
+<i class="no-highlight">1335</i>&nbsp;             * the final VLSN when it sets the latch.  This lock will be
+<i class="no-highlight">1336</i>&nbsp;             * released by the {@code postLogXxxHook()} functions, one of which
+<i class="no-highlight">1337</i>&nbsp;             * is guaranteed to be called, unless an Environment-invalidating
+<i class="no-highlight">1338</i>&nbsp;             * exception occurs.
+<i class="no-highlight">1339</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1340</i>&nbsp;            if (txn.lockOnce()) {</b>
+<b class="nc"><i class="no-highlight">1341</i>&nbsp;                blockLatchLock.readLock().lockInterruptibly();</b>
+<i class="no-highlight">1342</i>&nbsp;            }
+<i class="no-highlight">1343</i>&nbsp;
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;            if (blockTxnLatch.getCount() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1345</i>&nbsp;                LoggerUtils.info(envLogger, this,</b>
+<b class="nc"><i class="no-highlight">1346</i>&nbsp;                                 &quot;Block transaction: &quot; + txn.getId() +</b>
+<i class="no-highlight">1347</i>&nbsp;                                 &quot; pending master transfer. Write locks = &quot; +
+<b class="nc"><i class="no-highlight">1348</i>&nbsp;                                 txn.getWriteLockIds());</b>
+<i class="no-highlight">1349</i>&nbsp;            }
+<i class="no-highlight">1350</i>&nbsp;
+<b class="nc"><i class="no-highlight">1351</i>&nbsp;            final long txnTimeout = txn.getTxnTimeout();</b>
+<b class="nc"><i class="no-highlight">1352</i>&nbsp;            if (txnTimeout &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1353</i>&nbsp;                blockTxnLatch.await();</b>
+<b class="nc"><i class="no-highlight">1354</i>&nbsp;            } else if (! blockTxnLatch.await(txnTimeout,</b>
+<i class="no-highlight">1355</i>&nbsp;                                             TimeUnit.MILLISECONDS)) {
+<i class="no-highlight">1356</i>&nbsp;
+<b class="nc"><i class="no-highlight">1357</i>&nbsp;                final String message =</b>
+<i class="no-highlight">1358</i>&nbsp;                    &quot;Timed out waiting for master transfer. &quot; +
+<i class="no-highlight">1359</i>&nbsp;                    &quot;Configured transaction timeout:&quot; + txnTimeout + &quot;ms&quot;;
+<i class="no-highlight">1360</i>&nbsp;
+<b class="nc"><i class="no-highlight">1361</i>&nbsp;                throw new TransactionTimeoutException(txn, message);</b>
+<i class="no-highlight">1362</i>&nbsp;            }
+<i class="no-highlight">1363</i>&nbsp;
+<b class="nc"><i class="no-highlight">1364</i>&nbsp;            checkIfInvalid();</b>
+<i class="no-highlight">1365</i>&nbsp;
+<i class="no-highlight">1366</i>&nbsp;            /*
+<i class="no-highlight">1367</i>&nbsp;             * Check again, after the block! The block may be a result of a
+<i class="no-highlight">1368</i>&nbsp;             * master-&gt;replica transfer, and if this node transitions from
+<i class="no-highlight">1369</i>&nbsp;             * master to replica, this node will be disqualified from being
+<i class="no-highlight">1370</i>&nbsp;             * able to commit transactions.
+<i class="no-highlight">1371</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1372</i>&nbsp;            checkIfMaster(txn);</b>
+<i class="no-highlight">1373</i>&nbsp;
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">1375</i>&nbsp;            throw new ThreadInterruptedException(this, e);</b>
+<b class="nc"><i class="no-highlight">1376</i>&nbsp;        }</b>
+<i class="no-highlight">1377</i>&nbsp;    }
+<i class="no-highlight">1378</i>&nbsp;
+<i class="no-highlight">1379</i>&nbsp;    /**
+<i class="no-highlight">1380</i>&nbsp;     * It ensures that the feeder obtains the requisite number of
+<i class="no-highlight">1381</i>&nbsp;     * acknowledgments required for a successful commit.
+<i class="no-highlight">1382</i>&nbsp;     *
+<i class="no-highlight">1383</i>&nbsp;     * @param txn The MasterTxn that was committed locally.
+<i class="no-highlight">1384</i>&nbsp;     *
+<i class="no-highlight">1385</i>&nbsp;     * @throws InterruptedException if the thread was interrupted while
+<i class="no-highlight">1386</i>&nbsp;     * waiting for acknowledgments.
+<i class="no-highlight">1387</i>&nbsp;     * @throws InsufficientAcksException if the master received an insufficient
+<i class="no-highlight">1388</i>&nbsp;     * number of commit acknowledgments within the replica commit timeout
+<i class="no-highlight">1389</i>&nbsp;     * period.
+<i class="no-highlight">1390</i>&nbsp;     * @throws EnvironmentFailureException
+<i class="no-highlight">1391</i>&nbsp;     */
+<i class="no-highlight">1392</i>&nbsp;    public void postLogCommitHook(MasterTxn txn, LogItem commitItem)
+<i class="no-highlight">1393</i>&nbsp;       throws InsufficientAcksException,
+<i class="no-highlight">1394</i>&nbsp;              InterruptedException,
+<i class="no-highlight">1395</i>&nbsp;              EnvironmentFailureException {
+<b class="nc"><i class="no-highlight">1396</i>&nbsp;        final long txnTimeout = txn.getTxnTimeout();</b>
+<b class="nc"><i class="no-highlight">1397</i>&nbsp;        int timeout = replicaAckTimeout;</b>
+<i class="no-highlight">1398</i>&nbsp;
+<b class="nc"><i class="no-highlight">1399</i>&nbsp;        if ((txnTimeout != 0) &amp;&amp; (txnTimeout &lt; replicaAckTimeout)) {</b>
+<b class="nc"><i class="no-highlight">1400</i>&nbsp;            timeout = (int) txnTimeout;</b>
+<i class="no-highlight">1401</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1402</i>&nbsp;        postLogCommitHookInternal(txn, commitItem, timeout);</b>
+<i class="no-highlight">1403</i>&nbsp;    }
+<i class="no-highlight">1404</i>&nbsp;
+<i class="no-highlight">1405</i>&nbsp;
+<i class="no-highlight">1406</i>&nbsp;    private void postLogCommitHookInternal(MasterTxn txn, LogItem commitItem,
+<i class="no-highlight">1407</i>&nbsp;                                           int ackTimeout)
+<i class="no-highlight">1408</i>&nbsp;        throws InsufficientAcksException,
+<i class="no-highlight">1409</i>&nbsp;               InterruptedException,
+<i class="no-highlight">1410</i>&nbsp;               EnvironmentFailureException {
+<b class="nc"><i class="no-highlight">1411</i>&nbsp;        if (txn.unlockOnce()) {</b>
+<b class="nc"><i class="no-highlight">1412</i>&nbsp;            blockLatchLock.readLock().unlock();</b>
+<i class="no-highlight">1413</i>&nbsp;        }
+<i class="no-highlight">1414</i>&nbsp;
+<b class="nc"><i class="no-highlight">1415</i>&nbsp;        if (!isValid()) {</b>
+<b class="nc"><i class="no-highlight">1416</i>&nbsp;            final int currentRequiredAckCount = repNode.getDurabilityQuorum().</b>
+<b class="nc"><i class="no-highlight">1417</i>&nbsp;            getCurrentRequiredAckCount(txn.getCommitDurability().</b>
+<b class="nc"><i class="no-highlight">1418</i>&nbsp;                                       getReplicaAck());</b>
+<b class="nc"><i class="no-highlight">1419</i>&nbsp;            if (currentRequiredAckCount &gt; 0) {</b>
+<i class="no-highlight">1420</i>&nbsp;                /* Throw a more actionable and accurate exception than EFE */
+<b class="nc"><i class="no-highlight">1421</i>&nbsp;                final String msg =</b>
+<i class="no-highlight">1422</i>&nbsp;                    &quot;Acks could not be obtained because the environment&quot; +
+<i class="no-highlight">1423</i>&nbsp;                    &quot;was invalidated&quot;;
+<b class="nc"><i class="no-highlight">1424</i>&nbsp;                LoggerUtils.info(envLogger, this, msg);</b>
+<b class="nc"><i class="no-highlight">1425</i>&nbsp;                throw new InsufficientAcksException(msg);</b>
+<i class="no-highlight">1426</i>&nbsp;            }
+<i class="no-highlight">1427</i>&nbsp;            /* No acks are required, transaction is complete. */
+<i class="no-highlight">1428</i>&nbsp;            return;
+<i class="no-highlight">1429</i>&nbsp;        }
+<i class="no-highlight">1430</i>&nbsp;
+<i class="no-highlight">1431</i>&nbsp;        /* Check if using Arbiter for transaction. */
+<b class="nc"><i class="no-highlight">1432</i>&nbsp;        if (txn.getArbiterAck()) {</b>
+<i class="no-highlight">1433</i>&nbsp;            // get the arbiter acker source and add txn id to its queue.
+<b class="nc"><i class="no-highlight">1434</i>&nbsp;            Feeder arbFeeder = repNode.feederManager().getArbiterFeeder();</b>
+<b class="nc"><i class="no-highlight">1435</i>&nbsp;            if (arbFeeder != null) {</b>
+<b class="nc"><i class="no-highlight">1436</i>&nbsp;                ArbiterFeederSource as = arbFeeder.getArbiterFeederSource();</b>
+<b class="nc"><i class="no-highlight">1437</i>&nbsp;                as.addCommit(commitItem);</b>
+<i class="no-highlight">1438</i>&nbsp;            }
+<i class="no-highlight">1439</i>&nbsp;        }
+<i class="no-highlight">1440</i>&nbsp;
+<i class="no-highlight">1441</i>&nbsp;        /* Don&#39;t do master check, the transaction has already been committed */
+<i class="no-highlight">1442</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1443</i>&nbsp;            feederTxns.awaitReplicaAcks(txn, ackTimeout);</b>
+<b class="nc"><i class="no-highlight">1444</i>&nbsp;        } catch (InsufficientAcksException e) {</b>
+<b class="nc"><i class="no-highlight">1445</i>&nbsp;            if (txn.getArbiterAck() == false &amp;&amp; useArbiter(txn)) {</b>
+<b class="nc"><i class="no-highlight">1446</i>&nbsp;                txn.setArbiterAck(true);</b>
+<b class="nc"><i class="no-highlight">1447</i>&nbsp;                postLogCommitHookInternal(txn, commitItem, arbiterAckTimeout);</b>
+<i class="no-highlight">1448</i>&nbsp;                return;
+<i class="no-highlight">1449</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1450</i>&nbsp;            LoggerUtils.info(envLogger, this, e.getMessage());</b>
+<b class="nc"><i class="no-highlight">1451</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">1452</i>&nbsp;        }</b>
+<i class="no-highlight">1453</i>&nbsp;    }
+<i class="no-highlight">1454</i>&nbsp;
+<i class="no-highlight">1455</i>&nbsp;    /**
+<i class="no-highlight">1456</i>&nbsp;     * Invoked before aborting a MasterTxn, this happens when the master is
+<i class="no-highlight">1457</i>&nbsp;     * going to be a replica because of mastership transfer. We do this to make
+<i class="no-highlight">1458</i>&nbsp;     * sure that the replica going to be the master has the most recent log and
+<i class="no-highlight">1459</i>&nbsp;     * no hard recovery would happen after its election, see SR [#18081].
+<i class="no-highlight">1460</i>&nbsp;     *
+<i class="no-highlight">1461</i>&nbsp;     * @param txn The MasterTxn that was aborted locally.
+<i class="no-highlight">1462</i>&nbsp;     *
+<i class="no-highlight">1463</i>&nbsp;     * @throws ReplicaWriteException if the node transitioned to a Replica
+<i class="no-highlight">1464</i>&nbsp;     * after the transaction was initiated.
+<i class="no-highlight">1465</i>&nbsp;     * @throws UnknownMasterException if the current master is unknown.
+<i class="no-highlight">1466</i>&nbsp;     * @throws EnvironmentFailureException
+<i class="no-highlight">1467</i>&nbsp;     */
+<i class="no-highlight">1468</i>&nbsp;    public void preLogAbortHook(MasterTxn txn)
+<i class="no-highlight">1469</i>&nbsp;        throws EnvironmentFailureException,
+<i class="no-highlight">1470</i>&nbsp;               ReplicaWriteException,
+<i class="no-highlight">1471</i>&nbsp;               UnknownMasterException {
+<i class="no-highlight">1472</i>&nbsp;
+<b class="nc"><i class="no-highlight">1473</i>&nbsp;        checkIfInvalid();</b>
+<b class="nc"><i class="no-highlight">1474</i>&nbsp;        checkIfMaster(txn);</b>
+<b class="nc"><i class="no-highlight">1475</i>&nbsp;        checkBlock(txn);</b>
+<i class="no-highlight">1476</i>&nbsp;    }
+<i class="no-highlight">1477</i>&nbsp;
+<i class="no-highlight">1478</i>&nbsp;    /**
+<i class="no-highlight">1479</i>&nbsp;     * Releases the block latch lock, if held.  This hook is called in the
+<i class="no-highlight">1480</i>&nbsp;     * normal course of Txn.abort(), once the abort log record has been written
+<i class="no-highlight">1481</i>&nbsp;     * and the associated VLSN stored.
+<i class="no-highlight">1482</i>&nbsp;     */
+<i class="no-highlight">1483</i>&nbsp;    public void postLogAbortHook(MasterTxn txn) {
+<b class="nc"><i class="no-highlight">1484</i>&nbsp;        if (txn.unlockOnce()) {</b>
+<b class="nc"><i class="no-highlight">1485</i>&nbsp;            blockLatchLock.readLock().unlock();</b>
+<i class="no-highlight">1486</i>&nbsp;        }
+<i class="no-highlight">1487</i>&nbsp;    }
+<i class="no-highlight">1488</i>&nbsp;
+<i class="no-highlight">1489</i>&nbsp;    /**
+<i class="no-highlight">1490</i>&nbsp;     * Removes any pending acknowledgments that were registered by the
+<i class="no-highlight">1491</i>&nbsp;     * preLogCommitHook.  This hook is called only when a {@code commit()}
+<i class="no-highlight">1492</i>&nbsp;     * fails and therefore must be aborted.
+<i class="no-highlight">1493</i>&nbsp;     */
+<i class="no-highlight">1494</i>&nbsp;    public void postLogCommitAbortHook(MasterTxn txn) {
+<b class="nc"><i class="no-highlight">1495</i>&nbsp;        LoggerUtils.info(envLogger, this,</b>
+<b class="nc"><i class="no-highlight">1496</i>&nbsp;                         &quot;post log abort hook for txn: &quot; + txn.getId());</b>
+<b class="nc"><i class="no-highlight">1497</i>&nbsp;        if (txn.unlockOnce()) {</b>
+<b class="nc"><i class="no-highlight">1498</i>&nbsp;            blockLatchLock.readLock().unlock();</b>
+<i class="no-highlight">1499</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1500</i>&nbsp;        feederTxns.clearTransactionAcks(txn);</b>
+<i class="no-highlight">1501</i>&nbsp;    }
+<i class="no-highlight">1502</i>&nbsp;
+<i class="no-highlight">1503</i>&nbsp;    /**
+<i class="no-highlight">1504</i>&nbsp;     * Create a ReplayTxn for recovery processing.
+<i class="no-highlight">1505</i>&nbsp;     */
+<i class="no-highlight">1506</i>&nbsp;    @Override
+<i class="no-highlight">1507</i>&nbsp;    public Txn createReplayTxn(long txnId)
+<i class="no-highlight">1508</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1509</i>&nbsp;
+<b class="nc"><i class="no-highlight">1510</i>&nbsp;        return</b>
+<i class="no-highlight">1511</i>&nbsp;            new ReplayTxn(this, TransactionConfig.DEFAULT, txnId, envLogger);
+<i class="no-highlight">1512</i>&nbsp;    }
+<i class="no-highlight">1513</i>&nbsp;
+<i class="no-highlight">1514</i>&nbsp;    /**
+<i class="no-highlight">1515</i>&nbsp;     * Used by environment recovery to get a tracker to collect VLSN-LSN
+<i class="no-highlight">1516</i>&nbsp;     * mappings that are within the recovery part of the log. These might
+<i class="no-highlight">1517</i>&nbsp;     * not be reflected in the persistent mapping db.
+<i class="no-highlight">1518</i>&nbsp;     */
+<i class="no-highlight">1519</i>&nbsp;    @Override
+<i class="no-highlight">1520</i>&nbsp;    public VLSNRecoveryProxy getVLSNProxy() {
+<b class="nc"><i class="no-highlight">1521</i>&nbsp;        int stride = configManager.getInt(RepParams.VLSN_STRIDE);</b>
+<b class="nc"><i class="no-highlight">1522</i>&nbsp;        int maxMappings = configManager.getInt(RepParams.VLSN_MAX_MAP);</b>
+<b class="nc"><i class="no-highlight">1523</i>&nbsp;        int maxDist = configManager.getInt(RepParams.VLSN_MAX_DIST);</b>
+<i class="no-highlight">1524</i>&nbsp;
+<b class="nc"><i class="no-highlight">1525</i>&nbsp;        return new VLSNRecoveryTracker(this, stride, maxMappings, maxDist);</b>
+<i class="no-highlight">1526</i>&nbsp;    }
+<i class="no-highlight">1527</i>&nbsp;
+<i class="no-highlight">1528</i>&nbsp;    public UUID getUUID() {
+<b class="nc"><i class="no-highlight">1529</i>&nbsp;        return repNode.getUUID();</b>
+<i class="no-highlight">1530</i>&nbsp;    }
+<i class="no-highlight">1531</i>&nbsp;
+<i class="no-highlight">1532</i>&nbsp;    /**
+<i class="no-highlight">1533</i>&nbsp;     * Used during testing to introduce artificial clock skews.
+<i class="no-highlight">1534</i>&nbsp;     */
+<i class="no-highlight">1535</i>&nbsp;    public static void setSkewMs(int skewMs) {
+<b class="nc"><i class="no-highlight">1536</i>&nbsp;        clockSkewMs = skewMs;</b>
+<i class="no-highlight">1537</i>&nbsp;    }
+<i class="no-highlight">1538</i>&nbsp;
+<i class="no-highlight">1539</i>&nbsp;    public static int getClockSkewMs() {
+<b class="nc"><i class="no-highlight">1540</i>&nbsp;        return clockSkewMs;</b>
+<i class="no-highlight">1541</i>&nbsp;    }
+<i class="no-highlight">1542</i>&nbsp;
+<i class="no-highlight">1543</i>&nbsp;    /**
+<i class="no-highlight">1544</i>&nbsp;     * Truncate the head of the VLSNIndex to allow file deletion, if possible.
+<i class="no-highlight">1545</i>&nbsp;     */
+<i class="no-highlight">1546</i>&nbsp;    @Override
+<i class="no-highlight">1547</i>&nbsp;    public boolean tryVlsnHeadTruncate(long bytesNeeded) {
+<b class="nc"><i class="no-highlight">1548</i>&nbsp;        return vlsnIndex.tryTruncateFromHead(bytesNeeded);</b>
+<i class="no-highlight">1549</i>&nbsp;    }
+<i class="no-highlight">1550</i>&nbsp;
+<i class="no-highlight">1551</i>&nbsp;    public int getNodeId() {
+<b class="nc"><i class="no-highlight">1552</i>&nbsp;        return nameIdPair.getId();</b>
+<i class="no-highlight">1553</i>&nbsp;    }
+<i class="no-highlight">1554</i>&nbsp;
+<i class="no-highlight">1555</i>&nbsp;    public NameIdPair getNameIdPair() {
+<b class="nc"><i class="no-highlight">1556</i>&nbsp;        return nameIdPair;</b>
+<i class="no-highlight">1557</i>&nbsp;    }
+<i class="no-highlight">1558</i>&nbsp;
+<i class="no-highlight">1559</i>&nbsp;    @Override
+<i class="no-highlight">1560</i>&nbsp;    public long getReplayTxnTimeout() {
+<b class="nc"><i class="no-highlight">1561</i>&nbsp;        return replayTxnTimeout;</b>
+<i class="no-highlight">1562</i>&nbsp;    }
+<i class="no-highlight">1563</i>&nbsp;
+<i class="no-highlight">1564</i>&nbsp;    /* Return the default consistency policy. */
+<i class="no-highlight">1565</i>&nbsp;    @Override
+<i class="no-highlight">1566</i>&nbsp;    public ReplicaConsistencyPolicy getDefaultConsistencyPolicy() {
+<b class="nc"><i class="no-highlight">1567</i>&nbsp;        return defaultConsistencyPolicy;</b>
+<i class="no-highlight">1568</i>&nbsp;    }
+<i class="no-highlight">1569</i>&nbsp;
+<i class="no-highlight">1570</i>&nbsp;    /**
+<i class="no-highlight">1571</i>&nbsp;     * The default consistency is not currently mutable in the API, but can be
+<i class="no-highlight">1572</i>&nbsp;     * set for testing purposes.
+<i class="no-highlight">1573</i>&nbsp;     *
+<i class="no-highlight">1574</i>&nbsp;     * TODO: Make it mutable in the API, since Durability is mutable.
+<i class="no-highlight">1575</i>&nbsp;     */
+<i class="no-highlight">1576</i>&nbsp;    public void setDefaultConsistencyPolicy(ReplicaConsistencyPolicy policy) {
+<b class="nc"><i class="no-highlight">1577</i>&nbsp;        defaultConsistencyPolicy = policy;</b>
+<i class="no-highlight">1578</i>&nbsp;    }
+<i class="no-highlight">1579</i>&nbsp;
+<i class="no-highlight">1580</i>&nbsp;    /* Returns the on disk LSN for VLSN. */
+<i class="no-highlight">1581</i>&nbsp;    private long getLsnForVLSN(VLSN vlsn, int readBufferSize) {
+<i class="no-highlight">1582</i>&nbsp;        /* Returns the file number which is nearest to the vlsn. */
+<b class="nc"><i class="no-highlight">1583</i>&nbsp;        long fileNumber = vlsnIndex.getLTEFileNumber(vlsn);</b>
+<i class="no-highlight">1584</i>&nbsp;
+<i class="no-highlight">1585</i>&nbsp;        /* Start reading from the nearest file. */
+<b class="nc"><i class="no-highlight">1586</i>&nbsp;        FeederReader feederReader =</b>
+<i class="no-highlight">1587</i>&nbsp;            new FeederReader(this,
+<i class="no-highlight">1588</i>&nbsp;                             vlsnIndex,
+<b class="nc"><i class="no-highlight">1589</i>&nbsp;                             DbLsn.makeLsn(fileNumber, 0),</b>
+<i class="no-highlight">1590</i>&nbsp;                             readBufferSize);
+<i class="no-highlight">1591</i>&nbsp;
+<i class="no-highlight">1592</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1593</i>&nbsp;            feederReader.initScan(vlsn);</b>
+<i class="no-highlight">1594</i>&nbsp;
+<i class="no-highlight">1595</i>&nbsp;            /*
+<i class="no-highlight">1596</i>&nbsp;             * Go on scan the log until FeederReader find the target VLSN,
+<i class="no-highlight">1597</i>&nbsp;             * thrown out an EnvironmentFailureException if it can&#39;t be found.
+<i class="no-highlight">1598</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1599</i>&nbsp;            if (!feederReader.readNextEntry()) {</b>
+<b class="nc"><i class="no-highlight">1600</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1601</i>&nbsp;                    (&quot;VLSN not found: &quot; + vlsn);</b>
+<i class="no-highlight">1602</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1603</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">1604</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(e);</b>
+<b class="nc"><i class="no-highlight">1605</i>&nbsp;        }</b>
+<i class="no-highlight">1606</i>&nbsp;
+<b class="nc"><i class="no-highlight">1607</i>&nbsp;        return feederReader.getLastLsn();</b>
+<i class="no-highlight">1608</i>&nbsp;    }
+<i class="no-highlight">1609</i>&nbsp;
+<i class="no-highlight">1610</i>&nbsp;    /**
+<i class="no-highlight">1611</i>&nbsp;     * Returns the logged durable txn VLSN. The logged DTVLSN is part of the
+<i class="no-highlight">1612</i>&nbsp;     * last txn commit or abort entry.
+<i class="no-highlight">1613</i>&nbsp;     *
+<i class="no-highlight">1614</i>&nbsp;     * @return the persistent DTVLSN. The value may be
+<i class="no-highlight">1615</i>&nbsp;     * VLSN.UNINITIALIZED_VLSN_SEQUENCE if the environment was newly created,
+<i class="no-highlight">1616</i>&nbsp;     * that is, it has no transactions in it as yet, or if the last entry was
+<i class="no-highlight">1617</i>&nbsp;     * created by a pre-DTVLSN master.
+<i class="no-highlight">1618</i>&nbsp;     *
+<i class="no-highlight">1619</i>&nbsp;     * @throws FileNotFoundException if the file containing the last txn commit
+<i class="no-highlight">1620</i>&nbsp;     * or abort entry does not exist
+<i class="no-highlight">1621</i>&nbsp;     */
+<i class="no-highlight">1622</i>&nbsp;    public long getLoggedDTVLSN()
+<i class="no-highlight">1623</i>&nbsp;        throws FileNotFoundException {
+<i class="no-highlight">1624</i>&nbsp;
+<b class="nc"><i class="no-highlight">1625</i>&nbsp;        final VLSN lastTxnEnd = getLastTxnEnd();</b>
+<i class="no-highlight">1626</i>&nbsp;
+<b class="nc"><i class="no-highlight">1627</i>&nbsp;        if (lastTxnEnd.isNull()) {</b>
+<i class="no-highlight">1628</i>&nbsp;            /* A brand new environment with no transactions in it. */
+<b class="nc"><i class="no-highlight">1629</i>&nbsp;            return VLSN.UNINITIALIZED_VLSN_SEQUENCE;</b>
+<i class="no-highlight">1630</i>&nbsp;        }
+<i class="no-highlight">1631</i>&nbsp;
+<b class="nc"><i class="no-highlight">1632</i>&nbsp;        final long lsn = getLsnForVLSN(lastTxnEnd,</b>
+<i class="no-highlight">1633</i>&nbsp;                                       1024 /* buffer size for txn end */);
+<b class="nc"><i class="no-highlight">1634</i>&nbsp;        final TxnEnd txnEnd =</b>
+<b class="nc"><i class="no-highlight">1635</i>&nbsp;            (TxnEnd)getLogManager().getLogEntry(lsn).getMainItem();</b>
+<i class="no-highlight">1636</i>&nbsp;
+<b class="nc"><i class="no-highlight">1637</i>&nbsp;        long dtvlsn = txnEnd.getDTVLSN();</b>
+<b class="nc"><i class="no-highlight">1638</i>&nbsp;        if (dtvlsn != VLSN.UNINITIALIZED_VLSN_SEQUENCE) {</b>
+<b class="nc"><i class="no-highlight">1639</i>&nbsp;            return dtvlsn;</b>
+<i class="no-highlight">1640</i>&nbsp;        }
+<i class="no-highlight">1641</i>&nbsp;
+<i class="no-highlight">1642</i>&nbsp;        /* A JE version &lt;= 7.1 log entry. */
+<b class="nc"><i class="no-highlight">1643</i>&nbsp;        LoggerUtils.logMsg(envLogger, this, Level.INFO,</b>
+<i class="no-highlight">1644</i>&nbsp;                           &quot;Pre DTVLSN log, starting with zero dtvlsn&quot;);
+<i class="no-highlight">1645</i>&nbsp;
+<b class="nc"><i class="no-highlight">1646</i>&nbsp;        return dtvlsn;</b>
+<i class="no-highlight">1647</i>&nbsp;    }
+<i class="no-highlight">1648</i>&nbsp;
+<i class="no-highlight">1649</i>&nbsp;    /* Returns the end of the log. */
+<i class="no-highlight">1650</i>&nbsp;    @Override
+<i class="no-highlight">1651</i>&nbsp;    public long getEndOfLog() {
+<b class="nc"><i class="no-highlight">1652</i>&nbsp;        return vlsnIndex.getRange().getLast().getSequence();</b>
+<i class="no-highlight">1653</i>&nbsp;    }
+<i class="no-highlight">1654</i>&nbsp;
+<i class="no-highlight">1655</i>&nbsp;    /**
+<i class="no-highlight">1656</i>&nbsp;     * Returns true if the VLSN is preserved as the record version.
+<i class="no-highlight">1657</i>&nbsp;     */
+<i class="no-highlight">1658</i>&nbsp;    @Override
+<i class="no-highlight">1659</i>&nbsp;    public boolean getPreserveVLSN() {
+<b class="nc"><i class="no-highlight">1660</i>&nbsp;        return preserveVLSN;</b>
+<i class="no-highlight">1661</i>&nbsp;    }
+<i class="no-highlight">1662</i>&nbsp;
+<i class="no-highlight">1663</i>&nbsp;    /**
+<i class="no-highlight">1664</i>&nbsp;     * Returns true if the VLSN is both preserved and cached.
+<i class="no-highlight">1665</i>&nbsp;     */
+<i class="no-highlight">1666</i>&nbsp;    @Override
+<i class="no-highlight">1667</i>&nbsp;    public boolean getCacheVLSN() {
+<b class="nc"><i class="no-highlight">1668</i>&nbsp;        return preserveVLSN &amp;&amp; cacheVLSN;</b>
+<i class="no-highlight">1669</i>&nbsp;    }
+<i class="no-highlight">1670</i>&nbsp;
+<i class="no-highlight">1671</i>&nbsp;    /**
+<i class="no-highlight">1672</i>&nbsp;     * @see EnvironmentImpl#getName
+<i class="no-highlight">1673</i>&nbsp;     */
+<i class="no-highlight">1674</i>&nbsp;    @Override
+<i class="no-highlight">1675</i>&nbsp;    public String getName() {
+<b class="nc"><i class="no-highlight">1676</i>&nbsp;        return nameIdPair + &quot;:&quot; + super.getName();</b>
+<i class="no-highlight">1677</i>&nbsp;    }
+<i class="no-highlight">1678</i>&nbsp;
+<i class="no-highlight">1679</i>&nbsp;    /**
+<i class="no-highlight">1680</i>&nbsp;     * Return true if this environment is part of a replication group.
+<i class="no-highlight">1681</i>&nbsp;     */
+<i class="no-highlight">1682</i>&nbsp;    @Override
+<i class="no-highlight">1683</i>&nbsp;    public boolean isReplicated() {
+<b class="nc"><i class="no-highlight">1684</i>&nbsp;        return true;</b>
+<i class="no-highlight">1685</i>&nbsp;    }
+<i class="no-highlight">1686</i>&nbsp;
+<i class="no-highlight">1687</i>&nbsp;    /**
+<i class="no-highlight">1688</i>&nbsp;     * Return true if this environment is used as an Arbiter.
+<i class="no-highlight">1689</i>&nbsp;     */
+<i class="no-highlight">1690</i>&nbsp;    @Override
+<i class="no-highlight">1691</i>&nbsp;    public boolean isArbiter() {
+<b class="nc"><i class="no-highlight">1692</i>&nbsp;        return isArbiter;</b>
+<i class="no-highlight">1693</i>&nbsp;    }
+<i class="no-highlight">1694</i>&nbsp;
+<i class="no-highlight">1695</i>&nbsp;    /**
+<i class="no-highlight">1696</i>&nbsp;     * Check whether this environment can be opened on an existing environment
+<i class="no-highlight">1697</i>&nbsp;     * directory.
+<i class="no-highlight">1698</i>&nbsp;     */
+<i class="no-highlight">1699</i>&nbsp;    @Override
+<i class="no-highlight">1700</i>&nbsp;    public void checkRulesForExistingEnv(boolean dbTreeReplicatedBit,
+<i class="no-highlight">1701</i>&nbsp;                                         boolean dbTreePreserveVLSN)
+<i class="no-highlight">1702</i>&nbsp;        throws UnsupportedOperationException {
+<i class="no-highlight">1703</i>&nbsp;
+<b class="nc"><i class="no-highlight">1704</i>&nbsp;        if (!dbTreeReplicatedBit) {</b>
+<i class="no-highlight">1705</i>&nbsp;
+<i class="no-highlight">1706</i>&nbsp;            /*
+<i class="no-highlight">1707</i>&nbsp;             * We are attempting to open an existing, non-replicated
+<i class="no-highlight">1708</i>&nbsp;             * environment.
+<i class="no-highlight">1709</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1710</i>&nbsp;            throw new UnsupportedOperationException</b>
+<i class="no-highlight">1711</i>&nbsp;                (&quot;This environment must be converted for replication.&quot; +
+<i class="no-highlight">1712</i>&nbsp;                 &quot; using com.sleepycat.je.rep.util.DbEnableReplication.&quot;);
+<i class="no-highlight">1713</i>&nbsp;        }
+<i class="no-highlight">1714</i>&nbsp;
+<i class="no-highlight">1715</i>&nbsp;        /* The preserveVLSN setting is forever immutable. */
+<b class="nc"><i class="no-highlight">1716</i>&nbsp;        if (dbTreePreserveVLSN != getPreserveVLSN()) {</b>
+<b class="nc"><i class="no-highlight">1717</i>&nbsp;            throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">1718</i>&nbsp;                (RepParams.PRESERVE_RECORD_VERSION.getName() +</b>
+<i class="no-highlight">1719</i>&nbsp;                 &quot; parameter may not be changed.&quot; +
+<i class="no-highlight">1720</i>&nbsp;                 &quot; Previous value: &quot; + dbTreePreserveVLSN +
+<b class="nc"><i class="no-highlight">1721</i>&nbsp;                 &quot; New value: &quot; + getPreserveVLSN());</b>
+<i class="no-highlight">1722</i>&nbsp;        }
+<i class="no-highlight">1723</i>&nbsp;    }
+<i class="no-highlight">1724</i>&nbsp;
+<i class="no-highlight">1725</i>&nbsp;    /**
+<i class="no-highlight">1726</i>&nbsp;     * Returns the hostname associated with this node.
+<i class="no-highlight">1727</i>&nbsp;     *
+<i class="no-highlight">1728</i>&nbsp;     * @return the hostname
+<i class="no-highlight">1729</i>&nbsp;     */
+<i class="no-highlight">1730</i>&nbsp;    public String getHostName() {
+<b class="nc"><i class="no-highlight">1731</i>&nbsp;        String hostAndPort = configManager.get(RepParams.NODE_HOST_PORT);</b>
+<b class="nc"><i class="no-highlight">1732</i>&nbsp;        int colonToken = hostAndPort.indexOf(&quot;:&quot;);</b>
+<b class="nc"><i class="no-highlight">1733</i>&nbsp;        return (colonToken &gt;= 0) ?</b>
+<b class="nc"><i class="no-highlight">1734</i>&nbsp;               hostAndPort.substring(0, colonToken) :</b>
+<i class="no-highlight">1735</i>&nbsp;               hostAndPort;
+<i class="no-highlight">1736</i>&nbsp;    }
+<i class="no-highlight">1737</i>&nbsp;
+<i class="no-highlight">1738</i>&nbsp;    /**
+<i class="no-highlight">1739</i>&nbsp;     * Returns the  port used by the replication node.
+<i class="no-highlight">1740</i>&nbsp;     *
+<i class="no-highlight">1741</i>&nbsp;     * @return the port number
+<i class="no-highlight">1742</i>&nbsp;     */
+<i class="no-highlight">1743</i>&nbsp;    public int getPort() {
+<b class="nc"><i class="no-highlight">1744</i>&nbsp;        String hostAndPort = configManager.get(RepParams.NODE_HOST_PORT);</b>
+<b class="nc"><i class="no-highlight">1745</i>&nbsp;        int colonToken = hostAndPort.indexOf(&quot;:&quot;);</b>
+<b class="nc"><i class="no-highlight">1746</i>&nbsp;        return (colonToken &gt;= 0) ?</b>
+<b class="nc"><i class="no-highlight">1747</i>&nbsp;                Integer.parseInt(hostAndPort.substring(colonToken + 1)) :</b>
+<b class="nc"><i class="no-highlight">1748</i>&nbsp;                configManager.getInt(RepParams.DEFAULT_PORT);</b>
+<i class="no-highlight">1749</i>&nbsp;    }
+<i class="no-highlight">1750</i>&nbsp;
+<i class="no-highlight">1751</i>&nbsp;    /* Convenience method for returning replication sockets. */
+<i class="no-highlight">1752</i>&nbsp;    public InetSocketAddress getSocket() {
+<b class="nc"><i class="no-highlight">1753</i>&nbsp;        return new InetSocketAddress(getHostName(), getPort());</b>
+<i class="no-highlight">1754</i>&nbsp;    }
+<i class="no-highlight">1755</i>&nbsp;
+<i class="no-highlight">1756</i>&nbsp;    /**
+<i class="no-highlight">1757</i>&nbsp;     * Returns the JE version that is currently running on this node,
+<i class="no-highlight">1758</i>&nbsp;     * consulting the TEST_JE_VERSION configuration parameter for a test
+<i class="no-highlight">1759</i>&nbsp;     * override.
+<i class="no-highlight">1760</i>&nbsp;     */
+<i class="no-highlight">1761</i>&nbsp;    public JEVersion getCurrentJEVersion() {
+<b class="nc"><i class="no-highlight">1762</i>&nbsp;        final String testJEVersion = configManager.get(TEST_JE_VERSION);</b>
+<b class="nc"><i class="no-highlight">1763</i>&nbsp;        return testJEVersion.isEmpty() ?</b>
+<i class="no-highlight">1764</i>&nbsp;            JEVersion.CURRENT_VERSION :
+<i class="no-highlight">1765</i>&nbsp;            new JEVersion(testJEVersion);
+<i class="no-highlight">1766</i>&nbsp;    }
+<i class="no-highlight">1767</i>&nbsp;
+<i class="no-highlight">1768</i>&nbsp;    /**
+<i class="no-highlight">1769</i>&nbsp;     * Returns the set of sockets associated with helper nodes.
+<i class="no-highlight">1770</i>&nbsp;     *
+<i class="no-highlight">1771</i>&nbsp;     * @return the set of helper sockets, returns an empty set if there
+<i class="no-highlight">1772</i>&nbsp;     * are no helpers.
+<i class="no-highlight">1773</i>&nbsp;     */
+<i class="no-highlight">1774</i>&nbsp;    public Set&lt;InetSocketAddress&gt; getHelperSockets() {
+<b class="nc"><i class="no-highlight">1775</i>&nbsp;        String helperHosts = configManager.get(RepParams.HELPER_HOSTS);</b>
+<b class="nc"><i class="no-highlight">1776</i>&nbsp;        return HostPortPair.getSockets(helperHosts);</b>
+<i class="no-highlight">1777</i>&nbsp;    }
+<i class="no-highlight">1778</i>&nbsp;
+<i class="no-highlight">1779</i>&nbsp;    /**
+<i class="no-highlight">1780</i>&nbsp;     * Called when a node has identified itself as the master, which is when
+<i class="no-highlight">1781</i>&nbsp;     * the RepNode.selfElect is called. The database should not exist at
+<i class="no-highlight">1782</i>&nbsp;     * this point.
+<i class="no-highlight">1783</i>&nbsp;     *
+<i class="no-highlight">1784</i>&nbsp;     * Lock hierarchy: GroupDbLock -&gt; sync on EnvironmentImpl
+<i class="no-highlight">1785</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">1786</i>&nbsp;     */
+<i class="no-highlight">1787</i>&nbsp;    public DatabaseImpl createGroupDb()
+<i class="no-highlight">1788</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1789</i>&nbsp;
+<b class="nc"><i class="no-highlight">1790</i>&nbsp;        assert isMaster();</b>
+<i class="no-highlight">1791</i>&nbsp;
+<i class="no-highlight">1792</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1793</i>&nbsp;            groupDbLock.lockInterruptibly();</b>
+<b class="nc"><i class="no-highlight">1794</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">1795</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(e);</b>
+<b class="nc"><i class="no-highlight">1796</i>&nbsp;        }</b>
+<i class="no-highlight">1797</i>&nbsp;
+<i class="no-highlight">1798</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1799</i>&nbsp;            if (groupDbImpl != null) {</b>
+<b class="nc"><i class="no-highlight">1800</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1801</i>&nbsp;                    (&quot;GroupDb should not exist.&quot;);</b>
+<i class="no-highlight">1802</i>&nbsp;            }
+<i class="no-highlight">1803</i>&nbsp;
+<b class="nc"><i class="no-highlight">1804</i>&nbsp;            DatabaseImpl newDbImpl = null;</b>
+<b class="nc"><i class="no-highlight">1805</i>&nbsp;            Txn txn = null;</b>
+<i class="no-highlight">1806</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">1807</i>&nbsp;                TransactionConfig txnConfig = new TransactionConfig();</b>
+<b class="nc"><i class="no-highlight">1808</i>&nbsp;                txnConfig.setDurability(new Durability(SyncPolicy.SYNC,</b>
+<i class="no-highlight">1809</i>&nbsp;                                                       SyncPolicy.SYNC,
+<i class="no-highlight">1810</i>&nbsp;                                                       ReplicaAckPolicy.NONE));
+<b class="nc"><i class="no-highlight">1811</i>&nbsp;                txnConfig.setConsistencyPolicy(NO_CONSISTENCY);</b>
+<b class="nc"><i class="no-highlight">1812</i>&nbsp;                txn = new MasterTxn(this,</b>
+<i class="no-highlight">1813</i>&nbsp;                                    txnConfig,
+<b class="nc"><i class="no-highlight">1814</i>&nbsp;                                    getNameIdPair());</b>
+<i class="no-highlight">1815</i>&nbsp;
+<i class="no-highlight">1816</i>&nbsp;                /* Database should not exist yet, create it now */
+<b class="nc"><i class="no-highlight">1817</i>&nbsp;                DatabaseConfig dbConfig = new DatabaseConfig();</b>
+<b class="nc"><i class="no-highlight">1818</i>&nbsp;                dbConfig.setAllowCreate(true);</b>
+<b class="nc"><i class="no-highlight">1819</i>&nbsp;                dbConfig.setTransactional(true);</b>
+<b class="nc"><i class="no-highlight">1820</i>&nbsp;                dbConfig.setExclusiveCreate(true);</b>
+<b class="nc"><i class="no-highlight">1821</i>&nbsp;                dbConfig.setReplicated(true);</b>
+<i class="no-highlight">1822</i>&nbsp;
+<b class="nc"><i class="no-highlight">1823</i>&nbsp;                newDbImpl = getDbTree().createInternalDb</b>
+<b class="nc"><i class="no-highlight">1824</i>&nbsp;                    (txn, DbType.REP_GROUP.getInternalName(), dbConfig);</b>
+<b class="nc"><i class="no-highlight">1825</i>&nbsp;                txn.commit();</b>
+<b class="nc"><i class="no-highlight">1826</i>&nbsp;                txn = null;</b>
+<i class="no-highlight">1827</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">1828</i>&nbsp;                if (txn != null) {</b>
+<b class="nc"><i class="no-highlight">1829</i>&nbsp;                    txn.abort();</b>
+<i class="no-highlight">1830</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1831</i>&nbsp;            }</b>
+<i class="no-highlight">1832</i>&nbsp;
+<b class="nc"><i class="no-highlight">1833</i>&nbsp;            groupDbImpl = newDbImpl;</b>
+<i class="no-highlight">1834</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1835</i>&nbsp;            groupDbLock.unlock();</b>
+<b class="nc"><i class="no-highlight">1836</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1837</i>&nbsp;        return groupDbImpl;</b>
+<i class="no-highlight">1838</i>&nbsp;    }
+<i class="no-highlight">1839</i>&nbsp;
+<i class="no-highlight">1840</i>&nbsp;    /**
+<i class="no-highlight">1841</i>&nbsp;     * Open the group db, which should exist already, using NO_CONSISTENCY.
+<i class="no-highlight">1842</i>&nbsp;     */
+<i class="no-highlight">1843</i>&nbsp;    public DatabaseImpl getGroupDb()
+<i class="no-highlight">1844</i>&nbsp;        throws DatabaseNotFoundException,
+<i class="no-highlight">1845</i>&nbsp;               DatabaseException {
+<i class="no-highlight">1846</i>&nbsp;
+<b class="nc"><i class="no-highlight">1847</i>&nbsp;        return openGroupDb(false /* doLockProbe */);</b>
+<i class="no-highlight">1848</i>&nbsp;    }
+<i class="no-highlight">1849</i>&nbsp;
+<i class="no-highlight">1850</i>&nbsp;    /**
+<i class="no-highlight">1851</i>&nbsp;     * Open the group db, which should exist already, using NO_CONSISTENCY. Do
+<i class="no-highlight">1852</i>&nbsp;     * not wait on the group db lock, return null if the databaseImpl hasn&#39;t
+<i class="no-highlight">1853</i>&nbsp;     * been created and we can&#39;t obtain it.
+<i class="no-highlight">1854</i>&nbsp;     *
+<i class="no-highlight">1855</i>&nbsp;     * Lock hierarchy: GroupDbLock -&gt; sync on EnvironmentImpl
+<i class="no-highlight">1856</i>&nbsp;     */
+<i class="no-highlight">1857</i>&nbsp;    public DatabaseImpl probeGroupDb()
+<i class="no-highlight">1858</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">1859</i>&nbsp;
+<i class="no-highlight">1860</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1861</i>&nbsp;            return openGroupDb(true /* doLockProbe */);</b>
+<b class="nc"><i class="no-highlight">1862</i>&nbsp;        } catch (DatabaseNotFoundException e) {</b>
+<i class="no-highlight">1863</i>&nbsp;            /* Should never happen, DB should exist. */
+<b class="nc"><i class="no-highlight">1864</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(e);</b>
+<i class="no-highlight">1865</i>&nbsp;        }
+<i class="no-highlight">1866</i>&nbsp;    }
+<i class="no-highlight">1867</i>&nbsp;
+<i class="no-highlight">1868</i>&nbsp;    /**
+<i class="no-highlight">1869</i>&nbsp;     * Do the work of creating the lock and then assigning the groupDbImpl
+<i class="no-highlight">1870</i>&nbsp;     * field, using NO_CONSISTENCY.
+<i class="no-highlight">1871</i>&nbsp;     *
+<i class="no-highlight">1872</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">1873</i>&nbsp;     * @throws DatabaseNotFoundException
+<i class="no-highlight">1874</i>&nbsp;     */
+<i class="no-highlight">1875</i>&nbsp;    private DatabaseImpl openGroupDb(final boolean doLockProbe)
+<i class="no-highlight">1876</i>&nbsp;        throws DatabaseNotFoundException, DatabaseException {
+<i class="no-highlight">1877</i>&nbsp;
+<i class="no-highlight">1878</i>&nbsp;        /* Acquire the lock. */
+<i class="no-highlight">1879</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1880</i>&nbsp;            if (doLockProbe) {</b>
+<b class="nc"><i class="no-highlight">1881</i>&nbsp;                if (!groupDbLock.tryLock(1, TimeUnit.MILLISECONDS)) {</b>
+<i class="no-highlight">1882</i>&nbsp;                    /* Contention, try later. */
+<b class="nc"><i class="no-highlight">1883</i>&nbsp;                    return null;</b>
+<i class="no-highlight">1884</i>&nbsp;                }
+<i class="no-highlight">1885</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1886</i>&nbsp;                groupDbLock.lockInterruptibly();</b>
+<i class="no-highlight">1887</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1888</i>&nbsp;        } catch(InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">1889</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(e);</b>
+<b class="nc"><i class="no-highlight">1890</i>&nbsp;        }</b>
+<i class="no-highlight">1891</i>&nbsp;
+<b class="nc"><i class="no-highlight">1892</i>&nbsp;        Txn txn = null;</b>
+<i class="no-highlight">1893</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1894</i>&nbsp;            if (groupDbImpl != null) {</b>
+<b class="nc"><i class="no-highlight">1895</i>&nbsp;                return groupDbImpl;</b>
+<i class="no-highlight">1896</i>&nbsp;            }
+<i class="no-highlight">1897</i>&nbsp;
+<b class="nc"><i class="no-highlight">1898</i>&nbsp;            DatabaseImpl newDbImpl = null;</b>
+<b class="nc"><i class="no-highlight">1899</i>&nbsp;            TransactionConfig txnConfig = new TransactionConfig();</b>
+<b class="nc"><i class="no-highlight">1900</i>&nbsp;            txnConfig.setConsistencyPolicy(NO_CONSISTENCY);</b>
+<b class="nc"><i class="no-highlight">1901</i>&nbsp;            txn = new ReadonlyTxn(this, txnConfig);</b>
+<i class="no-highlight">1902</i>&nbsp;
+<b class="nc"><i class="no-highlight">1903</i>&nbsp;            newDbImpl = getDbTree().getDb(txn,</b>
+<b class="nc"><i class="no-highlight">1904</i>&nbsp;                                          DbType.REP_GROUP.getInternalName(),</b>
+<i class="no-highlight">1905</i>&nbsp;                                          null /* databaseHandle */,
+<i class="no-highlight">1906</i>&nbsp;                                          false);
+<b class="nc"><i class="no-highlight">1907</i>&nbsp;            if (newDbImpl == null) {</b>
+<b class="nc"><i class="no-highlight">1908</i>&nbsp;                throw new DatabaseNotFoundException</b>
+<b class="nc"><i class="no-highlight">1909</i>&nbsp;                    (DbType.REP_GROUP.getInternalName());</b>
+<i class="no-highlight">1910</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1911</i>&nbsp;            txn.commit();</b>
+<b class="nc"><i class="no-highlight">1912</i>&nbsp;            txn = null;</b>
+<i class="no-highlight">1913</i>&nbsp;
+<b class="nc"><i class="no-highlight">1914</i>&nbsp;            groupDbImpl = newDbImpl;</b>
+<b class="nc"><i class="no-highlight">1915</i>&nbsp;            return groupDbImpl;</b>
+<i class="no-highlight">1916</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1917</i>&nbsp;            if (txn != null) {</b>
+<b class="nc"><i class="no-highlight">1918</i>&nbsp;                txn.abort();</b>
+<i class="no-highlight">1919</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1920</i>&nbsp;            groupDbLock.unlock();</b>
+<b class="nc"><i class="no-highlight">1921</i>&nbsp;        }</b>
+<i class="no-highlight">1922</i>&nbsp;    }
+<i class="no-highlight">1923</i>&nbsp;
+<i class="no-highlight">1924</i>&nbsp;    /**
+<i class="no-highlight">1925</i>&nbsp;     * Return true if the node has been configured as a Designated Primary.
+<i class="no-highlight">1926</i>&nbsp;     * This does not necessarily mean that the node is actively operating in
+<i class="no-highlight">1927</i>&nbsp;     * designated primary mode. See
+<i class="no-highlight">1928</i>&nbsp;     * {@link com.sleepycat.je.rep.arbitration.Arbiter#isActive}
+<i class="no-highlight">1929</i>&nbsp;     */
+<i class="no-highlight">1930</i>&nbsp;    public boolean isDesignatedPrimary() {
+<b class="nc"><i class="no-highlight">1931</i>&nbsp;        return getConfigManager().getBoolean(RepParams.DESIGNATED_PRIMARY);</b>
+<i class="no-highlight">1932</i>&nbsp;    }
+<i class="no-highlight">1933</i>&nbsp;
+<i class="no-highlight">1934</i>&nbsp;    @Override
+<i class="no-highlight">1935</i>&nbsp;    public boolean addDbBackup(DbBackup backup) {
+<b class="nc"><i class="no-highlight">1936</i>&nbsp;        synchronized (backups) {</b>
+<b class="nc"><i class="no-highlight">1937</i>&nbsp;            if (backupProhibited) {</b>
+<b class="nc"><i class="no-highlight">1938</i>&nbsp;                return false;</b>
+<i class="no-highlight">1939</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1940</i>&nbsp;            boolean added = backups.add(backup);</b>
+<b class="nc"><i class="no-highlight">1941</i>&nbsp;            assert added;</b>
+<b class="nc"><i class="no-highlight">1942</i>&nbsp;        }</b>
+<i class="no-highlight">1943</i>&nbsp;
+<b class="nc"><i class="no-highlight">1944</i>&nbsp;        super.addDbBackup(backup);</b>
+<b class="nc"><i class="no-highlight">1945</i>&nbsp;        return true;</b>
+<i class="no-highlight">1946</i>&nbsp;    }
+<i class="no-highlight">1947</i>&nbsp;
+<i class="no-highlight">1948</i>&nbsp;    @Override
+<i class="no-highlight">1949</i>&nbsp;    public void removeDbBackup(DbBackup backup) {
+<b class="nc"><i class="no-highlight">1950</i>&nbsp;        synchronized (backups) {</b>
+<b class="nc"><i class="no-highlight">1951</i>&nbsp;            boolean removed = backups.remove(backup);</b>
+<b class="nc"><i class="no-highlight">1952</i>&nbsp;            assert removed;</b>
+<b class="nc"><i class="no-highlight">1953</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1954</i>&nbsp;        super.removeDbBackup(backup);</b>
+<i class="no-highlight">1955</i>&nbsp;    }
+<i class="no-highlight">1956</i>&nbsp;
+<i class="no-highlight">1957</i>&nbsp;    /* Invalidate all the on going DbBackups, used in Replay.rollback(). */
+<i class="no-highlight">1958</i>&nbsp;    public void invalidateBackups(long fileNumber) {
+<b class="nc"><i class="no-highlight">1959</i>&nbsp;        synchronized (backups) {</b>
+<b class="nc"><i class="no-highlight">1960</i>&nbsp;            for (DbBackup backup : backups) {</b>
+<b class="nc"><i class="no-highlight">1961</i>&nbsp;                backup.invalidate(fileNumber);</b>
+<b class="nc"><i class="no-highlight">1962</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1963</i>&nbsp;        }</b>
+<i class="no-highlight">1964</i>&nbsp;    }
+<i class="no-highlight">1965</i>&nbsp;
+<i class="no-highlight">1966</i>&nbsp;    /* Set the backupProhibited status, used in Replay.rollback(). */
+<i class="no-highlight">1967</i>&nbsp;    public void setBackupProhibited(boolean backupProhibited) {
+<b class="nc"><i class="no-highlight">1968</i>&nbsp;        synchronized (backups) {</b>
+<b class="nc"><i class="no-highlight">1969</i>&nbsp;            this.backupProhibited = backupProhibited;</b>
+<b class="nc"><i class="no-highlight">1970</i>&nbsp;        }</b>
+<i class="no-highlight">1971</i>&nbsp;    }
+<i class="no-highlight">1972</i>&nbsp;
+<i class="no-highlight">1973</i>&nbsp;    /* For creating a rep exception from standalone code. */
+<i class="no-highlight">1974</i>&nbsp;    @Override
+<i class="no-highlight">1975</i>&nbsp;    public LockPreemptedException
+<i class="no-highlight">1976</i>&nbsp;        createLockPreemptedException(Locker locker, Throwable cause) {
+<b class="nc"><i class="no-highlight">1977</i>&nbsp;        return new LockPreemptedException(locker, cause);</b>
+<i class="no-highlight">1978</i>&nbsp;    }
+<i class="no-highlight">1979</i>&nbsp;
+<i class="no-highlight">1980</i>&nbsp;    /* For creating a rep exception from standalone code. */
+<i class="no-highlight">1981</i>&nbsp;    @Override
+<i class="no-highlight">1982</i>&nbsp;    public DatabasePreemptedException
+<i class="no-highlight">1983</i>&nbsp;        createDatabasePreemptedException(String msg,
+<i class="no-highlight">1984</i>&nbsp;                                         String dbName,
+<i class="no-highlight">1985</i>&nbsp;                                         Database db) {
+<b class="nc"><i class="no-highlight">1986</i>&nbsp;        return new DatabasePreemptedException(msg, dbName, db);</b>
+<i class="no-highlight">1987</i>&nbsp;    }
+<i class="no-highlight">1988</i>&nbsp;
+<i class="no-highlight">1989</i>&nbsp;    /* For creating a rep exception from standalone code. */
+<i class="no-highlight">1990</i>&nbsp;    @Override
+<i class="no-highlight">1991</i>&nbsp;    public LogOverwriteException createLogOverwriteException(String msg) {
+<b class="nc"><i class="no-highlight">1992</i>&nbsp;        return new LogOverwriteException(msg);</b>
+<i class="no-highlight">1993</i>&nbsp;    }
+<i class="no-highlight">1994</i>&nbsp;
+<i class="no-highlight">1995</i>&nbsp;    @Override
+<i class="no-highlight">1996</i>&nbsp;    public int getReplayFreeDiskPercent() {
+<b class="nc"><i class="no-highlight">1997</i>&nbsp;        return getConfigManager().getInt(REPLAY_FREE_DISK_PERCENT);</b>
+<i class="no-highlight">1998</i>&nbsp;    }
+<i class="no-highlight">1999</i>&nbsp;
+<i class="no-highlight">2000</i>&nbsp;    /**
+<i class="no-highlight">2001</i>&nbsp;     * Sets up the environment for group shutdown when the environment is
+<i class="no-highlight">2002</i>&nbsp;     * closed.
+<i class="no-highlight">2003</i>&nbsp;     *
+<i class="no-highlight">2004</i>&nbsp;     * @see ReplicatedEnvironment#shutdownGroup(long, TimeUnit)
+<i class="no-highlight">2005</i>&nbsp;     */
+<i class="no-highlight">2006</i>&nbsp;    public void shutdownGroupSetup(long timeoutMs) {
+<b class="nc"><i class="no-highlight">2007</i>&nbsp;        final int openCount = getAppOpenCount();</b>
+<b class="nc"><i class="no-highlight">2008</i>&nbsp;        if (openCount &gt; 1) {</b>
+<b class="nc"><i class="no-highlight">2009</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">2010</i>&nbsp;                (&quot;Environment has &quot; + (openCount - 1) +
+<i class="no-highlight">2011</i>&nbsp;                 &quot; additional open handles.&quot;);
+<i class="no-highlight">2012</i>&nbsp;        }
+<i class="no-highlight">2013</i>&nbsp;
+<b class="nc"><i class="no-highlight">2014</i>&nbsp;        final int backupCount = getBackupCount();</b>
+<b class="nc"><i class="no-highlight">2015</i>&nbsp;        if (backupCount &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">2016</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">2017</i>&nbsp;                (&quot;Environment has &quot; + backupCount +
+<i class="no-highlight">2018</i>&nbsp;                 &quot; DbBackups in progress.&quot;);
+<i class="no-highlight">2019</i>&nbsp;        }
+<i class="no-highlight">2020</i>&nbsp;
+<b class="nc"><i class="no-highlight">2021</i>&nbsp;        repNode.shutdownGroupOnClose(timeoutMs);</b>
+<i class="no-highlight">2022</i>&nbsp;    }
+<i class="no-highlight">2023</i>&nbsp;
+<i class="no-highlight">2024</i>&nbsp;    public String transferMaster(Set&lt;String&gt; replicas,
+<i class="no-highlight">2025</i>&nbsp;                               long timeout,
+<i class="no-highlight">2026</i>&nbsp;                               boolean force) {
+<b class="nc"><i class="no-highlight">2027</i>&nbsp;        return repNode.transferMaster(replicas, timeout, force);</b>
+<i class="no-highlight">2028</i>&nbsp;    }
+<i class="no-highlight">2029</i>&nbsp;
+<i class="no-highlight">2030</i>&nbsp;    /**
+<i class="no-highlight">2031</i>&nbsp;     * Dump interesting aspects of the node&#39;s state. Currently for debugging
+<i class="no-highlight">2032</i>&nbsp;     * use, possibly useful for field support.
+<i class="no-highlight">2033</i>&nbsp;     */
+<i class="no-highlight">2034</i>&nbsp;    public String dumpState() {
+<b class="nc"><i class="no-highlight">2035</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<i class="no-highlight">2036</i>&nbsp;
+<b class="nc"><i class="no-highlight">2037</i>&nbsp;        sb.append(getNameIdPair());</b>
+<b class="nc"><i class="no-highlight">2038</i>&nbsp;        sb.append(&quot;[&quot;).append(getState()).append(&quot;] &quot; );</b>
+<i class="no-highlight">2039</i>&nbsp;
+<b class="nc"><i class="no-highlight">2040</i>&nbsp;        if (repNode != null) {</b>
+<b class="nc"><i class="no-highlight">2041</i>&nbsp;            sb.append(repNode.dumpState());</b>
+<i class="no-highlight">2042</i>&nbsp;        }
+<i class="no-highlight">2043</i>&nbsp;
+<b class="nc"><i class="no-highlight">2044</i>&nbsp;        if (vlsnIndex != null) {</b>
+<b class="nc"><i class="no-highlight">2045</i>&nbsp;            sb.append(&quot;vlsnRange=&quot;);</b>
+<b class="nc"><i class="no-highlight">2046</i>&nbsp;            sb.append(vlsnIndex.getRange()).append(&quot;\n&quot;);</b>
+<i class="no-highlight">2047</i>&nbsp;        }
+<i class="no-highlight">2048</i>&nbsp;
+<b class="nc"><i class="no-highlight">2049</i>&nbsp;        if (replay != null) {</b>
+<b class="nc"><i class="no-highlight">2050</i>&nbsp;            sb.append(replay.dumpState());</b>
+<i class="no-highlight">2051</i>&nbsp;        }
+<i class="no-highlight">2052</i>&nbsp;
+<b class="nc"><i class="no-highlight">2053</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">2054</i>&nbsp;    }
+<i class="no-highlight">2055</i>&nbsp;
+<i class="no-highlight">2056</i>&nbsp;    /**
+<i class="no-highlight">2057</i>&nbsp;     * Dumps the state associated with all active Feeders that supply
+<i class="no-highlight">2058</i>&nbsp;     * acknowledgments, along with identifying information about the node and
+<i class="no-highlight">2059</i>&nbsp;     * its current HA state.
+<i class="no-highlight">2060</i>&nbsp;     */
+<i class="no-highlight">2061</i>&nbsp;    public String dumpAckFeederState() {
+<b class="nc"><i class="no-highlight">2062</i>&nbsp;        return getNameIdPair() + &quot;[&quot; + getState() + &quot;]&quot; +</b>
+<b class="nc"><i class="no-highlight">2063</i>&nbsp;               repNode.dumpAckFeederState() ;</b>
+<i class="no-highlight">2064</i>&nbsp;    }
+<i class="no-highlight">2065</i>&nbsp;
+<i class="no-highlight">2066</i>&nbsp;    /**
+<i class="no-highlight">2067</i>&nbsp;     * If this node was started with a hard recovery, preserve that
+<i class="no-highlight">2068</i>&nbsp;     * information.
+<i class="no-highlight">2069</i>&nbsp;     */
+<i class="no-highlight">2070</i>&nbsp;    public void setHardRecoveryInfo(RollbackException e) {
+<b class="nc"><i class="no-highlight">2071</i>&nbsp;        hardRecoveryStat.set(true);</b>
+<b class="nc"><i class="no-highlight">2072</i>&nbsp;        hardRecoveryInfoStat.set(e.getMessage());</b>
+<i class="no-highlight">2073</i>&nbsp;    }
+<i class="no-highlight">2074</i>&nbsp;
+<i class="no-highlight">2075</i>&nbsp;    public StatGroup getNodeStats() {
+<b class="nc"><i class="no-highlight">2076</i>&nbsp;        return nodeStats;</b>
+<i class="no-highlight">2077</i>&nbsp;    }
+<i class="no-highlight">2078</i>&nbsp;
+<i class="no-highlight">2079</i>&nbsp;    /**
+<i class="no-highlight">2080</i>&nbsp;     * Ensure that the in-memory vlsn index encompasses all logged entries
+<i class="no-highlight">2081</i>&nbsp;     * before it is flushed to disk. A No-Op for non-replicated systems.
+<i class="no-highlight">2082</i>&nbsp;     * [#19754]
+<i class="no-highlight">2083</i>&nbsp;     */
+<i class="no-highlight">2084</i>&nbsp;    @Override
+<i class="no-highlight">2085</i>&nbsp;    public void awaitVLSNConsistency() {
+<b class="nc"><i class="no-highlight">2086</i>&nbsp;        vlsnIndex.awaitConsistency();</b>
+<i class="no-highlight">2087</i>&nbsp;    }
+<i class="no-highlight">2088</i>&nbsp;
+<i class="no-highlight">2089</i>&nbsp;    public void setSyncupProgress(SyncupProgress progress) {
+<b class="nc"><i class="no-highlight">2090</i>&nbsp;        setSyncupProgress(progress, 0, -1);</b>
+<i class="no-highlight">2091</i>&nbsp;    }
+<i class="no-highlight">2092</i>&nbsp;
+<i class="no-highlight">2093</i>&nbsp;    public void setSyncupProgress(SyncupProgress progress, long n, long total) {
+<b class="nc"><i class="no-highlight">2094</i>&nbsp;        if (syncupProgressListener == null) {</b>
+<i class="no-highlight">2095</i>&nbsp;            return;
+<i class="no-highlight">2096</i>&nbsp;        }
+<i class="no-highlight">2097</i>&nbsp;
+<b class="nc"><i class="no-highlight">2098</i>&nbsp;        if (!(syncupProgressListener.progress(progress, n, total))) {</b>
+<b class="nc"><i class="no-highlight">2099</i>&nbsp;            throw new EnvironmentFailureException</b>
+<i class="no-highlight">2100</i>&nbsp;              (this, EnvironmentFailureReason.PROGRESS_LISTENER_HALT,
+<i class="no-highlight">2101</i>&nbsp;              &quot;ReplicatedEnvironmentConfig.syncupProgressListener: &quot;);
+<i class="no-highlight">2102</i>&nbsp;        }
+<i class="no-highlight">2103</i>&nbsp;    }
+<i class="no-highlight">2104</i>&nbsp;
+<i class="no-highlight">2105</i>&nbsp;    /**
+<i class="no-highlight">2106</i>&nbsp;     * Test method to create pre-DTVLSN logs. When this is turned on in a test
+<i class="no-highlight">2107</i>&nbsp;     * environment the dtvlsn value in the log is written as a
+<i class="no-highlight">2108</i>&nbsp;     * UNINITIALIZED_VLSN_SEQUENCE (zero), which is the value that
+<i class="no-highlight">2109</i>&nbsp;     * deserialization would assign to it if a new replica came across an older
+<i class="no-highlight">2110</i>&nbsp;     * version commit or abort record.
+<i class="no-highlight">2111</i>&nbsp;     */
+<i class="no-highlight">2112</i>&nbsp;    public static void setSimulatePreDTVLSNMaster(
+<i class="no-highlight">2113</i>&nbsp;        boolean simulatePreDTVLSNMaster) {
+<i class="no-highlight">2114</i>&nbsp;
+<b class="nc"><i class="no-highlight">2115</i>&nbsp;        RepImpl.simulatePreDTVLSNMaster = simulatePreDTVLSNMaster;</b>
+<i class="no-highlight">2116</i>&nbsp;    }
+<i class="no-highlight">2117</i>&nbsp;
+<i class="no-highlight">2118</i>&nbsp;    public static boolean isSimulatePreDTVLSNMaster() {
+<b class="nc"><i class="no-highlight">2119</i>&nbsp;        return simulatePreDTVLSNMaster;</b>
+<i class="no-highlight">2120</i>&nbsp;    }
+<i class="no-highlight">2121</i>&nbsp;
+<i class="no-highlight">2122</i>&nbsp;    public LogFileRewriteListener getLogRewriteListener() {
+<b class="nc"><i class="no-highlight">2123</i>&nbsp;        return logRewriteListener;</b>
+<i class="no-highlight">2124</i>&nbsp;    }
+<i class="no-highlight">2125</i>&nbsp;
+<i class="no-highlight">2126</i>&nbsp;    public ReplicationNetworkConfig getRepNetConfig() {
+<b class="nc"><i class="no-highlight">2127</i>&nbsp;        return repNetConfig;</b>
+<i class="no-highlight">2128</i>&nbsp;    }
+<i class="no-highlight">2129</i>&nbsp;
+<i class="no-highlight">2130</i>&nbsp;    public DataChannelFactory getChannelFactory() {
+<b class="nc"><i class="no-highlight">2131</i>&nbsp;        initializeChannelFactory();</b>
+<b class="nc"><i class="no-highlight">2132</i>&nbsp;        return channelFactory;</b>
+<i class="no-highlight">2133</i>&nbsp;    }
+<i class="no-highlight">2134</i>&nbsp;
+<i class="no-highlight">2135</i>&nbsp;    @Override
+<i class="no-highlight">2136</i>&nbsp;    public void invalidate(EnvironmentFailureException e) {
+<b class="nc"><i class="no-highlight">2137</i>&nbsp;        super.invalidate(e);</b>
+<b class="nc"><i class="no-highlight">2138</i>&nbsp;        unblockTxnCompletion();</b>
+<i class="no-highlight">2139</i>&nbsp;    }
+<i class="no-highlight">2140</i>&nbsp;
+<i class="no-highlight">2141</i>&nbsp;    public VLSN getLastTxnEnd() {
+<b class="nc"><i class="no-highlight">2142</i>&nbsp;        return vlsnIndexAccess.getLastTxnEnd();</b>
+<i class="no-highlight">2143</i>&nbsp;    }
+<i class="no-highlight">2144</i>&nbsp;
+<i class="no-highlight">2145</i>&nbsp;    /**
+<i class="no-highlight">2146</i>&nbsp;     * Private class to prevent used of the close() method by the application
+<i class="no-highlight">2147</i>&nbsp;     * on an internal handle.
+<i class="no-highlight">2148</i>&nbsp;     */
+<i class="no-highlight">2149</i>&nbsp;    private static class InternalReplicatedEnvironment
+<i class="no-highlight">2150</i>&nbsp;        extends ReplicatedEnvironment {
+<i class="no-highlight">2151</i>&nbsp;
+<i class="no-highlight">2152</i>&nbsp;        public InternalReplicatedEnvironment(File environmentHome,
+<i class="no-highlight">2153</i>&nbsp;                                             ReplicationConfig cloneRepConfig,
+<i class="no-highlight">2154</i>&nbsp;                                             EnvironmentConfig cloneConfig,
+<i class="no-highlight">2155</i>&nbsp;                                             RepImpl envImpl) {
+<b class="nc"><i class="no-highlight">2156</i>&nbsp;            super(environmentHome, cloneRepConfig, cloneConfig,</b>
+<i class="no-highlight">2157</i>&nbsp;                  null /*consistencyPolicy*/, null /*initialElectionPolicy*/,
+<i class="no-highlight">2158</i>&nbsp;                  false /*joinGroup*/, envImpl);
+<i class="no-highlight">2159</i>&nbsp;        }
+<i class="no-highlight">2160</i>&nbsp;
+<i class="no-highlight">2161</i>&nbsp;        @Override
+<i class="no-highlight">2162</i>&nbsp;        protected boolean isInternalHandle() {
+<b class="nc"><i class="no-highlight">2163</i>&nbsp;            return true;</b>
+<i class="no-highlight">2164</i>&nbsp;        }
+<i class="no-highlight">2165</i>&nbsp;
+<i class="no-highlight">2166</i>&nbsp;        @Override
+<i class="no-highlight">2167</i>&nbsp;        public synchronized void close() {
+<b class="nc"><i class="no-highlight">2168</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">2169</i>&nbsp;                (&quot;close() not permitted on an internal environment handle&quot;);</b>
+<i class="no-highlight">2170</i>&nbsp;        }
+<i class="no-highlight">2171</i>&nbsp;    }
+<i class="no-highlight">2172</i>&nbsp;
+<i class="no-highlight">2173</i>&nbsp;    /**
+<i class="no-highlight">2174</i>&nbsp;     * Peruse the environment wide transaction table, and return a set of
+<i class="no-highlight">2175</i>&nbsp;     * all existing MasterTxns.
+<i class="no-highlight">2176</i>&nbsp;     */
+<i class="no-highlight">2177</i>&nbsp;    public Set&lt;MasterTxn&gt; getExistingMasterTxns() {
+<b class="nc"><i class="no-highlight">2178</i>&nbsp;        return getTxnManager().getTxns(MasterTxn.class);</b>
+<i class="no-highlight">2179</i>&nbsp;    }
+<i class="no-highlight">2180</i>&nbsp;
+<i class="no-highlight">2181</i>&nbsp;    /**
+<i class="no-highlight">2182</i>&nbsp;     * RepImpl supplies the last txn abort or commit vlsn for use cases such as
+<i class="no-highlight">2183</i>&nbsp;     * determining how caught up a feeder or master transfer is. This info is
+<i class="no-highlight">2184</i>&nbsp;     * usually obtained from the VLSNRange via the VLSNIndex, but in some types
+<i class="no-highlight">2185</i>&nbsp;     * of environment shutdowns, the VLSNIndex may need to be nulled out.  When
+<i class="no-highlight">2186</i>&nbsp;     * that happens, VLSNIndexAccess will switch over from using the VLSNIndex
+<i class="no-highlight">2187</i>&nbsp;     * to obtain the range, to using a reference to the last known
+<i class="no-highlight">2188</i>&nbsp;     * VLSNRange. Note that the VLSNRange instance held within VLSNIndex is
+<i class="no-highlight">2189</i>&nbsp;     * constantly being replaced when the replication stream is active., and
+<i class="no-highlight">2190</i>&nbsp;     * that&#39;s why LastTxnEndAccess generally obtains the range via the
+<i class="no-highlight">2191</i>&nbsp;     * VLSNIndex, rather keeping a reference to a VLSNRange instance.
+<i class="no-highlight">2192</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">2193</i>&nbsp;    private class VLSNIndexAccess {</b>
+<i class="no-highlight">2194</i>&nbsp;
+<i class="no-highlight">2195</i>&nbsp;        private VLSNRange savedRange;
+<i class="no-highlight">2196</i>&nbsp;
+<i class="no-highlight">2197</i>&nbsp;        synchronized VLSN getLastTxnEnd() {
+<b class="nc"><i class="no-highlight">2198</i>&nbsp;            if (vlsnIndex != null) {</b>
+<b class="nc"><i class="no-highlight">2199</i>&nbsp;                return vlsnIndex.getRange().getLastTxnEnd();</b>
+<i class="no-highlight">2200</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">2201</i>&nbsp;            return savedRange.getLastTxnEnd();</b>
+<i class="no-highlight">2202</i>&nbsp;        }
+<i class="no-highlight">2203</i>&nbsp;
+<i class="no-highlight">2204</i>&nbsp;        /**
+<i class="no-highlight">2205</i>&nbsp;         * Save the last range so the lastTxnEnd value can continue
+<i class="no-highlight">2206</i>&nbsp;         * to be available, and null out the vlsnIndex.
+<i class="no-highlight">2207</i>&nbsp;         */
+<i class="no-highlight">2208</i>&nbsp;        synchronized void closeVLSNIndex(boolean checkpointed) {
+<b class="nc"><i class="no-highlight">2209</i>&nbsp;            if (vlsnIndex != null) {</b>
+<b class="nc"><i class="no-highlight">2210</i>&nbsp;                vlsnIndex.close(checkpointed);</b>
+<b class="nc"><i class="no-highlight">2211</i>&nbsp;                savedRange = vlsnIndex.getRange();</b>
+<b class="nc"><i class="no-highlight">2212</i>&nbsp;                vlsnIndex = null;</b>
+<i class="no-highlight">2213</i>&nbsp;            }
+<i class="no-highlight">2214</i>&nbsp;        }
+<i class="no-highlight">2215</i>&nbsp;
+<i class="no-highlight">2216</i>&nbsp;        /**
+<i class="no-highlight">2217</i>&nbsp;         * Save the last range so the lastTxnEnd value can continue
+<i class="no-highlight">2218</i>&nbsp;         * to be available, and null out the vlsnIndex.
+<i class="no-highlight">2219</i>&nbsp;         */
+<i class="no-highlight">2220</i>&nbsp;        synchronized void abnormalCloseVLSNIndex() {
+<b class="nc"><i class="no-highlight">2221</i>&nbsp;            if (vlsnIndex != null) {</b>
+<b class="nc"><i class="no-highlight">2222</i>&nbsp;                vlsnIndex.abnormalClose();</b>
+<b class="nc"><i class="no-highlight">2223</i>&nbsp;                savedRange = vlsnIndex.getRange();</b>
+<b class="nc"><i class="no-highlight">2224</i>&nbsp;                vlsnIndex = null;</b>
+<i class="no-highlight">2225</i>&nbsp;            }
+<i class="no-highlight">2226</i>&nbsp;        }
+<i class="no-highlight">2227</i>&nbsp;    }
+<i class="no-highlight">2228</i>&nbsp;
+<i class="no-highlight">2229</i>&nbsp;    /**
+<i class="no-highlight">2230</i>&nbsp;     * Checks that writing records with a TTL is allowed.
+<i class="no-highlight">2231</i>&nbsp;     *
+<i class="no-highlight">2232</i>&nbsp;     * @throws IllegalStateException if any node in the group is less than
+<i class="no-highlight">2233</i>&nbsp;     * JE_TTL_VERSION.
+<i class="no-highlight">2234</i>&nbsp;     */
+<i class="no-highlight">2235</i>&nbsp;    @Override
+<i class="no-highlight">2236</i>&nbsp;    public void checkTTLAvailable() {
+<b class="nc"><i class="no-highlight">2237</i>&nbsp;        if (isTTLAvailable) {</b>
+<i class="no-highlight">2238</i>&nbsp;            return;
+<i class="no-highlight">2239</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">2240</i>&nbsp;        final JEVersion requiredJEVersion = TTL.getMinJEVersion();</b>
+<i class="no-highlight">2241</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">2242</i>&nbsp;            repNode.setMinJEVersion(requiredJEVersion);</b>
+<b class="nc"><i class="no-highlight">2243</i>&nbsp;            isTTLAvailable = true;</b>
+<b class="nc"><i class="no-highlight">2244</i>&nbsp;        } catch (MinJEVersionUnsupportedException e) {</b>
+<b class="nc"><i class="no-highlight">2245</i>&nbsp;            if (e.nodeVersion == null) {</b>
+<b class="nc"><i class="no-highlight">2246</i>&nbsp;                throw new IllegalStateException(</b>
+<i class="no-highlight">2247</i>&nbsp;                    &quot;TTL is not currently supported.&quot; +
+<i class="no-highlight">2248</i>&nbsp;                    &quot; The version running on node &quot; + e.nodeName +
+<i class="no-highlight">2249</i>&nbsp;                    &quot; could not be determined,&quot; +
+<i class="no-highlight">2250</i>&nbsp;                    &quot; but this feature requires version &quot; +
+<b class="nc"><i class="no-highlight">2251</i>&nbsp;                    requiredJEVersion.getNumericVersionString() +</b>
+<i class="no-highlight">2252</i>&nbsp;                    &quot; or later.&quot;);
+<i class="no-highlight">2253</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">2254</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">2255</i>&nbsp;                &quot;TTL is not currently supported.&quot; +
+<i class="no-highlight">2256</i>&nbsp;                &quot; Node &quot; + e.nodeName + &quot; is running version &quot; +
+<b class="nc"><i class="no-highlight">2257</i>&nbsp;                e.nodeVersion.getNumericVersionString() +</b>
+<i class="no-highlight">2258</i>&nbsp;                &quot;, but this feature requires version &quot; +
+<b class="nc"><i class="no-highlight">2259</i>&nbsp;                requiredJEVersion.getNumericVersionString() +</b>
+<i class="no-highlight">2260</i>&nbsp;                &quot; or later.&quot;);
+<b class="nc"><i class="no-highlight">2261</i>&nbsp;        }</b>
+<i class="no-highlight">2262</i>&nbsp;    }
+<i class="no-highlight">2263</i>&nbsp;
+<i class="no-highlight">2264</i>&nbsp;    /**
+<i class="no-highlight">2265</i>&nbsp;     * Recovery encountered a RestoreRequired marker.
+<i class="no-highlight">2266</i>&nbsp;     */
+<i class="no-highlight">2267</i>&nbsp;    @Override
+<i class="no-highlight">2268</i>&nbsp;    public void handleRestoreRequired(RestoreRequired restoreRequired) {
+<i class="no-highlight">2269</i>&nbsp;
+<b class="nc"><i class="no-highlight">2270</i>&nbsp;        switch (restoreRequired.getFailureType()) {</b>
+<i class="no-highlight">2271</i>&nbsp;        case NETWORK_RESTORE:
+<i class="no-highlight">2272</i>&nbsp;            /*
+<i class="no-highlight">2273</i>&nbsp;             * A network restore must be done to get a coherent copy of
+<i class="no-highlight">2274</i>&nbsp;             * the log files into this environment&#39;s directory.
+<i class="no-highlight">2275</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">2276</i>&nbsp;            throw new InsufficientLogException(</b>
+<b class="nc"><i class="no-highlight">2277</i>&nbsp;                restoreRequired.getProperties(),</b>
+<b class="nc"><i class="no-highlight">2278</i>&nbsp;                configManager.get(RepParams.HELPER_HOSTS));</b>
+<i class="no-highlight">2279</i>&nbsp;        default:
+<i class="no-highlight">2280</i>&nbsp;            /* Not a type we can handle, go to the default behavior */
+<b class="nc"><i class="no-highlight">2281</i>&nbsp;            super.handleRestoreRequired(restoreRequired);</b>
+<i class="no-highlight">2282</i>&nbsp;        }
+<i class="no-highlight">2283</i>&nbsp;    }
+<i class="no-highlight">2284</i>&nbsp;    
+<i class="no-highlight">2285</i>&nbsp;    private boolean useArbiter(MasterTxn txn) {
+<b class="nc"><i class="no-highlight">2286</i>&nbsp;        if (allowArbiterAck &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">2287</i>&nbsp;            repNode.getGroup().getAckGroupSize() == 2 &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">2288</i>&nbsp;            repNode.feederManager().activeAckArbiterCount() &gt; 0 &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">2289</i>&nbsp;            txn.getCommitDurability().getReplicaAck() ==</b>
+<i class="no-highlight">2290</i>&nbsp;            ReplicaAckPolicy.SIMPLE_MAJORITY) {
+<b class="nc"><i class="no-highlight">2291</i>&nbsp;            return true;</b>
+<i class="no-highlight">2292</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">2293</i>&nbsp;        return false;</b>
+<i class="no-highlight">2294</i>&nbsp;    }
+<i class="no-highlight">2295</i>&nbsp;
+<i class="no-highlight">2296</i>&nbsp;    public void setAuthenticator(StreamAuthenticator authenticator) {
+<b class="nc"><i class="no-highlight">2297</i>&nbsp;        this.authenticator = authenticator;</b>
+<i class="no-highlight">2298</i>&nbsp;    }
+<i class="no-highlight">2299</i>&nbsp;
+<i class="no-highlight">2300</i>&nbsp;    public StreamAuthenticator getAuthenticator() {
+<b class="nc"><i class="no-highlight">2301</i>&nbsp;        return authenticator;</b>
+<i class="no-highlight">2302</i>&nbsp;    }
+<i class="no-highlight">2303</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

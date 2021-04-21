@@ -1,0 +1,201 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > CompressedOopsDetector</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.dbi</a>
+</div>
+
+<h1>Coverage Summary for Class: CompressedOopsDetector (com.sleepycat.je.dbi)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">CompressedOopsDetector</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (2/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    48%
+  </span>
+  <span class="absValue">
+    (12/25)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.dbi;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.lang.management.ManagementFactory;
+<i class="no-highlight">17</i>&nbsp;import java.lang.reflect.Method;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;/**
+<i class="no-highlight">20</i>&nbsp; * Uses com.sun.management (non-portable) APIs to detect whether compressed
+<i class="no-highlight">21</i>&nbsp; * oops is actually in effect.  Uses reflection so that isEnabled simply
+<i class="no-highlight">22</i>&nbsp; * returns null if the com.sun.management classes are not available, rather
+<i class="no-highlight">23</i>&nbsp; * than causing a class loading error during static initialization, which would
+<i class="no-highlight">24</i>&nbsp; * prevent the process from running.  For the IBM J9 environment, which doesn&#39;t
+<i class="no-highlight">25</i>&nbsp; * support the MBean, checks the value of a system property for a known string.
+<i class="no-highlight">26</i>&nbsp; */
+<b class="nc"><i class="no-highlight">27</i>&nbsp;class CompressedOopsDetector {</b>
+<i class="no-highlight">28</i>&nbsp;    private static final String HOTSPOT_BEAN_CLASS =
+<i class="no-highlight">29</i>&nbsp;        &quot;com.sun.management.HotSpotDiagnosticMXBean&quot;;
+<i class="no-highlight">30</i>&nbsp;    private static final String HOTSPOT_BEAN_NAME =
+<i class="no-highlight">31</i>&nbsp;        &quot;com.sun.management:type=HotSpotDiagnostic&quot;;
+<i class="no-highlight">32</i>&nbsp;    private static final String VMOPTION_CLASS =
+<i class="no-highlight">33</i>&nbsp;        &quot;com.sun.management.VMOption&quot;;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;    /**
+<i class="no-highlight">36</i>&nbsp;     * For IBM J9, it appears that the best way to tell if compressed OOPs are
+<i class="no-highlight">37</i>&nbsp;     * in use is to see if the value of the java.vm.info system property
+<i class="no-highlight">38</i>&nbsp;     * contains this value.
+<i class="no-highlight">39</i>&nbsp;     */
+<i class="no-highlight">40</i>&nbsp;    private static final String IBM_VM_INFO_COMPRESSED_OOPS_SUBSTRING =
+<i class="no-highlight">41</i>&nbsp;        &quot;Compressed References&quot;;
+<i class="no-highlight">42</i>&nbsp;
+<i class="no-highlight">43</i>&nbsp;    /**
+<i class="no-highlight">44</i>&nbsp;     * @return TRUE or FALSE if the status of compressed oops is known, or null
+<i class="no-highlight">45</i>&nbsp;     * if it is unknown.
+<i class="no-highlight">46</i>&nbsp;     */
+<i class="no-highlight">47</i>&nbsp;    static Boolean isEnabled() {
+<i class="no-highlight">48</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">49</i>&nbsp;            return isEnabledInternal();</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        } catch (Throwable e) {</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;            final String vendor = System.getProperty(&quot;java.vendor&quot;);</b>
+<b class="nc"><i class="no-highlight">52</i>&nbsp;            if ((vendor != null) &amp;&amp; vendor.startsWith(&quot;IBM&quot;)) {</b>
+<b class="nc"><i class="no-highlight">53</i>&nbsp;                final String info = System.getProperty(&quot;java.vm.info&quot;);</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;                if (info != null) {</b>
+<b class="nc"><i class="no-highlight">55</i>&nbsp;                    return info.indexOf(</b>
+<i class="no-highlight">56</i>&nbsp;                        IBM_VM_INFO_COMPRESSED_OOPS_SUBSTRING) != -1;
+<i class="no-highlight">57</i>&nbsp;                }
+<i class="no-highlight">58</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">59</i>&nbsp;            return null;</b>
+<i class="no-highlight">60</i>&nbsp;        }
+<i class="no-highlight">61</i>&nbsp;    }
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /* Throws exceptions rather than returning null. */
+<i class="no-highlight">64</i>&nbsp;    private static Boolean isEnabledInternal()
+<i class="no-highlight">65</i>&nbsp;        throws Throwable {
+<i class="no-highlight">66</i>&nbsp;
+<b class="fc"><i class="no-highlight">67</i>&nbsp;        final Class&lt;?&gt; hotspotMBeanClass = Class.forName(HOTSPOT_BEAN_CLASS);</b>
+<i class="no-highlight">68</i>&nbsp;        final Object hotspotMBean =
+<b class="fc"><i class="no-highlight">69</i>&nbsp;            ManagementFactory.newPlatformMXBeanProxy(</b>
+<b class="fc"><i class="no-highlight">70</i>&nbsp;                ManagementFactory.getPlatformMBeanServer(),</b>
+<i class="no-highlight">71</i>&nbsp;                HOTSPOT_BEAN_NAME, hotspotMBeanClass);
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;        /*
+<i class="no-highlight">74</i>&nbsp;         * vmOption is an instance of com.sun.management.VMOption.
+<i class="no-highlight">75</i>&nbsp;         * HotSpotDiagnosticMXBean.getVMOption(String option) returns a
+<i class="no-highlight">76</i>&nbsp;         * VMOption, which has a &quot;String getValue()&quot; method.
+<i class="no-highlight">77</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">78</i>&nbsp;        final Method getVMOption =</b>
+<b class="fc"><i class="no-highlight">79</i>&nbsp;            hotspotMBeanClass.getMethod(&quot;getVMOption&quot;, String.class);</b>
+<b class="fc"><i class="no-highlight">80</i>&nbsp;        final Object vmOption =</b>
+<b class="fc"><i class="no-highlight">81</i>&nbsp;            getVMOption.invoke(hotspotMBean, &quot;UseCompressedOops&quot;);</b>
+<b class="fc"><i class="no-highlight">82</i>&nbsp;        final Class&lt;?&gt; vmOptionClass = Class.forName(VMOPTION_CLASS);</b>
+<b class="fc"><i class="no-highlight">83</i>&nbsp;        final Method getValue = vmOptionClass.getMethod(&quot;getValue&quot;);</b>
+<b class="fc"><i class="no-highlight">84</i>&nbsp;        final String value = (String) getValue.invoke(vmOption);</b>
+<b class="fc"><i class="no-highlight">85</i>&nbsp;        return Boolean.valueOf(value);</b>
+<i class="no-highlight">86</i>&nbsp;    }
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /* For manual testing. */
+<i class="no-highlight">89</i>&nbsp;    public static void main(final String[] args) {
+<i class="no-highlight">90</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">91</i>&nbsp;            System.out.println(&quot;isEnabled(): &quot; + isEnabled());</b>
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        } catch (Throwable e) {</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;    }</b>
+<i class="no-highlight">96</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

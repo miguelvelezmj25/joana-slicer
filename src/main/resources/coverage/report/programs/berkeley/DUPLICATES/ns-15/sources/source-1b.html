@@ -1,0 +1,1051 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicatedEnvironmentStats</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicatedEnvironmentStats (com.sleepycat.je.rep)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicatedEnvironmentStats</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/62)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/169)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_FEEDERS_CREATED;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_FEEDERS_SHUTDOWN;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_MAX_REPLICA_LAG;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_MAX_REPLICA_LAG_NAME;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_DELAY_MAP;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_LAST_COMMIT_TIMESTAMP_MAP;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_LAST_COMMIT_VLSN_MAP;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_VLSN_LAG_MAP;
+<i class="no-highlight">24</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_VLSN_RATE_MAP;
+<i class="no-highlight">25</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.LATEST_COMMIT_LAG_MS;
+<i class="no-highlight">26</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.MAX_COMMIT_PROCESSING_NANOS;
+<i class="no-highlight">27</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.MIN_COMMIT_PROCESSING_NANOS;
+<i class="no-highlight">28</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_ABORTS;
+<i class="no-highlight">29</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMITS;
+<i class="no-highlight">30</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_ACKS;
+<i class="no-highlight">31</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_NO_SYNCS;
+<i class="no-highlight">32</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_SYNCS;
+<i class="no-highlight">33</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_WRITE_NO_SYNCS;
+<i class="no-highlight">34</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_ELAPSED_TXN_TIME;
+<i class="no-highlight">35</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMITS;
+<i class="no-highlight">36</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMIT_MAX_EXCEEDED;
+<i class="no-highlight">37</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMIT_TIMEOUTS;
+<i class="no-highlight">38</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMIT_TXNS;
+<i class="no-highlight">39</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_LNS;
+<i class="no-highlight">40</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_NAME_LNS;
+<i class="no-highlight">41</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.TOTAL_COMMIT_LAG_MS;
+<i class="no-highlight">42</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.TOTAL_COMMIT_PROCESSING_NANOS;
+<i class="no-highlight">43</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplicaStatDefinition.N_LAG_CONSISTENCY_WAITS;
+<i class="no-highlight">44</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplicaStatDefinition.N_LAG_CONSISTENCY_WAIT_MS;
+<i class="no-highlight">45</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplicaStatDefinition.N_VLSN_CONSISTENCY_WAITS;
+<i class="no-highlight">46</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplicaStatDefinition.N_VLSN_CONSISTENCY_WAIT_MS;
+<i class="no-highlight">47</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.ACK_WAIT_MS;
+<i class="no-highlight">48</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.LAST_COMMIT_TIMESTAMP;
+<i class="no-highlight">49</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.LAST_COMMIT_VLSN;
+<i class="no-highlight">50</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.TOTAL_TXN_MS;
+<i class="no-highlight">51</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.TXNS_ACKED;
+<i class="no-highlight">52</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.TXNS_NOT_ACKED;
+<i class="no-highlight">53</i>&nbsp;import static com.sleepycat.je.rep.stream.FeederTxnStatDefinition.VLSN_RATE;
+<i class="no-highlight">54</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.BYTES_READ_RATE;
+<i class="no-highlight">55</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.BYTES_WRITE_RATE;
+<i class="no-highlight">56</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.MESSAGE_READ_RATE;
+<i class="no-highlight">57</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.MESSAGE_WRITE_RATE;
+<i class="no-highlight">58</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_BYTES_READ;
+<i class="no-highlight">59</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_BYTES_WRITTEN;
+<i class="no-highlight">60</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_ENTRIES_WRITTEN_OLD_VERSION;
+<i class="no-highlight">61</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_MESSAGES_BATCHED;
+<i class="no-highlight">62</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_MESSAGES_READ;
+<i class="no-highlight">63</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_MESSAGES_WRITTEN;
+<i class="no-highlight">64</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_MESSAGE_BATCHES;
+<i class="no-highlight">65</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_READ_NANOS;
+<i class="no-highlight">66</i>&nbsp;import static com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition.N_WRITE_NANOS;
+<i class="no-highlight">67</i>&nbsp;import static com.sleepycat.je.utilint.CollectionUtils.emptySortedMap;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;import java.io.Serializable;
+<i class="no-highlight">70</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">71</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">72</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">73</i>&nbsp;import java.util.Map;
+<i class="no-highlight">74</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;import com.sleepycat.je.Durability.ReplicaAckPolicy;
+<i class="no-highlight">77</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">78</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">79</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">80</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">81</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">82</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">83</i>&nbsp;import com.sleepycat.je.rep.impl.node.FeederManager;
+<i class="no-highlight">84</i>&nbsp;import com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition;
+<i class="no-highlight">85</i>&nbsp;import com.sleepycat.je.rep.impl.node.RepNode;
+<i class="no-highlight">86</i>&nbsp;import com.sleepycat.je.rep.impl.node.ReplayStatDefinition;
+<i class="no-highlight">87</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replica;
+<i class="no-highlight">88</i>&nbsp;import com.sleepycat.je.rep.impl.node.ReplicaStatDefinition;
+<i class="no-highlight">89</i>&nbsp;import com.sleepycat.je.rep.stream.FeederTxnStatDefinition;
+<i class="no-highlight">90</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition;
+<i class="no-highlight">91</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNIndexStatDefinition;
+<i class="no-highlight">92</i>&nbsp;import com.sleepycat.je.utilint.AtomicLongMapStat;
+<i class="no-highlight">93</i>&nbsp;import com.sleepycat.je.utilint.IntegralLongAvgStat;
+<i class="no-highlight">94</i>&nbsp;import com.sleepycat.je.utilint.LongAvgRateMapStat;
+<i class="no-highlight">95</i>&nbsp;import com.sleepycat.je.utilint.LongAvgRateStat;
+<i class="no-highlight">96</i>&nbsp;import com.sleepycat.je.utilint.LongDiffMapStat;
+<i class="no-highlight">97</i>&nbsp;import com.sleepycat.je.utilint.StatDefinition;
+<i class="no-highlight">98</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;/**
+<i class="no-highlight">101</i>&nbsp; * Statistics for a replicated environment.
+<i class="no-highlight">102</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">103</i>&nbsp; * The statistics are logically grouped into four categories. Viewing the
+<i class="no-highlight">104</i>&nbsp; * statistics through {@link ReplicatedEnvironmentStats#toString()} displays
+<i class="no-highlight">105</i>&nbsp; * the values in these categories, as does viewing the stats through the {@link
+<i class="no-highlight">106</i>&nbsp; * &lt;a href=&quot;{@docRoot}/../jconsole/JConsole-plugin.html&quot;&gt;RepJEMonitor
+<i class="no-highlight">107</i>&nbsp; * mbean&lt;/a&gt;}.  Viewing the stats with {@link
+<i class="no-highlight">108</i>&nbsp; * ReplicatedEnvironmentStats#toStringVerbose()} will provide more detailed
+<i class="no-highlight">109</i>&nbsp; * descriptions of the stats and stat categories.
+<i class="no-highlight">110</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">111</i>&nbsp; * The current categories are:
+<i class="no-highlight">112</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">113</i>&nbsp; *  &lt;li&gt;&lt;b&gt;FeederManager&lt;/b&gt;: A feed is the {@link &lt;a
+<i class="no-highlight">114</i>&nbsp; * href=&quot;{@docRoot}/../ReplicationGuide/introduction.html#replicationstreams&quot;&gt;replication
+<i class="no-highlight">115</i>&nbsp; * stream&lt;/a&gt;} between a master and replica. The current number of feeders
+<i class="no-highlight">116</i>&nbsp; * gives a sense of the connectivity of the replication group.
+<i class="no-highlight">117</i>&nbsp; *  &lt;/li&gt;
+<i class="no-highlight">118</i>&nbsp; *  &lt;li&gt;&lt;b&gt;BinaryProtocol&lt;/b&gt;: These statistics center on the network traffic
+<i class="no-highlight">119</i>&nbsp; *   engendered by the replication stream, and provide a sense of the network
+<i class="no-highlight">120</i>&nbsp; *   bandwidth seen by the replication group.
+<i class="no-highlight">121</i>&nbsp; *  &lt;/li&gt;
+<i class="no-highlight">122</i>&nbsp; *  &lt;li&gt;&lt;b&gt;Replay&lt;/b&gt;: The act of receiving and applying the replication stream
+<i class="no-highlight">123</i>&nbsp; *  at the Replica node is called Replay. These stats give a sense of how much
+<i class="no-highlight">124</i>&nbsp; *  load the replica node is experiencing when processing the traffic from the
+<i class="no-highlight">125</i>&nbsp; *  replication group.
+<i class="no-highlight">126</i>&nbsp; *  &lt;/li&gt;
+<i class="no-highlight">127</i>&nbsp; *  &lt;li&gt;&lt;b&gt;ConsistencyTracker&lt;/b&gt;: The tracker is invoked when consistency
+<i class="no-highlight">128</i>&nbsp; *  policies are used at a replica node. This provides a measure of delays
+<i class="no-highlight">129</i>&nbsp; *  experienced by read requests at a replica, in order to conform with the
+<i class="no-highlight">130</i>&nbsp; *  consistency specified by the application.
+<i class="no-highlight">131</i>&nbsp; *  &lt;/li&gt;
+<i class="no-highlight">132</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">133</i>&nbsp; *
+<i class="no-highlight">134</i>&nbsp; * @see &lt;a href=&quot;{@docRoot}/../jconsole/JConsole-plugin.html&quot;&gt;Viewing
+<i class="no-highlight">135</i>&nbsp; * Statistics with JConsole&lt;/a&gt;
+<i class="no-highlight">136</i>&nbsp; */
+<i class="no-highlight">137</i>&nbsp;public class ReplicatedEnvironmentStats implements Serializable {
+<i class="no-highlight">138</i>&nbsp;    private static final long serialVersionUID = 1L;
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    /**
+<i class="no-highlight">141</i>&nbsp;     * The &quot;impossible&quot; return value used by stats accessors to indicate the
+<i class="no-highlight">142</i>&nbsp;     * statistic is not available in this instance of
+<i class="no-highlight">143</i>&nbsp;     * ReplicatedEnvironmentStats, because it represents an earlier
+<i class="no-highlight">144</i>&nbsp;     * de-serialized instance in which this statistic was unavailable.
+<i class="no-highlight">145</i>&nbsp;     */
+<i class="no-highlight">146</i>&nbsp;    private static final int VALUE_UNAVAILABLE = -1;
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;    private StatGroup feederManagerStats;
+<i class="no-highlight">149</i>&nbsp;    private StatGroup feederTxnStats;
+<i class="no-highlight">150</i>&nbsp;    private StatGroup replayStats;
+<i class="no-highlight">151</i>&nbsp;    private StatGroup trackerStats;
+<i class="no-highlight">152</i>&nbsp;    private StatGroup protocolStats;
+<i class="no-highlight">153</i>&nbsp;    private StatGroup vlsnIndexStats;
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;    private final Map&lt;String, String&gt; tipsMap = new HashMap&lt;String, String&gt;();</b>
+<i class="no-highlight">156</i>&nbsp;
+<b class="nc"><i class="no-highlight">157</i>&nbsp;    ReplicatedEnvironmentStats(RepImpl repImpl, StatsConfig config) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        final RepNode repNode = repImpl.getRepNode();</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        final FeederManager feederManager = repNode.feederManager();</b>
+<i class="no-highlight">160</i>&nbsp;
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        feederManagerStats = feederManager.getFeederManagerStats(config);</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        feederTxnStats = repNode.getFeederTxns().getStats(config);</b>
+<i class="no-highlight">163</i>&nbsp;
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        final Replica replica = repNode.getReplica();</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        replayStats = replica.getReplayStats(config);</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;        trackerStats = replica.getTrackerStats(config);</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        protocolStats = feederManager.getProtocolStats(config);</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        vlsnIndexStats = repImpl.getVLSNIndex().getStats(config);</b>
+<i class="no-highlight">169</i>&nbsp;
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        protocolStats.addAll(replica.getProtocolStats(config));</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        addMessageRateStats();</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        addBytesRateStats();</b>
+<i class="no-highlight">173</i>&nbsp;    }
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;    /**
+<i class="no-highlight">176</i>&nbsp;     * @hidden
+<i class="no-highlight">177</i>&nbsp;     * Internal use only.
+<i class="no-highlight">178</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">179</i>&nbsp;    public ReplicatedEnvironmentStats() {</b>
+<i class="no-highlight">180</i>&nbsp;    }
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;    /**
+<i class="no-highlight">183</i>&nbsp;     * @hidden
+<i class="no-highlight">184</i>&nbsp;     * Internal use only.
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    public Collection&lt;StatGroup&gt; getStatGroups() {
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        return (feederTxnStats != null) ?</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;            Arrays.asList(feederManagerStats,</b>
+<i class="no-highlight">189</i>&nbsp;                          feederTxnStats,
+<i class="no-highlight">190</i>&nbsp;                          replayStats,
+<i class="no-highlight">191</i>&nbsp;                          trackerStats,
+<i class="no-highlight">192</i>&nbsp;                          protocolStats,
+<i class="no-highlight">193</i>&nbsp;                          vlsnIndexStats) :
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            Arrays.asList(feederManagerStats,</b>
+<i class="no-highlight">195</i>&nbsp;                          replayStats,
+<i class="no-highlight">196</i>&nbsp;                          trackerStats,
+<i class="no-highlight">197</i>&nbsp;                          protocolStats,
+<i class="no-highlight">198</i>&nbsp;                          vlsnIndexStats);
+<i class="no-highlight">199</i>&nbsp;    }
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    /**
+<i class="no-highlight">202</i>&nbsp;     * @hidden
+<i class="no-highlight">203</i>&nbsp;     * Internal use only.
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    public Map&lt;String, StatGroup&gt; getStatGroupsMap() {
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        HashMap&lt;String, StatGroup&gt; statmap = new HashMap&lt;String, StatGroup&gt;();</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        statmap.put(feederManagerStats.getName(), feederManagerStats);</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        statmap.put(replayStats.getName(), replayStats);</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        statmap.put(trackerStats.getName(), trackerStats);</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        statmap.put(protocolStats.getName(), protocolStats);</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        statmap.put(vlsnIndexStats.getName(), vlsnIndexStats);</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        if (feederTxnStats != null) {</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            statmap.put(feederTxnStats.getName(), feederTxnStats);</b>
+<i class="no-highlight">214</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">215</i>&nbsp;        return statmap;</b>
+<i class="no-highlight">216</i>&nbsp;    }
+<i class="no-highlight">217</i>&nbsp;
+<i class="no-highlight">218</i>&nbsp;    /**
+<i class="no-highlight">219</i>&nbsp;     * @hidden
+<i class="no-highlight">220</i>&nbsp;     * Internal use only.
+<i class="no-highlight">221</i>&nbsp;     */
+<i class="no-highlight">222</i>&nbsp;    public void setStatGroup(StatGroup sg) {
+<i class="no-highlight">223</i>&nbsp;
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        if (sg.getName().equals(FeederManagerStatDefinition.GROUP_NAME)) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            feederManagerStats = sg;</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        } else if (sg.getName().equals(ReplayStatDefinition.GROUP_NAME)) {</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            replayStats = sg;</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        } else if (sg.getName().equals(ReplicaStatDefinition.GROUP_NAME)) {</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;            trackerStats = sg;</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        } else if (sg.getName().equals</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;                       (BinaryProtocolStatDefinition.GROUP_NAME)) {</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;            protocolStats = sg;</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;        } else if (sg.getName().equals(VLSNIndexStatDefinition.GROUP_NAME)) {</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;           vlsnIndexStats = sg;</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        } else if (sg.getName().equals(FeederTxnStatDefinition.GROUP_NAME)) {</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            feederTxnStats = sg;</b>
+<i class="no-highlight">237</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                (&quot;Internal error stat context is not registered&quot;);</b>
+<i class="no-highlight">240</i>&nbsp;        }
+<i class="no-highlight">241</i>&nbsp;    }
+<i class="no-highlight">242</i>&nbsp;
+<i class="no-highlight">243</i>&nbsp;    /**
+<i class="no-highlight">244</i>&nbsp;     * @hidden
+<i class="no-highlight">245</i>&nbsp;     * Internal use only
+<i class="no-highlight">246</i>&nbsp;     *
+<i class="no-highlight">247</i>&nbsp;     * For JConsole plugin support.
+<i class="no-highlight">248</i>&nbsp;     */
+<i class="no-highlight">249</i>&nbsp;    public static String[] getStatGroupTitles() {
+<b class="nc"><i class="no-highlight">250</i>&nbsp;        return new String[] {</b>
+<i class="no-highlight">251</i>&nbsp;            FeederManagerStatDefinition.GROUP_NAME,
+<i class="no-highlight">252</i>&nbsp;            FeederTxnStatDefinition.GROUP_NAME,
+<i class="no-highlight">253</i>&nbsp;            BinaryProtocolStatDefinition.GROUP_NAME,
+<i class="no-highlight">254</i>&nbsp;            ReplayStatDefinition.GROUP_NAME,
+<i class="no-highlight">255</i>&nbsp;            ReplicaStatDefinition.GROUP_NAME,
+<i class="no-highlight">256</i>&nbsp;            VLSNIndexStatDefinition.GROUP_NAME};
+<i class="no-highlight">257</i>&nbsp;    }
+<i class="no-highlight">258</i>&nbsp;
+<i class="no-highlight">259</i>&nbsp;    private void addMessageRateStats() {
+<i class="no-highlight">260</i>&nbsp;        long numerator;
+<i class="no-highlight">261</i>&nbsp;        long denominator;
+<i class="no-highlight">262</i>&nbsp;
+<b class="nc"><i class="no-highlight">263</i>&nbsp;        numerator = (protocolStats.getLongStat(N_MESSAGES_READ) == null) ?</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;                     0 : protocolStats.getLongStat(N_MESSAGES_READ).get();</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        denominator = (protocolStats.getLongStat(N_READ_NANOS) == null) ?</b>
+<b class="nc"><i class="no-highlight">266</i>&nbsp;                0 : protocolStats.getLongStat(N_READ_NANOS).get();</b>
+<i class="no-highlight">267</i>&nbsp;        @SuppressWarnings(&quot;unused&quot;)
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        IntegralLongAvgStat msgReadRate =</b>
+<i class="no-highlight">269</i>&nbsp;            new IntegralLongAvgStat
+<i class="no-highlight">270</i>&nbsp;                (protocolStats,
+<i class="no-highlight">271</i>&nbsp;                 MESSAGE_READ_RATE,
+<i class="no-highlight">272</i>&nbsp;                 numerator,
+<i class="no-highlight">273</i>&nbsp;                 denominator,
+<i class="no-highlight">274</i>&nbsp;                 1000000000);
+<i class="no-highlight">275</i>&nbsp;
+<b class="nc"><i class="no-highlight">276</i>&nbsp;        numerator = (protocolStats.getLongStat(N_MESSAGES_WRITTEN) == null) ?</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;                0 : protocolStats.getLongStat(N_MESSAGES_WRITTEN).get();</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        denominator = (protocolStats.getLongStat(N_WRITE_NANOS) == null) ?</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;           0 : protocolStats.getLongStat(N_WRITE_NANOS).get();</b>
+<i class="no-highlight">280</i>&nbsp;        @SuppressWarnings(&quot;unused&quot;)
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        IntegralLongAvgStat msgWriteRate =</b>
+<i class="no-highlight">282</i>&nbsp;            new IntegralLongAvgStat
+<i class="no-highlight">283</i>&nbsp;                (protocolStats,
+<i class="no-highlight">284</i>&nbsp;                 MESSAGE_WRITE_RATE,
+<i class="no-highlight">285</i>&nbsp;                 numerator,
+<i class="no-highlight">286</i>&nbsp;                 denominator,
+<i class="no-highlight">287</i>&nbsp;                 1000000000);
+<i class="no-highlight">288</i>&nbsp;    }
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;    private void addBytesRateStats() {
+<i class="no-highlight">291</i>&nbsp;        long numerator;
+<i class="no-highlight">292</i>&nbsp;        long denominator;
+<i class="no-highlight">293</i>&nbsp;
+<b class="nc"><i class="no-highlight">294</i>&nbsp;        numerator = (protocolStats.getLongStat(N_BYTES_READ) == null) ?</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                     0 : protocolStats.getLongStat(N_BYTES_READ).get();</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        denominator = (protocolStats.getLongStat(N_READ_NANOS) == null) ?</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;                0 : protocolStats.getLongStat(N_READ_NANOS).get();</b>
+<i class="no-highlight">298</i>&nbsp;        @SuppressWarnings(&quot;unused&quot;)
+<b class="nc"><i class="no-highlight">299</i>&nbsp;        IntegralLongAvgStat bytesReadRate =</b>
+<i class="no-highlight">300</i>&nbsp;            new IntegralLongAvgStat
+<i class="no-highlight">301</i>&nbsp;                (protocolStats,
+<i class="no-highlight">302</i>&nbsp;                 BYTES_READ_RATE,
+<i class="no-highlight">303</i>&nbsp;                 numerator,
+<i class="no-highlight">304</i>&nbsp;                 denominator,
+<i class="no-highlight">305</i>&nbsp;                 1000000000);
+<i class="no-highlight">306</i>&nbsp;
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        numerator = (protocolStats.getLongStat(N_BYTES_WRITTEN) == null) ?</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;                0 : protocolStats.getLongStat(N_BYTES_WRITTEN).get();</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;        denominator = (protocolStats.getLongStat(N_WRITE_NANOS) == null) ?</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;           0 : protocolStats.getLongStat(N_WRITE_NANOS).get();</b>
+<i class="no-highlight">311</i>&nbsp;        @SuppressWarnings(&quot;unused&quot;)
+<b class="nc"><i class="no-highlight">312</i>&nbsp;        IntegralLongAvgStat bytesWriteRate =</b>
+<i class="no-highlight">313</i>&nbsp;            new IntegralLongAvgStat
+<i class="no-highlight">314</i>&nbsp;                (protocolStats,
+<i class="no-highlight">315</i>&nbsp;                 BYTES_WRITE_RATE,
+<i class="no-highlight">316</i>&nbsp;                 numerator,
+<i class="no-highlight">317</i>&nbsp;                 denominator,
+<i class="no-highlight">318</i>&nbsp;                 1000000000);
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    /* Feeder Stats. */
+<i class="no-highlight">322</i>&nbsp;
+<i class="no-highlight">323</i>&nbsp;    /**
+<i class="no-highlight">324</i>&nbsp;     * The number of Feeder threads since this node was started. A Master
+<i class="no-highlight">325</i>&nbsp;     * supplies the Replication Stream to a Replica via a Feeder thread. The
+<i class="no-highlight">326</i>&nbsp;     * Feeder thread is created when a Replica connects to the node and is
+<i class="no-highlight">327</i>&nbsp;     * shutdown when the connection is terminated.
+<i class="no-highlight">328</i>&nbsp;     */
+<i class="no-highlight">329</i>&nbsp;    public int getNFeedersCreated() {
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        return feederManagerStats.getInt(N_FEEDERS_CREATED);</b>
+<i class="no-highlight">331</i>&nbsp;    }
+<i class="no-highlight">332</i>&nbsp;
+<i class="no-highlight">333</i>&nbsp;    /**
+<i class="no-highlight">334</i>&nbsp;     * The number of Feeder threads that were shut down, either because this
+<i class="no-highlight">335</i>&nbsp;     * node, or the Replica terminated the connection.
+<i class="no-highlight">336</i>&nbsp;     *
+<i class="no-highlight">337</i>&nbsp;     * @see #getNFeedersCreated()
+<i class="no-highlight">338</i>&nbsp;     */
+<i class="no-highlight">339</i>&nbsp;    public int getNFeedersShutdown() {
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        return feederManagerStats.getInt(N_FEEDERS_SHUTDOWN);</b>
+<i class="no-highlight">341</i>&nbsp;    }
+<i class="no-highlight">342</i>&nbsp;
+<i class="no-highlight">343</i>&nbsp;    /**
+<i class="no-highlight">344</i>&nbsp;     * The lag (in VLSNs) associated with the replica that&#39;s farthest behind in
+<i class="no-highlight">345</i>&nbsp;     * replaying the replication stream.
+<i class="no-highlight">346</i>&nbsp;     */
+<i class="no-highlight">347</i>&nbsp;    public long getNMaxReplicaLag() {
+<i class="no-highlight">348</i>&nbsp;
+<i class="no-highlight">349</i>&nbsp;        /* TODO: Implement using REPLICA_VLSN_LAG_MAP */
+<b class="nc"><i class="no-highlight">350</i>&nbsp;        return feederManagerStats.getLong(N_MAX_REPLICA_LAG);</b>
+<i class="no-highlight">351</i>&nbsp;    }
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;    /**
+<i class="no-highlight">354</i>&nbsp;     * The name of the replica that&#39;s farthest behind in replaying the
+<i class="no-highlight">355</i>&nbsp;     * replication stream.
+<i class="no-highlight">356</i>&nbsp;     */
+<i class="no-highlight">357</i>&nbsp;    public String getNMaxReplicaLagName() {
+<i class="no-highlight">358</i>&nbsp;
+<i class="no-highlight">359</i>&nbsp;        /* TODO: Implement using REPLICA_VLSN_LAG_MAP */
+<b class="nc"><i class="no-highlight">360</i>&nbsp;        return feederManagerStats.getString(N_MAX_REPLICA_LAG_NAME);</b>
+<i class="no-highlight">361</i>&nbsp;    }
+<i class="no-highlight">362</i>&nbsp;
+<i class="no-highlight">363</i>&nbsp;    /**
+<i class="no-highlight">364</i>&nbsp;     * Returns a map from replica node name to the delay, in milliseconds,
+<i class="no-highlight">365</i>&nbsp;     * between when a transaction was committed on the master and when the
+<i class="no-highlight">366</i>&nbsp;     * master learned that the transaction was processed on the replica, if
+<i class="no-highlight">367</i>&nbsp;     * known.  Returns an empty map if this node is not the master.
+<i class="no-highlight">368</i>&nbsp;     *
+<i class="no-highlight">369</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">370</i>&nbsp;     */
+<i class="no-highlight">371</i>&nbsp;    public SortedMap&lt;String, Long&gt; getReplicaDelayMap() {
+<b class="nc"><i class="no-highlight">372</i>&nbsp;        final LongDiffMapStat stat =</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;            (LongDiffMapStat) feederManagerStats.getStat(REPLICA_DELAY_MAP);</b>
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        if (stat == null) {</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;            return emptySortedMap();</b>
+<i class="no-highlight">376</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        return stat.getMap();</b>
+<i class="no-highlight">378</i>&nbsp;    }
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;    /**
+<i class="no-highlight">381</i>&nbsp;     * Returns a map from replica node name to the commit timestamp of the last
+<i class="no-highlight">382</i>&nbsp;     * committed transaction that was processed on the replica, if known.
+<i class="no-highlight">383</i>&nbsp;     * Returns an empty map if this node is not the master.
+<i class="no-highlight">384</i>&nbsp;     *
+<i class="no-highlight">385</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">386</i>&nbsp;     */
+<i class="no-highlight">387</i>&nbsp;    public SortedMap&lt;String, Long&gt; getReplicaLastCommitTimestampMap() {
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        final AtomicLongMapStat stat = (AtomicLongMapStat)</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;            feederManagerStats.getStat(REPLICA_LAST_COMMIT_TIMESTAMP_MAP);</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        if (stat == null) {</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;            return emptySortedMap();</b>
+<i class="no-highlight">392</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">393</i>&nbsp;        return stat.getMap();</b>
+<i class="no-highlight">394</i>&nbsp;    }
+<i class="no-highlight">395</i>&nbsp;
+<i class="no-highlight">396</i>&nbsp;    /**
+<i class="no-highlight">397</i>&nbsp;     * Returns a map from replica node name to the VLSN of the last committed
+<i class="no-highlight">398</i>&nbsp;     * transaction that was processed on the replica, if known.  Returns an
+<i class="no-highlight">399</i>&nbsp;     * empty map if this node is not the master.
+<i class="no-highlight">400</i>&nbsp;     *
+<i class="no-highlight">401</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">402</i>&nbsp;     */
+<i class="no-highlight">403</i>&nbsp;    public SortedMap&lt;String, Long&gt; getReplicaLastCommitVLSNMap() {
+<b class="nc"><i class="no-highlight">404</i>&nbsp;        final AtomicLongMapStat stat = (AtomicLongMapStat)</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;            feederManagerStats.getStat(REPLICA_LAST_COMMIT_VLSN_MAP);</b>
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        if (stat == null) {</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;            return emptySortedMap();</b>
+<i class="no-highlight">408</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">409</i>&nbsp;        return stat.getMap();</b>
+<i class="no-highlight">410</i>&nbsp;    }
+<i class="no-highlight">411</i>&nbsp;
+<i class="no-highlight">412</i>&nbsp;    /**
+<i class="no-highlight">413</i>&nbsp;     * Returns a map from replica node name to the lag, in VLSNs, between the
+<i class="no-highlight">414</i>&nbsp;     * replication state of the replica and the master, if known.  Returns an
+<i class="no-highlight">415</i>&nbsp;     * empty map if this node is not the master.
+<i class="no-highlight">416</i>&nbsp;     *
+<i class="no-highlight">417</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">418</i>&nbsp;     */
+<i class="no-highlight">419</i>&nbsp;    public SortedMap&lt;String, Long&gt; getReplicaVLSNLagMap() {
+<b class="nc"><i class="no-highlight">420</i>&nbsp;        final LongDiffMapStat stat =</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            (LongDiffMapStat) feederManagerStats.getStat(REPLICA_VLSN_LAG_MAP);</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;        if (stat == null) {</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;            return emptySortedMap();</b>
+<i class="no-highlight">424</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">425</i>&nbsp;        return stat.getMap();</b>
+<i class="no-highlight">426</i>&nbsp;    }
+<i class="no-highlight">427</i>&nbsp;
+<i class="no-highlight">428</i>&nbsp;    /**
+<i class="no-highlight">429</i>&nbsp;     * Returns a map from replica node name to a moving average of the rate, in
+<i class="no-highlight">430</i>&nbsp;     * VLSNs per minute, that the replica is processing replication data, if
+<i class="no-highlight">431</i>&nbsp;     * known.  Returns an empty map if this node is not the master.
+<i class="no-highlight">432</i>&nbsp;     *
+<i class="no-highlight">433</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">434</i>&nbsp;     */
+<i class="no-highlight">435</i>&nbsp;    public SortedMap&lt;String, Long&gt; getReplicaVLSNRateMap() {
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        final LongAvgRateMapStat stat = (LongAvgRateMapStat)</b>
+<b class="nc"><i class="no-highlight">437</i>&nbsp;            feederManagerStats.getStat(REPLICA_VLSN_RATE_MAP);</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;        if (stat == null) {</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;            return emptySortedMap();</b>
+<i class="no-highlight">440</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        return stat.getMap();</b>
+<i class="no-highlight">442</i>&nbsp;    }
+<i class="no-highlight">443</i>&nbsp;
+<i class="no-highlight">444</i>&nbsp;    /* Master transaction commit acknowledgment statistics. */
+<i class="no-highlight">445</i>&nbsp;
+<i class="no-highlight">446</i>&nbsp;    /**
+<i class="no-highlight">447</i>&nbsp;     * The number of transactions that were successfully acknowledged based
+<i class="no-highlight">448</i>&nbsp;     * upon the {@link ReplicaAckPolicy} policy associated with the
+<i class="no-highlight">449</i>&nbsp;     * transaction commit.
+<i class="no-highlight">450</i>&nbsp;     */
+<i class="no-highlight">451</i>&nbsp;    public long getNTxnsAcked() {
+<b class="nc"><i class="no-highlight">452</i>&nbsp;        return (feederTxnStats == null) ?</b>
+<i class="no-highlight">453</i>&nbsp;               VALUE_UNAVAILABLE :
+<b class="nc"><i class="no-highlight">454</i>&nbsp;               feederTxnStats.getAtomicLong(TXNS_ACKED);</b>
+<i class="no-highlight">455</i>&nbsp;    }
+<i class="no-highlight">456</i>&nbsp;
+<i class="no-highlight">457</i>&nbsp;    /**
+<i class="no-highlight">458</i>&nbsp;     * The number of transactions that were not acknowledged as required by the
+<i class="no-highlight">459</i>&nbsp;     * {@link ReplicaAckPolicy} policy associated with the transaction commit.
+<i class="no-highlight">460</i>&nbsp;     * These transactions resulted in {@link InsufficientReplicasException} or
+<i class="no-highlight">461</i>&nbsp;     * {@link InsufficientAcksException}.
+<i class="no-highlight">462</i>&nbsp;     */
+<i class="no-highlight">463</i>&nbsp;    public long getNTxnsNotAcked() {
+<b class="nc"><i class="no-highlight">464</i>&nbsp;        return (feederTxnStats == null) ?</b>
+<i class="no-highlight">465</i>&nbsp;               VALUE_UNAVAILABLE :
+<b class="nc"><i class="no-highlight">466</i>&nbsp;               feederTxnStats.getAtomicLong(TXNS_NOT_ACKED);</b>
+<i class="no-highlight">467</i>&nbsp;    }
+<i class="no-highlight">468</i>&nbsp;
+<i class="no-highlight">469</i>&nbsp;    /**
+<i class="no-highlight">470</i>&nbsp;     * The total time in milliseconds spent in replicated transactions. This
+<i class="no-highlight">471</i>&nbsp;     * represents the time from the start of the transaction until its
+<i class="no-highlight">472</i>&nbsp;     * successful commit and acknowledgment. It includes the time spent
+<i class="no-highlight">473</i>&nbsp;     * waiting for transaction commit acknowledgments, as determined by
+<i class="no-highlight">474</i>&nbsp;     * {@link #getAckWaitMs()}.
+<i class="no-highlight">475</i>&nbsp;     */
+<i class="no-highlight">476</i>&nbsp;    public long getTotalTxnMs() {
+<b class="nc"><i class="no-highlight">477</i>&nbsp;        return (feederTxnStats == null) ?</b>
+<i class="no-highlight">478</i>&nbsp;                VALUE_UNAVAILABLE :
+<b class="nc"><i class="no-highlight">479</i>&nbsp;                feederTxnStats.getAtomicLong(TOTAL_TXN_MS);</b>
+<i class="no-highlight">480</i>&nbsp;    }
+<i class="no-highlight">481</i>&nbsp;
+<i class="no-highlight">482</i>&nbsp;    /**
+<i class="no-highlight">483</i>&nbsp;     * The total time in milliseconds that the master spent waiting for the
+<i class="no-highlight">484</i>&nbsp;     * {@link ReplicaAckPolicy} to be satisfied during successful transaction
+<i class="no-highlight">485</i>&nbsp;     * commits.
+<i class="no-highlight">486</i>&nbsp;     *
+<i class="no-highlight">487</i>&nbsp;     * @see #getTotalTxnMs()
+<i class="no-highlight">488</i>&nbsp;     */
+<i class="no-highlight">489</i>&nbsp;    public long getAckWaitMs() {
+<b class="nc"><i class="no-highlight">490</i>&nbsp;        return (feederTxnStats == null) ?</b>
+<i class="no-highlight">491</i>&nbsp;                VALUE_UNAVAILABLE :
+<b class="nc"><i class="no-highlight">492</i>&nbsp;                feederTxnStats.getAtomicLong(ACK_WAIT_MS);</b>
+<i class="no-highlight">493</i>&nbsp;    }
+<i class="no-highlight">494</i>&nbsp;
+<i class="no-highlight">495</i>&nbsp;    /**
+<i class="no-highlight">496</i>&nbsp;     * The VLSN of the last committed transaction on the master, or 0 if not
+<i class="no-highlight">497</i>&nbsp;     * known or this node is not the master.
+<i class="no-highlight">498</i>&nbsp;     *
+<i class="no-highlight">499</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">500</i>&nbsp;     */
+<i class="no-highlight">501</i>&nbsp;    public long getLastCommitVLSN() {
+<b class="nc"><i class="no-highlight">502</i>&nbsp;        return (feederTxnStats == null) ?</b>
+<i class="no-highlight">503</i>&nbsp;            VALUE_UNAVAILABLE :
+<b class="nc"><i class="no-highlight">504</i>&nbsp;            feederTxnStats.getAtomicLong(LAST_COMMIT_VLSN);</b>
+<i class="no-highlight">505</i>&nbsp;    }
+<i class="no-highlight">506</i>&nbsp;
+<i class="no-highlight">507</i>&nbsp;    /**
+<i class="no-highlight">508</i>&nbsp;     * The commit timestamp of the last committed transaction on the master, or
+<i class="no-highlight">509</i>&nbsp;     * 0 if not known or this node is not the master.
+<i class="no-highlight">510</i>&nbsp;     *
+<i class="no-highlight">511</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">512</i>&nbsp;     */
+<i class="no-highlight">513</i>&nbsp;    public long getLastCommitTimestamp() {
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        return (feederTxnStats == null) ?</b>
+<i class="no-highlight">515</i>&nbsp;            VALUE_UNAVAILABLE :
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            feederTxnStats.getAtomicLong(LAST_COMMIT_TIMESTAMP);</b>
+<i class="no-highlight">517</i>&nbsp;    }
+<i class="no-highlight">518</i>&nbsp;
+<i class="no-highlight">519</i>&nbsp;    /**
+<i class="no-highlight">520</i>&nbsp;     * A moving average of the rate replication data is being generated by the
+<i class="no-highlight">521</i>&nbsp;     * master, in VLSNs per minute, or 0 if not known or this node is not the
+<i class="no-highlight">522</i>&nbsp;     * master.
+<i class="no-highlight">523</i>&nbsp;     *
+<i class="no-highlight">524</i>&nbsp;     * @since 6.3.0
+<i class="no-highlight">525</i>&nbsp;     */
+<i class="no-highlight">526</i>&nbsp;    public long getVLSNRate() {
+<b class="nc"><i class="no-highlight">527</i>&nbsp;        if (feederTxnStats == null) {</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            return VALUE_UNAVAILABLE;</b>
+<i class="no-highlight">529</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">530</i>&nbsp;        final LongAvgRateStat stat =</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;            (LongAvgRateStat) feederTxnStats.getStat(VLSN_RATE);</b>
+<b class="nc"><i class="no-highlight">532</i>&nbsp;        return (stat != null) ? stat.get() : 0;</b>
+<i class="no-highlight">533</i>&nbsp;    }
+<i class="no-highlight">534</i>&nbsp;
+<i class="no-highlight">535</i>&nbsp;    /* Replay Stats. */
+<i class="no-highlight">536</i>&nbsp;
+<i class="no-highlight">537</i>&nbsp;    /**
+<i class="no-highlight">538</i>&nbsp;     * The number of commit log records that were replayed by this node when
+<i class="no-highlight">539</i>&nbsp;     * it was a Replica. There is one commit record record for each actual
+<i class="no-highlight">540</i>&nbsp;     * commit on the Master.
+<i class="no-highlight">541</i>&nbsp;     */
+<i class="no-highlight">542</i>&nbsp;    public long getNReplayCommits() {
+<b class="nc"><i class="no-highlight">543</i>&nbsp;        return replayStats.getLong(N_COMMITS);</b>
+<i class="no-highlight">544</i>&nbsp;    }
+<i class="no-highlight">545</i>&nbsp;
+<i class="no-highlight">546</i>&nbsp;    /**
+<i class="no-highlight">547</i>&nbsp;     * The number of commit log records that needed to be acknowledged to the
+<i class="no-highlight">548</i>&nbsp;     * Master by this node when it was a Replica. The rate of change of this
+<i class="no-highlight">549</i>&nbsp;     * statistic, will show a strong correlation with that of
+<i class="no-highlight">550</i>&nbsp;     * &lt;code&gt;NReplayCommits&lt;/code&gt; statistic, if the &lt;code&gt;Durability&lt;/code&gt;
+<i class="no-highlight">551</i>&nbsp;     * policy used by transactions on the master calls for transaction commit
+<i class="no-highlight">552</i>&nbsp;     * acknowledgments and the Replica is current with respect to the Master.
+<i class="no-highlight">553</i>&nbsp;     */
+<i class="no-highlight">554</i>&nbsp;    public long getNReplayCommitAcks() {
+<b class="nc"><i class="no-highlight">555</i>&nbsp;        return replayStats.getLong(N_COMMIT_ACKS);</b>
+<i class="no-highlight">556</i>&nbsp;    }
+<i class="no-highlight">557</i>&nbsp;
+<i class="no-highlight">558</i>&nbsp;    /**
+<i class="no-highlight">559</i>&nbsp;     * The number of commitSync() calls executed when satisfying transaction
+<i class="no-highlight">560</i>&nbsp;     * commit acknowledgment requests from the Master.
+<i class="no-highlight">561</i>&nbsp;     */
+<i class="no-highlight">562</i>&nbsp;    public long getNReplayCommitSyncs() {
+<b class="nc"><i class="no-highlight">563</i>&nbsp;        return replayStats.getLong(N_COMMIT_SYNCS);</b>
+<i class="no-highlight">564</i>&nbsp;    }
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;    /**
+<i class="no-highlight">567</i>&nbsp;     * The number of commitNoSync() calls executed when satisfying transaction
+<i class="no-highlight">568</i>&nbsp;     * commit acknowledgment requests from the Master.
+<i class="no-highlight">569</i>&nbsp;     */
+<i class="no-highlight">570</i>&nbsp;    public long getNReplayCommitNoSyncs() {
+<b class="nc"><i class="no-highlight">571</i>&nbsp;        return replayStats.getLong(N_COMMIT_NO_SYNCS);</b>
+<i class="no-highlight">572</i>&nbsp;    }
+<i class="no-highlight">573</i>&nbsp;
+<i class="no-highlight">574</i>&nbsp;    /**
+<i class="no-highlight">575</i>&nbsp;     * The number of commitNoSync() calls executed when satisfying transaction
+<i class="no-highlight">576</i>&nbsp;     * commit acknowledgment requests from the Master.
+<i class="no-highlight">577</i>&nbsp;     */
+<i class="no-highlight">578</i>&nbsp;    public long getNReplayCommitWriteNoSyncs() {
+<b class="nc"><i class="no-highlight">579</i>&nbsp;        return replayStats.getLong(N_COMMIT_WRITE_NO_SYNCS);</b>
+<i class="no-highlight">580</i>&nbsp;    }
+<i class="no-highlight">581</i>&nbsp;
+<i class="no-highlight">582</i>&nbsp;    /**
+<i class="no-highlight">583</i>&nbsp;     * The number of abort records which were replayed while the node was in
+<i class="no-highlight">584</i>&nbsp;     * the Replica state.
+<i class="no-highlight">585</i>&nbsp;     */
+<i class="no-highlight">586</i>&nbsp;    public long getNReplayAborts() {
+<b class="nc"><i class="no-highlight">587</i>&nbsp;        return replayStats.getLong(N_ABORTS);</b>
+<i class="no-highlight">588</i>&nbsp;    }
+<i class="no-highlight">589</i>&nbsp;
+<i class="no-highlight">590</i>&nbsp;    /**
+<i class="no-highlight">591</i>&nbsp;     * The number of NameLN records which were replayed while the node was in
+<i class="no-highlight">592</i>&nbsp;     * the Replica state.
+<i class="no-highlight">593</i>&nbsp;     */
+<i class="no-highlight">594</i>&nbsp;    public long getNReplayNameLNs() {
+<b class="nc"><i class="no-highlight">595</i>&nbsp;        return replayStats.getLong(N_NAME_LNS);</b>
+<i class="no-highlight">596</i>&nbsp;    }
+<i class="no-highlight">597</i>&nbsp;
+<i class="no-highlight">598</i>&nbsp;    /**
+<i class="no-highlight">599</i>&nbsp;     * The number of data records (creation, update, deletion) which were
+<i class="no-highlight">600</i>&nbsp;     * replayed while the node was in the Replica state.
+<i class="no-highlight">601</i>&nbsp;     */
+<i class="no-highlight">602</i>&nbsp;    public long getNReplayLNs() {
+<b class="nc"><i class="no-highlight">603</i>&nbsp;        return replayStats.getLong(N_LNS);</b>
+<i class="no-highlight">604</i>&nbsp;    }
+<i class="no-highlight">605</i>&nbsp;
+<i class="no-highlight">606</i>&nbsp;    /**
+<i class="no-highlight">607</i>&nbsp;     * The total elapsed time in milliseconds spent replaying committed and
+<i class="no-highlight">608</i>&nbsp;     * aborted transactions.
+<i class="no-highlight">609</i>&nbsp;     */
+<i class="no-highlight">610</i>&nbsp;    public long getReplayElapsedTxnTime() {
+<b class="nc"><i class="no-highlight">611</i>&nbsp;        return replayStats.getLong(N_ELAPSED_TXN_TIME);</b>
+<i class="no-highlight">612</i>&nbsp;    }
+<i class="no-highlight">613</i>&nbsp;
+<i class="no-highlight">614</i>&nbsp;    /**
+<i class="no-highlight">615</i>&nbsp;     * The number of group commits that were initiated due to the
+<i class="no-highlight">616</i>&nbsp;     * {@link ReplicationConfig#REPLICA_GROUP_COMMIT_INTERVAL group timeout
+<i class="no-highlight">617</i>&nbsp;     * interval} being exceeded.
+<i class="no-highlight">618</i>&nbsp;     *
+<i class="no-highlight">619</i>&nbsp;     * @since 5.0.76
+<i class="no-highlight">620</i>&nbsp;     */
+<i class="no-highlight">621</i>&nbsp;    public long getNReplayGroupCommitTimeouts() {
+<b class="nc"><i class="no-highlight">622</i>&nbsp;        return replayStats.getLong(N_GROUP_COMMIT_TIMEOUTS);</b>
+<i class="no-highlight">623</i>&nbsp;    }
+<i class="no-highlight">624</i>&nbsp;
+<i class="no-highlight">625</i>&nbsp;    /**
+<i class="no-highlight">626</i>&nbsp;     * The number of group commits that were initiated due the
+<i class="no-highlight">627</i>&nbsp;     * {@link ReplicationConfig#REPLICA_MAX_GROUP_COMMIT max group size} being
+<i class="no-highlight">628</i>&nbsp;     * exceeded.
+<i class="no-highlight">629</i>&nbsp;     *
+<i class="no-highlight">630</i>&nbsp;     * @since 5.0.76
+<i class="no-highlight">631</i>&nbsp;     */
+<i class="no-highlight">632</i>&nbsp;     public long getNReplayGroupCommitMaxExceeded() {
+<b class="nc"><i class="no-highlight">633</i>&nbsp;         return replayStats.getLong(N_GROUP_COMMIT_MAX_EXCEEDED);</b>
+<i class="no-highlight">634</i>&nbsp;     }
+<i class="no-highlight">635</i>&nbsp;
+<i class="no-highlight">636</i>&nbsp;    /**
+<i class="no-highlight">637</i>&nbsp;     * The number of replay transaction commits that were part of a group
+<i class="no-highlight">638</i>&nbsp;     * commit operation.
+<i class="no-highlight">639</i>&nbsp;     *
+<i class="no-highlight">640</i>&nbsp;     * @since 5.0.76
+<i class="no-highlight">641</i>&nbsp;     */
+<i class="no-highlight">642</i>&nbsp;     public long getNReplayGroupCommitTxns() {
+<b class="nc"><i class="no-highlight">643</i>&nbsp;         return replayStats.getLong(N_GROUP_COMMIT_TXNS);</b>
+<i class="no-highlight">644</i>&nbsp;     }
+<i class="no-highlight">645</i>&nbsp;
+<i class="no-highlight">646</i>&nbsp;     /**
+<i class="no-highlight">647</i>&nbsp;      * The number of group commit operations.
+<i class="no-highlight">648</i>&nbsp;      *
+<i class="no-highlight">649</i>&nbsp;      * @since 5.0.76
+<i class="no-highlight">650</i>&nbsp;      */
+<i class="no-highlight">651</i>&nbsp;     public long getNReplayGroupCommits() {
+<b class="nc"><i class="no-highlight">652</i>&nbsp;         return replayStats.getLong(N_GROUP_COMMITS);</b>
+<i class="no-highlight">653</i>&nbsp;     }
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;    /**
+<i class="no-highlight">656</i>&nbsp;     * The minimum time taken to replay a transaction commit operation.
+<i class="no-highlight">657</i>&nbsp;     */
+<i class="no-highlight">658</i>&nbsp;    public long getReplayMinCommitProcessingNanos() {
+<b class="nc"><i class="no-highlight">659</i>&nbsp;        return replayStats.getLong(MIN_COMMIT_PROCESSING_NANOS);</b>
+<i class="no-highlight">660</i>&nbsp;    }
+<i class="no-highlight">661</i>&nbsp;
+<i class="no-highlight">662</i>&nbsp;    /**
+<i class="no-highlight">663</i>&nbsp;     * The maximum time taken to replay a transaction commit operation.
+<i class="no-highlight">664</i>&nbsp;     */
+<i class="no-highlight">665</i>&nbsp;    public long getReplayMaxCommitProcessingNanos() {
+<b class="nc"><i class="no-highlight">666</i>&nbsp;        return replayStats.getLong(MAX_COMMIT_PROCESSING_NANOS);</b>
+<i class="no-highlight">667</i>&nbsp;    }
+<i class="no-highlight">668</i>&nbsp;
+<i class="no-highlight">669</i>&nbsp;    /**
+<i class="no-highlight">670</i>&nbsp;     * The total time spent to replay all commit operations.
+<i class="no-highlight">671</i>&nbsp;     */
+<i class="no-highlight">672</i>&nbsp;    public long getReplayTotalCommitProcessingNanos() {
+<b class="nc"><i class="no-highlight">673</i>&nbsp;        return replayStats.getLong(TOTAL_COMMIT_PROCESSING_NANOS);</b>
+<i class="no-highlight">674</i>&nbsp;    }
+<i class="no-highlight">675</i>&nbsp;
+<i class="no-highlight">676</i>&nbsp;    /**
+<i class="no-highlight">677</i>&nbsp;     * @hidden
+<i class="no-highlight">678</i>&nbsp;     * TODO: Make visible after experimenting with this new stat
+<i class="no-highlight">679</i>&nbsp;     *
+<i class="no-highlight">680</i>&nbsp;     * The sum of time periods, measured in milliseconds, between when update
+<i class="no-highlight">681</i>&nbsp;     * operations commit on the master and then subsequently commit on the
+<i class="no-highlight">682</i>&nbsp;     * replica.  Divide this value by the total number of commit operations,
+<i class="no-highlight">683</i>&nbsp;     * available by calling {@link #getNReplayCommits}, to find the average
+<i class="no-highlight">684</i>&nbsp;     * commit lag for a single operation.
+<i class="no-highlight">685</i>&nbsp;     *
+<i class="no-highlight">686</i>&nbsp;     * &lt;p&gt;Note that each lag is computed on the replica by comparing the time
+<i class="no-highlight">687</i>&nbsp;     * of the master commit, as measured by the master, and time on the replica
+<i class="no-highlight">688</i>&nbsp;     * when it commits locally.  As a result, the return value will be affected
+<i class="no-highlight">689</i>&nbsp;     * by any clock skew between the master and the replica.
+<i class="no-highlight">690</i>&nbsp;     */
+<i class="no-highlight">691</i>&nbsp;    public long getReplayTotalCommitLagMs() {
+<b class="nc"><i class="no-highlight">692</i>&nbsp;        return replayStats.getLong(TOTAL_COMMIT_LAG_MS);</b>
+<i class="no-highlight">693</i>&nbsp;    }
+<i class="no-highlight">694</i>&nbsp;
+<i class="no-highlight">695</i>&nbsp;    /**
+<i class="no-highlight">696</i>&nbsp;     * @hidden
+<i class="no-highlight">697</i>&nbsp;     * TODO: Make visible after experimenting with this new stat
+<i class="no-highlight">698</i>&nbsp;     *
+<i class="no-highlight">699</i>&nbsp;     * The time in milliseconds between when the latest update operation
+<i class="no-highlight">700</i>&nbsp;     * committed on the master and then subsequently committed on the replica.
+<i class="no-highlight">701</i>&nbsp;     *
+<i class="no-highlight">702</i>&nbsp;     * &lt;p&gt;Note that the lag is computed on the replica by comparing the time of
+<i class="no-highlight">703</i>&nbsp;     * the master commit, as measured by the master, and time on the replica
+<i class="no-highlight">704</i>&nbsp;     * when it commits locally.  As a result, the return value will be affected
+<i class="no-highlight">705</i>&nbsp;     * by any clock skew between the master and the replica.
+<i class="no-highlight">706</i>&nbsp;     */
+<i class="no-highlight">707</i>&nbsp;    public long getReplayLatestCommitLagMs() {
+<b class="nc"><i class="no-highlight">708</i>&nbsp;        return replayStats.getLong(LATEST_COMMIT_LAG_MS);</b>
+<i class="no-highlight">709</i>&nbsp;    }
+<i class="no-highlight">710</i>&nbsp;
+<i class="no-highlight">711</i>&nbsp;    /* Protocol Stats. */
+<i class="no-highlight">712</i>&nbsp;
+<i class="no-highlight">713</i>&nbsp;    /**
+<i class="no-highlight">714</i>&nbsp;     * The number of bytes of Replication Stream read over the network. It does
+<i class="no-highlight">715</i>&nbsp;     * not include the TCP/IP overhead.
+<i class="no-highlight">716</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">717</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">718</i>&nbsp;     * started, the number represents the sum total of all Feeder related
+<i class="no-highlight">719</i>&nbsp;     * network activity, as well as Replica network activity.
+<i class="no-highlight">720</i>&nbsp;     */
+<i class="no-highlight">721</i>&nbsp;    public long getNProtocolBytesRead() {
+<b class="nc"><i class="no-highlight">722</i>&nbsp;        return protocolStats.getLong(N_BYTES_READ);</b>
+<i class="no-highlight">723</i>&nbsp;    }
+<i class="no-highlight">724</i>&nbsp;
+<i class="no-highlight">725</i>&nbsp;    /**
+<i class="no-highlight">726</i>&nbsp;     * The number of Replication Stream messages read over the network.
+<i class="no-highlight">727</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">728</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">729</i>&nbsp;     * started, the number represents the sum total of all Feeder related
+<i class="no-highlight">730</i>&nbsp;     * network activity, as well as Replica network activity.
+<i class="no-highlight">731</i>&nbsp;     */
+<i class="no-highlight">732</i>&nbsp;    public long getNProtocolMessagesRead() {
+<b class="nc"><i class="no-highlight">733</i>&nbsp;        return protocolStats.getLong(N_MESSAGES_READ);</b>
+<i class="no-highlight">734</i>&nbsp;    }
+<i class="no-highlight">735</i>&nbsp;
+<i class="no-highlight">736</i>&nbsp;    /**
+<i class="no-highlight">737</i>&nbsp;     * The number of Replication Stream bytes written over the network.
+<i class="no-highlight">738</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">739</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">740</i>&nbsp;     * started, the number represents the sum total of all Feeder related
+<i class="no-highlight">741</i>&nbsp;     * network activity, as well as Replica network activity.
+<i class="no-highlight">742</i>&nbsp;     */
+<i class="no-highlight">743</i>&nbsp;    public long getNProtocolBytesWritten() {
+<b class="nc"><i class="no-highlight">744</i>&nbsp;        return protocolStats.getLong(N_BYTES_WRITTEN);</b>
+<i class="no-highlight">745</i>&nbsp;    }
+<i class="no-highlight">746</i>&nbsp;
+<i class="no-highlight">747</i>&nbsp;    /**
+<i class="no-highlight">748</i>&nbsp;     * The number of Replication Stream messages that were written as part
+<i class="no-highlight">749</i>&nbsp;     * of a message batch instead of being written  individually.
+<i class="no-highlight">750</i>&nbsp;     *
+<i class="no-highlight">751</i>&nbsp;     * It represents a subset of the messages returned by
+<i class="no-highlight">752</i>&nbsp;     * {@link #getNProtocolMessagesWritten()}
+<i class="no-highlight">753</i>&nbsp;     *
+<i class="no-highlight">754</i>&nbsp;     * @see #getNProtocolMessageBatches
+<i class="no-highlight">755</i>&nbsp;     *
+<i class="no-highlight">756</i>&nbsp;     * @since 6.2.7
+<i class="no-highlight">757</i>&nbsp;     */
+<i class="no-highlight">758</i>&nbsp;    public long getNProtocolMessagesBatched() {
+<b class="nc"><i class="no-highlight">759</i>&nbsp;        return protocolStats.getLong(N_MESSAGES_BATCHED);</b>
+<i class="no-highlight">760</i>&nbsp;    }
+<i class="no-highlight">761</i>&nbsp;
+<i class="no-highlight">762</i>&nbsp;    /**
+<i class="no-highlight">763</i>&nbsp;     * The number of Replication Stream message batches written to the network.
+<i class="no-highlight">764</i>&nbsp;     *
+<i class="no-highlight">765</i>&nbsp;     * @see #getNProtocolMessagesBatched
+<i class="no-highlight">766</i>&nbsp;     *
+<i class="no-highlight">767</i>&nbsp;     * @since 6.2.7
+<i class="no-highlight">768</i>&nbsp;     */
+<i class="no-highlight">769</i>&nbsp;    public long getNProtocolMessageBatches() {
+<b class="nc"><i class="no-highlight">770</i>&nbsp;        return protocolStats.getLong(N_MESSAGE_BATCHES);</b>
+<i class="no-highlight">771</i>&nbsp;    }
+<i class="no-highlight">772</i>&nbsp;
+<i class="no-highlight">773</i>&nbsp;    /**
+<i class="no-highlight">774</i>&nbsp;     * The total number of Replication Stream messages written over the
+<i class="no-highlight">775</i>&nbsp;     * network.
+<i class="no-highlight">776</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">777</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">778</i>&nbsp;     * started, the number represents the sum total of all Feeder related
+<i class="no-highlight">779</i>&nbsp;     * network activity, as well as Replica network activity.
+<i class="no-highlight">780</i>&nbsp;     */
+<i class="no-highlight">781</i>&nbsp;    public long getNProtocolMessagesWritten() {
+<b class="nc"><i class="no-highlight">782</i>&nbsp;        return protocolStats.getLong(N_MESSAGES_WRITTEN);</b>
+<i class="no-highlight">783</i>&nbsp;    }
+<i class="no-highlight">784</i>&nbsp;
+<i class="no-highlight">785</i>&nbsp;    /**
+<i class="no-highlight">786</i>&nbsp;     * The number of nanoseconds spent reading from the network channel.
+<i class="no-highlight">787</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">788</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">789</i>&nbsp;     * started, the number represents the sum total of all Feeder related
+<i class="no-highlight">790</i>&nbsp;     * network activity, as well as Replica network activity.
+<i class="no-highlight">791</i>&nbsp;     */
+<i class="no-highlight">792</i>&nbsp;    public long getProtocolReadNanos() {
+<b class="nc"><i class="no-highlight">793</i>&nbsp;        return protocolStats.getLong(N_READ_NANOS);</b>
+<i class="no-highlight">794</i>&nbsp;    }
+<i class="no-highlight">795</i>&nbsp;
+<i class="no-highlight">796</i>&nbsp;    /**
+<i class="no-highlight">797</i>&nbsp;     * The number of nanoseconds spent writing to the network channel.
+<i class="no-highlight">798</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">799</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">800</i>&nbsp;     * started, the number represents the sum total of all Feeder related
+<i class="no-highlight">801</i>&nbsp;     * network activity, as well as Replica network activity.
+<i class="no-highlight">802</i>&nbsp;     */
+<i class="no-highlight">803</i>&nbsp;    public long getProtocolWriteNanos() {
+<b class="nc"><i class="no-highlight">804</i>&nbsp;        return protocolStats.getLong(N_WRITE_NANOS);</b>
+<i class="no-highlight">805</i>&nbsp;    }
+<i class="no-highlight">806</i>&nbsp;
+<i class="no-highlight">807</i>&nbsp;    /**
+<i class="no-highlight">808</i>&nbsp;     * Incoming replication message throughput, in terms of messages received
+<i class="no-highlight">809</i>&nbsp;     * from the replication network channels per second.
+<i class="no-highlight">810</i>&nbsp;     * &lt;p&gt; If the node has served as both a Replica and Master since
+<i class="no-highlight">811</i>&nbsp;     * it was first started, the number represents the message reading rate
+<i class="no-highlight">812</i>&nbsp;     * over all Feeder related network activity, as well as Replica network
+<i class="no-highlight">813</i>&nbsp;     * activity.
+<i class="no-highlight">814</i>&nbsp;     */
+<i class="no-highlight">815</i>&nbsp;    public long getProtocolMessageReadRate() {
+<b class="nc"><i class="no-highlight">816</i>&nbsp;        IntegralLongAvgStat rstat =</b>
+<b class="nc"><i class="no-highlight">817</i>&nbsp;            protocolStats.getIntegralLongAvgStat(MESSAGE_READ_RATE);</b>
+<b class="nc"><i class="no-highlight">818</i>&nbsp;        return (rstat != null) ? rstat.get().longValue() : 0;</b>
+<i class="no-highlight">819</i>&nbsp;    }
+<i class="no-highlight">820</i>&nbsp;
+<i class="no-highlight">821</i>&nbsp;    /**
+<i class="no-highlight">822</i>&nbsp;     * Outgoing message throughput, in terms of message written to the
+<i class="no-highlight">823</i>&nbsp;     * replication network channels per second.
+<i class="no-highlight">824</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">825</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">826</i>&nbsp;     * started, the number represents the message writing rate over all Feeder
+<i class="no-highlight">827</i>&nbsp;     * related network activity, as well as Replica network activity.
+<i class="no-highlight">828</i>&nbsp;     */
+<i class="no-highlight">829</i>&nbsp;    public long getProtocolMessageWriteRate() {
+<b class="nc"><i class="no-highlight">830</i>&nbsp;        IntegralLongAvgStat rstat =</b>
+<b class="nc"><i class="no-highlight">831</i>&nbsp;            protocolStats.getIntegralLongAvgStat(MESSAGE_WRITE_RATE);</b>
+<b class="nc"><i class="no-highlight">832</i>&nbsp;        return (rstat != null) ? rstat.get().longValue() : 0;</b>
+<i class="no-highlight">833</i>&nbsp;    }
+<i class="no-highlight">834</i>&nbsp;
+<i class="no-highlight">835</i>&nbsp;    /**
+<i class="no-highlight">836</i>&nbsp;     * Bytes read throughput, in terms of bytes received from the replication
+<i class="no-highlight">837</i>&nbsp;     * network channels per second.
+<i class="no-highlight">838</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">839</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">840</i>&nbsp;     * started, the number represents the bytes reading rate over all Feeder
+<i class="no-highlight">841</i>&nbsp;     * related network activity, as well as Replica network activity.
+<i class="no-highlight">842</i>&nbsp;     */
+<i class="no-highlight">843</i>&nbsp;    public long getProtocolBytesReadRate() {
+<b class="nc"><i class="no-highlight">844</i>&nbsp;        IntegralLongAvgStat rstat =</b>
+<b class="nc"><i class="no-highlight">845</i>&nbsp;            protocolStats.getIntegralLongAvgStat(BYTES_READ_RATE);</b>
+<b class="nc"><i class="no-highlight">846</i>&nbsp;        return (rstat != null) ? rstat.get().longValue() : 0;</b>
+<i class="no-highlight">847</i>&nbsp;    }
+<i class="no-highlight">848</i>&nbsp;
+<i class="no-highlight">849</i>&nbsp;    /**
+<i class="no-highlight">850</i>&nbsp;     * Bytes written throughput, in terms of bytes written to the replication
+<i class="no-highlight">851</i>&nbsp;     * network channels per second.
+<i class="no-highlight">852</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">853</i>&nbsp;     * If the node has served as both a Replica and Master since it was first
+<i class="no-highlight">854</i>&nbsp;     * started, the number represents the bytes writing rate over all Feeder
+<i class="no-highlight">855</i>&nbsp;     * related network activity, as well as Replica network activity.
+<i class="no-highlight">856</i>&nbsp;     */
+<i class="no-highlight">857</i>&nbsp;    public long getProtocolBytesWriteRate() {
+<b class="nc"><i class="no-highlight">858</i>&nbsp;        IntegralLongAvgStat rstat =</b>
+<b class="nc"><i class="no-highlight">859</i>&nbsp;            protocolStats.getIntegralLongAvgStat(BYTES_WRITE_RATE);</b>
+<b class="nc"><i class="no-highlight">860</i>&nbsp;        return (rstat != null) ? rstat.get().longValue() : 0;</b>
+<i class="no-highlight">861</i>&nbsp;    }
+<i class="no-highlight">862</i>&nbsp;
+<i class="no-highlight">863</i>&nbsp;    /**
+<i class="no-highlight">864</i>&nbsp;     * Returns the number of messages containing log entries that were written
+<i class="no-highlight">865</i>&nbsp;     * to the replication stream using the previous log format to support
+<i class="no-highlight">866</i>&nbsp;     * replication to a replica running an earlier version during an upgrade.
+<i class="no-highlight">867</i>&nbsp;     */
+<i class="no-highlight">868</i>&nbsp;    public long getNProtocolEntriesWrittenOldVersion() {
+<b class="nc"><i class="no-highlight">869</i>&nbsp;        return protocolStats.getLong(N_ENTRIES_WRITTEN_OLD_VERSION);</b>
+<i class="no-highlight">870</i>&nbsp;    }
+<i class="no-highlight">871</i>&nbsp;
+<i class="no-highlight">872</i>&nbsp;    /* ConsistencyTracker Stats. */
+<i class="no-highlight">873</i>&nbsp;
+<i class="no-highlight">874</i>&nbsp;    /**
+<i class="no-highlight">875</i>&nbsp;     * The number of times a Replica held back a
+<i class="no-highlight">876</i>&nbsp;     * {@link Environment#beginTransaction(Transaction,TransactionConfig)}
+<i class="no-highlight">877</i>&nbsp;     * operation to satisfy the {@link TimeConsistencyPolicy}.
+<i class="no-highlight">878</i>&nbsp;     */
+<i class="no-highlight">879</i>&nbsp;    public long getTrackerLagConsistencyWaits() {
+<b class="nc"><i class="no-highlight">880</i>&nbsp;        return trackerStats.getLong(N_LAG_CONSISTENCY_WAITS);</b>
+<i class="no-highlight">881</i>&nbsp;    }
+<i class="no-highlight">882</i>&nbsp;
+<i class="no-highlight">883</i>&nbsp;    /**
+<i class="no-highlight">884</i>&nbsp;     * The total time (in msec) for which a Replica held back a
+<i class="no-highlight">885</i>&nbsp;     * {@link Environment#beginTransaction(Transaction,TransactionConfig)}
+<i class="no-highlight">886</i>&nbsp;     * operation to satisfy the {@link TimeConsistencyPolicy}.
+<i class="no-highlight">887</i>&nbsp;     */
+<i class="no-highlight">888</i>&nbsp;    public long getTrackerLagConsistencyWaitMs() {
+<b class="nc"><i class="no-highlight">889</i>&nbsp;        return trackerStats.getLong(N_LAG_CONSISTENCY_WAIT_MS);</b>
+<i class="no-highlight">890</i>&nbsp;    }
+<i class="no-highlight">891</i>&nbsp;
+<i class="no-highlight">892</i>&nbsp;    /**
+<i class="no-highlight">893</i>&nbsp;     * The number of times a Replica held back a
+<i class="no-highlight">894</i>&nbsp;     * {@link Environment#beginTransaction(Transaction,TransactionConfig)}
+<i class="no-highlight">895</i>&nbsp;     * operation to satisfy the {@link CommitPointConsistencyPolicy}.
+<i class="no-highlight">896</i>&nbsp;     */
+<i class="no-highlight">897</i>&nbsp;    public long getTrackerVLSNConsistencyWaits() {
+<b class="nc"><i class="no-highlight">898</i>&nbsp;        return trackerStats.getLong(N_VLSN_CONSISTENCY_WAITS);</b>
+<i class="no-highlight">899</i>&nbsp;    }
+<i class="no-highlight">900</i>&nbsp;
+<i class="no-highlight">901</i>&nbsp;    /**
+<i class="no-highlight">902</i>&nbsp;     * The total time (in msec) for which a Replica held back a
+<i class="no-highlight">903</i>&nbsp;     * {@link Environment#beginTransaction(Transaction,TransactionConfig)}
+<i class="no-highlight">904</i>&nbsp;     * operation to satisfy the {@link CommitPointConsistencyPolicy}.
+<i class="no-highlight">905</i>&nbsp;     */
+<i class="no-highlight">906</i>&nbsp;    public long getTrackerVLSNConsistencyWaitMs() {
+<b class="nc"><i class="no-highlight">907</i>&nbsp;        return trackerStats.getLong(N_VLSN_CONSISTENCY_WAIT_MS);</b>
+<i class="no-highlight">908</i>&nbsp;    }
+<i class="no-highlight">909</i>&nbsp;
+<i class="no-highlight">910</i>&nbsp;    /**
+<i class="no-highlight">911</i>&nbsp;     * Returns a string representation of the statistics.
+<i class="no-highlight">912</i>&nbsp;     */
+<i class="no-highlight">913</i>&nbsp;    @Override
+<i class="no-highlight">914</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">915</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<i class="no-highlight">916</i>&nbsp;
+<b class="nc"><i class="no-highlight">917</i>&nbsp;        for (StatGroup group : getStatGroups()) {</b>
+<b class="nc"><i class="no-highlight">918</i>&nbsp;            sb.append(group.toString());</b>
+<b class="nc"><i class="no-highlight">919</i>&nbsp;        }</b>
+<i class="no-highlight">920</i>&nbsp;
+<b class="nc"><i class="no-highlight">921</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">922</i>&nbsp;    }
+<i class="no-highlight">923</i>&nbsp;
+<i class="no-highlight">924</i>&nbsp;    public String toStringVerbose() {
+<b class="nc"><i class="no-highlight">925</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<i class="no-highlight">926</i>&nbsp;
+<b class="nc"><i class="no-highlight">927</i>&nbsp;        for (StatGroup group : getStatGroups()) {</b>
+<b class="nc"><i class="no-highlight">928</i>&nbsp;            sb.append(group.toStringVerbose());</b>
+<b class="nc"><i class="no-highlight">929</i>&nbsp;        }</b>
+<i class="no-highlight">930</i>&nbsp;
+<b class="nc"><i class="no-highlight">931</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">932</i>&nbsp;    }
+<i class="no-highlight">933</i>&nbsp;
+<i class="no-highlight">934</i>&nbsp;    public Map&lt;String, String&gt; getTips() {
+<i class="no-highlight">935</i>&nbsp;        /* Add FeederManager stats definition. */
+<i class="no-highlight">936</i>&nbsp;
+<b class="nc"><i class="no-highlight">937</i>&nbsp;        for (StatGroup group : getStatGroups()) {</b>
+<b class="nc"><i class="no-highlight">938</i>&nbsp;            tipsMap.put(group.getName(), group.getDescription());</b>
+<b class="nc"><i class="no-highlight">939</i>&nbsp;            for (StatDefinition def : group.getStats().keySet()) {</b>
+<b class="nc"><i class="no-highlight">940</i>&nbsp;                tipsMap.put(def.getName(), def.getDescription());</b>
+<b class="nc"><i class="no-highlight">941</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">942</i>&nbsp;        }</b>
+<i class="no-highlight">943</i>&nbsp;
+<b class="nc"><i class="no-highlight">944</i>&nbsp;        return tipsMap;</b>
+<i class="no-highlight">945</i>&nbsp;    }
+<i class="no-highlight">946</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

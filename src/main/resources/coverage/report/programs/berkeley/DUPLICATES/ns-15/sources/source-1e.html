@@ -1,0 +1,2044 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicationConfig</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicationConfig (com.sleepycat.je.rep)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicationConfig</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/51)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/113)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">17</i>&nbsp;import java.util.Properties;
+<i class="no-highlight">18</i>&nbsp;import java.util.Set;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.ProgressListener;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.ReplicaConsistencyPolicy;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.RepConfigProxy;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.rep.stream.FeederFilter;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.rep.subscription.StreamAuthenticator;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.rep.utilint.HostPortPair;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">32</i>&nbsp;
+<i class="no-highlight">33</i>&nbsp;/**
+<i class="no-highlight">34</i>&nbsp; * Specifies the immutable attributes of a replicated environment.
+<i class="no-highlight">35</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">36</i>&nbsp; * To change the default settings for a replicated environment, an application
+<i class="no-highlight">37</i>&nbsp; * creates a configuration object, customizes settings and uses it for {@link
+<i class="no-highlight">38</i>&nbsp; * ReplicatedEnvironment} construction. The set methods of this class validate
+<i class="no-highlight">39</i>&nbsp; * the configuration values when the method is invoked.  An
+<i class="no-highlight">40</i>&nbsp; * IllegalArgumentException is thrown if the value is not valid for that
+<i class="no-highlight">41</i>&nbsp; * attribute.
+<i class="no-highlight">42</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">43</i>&nbsp; * Note that ReplicationConfig only describes those attributes which must be
+<i class="no-highlight">44</i>&nbsp; * set at {@code ReplicatedEnvironment} construction time, while its superclass
+<i class="no-highlight">45</i>&nbsp; * {@link ReplicationMutableConfig} describes attributes that may be modified
+<i class="no-highlight">46</i>&nbsp; * during the life of the replication group.
+<i class="no-highlight">47</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">48</i>&nbsp; * ReplicationConfig follows precedence rules similar to those of
+<i class="no-highlight">49</i>&nbsp; * {@link EnvironmentConfig}.
+<i class="no-highlight">50</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">51</i>&nbsp; * &lt;li&gt;Configuration parameters specified
+<i class="no-highlight">52</i>&nbsp; * in {@literal &lt;environmentHome&gt;/je.properties} take first precedence.&lt;/li&gt;
+<i class="no-highlight">53</i>&nbsp; * &lt;li&gt;Configuration parameters set in the ReplicationConfig object used
+<i class="no-highlight">54</i>&nbsp; * at {@code ReplicatedEnvironment} construction are next.&lt;/li&gt;
+<i class="no-highlight">55</i>&nbsp; * &lt;li&gt;Any configuration parameters not set by the application are set to
+<i class="no-highlight">56</i>&nbsp; * system defaults, described along with the parameter name String constants
+<i class="no-highlight">57</i>&nbsp; * in this class.&lt;/li&gt;
+<i class="no-highlight">58</i>&nbsp; *&lt;/ol&gt;
+<i class="no-highlight">59</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">60</i>&nbsp; * After a {@code ReplicatedEnvironment} has been constructed, its mutable
+<i class="no-highlight">61</i>&nbsp; * properties may be changed using {@code
+<i class="no-highlight">62</i>&nbsp; * ReplicatedEnvironment#setMutableConfig}.  See {@code
+<i class="no-highlight">63</i>&nbsp; * ReplicationMutableConfig} for a list of mutable properties; all other
+<i class="no-highlight">64</i>&nbsp; * properties are immutable.  Whether a property is mutable or immutable is
+<i class="no-highlight">65</i>&nbsp; * also described along with the parameter name String constants in this class.
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; * &lt;h4&gt;Getting the Current ReplicatedEnvironment Properties&lt;/h4&gt;
+<i class="no-highlight">68</i>&nbsp; *
+<i class="no-highlight">69</i>&nbsp; * To get the current &quot;live&quot; properties of a replicated environment after
+<i class="no-highlight">70</i>&nbsp; * constructing it or changing its properties, you must call {@link
+<i class="no-highlight">71</i>&nbsp; * ReplicatedEnvironment#getRepConfig} or {@link
+<i class="no-highlight">72</i>&nbsp; * ReplicatedEnvironment#getRepMutableConfig}.  The original ReplicationConfig
+<i class="no-highlight">73</i>&nbsp; * or ReplicationMutableConfig object used to set the properties is not kept up
+<i class="no-highlight">74</i>&nbsp; * to date as properties are changed, and does not reflect property validation
+<i class="no-highlight">75</i>&nbsp; * or properties that are computed.
+<i class="no-highlight">76</i>&nbsp; */
+<i class="no-highlight">77</i>&nbsp;public class ReplicationConfig extends ReplicationMutableConfig
+<i class="no-highlight">78</i>&nbsp;    implements RepConfigProxy {
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    private static final long serialVersionUID = 1L;
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    /*
+<i class="no-highlight">83</i>&nbsp;     * Note: all replicated parameters should start with
+<i class="no-highlight">84</i>&nbsp;     * EnvironmentParams.REP_PARAMS_PREFIX, which is &quot;je.rep.&quot;,
+<i class="no-highlight">85</i>&nbsp;     * see SR [#19080].
+<i class="no-highlight">86</i>&nbsp;     */
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /**
+<i class="no-highlight">89</i>&nbsp;     * The name for the replication group.
+<i class="no-highlight">90</i>&nbsp;     * The name should consist of letters, digits, and/or hyphen (&quot;-&quot;),
+<i class="no-highlight">91</i>&nbsp;     * underscore (&quot;_&quot;), or period (&quot;.&quot;).
+<i class="no-highlight">92</i>&nbsp;     *
+<i class="no-highlight">93</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">94</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;&lt;td&gt;Default&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">95</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">96</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">97</i>&nbsp;     * &lt;td&gt;String&lt;/td&gt;
+<i class="no-highlight">98</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">99</i>&nbsp;     * &lt;td&gt;&quot;DefaultGroup&quot;&lt;/td&gt;
+<i class="no-highlight">100</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">101</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">102</i>&nbsp;     * @see ReplicationConfig#setGroupName
+<i class="no-highlight">103</i>&nbsp;     * @see ReplicationConfig#getGroupName
+<i class="no-highlight">104</i>&nbsp;     */
+<i class="no-highlight">105</i>&nbsp;    public static final String GROUP_NAME =
+<i class="no-highlight">106</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;groupName&quot;;
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    /**
+<i class="no-highlight">109</i>&nbsp;     * The node name uniquely identifies this node within the replication
+<i class="no-highlight">110</i>&nbsp;     * group.
+<i class="no-highlight">111</i>&nbsp;     * The name should consist of letters, digits, and/or hyphen (&quot;-&quot;),
+<i class="no-highlight">112</i>&nbsp;     * underscore (&quot;_&quot;), or period (&quot;.&quot;).
+<i class="no-highlight">113</i>&nbsp;     *
+<i class="no-highlight">114</i>&nbsp;     * &lt;p&gt;Note that the node name is immutable. Normally the host name should
+<i class="no-highlight">115</i>&nbsp;     * not be used as the node name, unless you intend to reuse the host
+<i class="no-highlight">116</i>&nbsp;     * name when a machine fails and is replaced, or the node is upgraded to
+<i class="no-highlight">117</i>&nbsp;     * new hardware.&lt;/p&gt;
+<i class="no-highlight">118</i>&nbsp;     *
+<i class="no-highlight">119</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">120</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;&lt;td&gt;Default&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">121</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">122</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">123</i>&nbsp;     * &lt;td&gt;String&lt;/td&gt;
+<i class="no-highlight">124</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">125</i>&nbsp;     * &lt;td&gt;&quot;DefaultRepNodeName&quot;&lt;/td&gt;
+<i class="no-highlight">126</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">127</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">128</i>&nbsp;     * @see ReplicationConfig#setNodeName
+<i class="no-highlight">129</i>&nbsp;     * @see ReplicationConfig#getNodeName
+<i class="no-highlight">130</i>&nbsp;     */
+<i class="no-highlight">131</i>&nbsp;    public static final String NODE_NAME =
+<i class="no-highlight">132</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;nodeName&quot;;
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    /**
+<i class="no-highlight">135</i>&nbsp;     * The type of this node.
+<i class="no-highlight">136</i>&nbsp;     *
+<i class="no-highlight">137</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">138</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;&lt;td&gt;Default&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">139</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">140</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">141</i>&nbsp;     * &lt;td&gt;{@link NodeType}&lt;/td&gt;
+<i class="no-highlight">142</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">143</i>&nbsp;     * &lt;td&gt;ELECTABLE&lt;/td&gt;
+<i class="no-highlight">144</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">145</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">146</i>&nbsp;     * @see ReplicationConfig#setNodeType
+<i class="no-highlight">147</i>&nbsp;     * @see ReplicationConfig#getNodeType
+<i class="no-highlight">148</i>&nbsp;     */
+<i class="no-highlight">149</i>&nbsp;    public static final String NODE_TYPE =
+<i class="no-highlight">150</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;nodeType&quot;;
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    /**
+<i class="no-highlight">153</i>&nbsp;     * The string identifying one or more helper host and port pairs in
+<i class="no-highlight">154</i>&nbsp;     * this format:
+<i class="no-highlight">155</i>&nbsp;     * &lt;pre&gt;
+<i class="no-highlight">156</i>&nbsp;     * hostname[:port][,hostname[:port]]*
+<i class="no-highlight">157</i>&nbsp;     * &lt;/pre&gt;
+<i class="no-highlight">158</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">159</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;&lt;td&gt;Default&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">160</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">161</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">162</i>&nbsp;     * &lt;td&gt;String&lt;/td&gt;
+<i class="no-highlight">163</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">164</i>&nbsp;     * &lt;td&gt;&quot;&quot;&lt;/td&gt;
+<i class="no-highlight">165</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">166</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">167</i>&nbsp;     * @see ReplicationConfig#setHelperHosts
+<i class="no-highlight">168</i>&nbsp;     * @see ReplicationConfig#getHelperHosts
+<i class="no-highlight">169</i>&nbsp;     * @deprecated replaced by {@link ReplicationMutableConfig#HELPER_HOSTS}.
+<i class="no-highlight">170</i>&nbsp;     */
+<i class="no-highlight">171</i>&nbsp;    @Deprecated
+<i class="no-highlight">172</i>&nbsp;    public static final String HELPER_HOSTS =
+<i class="no-highlight">173</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;helperHosts&quot;;
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;    /**
+<i class="no-highlight">176</i>&nbsp;     * The default port used for replication.
+<i class="no-highlight">177</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">178</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">179</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">180</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">181</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">182</i>&nbsp;     * &lt;td&gt;Integer&lt;/td&gt;
+<i class="no-highlight">183</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">184</i>&nbsp;     * &lt;td&gt;5001&lt;/td&gt;
+<i class="no-highlight">185</i>&nbsp;     * &lt;td&gt;1024&lt;/td&gt;
+<i class="no-highlight">186</i>&nbsp;     * &lt;td&gt;Short.MAX_VALUE&lt;/td&gt;
+<i class="no-highlight">187</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">188</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">189</i>&nbsp;     */
+<i class="no-highlight">190</i>&nbsp;    public static final String DEFAULT_PORT =
+<i class="no-highlight">191</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;defaultPort&quot;;
+<i class="no-highlight">192</i>&nbsp;
+<i class="no-highlight">193</i>&nbsp;    /**
+<i class="no-highlight">194</i>&nbsp;     * Names the hostname and port associated with this node in the
+<i class="no-highlight">195</i>&nbsp;     * replication group, e.g. je.rep.nodeHostPort=foo.com:5001.
+<i class="no-highlight">196</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">197</i>&nbsp;     * The hostname is defaulted to &quot;localhost&quot; to make it easy to prototype
+<i class="no-highlight">198</i>&nbsp;     * and to execute the examples, but the user should be very sure to set a
+<i class="no-highlight">199</i>&nbsp;     * specific hostname before starting nodes on multiple machines. The value
+<i class="no-highlight">200</i>&nbsp;     * of je.rep.nodeHostPort is saved persistently in replication group
+<i class="no-highlight">201</i>&nbsp;     * metadata and is expected to be a unique address, and a value of
+<i class="no-highlight">202</i>&nbsp;     * &quot;localhost&quot; in the replication metadata will cause severe communication
+<i class="no-highlight">203</i>&nbsp;     * confusion.
+<i class="no-highlight">204</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">205</i>&nbsp;     * The port portion of the host value is optional. If it&#39;s not specified,
+<i class="no-highlight">206</i>&nbsp;     * the value of &quot;je.rep.defaultPort&quot; is used.
+<i class="no-highlight">207</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">208</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;&lt;td&gt;Default&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">209</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">210</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">211</i>&nbsp;     * &lt;td&gt;String&lt;/td&gt;
+<i class="no-highlight">212</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">213</i>&nbsp;     * &lt;td&gt;&quot;localhost&quot;&lt;/td&gt;
+<i class="no-highlight">214</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">215</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">216</i>&nbsp;     * @see ReplicationConfig#setNodeHostPort
+<i class="no-highlight">217</i>&nbsp;     * @see ReplicationConfig#getNodeHostPort
+<i class="no-highlight">218</i>&nbsp;     */
+<i class="no-highlight">219</i>&nbsp;    public static final String NODE_HOST_PORT =
+<i class="no-highlight">220</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;nodeHostPort&quot;;
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;    /**
+<i class="no-highlight">223</i>&nbsp;     * When this configuration parameter is set to true, it binds the HA socket
+<i class="no-highlight">224</i>&nbsp;     * to INADDR_ANY, so that HA services are available on all network
+<i class="no-highlight">225</i>&nbsp;     * interfaces. The default value (false) results in the HA socket being
+<i class="no-highlight">226</i>&nbsp;     * bound to the specific interface specified by the {@link #NODE_HOST_PORT}
+<i class="no-highlight">227</i>&nbsp;     * configuration.
+<i class="no-highlight">228</i>&nbsp;     *
+<i class="no-highlight">229</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">230</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">231</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">232</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">233</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">234</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">235</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">236</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">237</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">238</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">239</i>&nbsp;     * &lt;td&gt;Boolean&lt;/td&gt;
+<i class="no-highlight">240</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">241</i>&nbsp;     * &lt;td&gt;false&lt;/td&gt;
+<i class="no-highlight">242</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">243</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">244</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">245</i>&nbsp;     */
+<i class="no-highlight">246</i>&nbsp;    public static final String BIND_INADDR_ANY =
+<i class="no-highlight">247</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;bindInaddrAny&quot;;
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * The default consistency policy used by a replica. This value is used
+<i class="no-highlight">251</i>&nbsp;     * when no {@link com.sleepycat.je.TransactionConfig#setConsistencyPolicy
+<i class="no-highlight">252</i>&nbsp;     * transaction consistency policy} is specified, including when a null
+<i class="no-highlight">253</i>&nbsp;     * {@code Transaction} parameter is used for a read operation.
+<i class="no-highlight">254</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">255</i>&nbsp;     * Only two
+<i class="no-highlight">256</i>&nbsp;     * policies are meaningful as properties denoting environment level default
+<i class="no-highlight">257</i>&nbsp;     * policies: {@link NoConsistencyRequiredPolicy} and
+<i class="no-highlight">258</i>&nbsp;     * {@link TimeConsistencyPolicy}.  They
+<i class="no-highlight">259</i>&nbsp;     * can be specified as:
+<i class="no-highlight">260</i>&nbsp;     * &lt;pre&gt;  NoConsistencyRequiredPolicy&lt;/pre&gt;
+<i class="no-highlight">261</i>&nbsp;     * or
+<i class="no-highlight">262</i>&nbsp;     * &lt;pre&gt;  {@code TimeConsistencyPolicy(&lt;permissibleLag&gt;,&lt;timeout&gt;)}&lt;/pre&gt;
+<i class="no-highlight">263</i>&nbsp;     * where {@code &lt;permissibleLag&gt;} and {@code &lt;timeout&gt;} are {@link &lt;a
+<i class="no-highlight">264</i>&nbsp;     * href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">265</i>&nbsp;     * Properties&lt;/a&gt;}.
+<i class="no-highlight">266</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">267</i>&nbsp;     * For example, a time based consistency policy with a lag of one second
+<i class="no-highlight">268</i>&nbsp;     * and a timeout of one hour is denoted by the string:
+<i class="no-highlight">269</i>&nbsp;     * {@code TimeConsistencyPolicy(1 s,1 h)}
+<i class="no-highlight">270</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">271</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;&lt;td&gt;Default&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">272</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">273</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">274</i>&nbsp;     * &lt;td&gt;String&lt;/td&gt;
+<i class="no-highlight">275</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">276</i>&nbsp;     * &lt;td&gt;&quot;TimeConsistencyPolicy(1 s,1 h)&quot;&lt;/td&gt;
+<i class="no-highlight">277</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">278</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">279</i>&nbsp;     *
+<i class="no-highlight">280</i>&nbsp;     * @see ReplicationConfig#setConsistencyPolicy
+<i class="no-highlight">281</i>&nbsp;     * @see ReplicationConfig#getConsistencyPolicy
+<i class="no-highlight">282</i>&nbsp;     * @see com.sleepycat.je.TransactionConfig#setConsistencyPolicy
+<i class="no-highlight">283</i>&nbsp;     * @see com.sleepycat.je.TransactionConfig#getConsistencyPolicy
+<i class="no-highlight">284</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">285</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">286</i>&nbsp;     */
+<i class="no-highlight">287</i>&nbsp;    public static final String CONSISTENCY_POLICY =
+<i class="no-highlight">288</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;consistencyPolicy&quot;;
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;    /**
+<i class="no-highlight">291</i>&nbsp;     * @deprecated and no longer used as of JE 7.5. Reserved files are now
+<i class="no-highlight">292</i>&nbsp;     * retained based on available disk space -- see
+<i class="no-highlight">293</i>&nbsp;     * {@link EnvironmentConfig#MAX_DISK} and
+<i class="no-highlight">294</i>&nbsp;     * {@link EnvironmentConfig#FREE_DISK} should be used instead.
+<i class="no-highlight">295</i>&nbsp;     * However, this param is still used when some, but not all, nodes in a
+<i class="no-highlight">296</i>&nbsp;     * group have been upgraded to 7.5 or later.
+<i class="no-highlight">297</i>&nbsp;     */
+<i class="no-highlight">298</i>&nbsp;    public static final String REP_STREAM_TIMEOUT =
+<i class="no-highlight">299</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;repStreamTimeout&quot;;
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;    /**
+<i class="no-highlight">302</i>&nbsp;     * @deprecated and no longer used as of JE 7.5. Reserved files are now
+<i class="no-highlight">303</i>&nbsp;     * retained based on available disk space -- see
+<i class="no-highlight">304</i>&nbsp;     * {@link EnvironmentConfig#MAX_DISK} and
+<i class="no-highlight">305</i>&nbsp;     * {@link EnvironmentConfig#FREE_DISK} should be used instead.
+<i class="no-highlight">306</i>&nbsp;     */
+<i class="no-highlight">307</i>&nbsp;    public static final String REPLAY_COST_PERCENT =
+<i class="no-highlight">308</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replayCostPercent&quot;;
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;    /**
+<i class="no-highlight">311</i>&nbsp;     * @deprecated and no longer needed as of JE 7.5. Reserved files are now
+<i class="no-highlight">312</i>&nbsp;     * retained based on available disk space -- see
+<i class="no-highlight">313</i>&nbsp;     * {@link EnvironmentConfig#MAX_DISK} and
+<i class="no-highlight">314</i>&nbsp;     * {@link EnvironmentConfig#FREE_DISK} should be used instead.
+<i class="no-highlight">315</i>&nbsp;     * However, this param is still used when it has been specified and
+<i class="no-highlight">316</i>&nbsp;     * is non-zero, and FREE_DISK has not been specified. In this case,
+<i class="no-highlight">317</i>&nbsp;     * REPLAY_FREE_DISK_PERCENT overrides the FREE_DISK default value. If
+<i class="no-highlight">318</i>&nbsp;     * both REPLAY_FREE_DISK_PERCENT and FREE_DISK are specified, an
+<i class="no-highlight">319</i>&nbsp;     * IllegalArgumentException is thrown.
+<i class="no-highlight">320</i>&nbsp;     */
+<i class="no-highlight">321</i>&nbsp;    public static final String REPLAY_FREE_DISK_PERCENT =
+<i class="no-highlight">322</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replayFreeDiskPercent&quot;;
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    /**
+<i class="no-highlight">325</i>&nbsp;     * The maximum amount of time for a replay transaction to wait for a lock.
+<i class="no-highlight">326</i>&nbsp;     *
+<i class="no-highlight">327</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">328</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">329</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">330</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">331</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">332</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">333</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">334</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">335</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">336</i>&nbsp;     * &lt;td&gt;500 ms&lt;/td&gt;
+<i class="no-highlight">337</i>&nbsp;     * &lt;td&gt;1 ms&lt;/td&gt;
+<i class="no-highlight">338</i>&nbsp;     * &lt;td&gt;75 min&lt;/td&gt;
+<i class="no-highlight">339</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">340</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">341</i>&nbsp;     *
+<i class="no-highlight">342</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">343</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">344</i>&nbsp;     */
+<i class="no-highlight">345</i>&nbsp;    public static final String REPLAY_TXN_LOCK_TIMEOUT =
+<i class="no-highlight">346</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replayTxnLockTimeout&quot;;
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;    /**
+<i class="no-highlight">349</i>&nbsp;     * The maximum number of &lt;i&gt;most recently used&lt;/i&gt; database handles that
+<i class="no-highlight">350</i>&nbsp;     * are kept open during the replay of the replication stream.
+<i class="no-highlight">351</i>&nbsp;     *
+<i class="no-highlight">352</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">353</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">354</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">355</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">356</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">357</i>&nbsp;     * &lt;td&gt;Int&lt;/td&gt;
+<i class="no-highlight">358</i>&nbsp;     * &lt;td&gt;Yes&lt;/td&gt;
+<i class="no-highlight">359</i>&nbsp;     * &lt;td&gt;10&lt;/td&gt;
+<i class="no-highlight">360</i>&nbsp;     * &lt;td&gt;1&lt;/td&gt;
+<i class="no-highlight">361</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">362</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">363</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">364</i>&nbsp;     *
+<i class="no-highlight">365</i>&nbsp;     * @deprecated replaced by {@link ReplicationMutableConfig#REPLAY_MAX_OPEN_DB_HANDLES}.
+<i class="no-highlight">366</i>&nbsp;     */
+<i class="no-highlight">367</i>&nbsp;    @Deprecated
+<i class="no-highlight">368</i>&nbsp;    public static final String REPLAY_MAX_OPEN_DB_HANDLES =
+<i class="no-highlight">369</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replayMaxOpenDbHandles&quot;;
+<i class="no-highlight">370</i>&nbsp;
+<i class="no-highlight">371</i>&nbsp;    /**
+<i class="no-highlight">372</i>&nbsp;     * The maximum amount of time that an inactive database handle is kept open
+<i class="no-highlight">373</i>&nbsp;     * during a replay of the replication stream. Handles that are inactive for
+<i class="no-highlight">374</i>&nbsp;     * more than this time period are automatically closed. Note that this does
+<i class="no-highlight">375</i>&nbsp;     * not impact any handles that may have been opened by the application.
+<i class="no-highlight">376</i>&nbsp;     *
+<i class="no-highlight">377</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">378</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">379</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">380</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">381</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">382</i>&nbsp;     * &lt;td&gt;{@link &lt;a href=&quot;#timeDuration&quot;&gt;Duration&lt;/a&gt;}&lt;/td&gt;
+<i class="no-highlight">383</i>&nbsp;     * &lt;td&gt;Yes&lt;/td&gt;
+<i class="no-highlight">384</i>&nbsp;     * &lt;td&gt;30 sec&lt;/td&gt;
+<i class="no-highlight">385</i>&nbsp;     * &lt;td&gt;1 sec&lt;/td&gt;
+<i class="no-highlight">386</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">387</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">388</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">389</i>&nbsp;     *
+<i class="no-highlight">390</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">391</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">392</i>&nbsp;     *
+<i class="no-highlight">393</i>&nbsp;     * @deprecated replaced by {@link ReplicationMutableConfig#REPLAY_DB_HANDLE_TIMEOUT}.
+<i class="no-highlight">394</i>&nbsp;     */
+<i class="no-highlight">395</i>&nbsp;    @Deprecated
+<i class="no-highlight">396</i>&nbsp;    public static final String REPLAY_DB_HANDLE_TIMEOUT =
+<i class="no-highlight">397</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replayOpenHandleTimeout&quot;;
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;    /**
+<i class="no-highlight">400</i>&nbsp;     * The amount of time to wait for a Replica to become consistent with the
+<i class="no-highlight">401</i>&nbsp;     * Master, when a &lt;code&gt;ReplicatedEnvironment&lt;/code&gt; handle is created and
+<i class="no-highlight">402</i>&nbsp;     * no &lt;code&gt;ConsistencyPolicy&lt;/code&gt; is specified. If the Replica does not
+<i class="no-highlight">403</i>&nbsp;     * become consistent within this period, a
+<i class="no-highlight">404</i>&nbsp;     * &lt;code&gt;ReplicaConsistencyException&lt;/code&gt; is thrown by the
+<i class="no-highlight">405</i>&nbsp;     * &lt;code&gt;ReplicatedEnvironment&lt;/code&gt; constructor.
+<i class="no-highlight">406</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">407</i>&nbsp;     * If an explicit &lt;code&gt;ConsistencyPolicy&lt;/code&gt; is specified via a
+<i class="no-highlight">408</i>&nbsp;     * constructor argument, then the timeout defined by the
+<i class="no-highlight">409</i>&nbsp;     * &lt;code&gt;ConsistencyPolicy&lt;/code&gt; argument is used instead of this default.
+<i class="no-highlight">410</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">411</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">412</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">413</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">414</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">415</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">416</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">417</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">418</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">419</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">420</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">421</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">422</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">423</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">424</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">425</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">426</i>&nbsp;     * &lt;td&gt;5 min&lt;/td&gt;
+<i class="no-highlight">427</i>&nbsp;     * &lt;td&gt;10 ms&lt;/td&gt;
+<i class="no-highlight">428</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">429</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">430</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">431</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">432</i>&nbsp;     *
+<i class="no-highlight">433</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">434</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">435</i>&nbsp;     */
+<i class="no-highlight">436</i>&nbsp;    public static final String ENV_CONSISTENCY_TIMEOUT =
+<i class="no-highlight">437</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;envConsistencyTimeout&quot;;
+<i class="no-highlight">438</i>&nbsp;
+<i class="no-highlight">439</i>&nbsp;    /**
+<i class="no-highlight">440</i>&nbsp;     * The amount of time that the
+<i class="no-highlight">441</i>&nbsp;     * {@link com.sleepycat.je.Transaction#commit(com.sleepycat.je.Durability)}
+<i class="no-highlight">442</i>&nbsp;     * on the Master will wait for a sufficient number of acknowledgments from
+<i class="no-highlight">443</i>&nbsp;     * electable Replicas. If the Master does not receive a sufficient number of
+<i class="no-highlight">444</i>&nbsp;     * acknowledgments within this timeout period, the &lt;code&gt;commit()&lt;/code&gt;
+<i class="no-highlight">445</i>&nbsp;     * will throw {@link InsufficientAcksException}. In the special case of a
+<i class="no-highlight">446</i>&nbsp;     * two node group, if this node is the designated &lt;code&gt;Primary&lt;/code&gt;,
+<i class="no-highlight">447</i>&nbsp;     * the &lt;code&gt;Primary&lt;/code&gt; will be &lt;code&gt;activated&lt;/code&gt;, and the
+<i class="no-highlight">448</i>&nbsp;     * &lt;code&gt;commit()&lt;/code&gt; will proceed normally instead of throwing an
+<i class="no-highlight">449</i>&nbsp;     * exception.
+<i class="no-highlight">450</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">451</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">452</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">453</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">454</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">455</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">456</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">457</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">458</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">459</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">460</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">461</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">462</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">463</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">464</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">465</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">466</i>&nbsp;     * &lt;td&gt;5 s&lt;/td&gt;
+<i class="no-highlight">467</i>&nbsp;     * &lt;td&gt;10 ms&lt;/td&gt;
+<i class="no-highlight">468</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">469</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">470</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">471</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">472</i>&nbsp;     *
+<i class="no-highlight">473</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">474</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">475</i>&nbsp;     * @see ReplicationMutableConfig#DESIGNATED_PRIMARY
+<i class="no-highlight">476</i>&nbsp;     */
+<i class="no-highlight">477</i>&nbsp;    public static final String REPLICA_ACK_TIMEOUT =
+<i class="no-highlight">478</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replicaAckTimeout&quot;;
+<i class="no-highlight">479</i>&nbsp;
+<i class="no-highlight">480</i>&nbsp;    /**
+<i class="no-highlight">481</i>&nbsp;     * @hidden
+<i class="no-highlight">482</i>&nbsp;     *
+<i class="no-highlight">483</i>&nbsp;     * The amount of time that the
+<i class="no-highlight">484</i>&nbsp;     * {@link com.sleepycat.je.Transaction#commit(com.sleepycat.je.Durability)}
+<i class="no-highlight">485</i>&nbsp;     * on the Master will wait for acknowledgments from an Arbiter. This wait
+<i class="no-highlight">486</i>&nbsp;     * occurs after waiting for the REPLICA_ACK_TIMEOUT period and not
+<i class="no-highlight">487</i>&nbsp;     * receiving the required number of acknowledgments.
+<i class="no-highlight">488</i>&nbsp;     * If the Master does not receive a sufficient number of acknowledgments
+<i class="no-highlight">489</i>&nbsp;     * within this timeout period, the &lt;code&gt;commit()&lt;/code&gt;
+<i class="no-highlight">490</i>&nbsp;     * will throw {@link InsufficientAcksException}.
+<i class="no-highlight">491</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">492</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">493</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">494</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">495</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">496</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">497</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">498</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">499</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">500</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">501</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">502</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">503</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">504</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">505</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">506</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">507</i>&nbsp;     * &lt;td&gt;2 s&lt;/td&gt;
+<i class="no-highlight">508</i>&nbsp;     * &lt;td&gt;10 ms&lt;/td&gt;
+<i class="no-highlight">509</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">510</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">511</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">512</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">513</i>&nbsp;     *
+<i class="no-highlight">514</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">515</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">516</i>&nbsp;     */
+<i class="no-highlight">517</i>&nbsp;    public static final String ARBITER_ACK_TIMEOUT =
+<i class="no-highlight">518</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;arbiterAckTimeout&quot;;
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;    /**
+<i class="no-highlight">521</i>&nbsp;     * The amount of time that a
+<i class="no-highlight">522</i>&nbsp;     * {@link ReplicatedEnvironment#beginTransaction(com.sleepycat.je.Transaction, com.sleepycat.je.TransactionConfig)}
+<i class="no-highlight">523</i>&nbsp;     * on the Master will wait for a sufficient number of electable Replicas,
+<i class="no-highlight">524</i>&nbsp;     * as determined by the default &lt;code&gt;Durability&lt;/code&gt; policy, to contact
+<i class="no-highlight">525</i>&nbsp;     * the Master. If the timeout period expires before a sufficient number of
+<i class="no-highlight">526</i>&nbsp;     * Replicas contact the Master, the
+<i class="no-highlight">527</i>&nbsp;     * {@link ReplicatedEnvironment#beginTransaction(com.sleepycat.je.Transaction, com.sleepycat.je.TransactionConfig)}
+<i class="no-highlight">528</i>&nbsp;     * will throw {@link InsufficientReplicasException}. In the special case of
+<i class="no-highlight">529</i>&nbsp;     * a two node group, if this node is the designated &lt;code&gt;Primary&lt;/code&gt;,
+<i class="no-highlight">530</i>&nbsp;     * the &lt;code&gt;Primary&lt;/code&gt; will be &lt;code&gt;activated&lt;/code&gt;, and the
+<i class="no-highlight">531</i>&nbsp;     * &lt;code&gt;beginTransaction()&lt;/code&gt; will proceed normally instead of
+<i class="no-highlight">532</i>&nbsp;     * throwing an exception.
+<i class="no-highlight">533</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">534</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">535</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">536</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">537</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">538</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">539</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">540</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">541</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">542</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">543</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">544</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">545</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">546</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">547</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">548</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">549</i>&nbsp;     * &lt;td&gt;10 s&lt;/td&gt;
+<i class="no-highlight">550</i>&nbsp;     * &lt;td&gt;10 ms&lt;/td&gt;
+<i class="no-highlight">551</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">552</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">553</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">554</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">555</i>&nbsp;     *
+<i class="no-highlight">556</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">557</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">558</i>&nbsp;     * @see ReplicationMutableConfig#DESIGNATED_PRIMARY
+<i class="no-highlight">559</i>&nbsp;     */
+<i class="no-highlight">560</i>&nbsp;    public static final String INSUFFICIENT_REPLICAS_TIMEOUT =
+<i class="no-highlight">561</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;insufficientReplicasTimeout&quot;;
+<i class="no-highlight">562</i>&nbsp;
+<i class="no-highlight">563</i>&nbsp;    /**
+<i class="no-highlight">564</i>&nbsp;     * The maximum message size which will be accepted by a node (to prevent
+<i class="no-highlight">565</i>&nbsp;     * DOS attacks).  While the default shown here is 0, it dynamically
+<i class="no-highlight">566</i>&nbsp;     * calculated when the node is created and is set to the half of the
+<i class="no-highlight">567</i>&nbsp;     * environment cache size. The cache size is mutable, but changing the
+<i class="no-highlight">568</i>&nbsp;     * cache size at run time (after environment initialization) will not
+<i class="no-highlight">569</i>&nbsp;     * change the value of this parameter.  If a value other than cache size /
+<i class="no-highlight">570</i>&nbsp;     * 2 is desired, this non-mutable parameter should be specified at
+<i class="no-highlight">571</i>&nbsp;     * initialization time.
+<i class="no-highlight">572</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">573</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">574</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">575</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">576</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">577</i>&nbsp;     * &lt;td&gt;Long&lt;/td&gt;
+<i class="no-highlight">578</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">579</i>&nbsp;     * &lt;td&gt;half of cache size&lt;/td&gt;
+<i class="no-highlight">580</i>&nbsp;     * &lt;td&gt;256KB&lt;/td&gt;
+<i class="no-highlight">581</i>&nbsp;     * &lt;td&gt;Long.MAX_VALUE&lt;/td&gt;
+<i class="no-highlight">582</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">583</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">584</i>&nbsp;     */
+<i class="no-highlight">585</i>&nbsp;    public static final String MAX_MESSAGE_SIZE =
+<i class="no-highlight">586</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;maxMessageSize&quot;;
+<i class="no-highlight">587</i>&nbsp;
+<i class="no-highlight">588</i>&nbsp;    /**
+<i class="no-highlight">589</i>&nbsp;     * Sets the maximum acceptable clock skew between this Replica and its
+<i class="no-highlight">590</i>&nbsp;     * Feeder, which is the node that is the source of its replication stream.
+<i class="no-highlight">591</i>&nbsp;     * This value is checked whenever a Replica establishes a connection to its
+<i class="no-highlight">592</i>&nbsp;     * replication stream source. The connection is abandoned if the clock skew
+<i class="no-highlight">593</i>&nbsp;     * is larger than this value.
+<i class="no-highlight">594</i>&nbsp;     *
+<i class="no-highlight">595</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">596</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">597</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">598</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">599</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">600</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">601</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">602</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">603</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">604</i>&nbsp;     * &lt;td&gt;2 s&lt;/td&gt;
+<i class="no-highlight">605</i>&nbsp;     * &lt;td&gt;0 s&lt;/td&gt;
+<i class="no-highlight">606</i>&nbsp;     * &lt;td&gt;1 min&lt;/td&gt;
+<i class="no-highlight">607</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">608</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">609</i>&nbsp;     *
+<i class="no-highlight">610</i>&nbsp;     * @see ReplicationConfig#setMaxClockDelta
+<i class="no-highlight">611</i>&nbsp;     * @see ReplicationConfig#getMaxClockDelta
+<i class="no-highlight">612</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">613</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">614</i>&nbsp;     */
+<i class="no-highlight">615</i>&nbsp;    public static final String MAX_CLOCK_DELTA =
+<i class="no-highlight">616</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;maxClockDelta&quot;;
+<i class="no-highlight">617</i>&nbsp;
+<i class="no-highlight">618</i>&nbsp;    /**
+<i class="no-highlight">619</i>&nbsp;     * The number of times an unsuccessful election will be retried by a
+<i class="no-highlight">620</i>&nbsp;     * designated &lt;code&gt;Primary&lt;/code&gt; in a two node group before it is
+<i class="no-highlight">621</i>&nbsp;     * activated and becomes the Master.
+<i class="no-highlight">622</i>&nbsp;     *
+<i class="no-highlight">623</i>&nbsp;     * &lt;p&gt;&lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">624</i>&nbsp;     * &lt;tr&gt;&lt;td&gt;Name&lt;/td&gt;&lt;td&gt;Type&lt;/td&gt;&lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">625</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;&lt;td&gt;Minimum&lt;/td&gt;&lt;td&gt;Maximum&lt;/td&gt;&lt;/tr&gt;
+<i class="no-highlight">626</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">627</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">628</i>&nbsp;     * &lt;td&gt;Integer&lt;/td&gt;
+<i class="no-highlight">629</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">630</i>&nbsp;     * &lt;td&gt;2&lt;/td&gt;
+<i class="no-highlight">631</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">632</i>&nbsp;     * &lt;td&gt;Integer.MAX_VALUE&lt;/td&gt;
+<i class="no-highlight">633</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">634</i>&nbsp;     * &lt;/table&gt;&lt;/p&gt;
+<i class="no-highlight">635</i>&nbsp;     *
+<i class="no-highlight">636</i>&nbsp;     * @see ReplicationMutableConfig#DESIGNATED_PRIMARY
+<i class="no-highlight">637</i>&nbsp;     */
+<i class="no-highlight">638</i>&nbsp;    public static final String ELECTIONS_PRIMARY_RETRIES =
+<i class="no-highlight">639</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;electionsPrimaryRetries&quot;;
+<i class="no-highlight">640</i>&nbsp;
+<i class="no-highlight">641</i>&nbsp;    /**
+<i class="no-highlight">642</i>&nbsp;     * The time interval between rebroadcasts of election results by the master
+<i class="no-highlight">643</i>&nbsp;     * node to all nodes not currently connected to it. These rebroadcasts help
+<i class="no-highlight">644</i>&nbsp;     * ensure that a replication group is fully restored after a network
+<i class="no-highlight">645</i>&nbsp;     * partition, by permitting nodes on either side of the resolved partition
+<i class="no-highlight">646</i>&nbsp;     * to catch up with the latest election results.
+<i class="no-highlight">647</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">648</i>&nbsp;     * A network partition, may in some circumstances, result in a node
+<i class="no-highlight">649</i>&nbsp;     * continuing to think it is the master, even though it is on the side of
+<i class="no-highlight">650</i>&nbsp;     * the partition containing a minority of electable nodes, and the side
+<i class="no-highlight">651</i>&nbsp;     * with the majority has elected a new master. Rebroadcasting election
+<i class="no-highlight">652</i>&nbsp;     * results on a periodic basis ensures that the obsolete master is brought
+<i class="no-highlight">653</i>&nbsp;     * up to date after the network partition has been resolved. As a result of
+<i class="no-highlight">654</i>&nbsp;     * the update, the environment at the obsolete master will transition into
+<i class="no-highlight">655</i>&nbsp;     * a replica state.
+<i class="no-highlight">656</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">657</i>&nbsp;     * Decreasing the period will result in more frequent broadcasts and thus a
+<i class="no-highlight">658</i>&nbsp;     * faster return to normal operations after a network partition has been
+<i class="no-highlight">659</i>&nbsp;     * resolved.
+<i class="no-highlight">660</i>&nbsp;     *
+<i class="no-highlight">661</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">662</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">663</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">664</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">665</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">666</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">667</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">668</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">669</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">670</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">671</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">672</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">673</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">674</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}&lt;/td&gt;
+<i class="no-highlight">675</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">676</i>&nbsp;     * &lt;td&gt;1 min&lt;/td&gt;
+<i class="no-highlight">677</i>&nbsp;     * &lt;td&gt;1 s&lt;/td&gt;
+<i class="no-highlight">678</i>&nbsp;     * &lt;td&gt;none&lt;/td&gt;
+<i class="no-highlight">679</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">680</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">681</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">682</i>&nbsp;     */
+<i class="no-highlight">683</i>&nbsp;    public static final String ELECTIONS_REBROADCAST_PERIOD =
+<i class="no-highlight">684</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;electionsRebroadcastPeriod&quot;;
+<i class="no-highlight">685</i>&nbsp;
+<i class="no-highlight">686</i>&nbsp;    /**
+<i class="no-highlight">687</i>&nbsp;     * In rare cases, a node may need to rollback committed transactions in
+<i class="no-highlight">688</i>&nbsp;     * order to rejoin a replication group. This parameter limits the number of
+<i class="no-highlight">689</i>&nbsp;     * durable transactions that may be rolled back. Durable transactions are
+<i class="no-highlight">690</i>&nbsp;     * transactions that were successfully committed with a durability
+<i class="no-highlight">691</i>&nbsp;     * requiring acknowledgments from at least a simple majority of nodes. If
+<i class="no-highlight">692</i>&nbsp;     * the number of durable committed transactions targeted for rollback
+<i class="no-highlight">693</i>&nbsp;     * exceeds this parameter, a {@link RollbackProhibitedException} will be
+<i class="no-highlight">694</i>&nbsp;     * thrown.
+<i class="no-highlight">695</i>&nbsp;     *
+<i class="no-highlight">696</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">697</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">698</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">699</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">700</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">701</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">702</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">703</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">704</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">705</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">706</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">707</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">708</i>&nbsp;     * &lt;td&gt;Integer&lt;/td&gt;
+<i class="no-highlight">709</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">710</i>&nbsp;     * &lt;td&gt;10&lt;/td&gt;
+<i class="no-highlight">711</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">712</i>&nbsp;     * &lt;td&gt;Integer.MAX_VALUE&lt;/td&gt;
+<i class="no-highlight">713</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">714</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">715</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">716</i>&nbsp;     *
+<i class="no-highlight">717</i>&nbsp;     * @see RollbackProhibitedException
+<i class="no-highlight">718</i>&nbsp;     */
+<i class="no-highlight">719</i>&nbsp;    public static final String TXN_ROLLBACK_LIMIT =
+<i class="no-highlight">720</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;txnRollbackLimit&quot;;
+<i class="no-highlight">721</i>&nbsp;
+<i class="no-highlight">722</i>&nbsp;    /**
+<i class="no-highlight">723</i>&nbsp;     * In rare cases, a node may need to rollback committed transactions in
+<i class="no-highlight">724</i>&nbsp;     * order to rejoin a replication group. If this parameter is set to true
+<i class="no-highlight">725</i>&nbsp;     * and a rollback is necessary to rejoin the group, a {@link
+<i class="no-highlight">726</i>&nbsp;     * RollbackProhibitedException} will be thrown.
+<i class="no-highlight">727</i>&nbsp;     *
+<i class="no-highlight">728</i>&nbsp;     * &lt;p&gt;Unlike setting {@link #TXN_ROLLBACK_LIMIT} to zero, setting this
+<i class="no-highlight">729</i>&nbsp;     * parameter to true disables the rollback without regard to whether the
+<i class="no-highlight">730</i>&nbsp;     * transactions to roll back are considered durable.&lt;/p&gt;
+<i class="no-highlight">731</i>&nbsp;     *
+<i class="no-highlight">732</i>&nbsp;     * &lt;p&gt;Setting {@code TXN_ROLLBACK_DISABLED} to true should not be
+<i class="no-highlight">733</i>&nbsp;     * necessary for most applications. Its intended purpose is for the rare
+<i class="no-highlight">734</i>&nbsp;     * application that needs manual control over rollback of all transactions,
+<i class="no-highlight">735</i>&nbsp;     * including transactions that are not considered to be durable.&lt;/p&gt;
+<i class="no-highlight">736</i>&nbsp;     *
+<i class="no-highlight">737</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">738</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">739</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">740</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">741</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">742</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">743</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">744</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">745</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">746</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">747</i>&nbsp;     * &lt;td&gt;Boolean&lt;/td&gt;
+<i class="no-highlight">748</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">749</i>&nbsp;     * &lt;td&gt;False&lt;/td&gt;
+<i class="no-highlight">750</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">751</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">752</i>&nbsp;     */
+<i class="no-highlight">753</i>&nbsp;    public static final String TXN_ROLLBACK_DISABLED =
+<i class="no-highlight">754</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;txnRollbackDisabled&quot;;
+<i class="no-highlight">755</i>&nbsp;
+<i class="no-highlight">756</i>&nbsp;    /**
+<i class="no-highlight">757</i>&nbsp;     * A heartbeat is exchanged between the feeder and replica to ensure they
+<i class="no-highlight">758</i>&nbsp;     * are alive. This is the timeout associated with the heartbeat on the
+<i class="no-highlight">759</i>&nbsp;     * feeder side of the connection.
+<i class="no-highlight">760</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">761</i>&nbsp;     * Reducing this value enables the master to discover failed Replicas, and
+<i class="no-highlight">762</i>&nbsp;     * recycle feeder connections, faster. However, it increases the chances of
+<i class="no-highlight">763</i>&nbsp;     * false timeouts, if the network is experiencing transient problems, or
+<i class="no-highlight">764</i>&nbsp;     * the Java GC is responsible for long pauses. In the latter case, it&#39;s
+<i class="no-highlight">765</i>&nbsp;     * generally better to tune the GC to avoid such pauses.
+<i class="no-highlight">766</i>&nbsp;     *
+<i class="no-highlight">767</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">768</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">769</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">770</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">771</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">772</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">773</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">774</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">775</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">776</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">777</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">778</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">779</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">780</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">781</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">782</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">783</i>&nbsp;     * &lt;td&gt;30 s&lt;/td&gt;
+<i class="no-highlight">784</i>&nbsp;     * &lt;td&gt;2 s&lt;/td&gt;
+<i class="no-highlight">785</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">786</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">787</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">788</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">789</i>&nbsp;     *
+<i class="no-highlight">790</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">791</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">792</i>&nbsp;     * @since 4.0.100
+<i class="no-highlight">793</i>&nbsp;     */
+<i class="no-highlight">794</i>&nbsp;    public static final String FEEDER_TIMEOUT =
+<i class="no-highlight">795</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;feederTimeout&quot;;
+<i class="no-highlight">796</i>&nbsp;
+<i class="no-highlight">797</i>&nbsp;    /**
+<i class="no-highlight">798</i>&nbsp;     * A heartbeat is exchanged between the feeder and replica to ensure they
+<i class="no-highlight">799</i>&nbsp;     * are alive. This is the timeout associated with the heartbeat on the
+<i class="no-highlight">800</i>&nbsp;     * replica side of the connection.
+<i class="no-highlight">801</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">802</i>&nbsp;     * Reducing the value means that a master failure will be discovered more
+<i class="no-highlight">803</i>&nbsp;     * promptly in some circumstances and the overall time needed to failover
+<i class="no-highlight">804</i>&nbsp;     * to a new master will be reduced. However, it increases the chances of
+<i class="no-highlight">805</i>&nbsp;     * false timeouts, if the network is experiencing transient problems, or
+<i class="no-highlight">806</i>&nbsp;     * the Java GC is responsible for long pauses. In the latter case, it&#39;s
+<i class="no-highlight">807</i>&nbsp;     * generally better to tune the GC to avoid such pauses.
+<i class="no-highlight">808</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">809</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">810</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">811</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">812</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">813</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">814</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">815</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">816</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">817</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">818</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">819</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">820</i>&nbsp;     * &lt;td&gt;
+<i class="no-highlight">821</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Duration&lt;/a&gt;}
+<i class="no-highlight">822</i>&nbsp;     * &lt;/td&gt;
+<i class="no-highlight">823</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">824</i>&nbsp;     * &lt;td&gt;30 s&lt;/td&gt;
+<i class="no-highlight">825</i>&nbsp;     * &lt;td&gt;2 s&lt;/td&gt;
+<i class="no-highlight">826</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">827</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">828</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">829</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">830</i>&nbsp;     *
+<i class="no-highlight">831</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">832</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">833</i>&nbsp;     * @since 4.0.100
+<i class="no-highlight">834</i>&nbsp;     */
+<i class="no-highlight">835</i>&nbsp;    public static final String REPLICA_TIMEOUT =
+<i class="no-highlight">836</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replicaTimeout&quot;;
+<i class="no-highlight">837</i>&nbsp;
+<i class="no-highlight">838</i>&nbsp;    /**
+<i class="no-highlight">839</i>&nbsp;     * The size of the the TCP receive buffer associated with the socket used
+<i class="no-highlight">840</i>&nbsp;     * by the replica to transfer the replication stream.
+<i class="no-highlight">841</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">842</i>&nbsp;     * Larger values help handle incoming network traffic even when the replica
+<i class="no-highlight">843</i>&nbsp;     * has been paused for a garbage collection. The parameter default value of
+<i class="no-highlight">844</i>&nbsp;     * 1 MB should be sufficient in most of the environments. Consider
+<i class="no-highlight">845</i>&nbsp;     * increasing the value if network monitoring shows packet loss, or if your
+<i class="no-highlight">846</i>&nbsp;     * JE environment contains large data values. Note that if the size
+<i class="no-highlight">847</i>&nbsp;     * specified is larger than the operating system constrained maximum, it
+<i class="no-highlight">848</i>&nbsp;     * will be limited to this maximum value. For example, on Linux you may
+<i class="no-highlight">849</i>&nbsp;     * need to set the kernel parameter: net.core.rmem_max property using the
+<i class="no-highlight">850</i>&nbsp;     * command: &lt;i&gt;sysctl -w net.core.rmem_max=1048576&lt;/i&gt; to increase the
+<i class="no-highlight">851</i>&nbsp;     * operating system imposed limit.
+<i class="no-highlight">852</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">853</i>&nbsp;     * A parameter value of zero will result in the use of operating system
+<i class="no-highlight">854</i>&nbsp;     * specified default socket buffer size.
+<i class="no-highlight">855</i>&nbsp;     *
+<i class="no-highlight">856</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">857</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">858</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">859</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">860</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">861</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">862</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">863</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">864</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">865</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">866</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">867</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">868</i>&nbsp;     * &lt;td&gt;Integer&lt;/td&gt;
+<i class="no-highlight">869</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">870</i>&nbsp;     * &lt;td&gt;1048576&lt;/td&gt;
+<i class="no-highlight">871</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">872</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">873</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">874</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">875</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">876</i>&nbsp;     *
+<i class="no-highlight">877</i>&nbsp;     * @since 5.0.37
+<i class="no-highlight">878</i>&nbsp;     */
+<i class="no-highlight">879</i>&nbsp;    public static final String REPLICA_RECEIVE_BUFFER_SIZE =
+<i class="no-highlight">880</i>&nbsp;            EnvironmentParams.REP_PARAM_PREFIX + &quot;replicaReceiveBufferSize&quot;;
+<i class="no-highlight">881</i>&nbsp;
+<i class="no-highlight">882</i>&nbsp;    /**
+<i class="no-highlight">883</i>&nbsp;     * The maximum number of transactions that can be grouped to amortize the
+<i class="no-highlight">884</i>&nbsp;     * cost of an fsync when a transaction commits with SyncPolicy#SYNC on the
+<i class="no-highlight">885</i>&nbsp;     * Replica. A value of zero effectively turns off the group commit
+<i class="no-highlight">886</i>&nbsp;     * optimization.
+<i class="no-highlight">887</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">888</i>&nbsp;     * Specifying larger values can result in more transactions being grouped
+<i class="no-highlight">889</i>&nbsp;     * together decreasing average commit times.
+<i class="no-highlight">890</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">891</i>&nbsp;     * An fsync is issued if the size of the transaction group reaches the
+<i class="no-highlight">892</i>&nbsp;     * maximum within the time period specified by
+<i class="no-highlight">893</i>&nbsp;     * {@link #REPLICA_GROUP_COMMIT_INTERVAL}.
+<i class="no-highlight">894</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">895</i>&nbsp;     * The {@link
+<i class="no-highlight">896</i>&nbsp;     * ReplicatedEnvironmentStats#getNReplayGroupCommitMaxExceeded()}
+<i class="no-highlight">897</i>&nbsp;     * statistic may be used to tune this parameter. Large values indicate that
+<i class="no-highlight">898</i>&nbsp;     * commit throughput could be improved by increasing the current value.
+<i class="no-highlight">899</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">900</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">901</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">902</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">903</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">904</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">905</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">906</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">907</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">908</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">909</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">910</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">911</i>&nbsp;     * &lt;td&gt;Integer&lt;/td&gt;
+<i class="no-highlight">912</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">913</i>&nbsp;     * &lt;td&gt;200&lt;/td&gt;
+<i class="no-highlight">914</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">915</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">916</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">917</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">918</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">919</i>&nbsp;     *
+<i class="no-highlight">920</i>&nbsp;     * @since 5.0.76
+<i class="no-highlight">921</i>&nbsp;     * @see #REPLICA_GROUP_COMMIT_INTERVAL
+<i class="no-highlight">922</i>&nbsp;     */
+<i class="no-highlight">923</i>&nbsp;    public static final String REPLICA_MAX_GROUP_COMMIT =
+<i class="no-highlight">924</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replicaMaxGroupCommit&quot;;
+<i class="no-highlight">925</i>&nbsp;
+<i class="no-highlight">926</i>&nbsp;    /**
+<i class="no-highlight">927</i>&nbsp;     * The time interval during which transactions may be grouped to amortize
+<i class="no-highlight">928</i>&nbsp;     * the cost of fsync when a transaction commits with SyncPolicy#SYNC on the
+<i class="no-highlight">929</i>&nbsp;     * Replica. This parameter is only meaningful if the
+<i class="no-highlight">930</i>&nbsp;     * {@link #REPLICA_MAX_GROUP_COMMIT group commit size} is greater than one.
+<i class="no-highlight">931</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">932</i>&nbsp;     * The first (as ordered by transaction serialization) transaction in a
+<i class="no-highlight">933</i>&nbsp;     * transaction group may be delayed by at most this amount. Subsequent
+<i class="no-highlight">934</i>&nbsp;     * transactions in the group will have smaller delays since they are later
+<i class="no-highlight">935</i>&nbsp;     * in the serialization order.
+<i class="no-highlight">936</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">937</i>&nbsp;     * The {@link ReplicatedEnvironmentStats#getNReplayGroupCommitTimeouts()}
+<i class="no-highlight">938</i>&nbsp;     * statistic may be used to tune this parameter. Large numbers of timeouts
+<i class="no-highlight">939</i>&nbsp;     * in conjunction with large numbers of group commits (
+<i class="no-highlight">940</i>&nbsp;     * {@link ReplicatedEnvironmentStats#getNReplayGroupCommits()}) indicate
+<i class="no-highlight">941</i>&nbsp;     * that commit throughput could be improved by increasing the time
+<i class="no-highlight">942</i>&nbsp;     * interval.
+<i class="no-highlight">943</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">944</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">945</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">946</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">947</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">948</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">949</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">950</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">951</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">952</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">953</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">954</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">955</i>&nbsp;     * &lt;td&gt;{@link &lt;a href=&quot;#timeDuration&quot;&gt;Duration&lt;/a&gt;}&lt;/td&gt;
+<i class="no-highlight">956</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">957</i>&nbsp;     * &lt;td&gt;3 ms&lt;/td&gt;
+<i class="no-highlight">958</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">959</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">960</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">961</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">962</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">963</i>&nbsp;     *
+<i class="no-highlight">964</i>&nbsp;     * @since 5.0.76
+<i class="no-highlight">965</i>&nbsp;     * @see #REPLICA_MAX_GROUP_COMMIT
+<i class="no-highlight">966</i>&nbsp;     */
+<i class="no-highlight">967</i>&nbsp;    public static final String REPLICA_GROUP_COMMIT_INTERVAL =
+<i class="no-highlight">968</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;replicaGroupCommitInterval&quot;;
+<i class="no-highlight">969</i>&nbsp;
+<i class="no-highlight">970</i>&nbsp;    /**
+<i class="no-highlight">971</i>&nbsp;     * The maximum amount of time for the internal housekeeping, like
+<i class="no-highlight">972</i>&nbsp;     * elections, syncup with the master, etc. to be accomplished when opening
+<i class="no-highlight">973</i>&nbsp;     * a new handle to an environment.
+<i class="no-highlight">974</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">975</i>&nbsp;     * This timeout does not encompass the time spent making the node
+<i class="no-highlight">976</i>&nbsp;     * consistent with the master, if it is a Replica. The timeout associated
+<i class="no-highlight">977</i>&nbsp;     * with making a replica consistent is normally determined by the
+<i class="no-highlight">978</i>&nbsp;     * {@link #ENV_CONSISTENCY_TIMEOUT} parameter but can be overridden by the
+<i class="no-highlight">979</i>&nbsp;     * timeout associated with the &lt;code&gt;ReplicaConsistencyPolicy&lt;/code&gt; if a
+<i class="no-highlight">980</i>&nbsp;     * &lt;code&gt;consistencyPolicy&lt;/code&gt; argument was supplied to the handle
+<i class="no-highlight">981</i>&nbsp;     * constructor.
+<i class="no-highlight">982</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">983</i>&nbsp;     * Note that the default value (10 hours) is a long time to allow for cases
+<i class="no-highlight">984</i>&nbsp;     * where elections may take a long time when other nodes are not available.
+<i class="no-highlight">985</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">986</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">987</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">988</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">989</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">990</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">991</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">992</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">993</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">994</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">995</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">996</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">997</i>&nbsp;     * &lt;td&gt;Duration&lt;/td&gt;
+<i class="no-highlight">998</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">999</i>&nbsp;     * &lt;td&gt;10 h&lt;/td&gt;
+<i class="no-highlight">1000</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">1001</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">1002</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1003</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">1004</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">1005</i>&nbsp;     *
+<i class="no-highlight">1006</i>&nbsp;     * @see &lt;a href=&quot;../EnvironmentConfig.html#timeDuration&quot;&gt;Time Duration
+<i class="no-highlight">1007</i>&nbsp;     * Properties&lt;/a&gt;
+<i class="no-highlight">1008</i>&nbsp;     */
+<i class="no-highlight">1009</i>&nbsp;    public static final String ENV_SETUP_TIMEOUT =
+<i class="no-highlight">1010</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;envSetupTimeout&quot;;
+<i class="no-highlight">1011</i>&nbsp;
+<i class="no-highlight">1012</i>&nbsp;    /**
+<i class="no-highlight">1013</i>&nbsp;     * @hidden
+<i class="no-highlight">1014</i>&nbsp;     * @deprecated
+<i class="no-highlight">1015</i>&nbsp;     *
+<i class="no-highlight">1016</i>&nbsp;     * For internal use only.
+<i class="no-highlight">1017</i>&nbsp;     *
+<i class="no-highlight">1018</i>&nbsp;     * When set to &lt;code&gt;true&lt;/code&gt;, it permits opening of a
+<i class="no-highlight">1019</i>&nbsp;     * ReplicatedEnvironment handle in the {@link
+<i class="no-highlight">1020</i>&nbsp;     * ReplicatedEnvironment.State#UNKNOWN} state, if a Master could not be
+<i class="no-highlight">1021</i>&nbsp;     * determined within the timeout specified by {@link
+<i class="no-highlight">1022</i>&nbsp;     * ReplicationConfig#ENV_SETUP_TIMEOUT}. If it&#39;s false, an &lt;code&gt;
+<i class="no-highlight">1023</i>&nbsp;     * UnknownMasterException&lt;/code&gt; exception is thrown upon expiration of
+<i class="no-highlight">1024</i>&nbsp;     * the timeout.
+<i class="no-highlight">1025</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1026</i>&nbsp;     * A ReplicatedEnvironment handle in the {@link
+<i class="no-highlight">1027</i>&nbsp;     * ReplicatedEnvironment.State#UNKNOWN} state can only be used to initiate
+<i class="no-highlight">1028</i>&nbsp;     * read operations with an appropriately relaxed {@link
+<i class="no-highlight">1029</i>&nbsp;     * NoConsistencyRequiredPolicy}; write operations will fail with a
+<i class="no-highlight">1030</i>&nbsp;     * &lt;code&gt;ReplicaWriteException&lt;/code&gt;. The handle will transition to
+<i class="no-highlight">1031</i>&nbsp;     * a &lt;code&gt;Master&lt;/code&gt; or &lt;code&gt;Replica&lt;/code&gt; state when it can contact
+<i class="no-highlight">1032</i>&nbsp;     * a sufficient number of other nodes in the replication group.
+<i class="no-highlight">1033</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1034</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">1035</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1036</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">1037</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">1038</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">1039</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">1040</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1041</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1042</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">1043</i>&nbsp;     * &lt;td&gt;Boolean&lt;/td&gt;
+<i class="no-highlight">1044</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">1045</i>&nbsp;     * &lt;td&gt;False&lt;/td&gt;
+<i class="no-highlight">1046</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1047</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">1048</i>&nbsp;     */
+<i class="no-highlight">1049</i>&nbsp;    @Deprecated
+<i class="no-highlight">1050</i>&nbsp;    public static final String ALLOW_UNKNOWN_STATE_ENV_OPEN =
+<i class="no-highlight">1051</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;allowUnknownStateEnvOpen&quot;;
+<i class="no-highlight">1052</i>&nbsp;
+<i class="no-highlight">1053</i>&nbsp;    /**
+<i class="no-highlight">1054</i>&nbsp;     * Permits opening of a ReplicatedEnvironment handle in the
+<i class="no-highlight">1055</i>&nbsp;     * {@link ReplicatedEnvironment.State#UNKNOWN} state, if a Master cannot be
+<i class="no-highlight">1056</i>&nbsp;     * determined within this timeout period. For the timeout to be meaningful
+<i class="no-highlight">1057</i>&nbsp;     * it must be less than {@link #ENV_SETUP_TIMEOUT}. This parameter is
+<i class="no-highlight">1058</i>&nbsp;     * ignored when creating a replicated environment for the first time.
+<i class="no-highlight">1059</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1060</i>&nbsp;     * A ReplicatedEnvironment handle in the
+<i class="no-highlight">1061</i>&nbsp;     * {@link ReplicatedEnvironment.State#UNKNOWN} state can only be used to
+<i class="no-highlight">1062</i>&nbsp;     * initiate read operations with an appropriately relaxed, e.g.
+<i class="no-highlight">1063</i>&nbsp;     * {@link NoConsistencyRequiredPolicy}; write operations will fail with a
+<i class="no-highlight">1064</i>&nbsp;     * {@link ReplicaWriteException}. The handle will transition to a
+<i class="no-highlight">1065</i>&nbsp;     * {@code Master} or {@code Replica} state when it can contact a
+<i class="no-highlight">1066</i>&nbsp;     * sufficient number of other nodes in the replication group.
+<i class="no-highlight">1067</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1068</i>&nbsp;     * If the parameter is set to zero, and an election cannot be concluded
+<i class="no-highlight">1069</i>&nbsp;     * within the timeout defined by {@link #ENV_SETUP_TIMEOUT}, the
+<i class="no-highlight">1070</i>&nbsp;     * ReplicatedEnvironment constructor will throw {@link
+<i class="no-highlight">1071</i>&nbsp;     * UnknownMasterException}.
+<i class="no-highlight">1072</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1073</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">1074</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1075</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">1076</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">1077</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">1078</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">1079</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">1080</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">1081</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1082</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1083</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">1084</i>&nbsp;     * &lt;td&gt;Duration&lt;/td&gt;
+<i class="no-highlight">1085</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">1086</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">1087</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">1088</i>&nbsp;     * &lt;td&gt;&lt;code&gt;ENV_SETUP_TIMEOUT&lt;/code&gt;&lt;/td&gt;
+<i class="no-highlight">1089</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1090</i>&nbsp;     *
+<i class="no-highlight">1091</i>&nbsp;     * @since 5.0.33
+<i class="no-highlight">1092</i>&nbsp;     */
+<i class="no-highlight">1093</i>&nbsp;    public static final String ENV_UNKNOWN_STATE_TIMEOUT =
+<i class="no-highlight">1094</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;envUnknownStateTimeout&quot;;
+<i class="no-highlight">1095</i>&nbsp;
+<i class="no-highlight">1096</i>&nbsp;    /**
+<i class="no-highlight">1097</i>&nbsp;     * When set to &lt;code&gt;true&lt;/code&gt;, which is currently the default, the
+<i class="no-highlight">1098</i>&nbsp;     * replication network protocol will use the JVM platform default charset
+<i class="no-highlight">1099</i>&nbsp;     * (text encoding) for node names and host names.  This is incorrect, in
+<i class="no-highlight">1100</i>&nbsp;     * that it requires that the JVM for all nodes in a replication group have
+<i class="no-highlight">1101</i>&nbsp;     * the same default charset.
+<i class="no-highlight">1102</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1103</i>&nbsp;     * When this parameter is set to &lt;code&gt;false&lt;/code&gt;, the UTF-8 charset is
+<i class="no-highlight">1104</i>&nbsp;     * always used in the replication protocol.  In other words, the JVM
+<i class="no-highlight">1105</i>&nbsp;     * default charset has no impact on the replication protocol.
+<i class="no-highlight">1106</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1107</i>&nbsp;     * An application is &lt;em&gt;not&lt;/em&gt; impacted by this issue, and does not need
+<i class="no-highlight">1108</i>&nbsp;     * to set this parameter, if it has the following characteristics.
+<i class="no-highlight">1109</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">1110</i>&nbsp;     * &lt;li&gt;The default charset on all JVMs is UTF-8 or ASCII, or&lt;/li&gt;
+<i class="no-highlight">1111</i>&nbsp;     * &lt;li&gt;all node names and host names contain only ASCII characters, and
+<i class="no-highlight">1112</i>&nbsp;     * the default charset on all JVMs is a superset of ASCII.&lt;/li&gt;
+<i class="no-highlight">1113</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">1114</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1115</i>&nbsp;     * In JE 5.1, the default value for this parameter will be changed to
+<i class="no-highlight">1116</i>&nbsp;     * false.  In preparation for this, impacted applications should explicitly
+<i class="no-highlight">1117</i>&nbsp;     * set the parameter to false at the next available opportunity.  For
+<i class="no-highlight">1118</i>&nbsp;     * applications not yet deployed, this should be done now.  For deployed
+<i class="no-highlight">1119</i>&nbsp;     * applications, a hot upgrade may not be performed when changing the
+<i class="no-highlight">1120</i>&nbsp;     * parameter.  Instead, a cold upgrade must be performed:  all nodes must
+<i class="no-highlight">1121</i>&nbsp;     * be stopped and upgraded before bringing them up again.  In other words,
+<i class="no-highlight">1122</i>&nbsp;     * for impacted applications the value of this configuration parameter must
+<i class="no-highlight">1123</i>&nbsp;     * be the same for all running nodes in a replication group.
+<i class="no-highlight">1124</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1125</i>&nbsp;     * Note that the default charset issue applies only to the replication
+<i class="no-highlight">1126</i>&nbsp;     * network protocol and not to stored data of any kind.
+<i class="no-highlight">1127</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1128</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">1129</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1130</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">1131</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">1132</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">1133</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">1134</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1135</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1136</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">1137</i>&nbsp;     * &lt;td&gt;Boolean&lt;/td&gt;
+<i class="no-highlight">1138</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">1139</i>&nbsp;     * &lt;td&gt;True&lt;/td&gt;
+<i class="no-highlight">1140</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1141</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">1142</i>&nbsp;     */
+<i class="no-highlight">1143</i>&nbsp;    public static final String PROTOCOL_OLD_STRING_ENCODING =
+<i class="no-highlight">1144</i>&nbsp;        EnvironmentParams.REP_PARAM_PREFIX + &quot;protocolOldStringEncoding&quot;;
+<i class="no-highlight">1145</i>&nbsp;
+<i class="no-highlight">1146</i>&nbsp;    /**
+<i class="no-highlight">1147</i>&nbsp;     * @hidden
+<i class="no-highlight">1148</i>&nbsp;     *
+<i class="no-highlight">1149</i>&nbsp;     * For internal use only.
+<i class="no-highlight">1150</i>&nbsp;     *
+<i class="no-highlight">1151</i>&nbsp;     * When set to &lt;code&gt;true&lt;/code&gt; the ReplicatedEnvironment will
+<i class="no-highlight">1152</i>&nbsp;     * be used by the Arbiter.
+<i class="no-highlight">1153</i>&nbsp;     * * &lt;p&gt;
+<i class="no-highlight">1154</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">1155</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1156</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">1157</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">1158</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">1159</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">1160</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1161</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1162</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">1163</i>&nbsp;     * &lt;td&gt;Boolean&lt;/td&gt;
+<i class="no-highlight">1164</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">1165</i>&nbsp;     * &lt;td&gt;False&lt;/td&gt;
+<i class="no-highlight">1166</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1167</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">1168</i>&nbsp;     */
+<i class="no-highlight">1169</i>&nbsp;    public static final String ARBITER_USE =
+<i class="no-highlight">1170</i>&nbsp;            EnvironmentParams.REP_PARAM_PREFIX + &quot;arbiterUse&quot;;
+<i class="no-highlight">1171</i>&nbsp;
+<i class="no-highlight">1172</i>&nbsp;    /**
+<i class="no-highlight">1173</i>&nbsp;     * The size of the the queue used to hold commit records that the Feeder
+<i class="no-highlight">1174</i>&nbsp;     * uses to request acknowledgment from an Arbiter.
+<i class="no-highlight">1175</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1176</i>&nbsp;     * An entry is attempted to be put on the queue. If it cannot be done within
+<i class="no-highlight">1177</i>&nbsp;     * a certain amount of time, the transaction will fail due to insufficient
+<i class="no-highlight">1178</i>&nbsp;     * acks.
+<i class="no-highlight">1179</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1180</i>&nbsp;     * &lt;table border=&quot;1&quot;&gt;
+<i class="no-highlight">1181</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1182</i>&nbsp;     * &lt;td&gt;Name&lt;/td&gt;
+<i class="no-highlight">1183</i>&nbsp;     * &lt;td&gt;Type&lt;/td&gt;
+<i class="no-highlight">1184</i>&nbsp;     * &lt;td&gt;Mutable&lt;/td&gt;
+<i class="no-highlight">1185</i>&nbsp;     * &lt;td&gt;Default&lt;/td&gt;
+<i class="no-highlight">1186</i>&nbsp;     * &lt;td&gt;Minimum&lt;/td&gt;
+<i class="no-highlight">1187</i>&nbsp;     * &lt;td&gt;Maximum&lt;/td&gt;
+<i class="no-highlight">1188</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1189</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">1190</i>&nbsp;     * &lt;td&gt;{@value}&lt;/td&gt;
+<i class="no-highlight">1191</i>&nbsp;     * &lt;td&gt;Integer&lt;/td&gt;
+<i class="no-highlight">1192</i>&nbsp;     * &lt;td&gt;No&lt;/td&gt;
+<i class="no-highlight">1193</i>&nbsp;     * &lt;td&gt;4096&lt;/td&gt;
+<i class="no-highlight">1194</i>&nbsp;     * &lt;td&gt;0&lt;/td&gt;
+<i class="no-highlight">1195</i>&nbsp;     * &lt;td&gt;-none-&lt;/td&gt;
+<i class="no-highlight">1196</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">1197</i>&nbsp;     * &lt;/table&gt;
+<i class="no-highlight">1198</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">1199</i>&nbsp;     *
+<i class="no-highlight">1200</i>&nbsp;     */
+<i class="no-highlight">1201</i>&nbsp;    public static final String ARBITER_OUTPUT_QUEUE_SIZE =
+<i class="no-highlight">1202</i>&nbsp;            EnvironmentParams.REP_PARAM_PREFIX + &quot;arbiterOutputQueueSize&quot;;
+<i class="no-highlight">1203</i>&nbsp;
+<i class="no-highlight">1204</i>&nbsp;    /**
+<i class="no-highlight">1205</i>&nbsp;     * @hidden
+<i class="no-highlight">1206</i>&nbsp;     * For internal use, to allow null as a valid value for the config
+<i class="no-highlight">1207</i>&nbsp;     * parameter.
+<i class="no-highlight">1208</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1209</i>&nbsp;    public static final ReplicationConfig DEFAULT =</b>
+<i class="no-highlight">1210</i>&nbsp;        new ReplicationConfig();
+<i class="no-highlight">1211</i>&nbsp;
+<i class="no-highlight">1212</i>&nbsp;    /* Support conversion of a non-replicated environment to replicated. */
+<b class="nc"><i class="no-highlight">1213</i>&nbsp;    private boolean allowConvert = false;</b>
+<i class="no-highlight">1214</i>&nbsp;
+<i class="no-highlight">1215</i>&nbsp;    /*
+<i class="no-highlight">1216</i>&nbsp;     * The ReplicationNetworkConfig portion of the overall replication
+<i class="no-highlight">1217</i>&nbsp;     * configuration.
+<i class="no-highlight">1218</i>&nbsp;     *
+<i class="no-highlight">1219</i>&nbsp;     * This field should be typed as ReplicationNetworkConfig, but because this
+<i class="no-highlight">1220</i>&nbsp;     * class is serializable and field is not transient, javadoc wants to
+<i class="no-highlight">1221</i>&nbsp;     * describe it as part of the javadoc output, but the fact that the type is
+<i class="no-highlight">1222</i>&nbsp;     * hidden causes javadoc to encounter a NullPointerException.  As a
+<i class="no-highlight">1223</i>&nbsp;     * temporary measure, this class is typed as Object in order to avoid
+<i class="no-highlight">1224</i>&nbsp;     * the javadoc error.  When ReplicationNetworkConfig becomes public, the
+<i class="no-highlight">1225</i>&nbsp;     * type of the field should be changed to ReplicationNetworkConfig.  This
+<i class="no-highlight">1226</i>&nbsp;     * will not cause any problems with cross-release serialization as long as
+<i class="no-highlight">1227</i>&nbsp;     * we take care that only ReplicationNetworkConfig instances are assigned
+<i class="no-highlight">1228</i>&nbsp;     * to this field.
+<i class="no-highlight">1229</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1230</i>&nbsp;    private Object repNetConfig = ReplicationNetworkConfig.createDefault();</b>
+<i class="no-highlight">1231</i>&nbsp;
+<i class="no-highlight">1232</i>&nbsp;    /* A ProgressListener for tracking this node&#39;s syncups. */
+<i class="no-highlight">1233</i>&nbsp;    private transient
+<i class="no-highlight">1234</i>&nbsp;        ProgressListener&lt;SyncupProgress&gt; syncupProgressListener;
+<i class="no-highlight">1235</i>&nbsp;
+<i class="no-highlight">1236</i>&nbsp;    private transient LogFileRewriteListener logRewriteListener;
+<i class="no-highlight">1237</i>&nbsp;
+<i class="no-highlight">1238</i>&nbsp;    private transient FeederFilter feederFilter;
+<i class="no-highlight">1239</i>&nbsp;
+<i class="no-highlight">1240</i>&nbsp;    private transient StreamAuthenticator authenticator;
+<i class="no-highlight">1241</i>&nbsp;
+<i class="no-highlight">1242</i>&nbsp;    /**
+<i class="no-highlight">1243</i>&nbsp;     * Creates a ReplicationConfig initialized with the system default
+<i class="no-highlight">1244</i>&nbsp;     * settings. Defaults are documented with the string constants in this
+<i class="no-highlight">1245</i>&nbsp;     * class.
+<i class="no-highlight">1246</i>&nbsp;     */
+<i class="no-highlight">1247</i>&nbsp;    public ReplicationConfig() {
+<b class="nc"><i class="no-highlight">1248</i>&nbsp;        super();</b>
+<i class="no-highlight">1249</i>&nbsp;    }
+<i class="no-highlight">1250</i>&nbsp;
+<i class="no-highlight">1251</i>&nbsp;    /**
+<i class="no-highlight">1252</i>&nbsp;     * Creates a ReplicationConfig initialized with the system default
+<i class="no-highlight">1253</i>&nbsp;     * settings and the specified group name, node name, and hostname/port
+<i class="no-highlight">1254</i>&nbsp;     * values.
+<i class="no-highlight">1255</i>&nbsp;     *
+<i class="no-highlight">1256</i>&nbsp;     * &lt;p&gt;Note that the node name is immutable. Normally the host name should
+<i class="no-highlight">1257</i>&nbsp;     * not be used as the node name, unless you intend to reuse the host
+<i class="no-highlight">1258</i>&nbsp;     * name when a machine fails and is replaced, or the node is upgraded to
+<i class="no-highlight">1259</i>&nbsp;     * new hardware.&lt;/p&gt;
+<i class="no-highlight">1260</i>&nbsp;     *
+<i class="no-highlight">1261</i>&nbsp;     * @param groupName the name for the replication group
+<i class="no-highlight">1262</i>&nbsp;     * @param nodeName the name for this node
+<i class="no-highlight">1263</i>&nbsp;     * @param hostPort the hostname and port for this node
+<i class="no-highlight">1264</i>&nbsp;     *
+<i class="no-highlight">1265</i>&nbsp;     * @see #setGroupName
+<i class="no-highlight">1266</i>&nbsp;     * @see #setNodeName
+<i class="no-highlight">1267</i>&nbsp;     */
+<i class="no-highlight">1268</i>&nbsp;    public ReplicationConfig(String groupName,
+<i class="no-highlight">1269</i>&nbsp;                             String nodeName,
+<i class="no-highlight">1270</i>&nbsp;                             String hostPort) {
+<b class="nc"><i class="no-highlight">1271</i>&nbsp;        super();</b>
+<b class="nc"><i class="no-highlight">1272</i>&nbsp;        setGroupName(groupName);</b>
+<b class="nc"><i class="no-highlight">1273</i>&nbsp;        setNodeName(nodeName);</b>
+<b class="nc"><i class="no-highlight">1274</i>&nbsp;        setNodeHostPort(hostPort);</b>
+<i class="no-highlight">1275</i>&nbsp;    }
+<i class="no-highlight">1276</i>&nbsp;
+<i class="no-highlight">1277</i>&nbsp;    /**
+<i class="no-highlight">1278</i>&nbsp;     * Creates a ReplicationConfig which includes the properties specified in
+<i class="no-highlight">1279</i>&nbsp;     * the properties parameter.
+<i class="no-highlight">1280</i>&nbsp;     *
+<i class="no-highlight">1281</i>&nbsp;     * @param properties Supported properties are described as the string
+<i class="no-highlight">1282</i>&nbsp;     * constants in this class.
+<i class="no-highlight">1283</i>&nbsp;     *
+<i class="no-highlight">1284</i>&nbsp;     * @throws IllegalArgumentException If any properties read from the
+<i class="no-highlight">1285</i>&nbsp;     * properties parameter are invalid.
+<i class="no-highlight">1286</i>&nbsp;     */
+<i class="no-highlight">1287</i>&nbsp;    public ReplicationConfig(Properties properties)
+<i class="no-highlight">1288</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1289</i>&nbsp;
+<b class="nc"><i class="no-highlight">1290</i>&nbsp;        super(properties, true /* validateParams */);</b>
+<b class="nc"><i class="no-highlight">1291</i>&nbsp;        propagateRepNetProps();</b>
+<i class="no-highlight">1292</i>&nbsp;    }
+<i class="no-highlight">1293</i>&nbsp;
+<i class="no-highlight">1294</i>&nbsp;    /**
+<i class="no-highlight">1295</i>&nbsp;     * Internal use only, from RepConfigManager.
+<i class="no-highlight">1296</i>&nbsp;     */
+<i class="no-highlight">1297</i>&nbsp;    ReplicationConfig(Properties properties, boolean validateParams)
+<i class="no-highlight">1298</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1299</i>&nbsp;
+<b class="nc"><i class="no-highlight">1300</i>&nbsp;        super(properties, validateParams);</b>
+<b class="nc"><i class="no-highlight">1301</i>&nbsp;        propagateRepNetProps();</b>
+<i class="no-highlight">1302</i>&nbsp;    }
+<i class="no-highlight">1303</i>&nbsp;
+<i class="no-highlight">1304</i>&nbsp;    /**
+<i class="no-highlight">1305</i>&nbsp;     * Gets the name associated with the replication group.
+<i class="no-highlight">1306</i>&nbsp;     *
+<i class="no-highlight">1307</i>&nbsp;     * @return the name of this replication group.
+<i class="no-highlight">1308</i>&nbsp;     */
+<i class="no-highlight">1309</i>&nbsp;    public String getGroupName() {
+<b class="nc"><i class="no-highlight">1310</i>&nbsp;        return DbConfigManager.getVal(props, RepParams.GROUP_NAME);</b>
+<i class="no-highlight">1311</i>&nbsp;    }
+<i class="no-highlight">1312</i>&nbsp;
+<i class="no-highlight">1313</i>&nbsp;    /**
+<i class="no-highlight">1314</i>&nbsp;     * Sets the name for the replication group.
+<i class="no-highlight">1315</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1316</i>&nbsp;     * The name should consist of letters, digits, and/or hyphen (&quot;-&quot;),
+<i class="no-highlight">1317</i>&nbsp;     * underscore (&quot;_&quot;), or period (&quot;.&quot;).
+<i class="no-highlight">1318</i>&nbsp;     *
+<i class="no-highlight">1319</i>&nbsp;     * @param groupName the string representing the name
+<i class="no-highlight">1320</i>&nbsp;     *
+<i class="no-highlight">1321</i>&nbsp;     * @return this
+<i class="no-highlight">1322</i>&nbsp;     *
+<i class="no-highlight">1323</i>&nbsp;     * @throws IllegalArgumentException If the string name is not valid
+<i class="no-highlight">1324</i>&nbsp;     */
+<i class="no-highlight">1325</i>&nbsp;    public ReplicationConfig setGroupName(String groupName)
+<i class="no-highlight">1326</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1327</i>&nbsp;
+<b class="nc"><i class="no-highlight">1328</i>&nbsp;        setGroupNameVoid(groupName);</b>
+<b class="nc"><i class="no-highlight">1329</i>&nbsp;        return this;</b>
+<i class="no-highlight">1330</i>&nbsp;    }
+<i class="no-highlight">1331</i>&nbsp;
+<i class="no-highlight">1332</i>&nbsp;    /**
+<i class="no-highlight">1333</i>&nbsp;     * @hidden
+<i class="no-highlight">1334</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1335</i>&nbsp;     */
+<i class="no-highlight">1336</i>&nbsp;    public void setGroupNameVoid(String groupName)
+<i class="no-highlight">1337</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1338</i>&nbsp;
+<b class="nc"><i class="no-highlight">1339</i>&nbsp;        DbConfigManager.setVal(props, RepParams.GROUP_NAME, groupName,</b>
+<i class="no-highlight">1340</i>&nbsp;                               validateParams);
+<i class="no-highlight">1341</i>&nbsp;    }
+<i class="no-highlight">1342</i>&nbsp;
+<i class="no-highlight">1343</i>&nbsp;    /**
+<i class="no-highlight">1344</i>&nbsp;     * For internal use only.
+<i class="no-highlight">1345</i>&nbsp;     *
+<i class="no-highlight">1346</i>&nbsp;     * Returns a boolean that specifies if we need to convert the existing logs
+<i class="no-highlight">1347</i>&nbsp;     * to replicated format.
+<i class="no-highlight">1348</i>&nbsp;     *
+<i class="no-highlight">1349</i>&nbsp;     * @return true if we want to convert the existing logs to replicated
+<i class="no-highlight">1350</i>&nbsp;     * format
+<i class="no-highlight">1351</i>&nbsp;     */
+<i class="no-highlight">1352</i>&nbsp;    boolean getAllowConvert() {
+<b class="nc"><i class="no-highlight">1353</i>&nbsp;        return allowConvert;</b>
+<i class="no-highlight">1354</i>&nbsp;    }
+<i class="no-highlight">1355</i>&nbsp;
+<i class="no-highlight">1356</i>&nbsp;    /**
+<i class="no-highlight">1357</i>&nbsp;     * For internal use only.
+<i class="no-highlight">1358</i>&nbsp;     *
+<i class="no-highlight">1359</i>&nbsp;     * If set to true, this environment should be converted to replicated
+<i class="no-highlight">1360</i>&nbsp;     * format.
+<i class="no-highlight">1361</i>&nbsp;     *
+<i class="no-highlight">1362</i>&nbsp;     * @param allowConvert if true, this environment should be converted to
+<i class="no-highlight">1363</i>&nbsp;     * replicated format.
+<i class="no-highlight">1364</i>&nbsp;     */
+<i class="no-highlight">1365</i>&nbsp;    void setAllowConvert(boolean allowConvert) {
+<b class="nc"><i class="no-highlight">1366</i>&nbsp;        this.allowConvert = allowConvert;</b>
+<i class="no-highlight">1367</i>&nbsp;    }
+<i class="no-highlight">1368</i>&nbsp;
+<i class="no-highlight">1369</i>&nbsp;    /**
+<i class="no-highlight">1370</i>&nbsp;     * Returns the unique name associated with this node.
+<i class="no-highlight">1371</i>&nbsp;     *
+<i class="no-highlight">1372</i>&nbsp;     * @return the node name
+<i class="no-highlight">1373</i>&nbsp;     */
+<i class="no-highlight">1374</i>&nbsp;    public String getNodeName() {
+<b class="nc"><i class="no-highlight">1375</i>&nbsp;        return DbConfigManager.getVal(props, RepParams.NODE_NAME);</b>
+<i class="no-highlight">1376</i>&nbsp;    }
+<i class="no-highlight">1377</i>&nbsp;
+<i class="no-highlight">1378</i>&nbsp;    /**
+<i class="no-highlight">1379</i>&nbsp;     * Sets the name to be associated with this node. It must be unique within
+<i class="no-highlight">1380</i>&nbsp;     * the group.  When the node is instantiated and joins the replication
+<i class="no-highlight">1381</i>&nbsp;     * group, a check is done to ensure that the name is unique, and a {@link
+<i class="no-highlight">1382</i>&nbsp;     * RestartRequiredException} is thrown if it is not.
+<i class="no-highlight">1383</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1384</i>&nbsp;     * The name should consist of letters, digits, and/or hyphen (&quot;-&quot;),
+<i class="no-highlight">1385</i>&nbsp;     * underscore (&quot;_&quot;), or period (&quot;.&quot;).
+<i class="no-highlight">1386</i>&nbsp;     *
+<i class="no-highlight">1387</i>&nbsp;     * &lt;p&gt;Note that the node name is immutable. Normally the host name should
+<i class="no-highlight">1388</i>&nbsp;     * not be used as the node name, unless you intend to reuse the host
+<i class="no-highlight">1389</i>&nbsp;     * name when a machine fails and is replaced, or the node is upgraded to
+<i class="no-highlight">1390</i>&nbsp;     * new hardware.&lt;/p&gt;
+<i class="no-highlight">1391</i>&nbsp;     *
+<i class="no-highlight">1392</i>&nbsp;     * @param nodeName the node name for this replicated environment.
+<i class="no-highlight">1393</i>&nbsp;     *
+<i class="no-highlight">1394</i>&nbsp;     * @return this
+<i class="no-highlight">1395</i>&nbsp;     * @throws IllegalArgumentException If the name is not valid
+<i class="no-highlight">1396</i>&nbsp;     */
+<i class="no-highlight">1397</i>&nbsp;    public ReplicationConfig setNodeName(String nodeName)
+<i class="no-highlight">1398</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1399</i>&nbsp;
+<b class="nc"><i class="no-highlight">1400</i>&nbsp;        setNodeNameVoid(nodeName);</b>
+<b class="nc"><i class="no-highlight">1401</i>&nbsp;        return this;</b>
+<i class="no-highlight">1402</i>&nbsp;    }
+<i class="no-highlight">1403</i>&nbsp;
+<i class="no-highlight">1404</i>&nbsp;    /**
+<i class="no-highlight">1405</i>&nbsp;     * @hidden
+<i class="no-highlight">1406</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1407</i>&nbsp;     */
+<i class="no-highlight">1408</i>&nbsp;    public void setNodeNameVoid(String nodeName)
+<i class="no-highlight">1409</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1410</i>&nbsp;
+<b class="nc"><i class="no-highlight">1411</i>&nbsp;        DbConfigManager.setVal(props, RepParams.NODE_NAME, nodeName,</b>
+<i class="no-highlight">1412</i>&nbsp;                               validateParams);
+<i class="no-highlight">1413</i>&nbsp;    }
+<i class="no-highlight">1414</i>&nbsp;
+<i class="no-highlight">1415</i>&nbsp;    /**
+<i class="no-highlight">1416</i>&nbsp;     * Returns the {@link NodeType} of this node.
+<i class="no-highlight">1417</i>&nbsp;     *
+<i class="no-highlight">1418</i>&nbsp;     * @return the node type
+<i class="no-highlight">1419</i>&nbsp;     */
+<i class="no-highlight">1420</i>&nbsp;    public NodeType getNodeType() {
+<b class="nc"><i class="no-highlight">1421</i>&nbsp;        return RepParams.NODE_TYPE.getEnumerator</b>
+<b class="nc"><i class="no-highlight">1422</i>&nbsp;            (DbConfigManager.getVal(props, RepParams.NODE_TYPE));</b>
+<i class="no-highlight">1423</i>&nbsp;    }
+<i class="no-highlight">1424</i>&nbsp;
+<i class="no-highlight">1425</i>&nbsp;    /**
+<i class="no-highlight">1426</i>&nbsp;     * Sets the type of this node.
+<i class="no-highlight">1427</i>&nbsp;     *
+<i class="no-highlight">1428</i>&nbsp;     * @param nodeType the node type
+<i class="no-highlight">1429</i>&nbsp;     *
+<i class="no-highlight">1430</i>&nbsp;     * @return this
+<i class="no-highlight">1431</i>&nbsp;     */
+<i class="no-highlight">1432</i>&nbsp;    public ReplicationConfig setNodeType(NodeType nodeType){
+<b class="nc"><i class="no-highlight">1433</i>&nbsp;        setNodeTypeVoid(nodeType);</b>
+<b class="nc"><i class="no-highlight">1434</i>&nbsp;        return this;</b>
+<i class="no-highlight">1435</i>&nbsp;    }
+<i class="no-highlight">1436</i>&nbsp;
+<i class="no-highlight">1437</i>&nbsp;    /**
+<i class="no-highlight">1438</i>&nbsp;     * @hidden
+<i class="no-highlight">1439</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1440</i>&nbsp;     */
+<i class="no-highlight">1441</i>&nbsp;    public void setNodeTypeVoid(NodeType nodeType){
+<b class="nc"><i class="no-highlight">1442</i>&nbsp;        DbConfigManager.setVal</b>
+<b class="nc"><i class="no-highlight">1443</i>&nbsp;            (props, RepParams.NODE_TYPE, nodeType.name(), validateParams);</b>
+<i class="no-highlight">1444</i>&nbsp;    }
+<i class="no-highlight">1445</i>&nbsp;
+<i class="no-highlight">1446</i>&nbsp;    /**
+<i class="no-highlight">1447</i>&nbsp;     * Returns the hostname and port associated with this node. The hostname
+<i class="no-highlight">1448</i>&nbsp;     * and port combination are denoted by a string of the form:
+<i class="no-highlight">1449</i>&nbsp;     * &lt;pre&gt;
+<i class="no-highlight">1450</i>&nbsp;     *   hostname:port
+<i class="no-highlight">1451</i>&nbsp;     * &lt;/pre&gt;
+<i class="no-highlight">1452</i>&nbsp;     * @return the hostname and port string.
+<i class="no-highlight">1453</i>&nbsp;     *
+<i class="no-highlight">1454</i>&nbsp;     * @see ReplicationConfig#NODE_HOST_PORT
+<i class="no-highlight">1455</i>&nbsp;     */
+<i class="no-highlight">1456</i>&nbsp;    public String getNodeHostPort() {
+<b class="nc"><i class="no-highlight">1457</i>&nbsp;        return DbConfigManager.getVal(props, RepParams.NODE_HOST_PORT);</b>
+<i class="no-highlight">1458</i>&nbsp;    }
+<i class="no-highlight">1459</i>&nbsp;
+<i class="no-highlight">1460</i>&nbsp;    /**
+<i class="no-highlight">1461</i>&nbsp;     * Sets the hostname and port associated with this node. The hostname
+<i class="no-highlight">1462</i>&nbsp;     * and port combination are denoted by a string of the form:
+<i class="no-highlight">1463</i>&nbsp;     * &lt;pre&gt;
+<i class="no-highlight">1464</i>&nbsp;     *  hostname[:port]
+<i class="no-highlight">1465</i>&nbsp;     * &lt;/pre&gt;
+<i class="no-highlight">1466</i>&nbsp;     * The port must be outside the range of &quot;Well Known Ports&quot;
+<i class="no-highlight">1467</i>&nbsp;     * (zero through 1023).
+<i class="no-highlight">1468</i>&nbsp;     *
+<i class="no-highlight">1469</i>&nbsp;     * @param hostPort the string containing the hostname and port as above.
+<i class="no-highlight">1470</i>&nbsp;     *
+<i class="no-highlight">1471</i>&nbsp;     * @return this
+<i class="no-highlight">1472</i>&nbsp;     *
+<i class="no-highlight">1473</i>&nbsp;     * @see ReplicationConfig#NODE_HOST_PORT
+<i class="no-highlight">1474</i>&nbsp;     */
+<i class="no-highlight">1475</i>&nbsp;    public ReplicationConfig setNodeHostPort(String hostPort) {
+<b class="nc"><i class="no-highlight">1476</i>&nbsp;        setNodeHostPortVoid(hostPort);</b>
+<b class="nc"><i class="no-highlight">1477</i>&nbsp;        return this;</b>
+<i class="no-highlight">1478</i>&nbsp;    }
+<i class="no-highlight">1479</i>&nbsp;
+<i class="no-highlight">1480</i>&nbsp;    /**
+<i class="no-highlight">1481</i>&nbsp;     * @hidden
+<i class="no-highlight">1482</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1483</i>&nbsp;     */
+<i class="no-highlight">1484</i>&nbsp;    public void setNodeHostPortVoid(String hostPort) {
+<b class="nc"><i class="no-highlight">1485</i>&nbsp;        DbConfigManager.setVal(props, RepParams.NODE_HOST_PORT, hostPort,</b>
+<i class="no-highlight">1486</i>&nbsp;                               validateParams);
+<i class="no-highlight">1487</i>&nbsp;    }
+<i class="no-highlight">1488</i>&nbsp;
+<i class="no-highlight">1489</i>&nbsp;    /**
+<i class="no-highlight">1490</i>&nbsp;     * Returns the configured replica timeout value.
+<i class="no-highlight">1491</i>&nbsp;     *
+<i class="no-highlight">1492</i>&nbsp;     * @return the timeout in milliseconds
+<i class="no-highlight">1493</i>&nbsp;     */
+<i class="no-highlight">1494</i>&nbsp;    public long getReplicaAckTimeout(TimeUnit unit) {
+<b class="nc"><i class="no-highlight">1495</i>&nbsp;        return DbConfigManager.getDurationVal</b>
+<b class="nc"><i class="no-highlight">1496</i>&nbsp;            (props, RepParams.REPLICA_ACK_TIMEOUT, unit);</b>
+<i class="no-highlight">1497</i>&nbsp;    }
+<i class="no-highlight">1498</i>&nbsp;
+<i class="no-highlight">1499</i>&nbsp;    /**
+<i class="no-highlight">1500</i>&nbsp;     * Set the replica commit timeout.
+<i class="no-highlight">1501</i>&nbsp;     *
+<i class="no-highlight">1502</i>&nbsp;     * @param replicaAckTimeout time in milliseconds
+<i class="no-highlight">1503</i>&nbsp;     *
+<i class="no-highlight">1504</i>&nbsp;     * @return this
+<i class="no-highlight">1505</i>&nbsp;     */
+<i class="no-highlight">1506</i>&nbsp;    public ReplicationConfig setReplicaAckTimeout(long replicaAckTimeout,
+<i class="no-highlight">1507</i>&nbsp;                                                  TimeUnit unit) {
+<b class="nc"><i class="no-highlight">1508</i>&nbsp;        setReplicaAckTimeoutVoid(replicaAckTimeout, unit);</b>
+<b class="nc"><i class="no-highlight">1509</i>&nbsp;        return this;</b>
+<i class="no-highlight">1510</i>&nbsp;    }
+<i class="no-highlight">1511</i>&nbsp;
+<i class="no-highlight">1512</i>&nbsp;    /**
+<i class="no-highlight">1513</i>&nbsp;     * @hidden
+<i class="no-highlight">1514</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1515</i>&nbsp;     */
+<i class="no-highlight">1516</i>&nbsp;    public void setReplicaAckTimeoutVoid(long replicaAckTimeout,
+<i class="no-highlight">1517</i>&nbsp;                                         TimeUnit unit) {
+<b class="nc"><i class="no-highlight">1518</i>&nbsp;        DbConfigManager.setDurationVal</b>
+<b class="nc"><i class="no-highlight">1519</i>&nbsp;            (props, RepParams.REPLICA_ACK_TIMEOUT, replicaAckTimeout, unit,</b>
+<i class="no-highlight">1520</i>&nbsp;             validateParams);
+<i class="no-highlight">1521</i>&nbsp;    }
+<i class="no-highlight">1522</i>&nbsp;
+<i class="no-highlight">1523</i>&nbsp;    /**
+<i class="no-highlight">1524</i>&nbsp;     * Returns the maximum acceptable clock skew between this Replica and its
+<i class="no-highlight">1525</i>&nbsp;     * Feeder, which is the node that is the source of its replication stream.
+<i class="no-highlight">1526</i>&nbsp;     *
+<i class="no-highlight">1527</i>&nbsp;     * @return the max permissible clock skew
+<i class="no-highlight">1528</i>&nbsp;     */
+<i class="no-highlight">1529</i>&nbsp;    public long getMaxClockDelta(TimeUnit unit) {
+<b class="nc"><i class="no-highlight">1530</i>&nbsp;        return DbConfigManager.getDurationVal(props, RepParams.MAX_CLOCK_DELTA,</b>
+<i class="no-highlight">1531</i>&nbsp;                                              unit);
+<i class="no-highlight">1532</i>&nbsp;    }
+<i class="no-highlight">1533</i>&nbsp;
+<i class="no-highlight">1534</i>&nbsp;    /**
+<i class="no-highlight">1535</i>&nbsp;     * Sets the maximum acceptable clock skew between this Replica and its
+<i class="no-highlight">1536</i>&nbsp;     * Feeder, which is the node that is the source of its replication
+<i class="no-highlight">1537</i>&nbsp;     * stream. This value is checked whenever a Replica establishes a
+<i class="no-highlight">1538</i>&nbsp;     * connection to its replication stream source. The connection is abandoned
+<i class="no-highlight">1539</i>&nbsp;     * if the clock skew is larger than this value.
+<i class="no-highlight">1540</i>&nbsp;     *
+<i class="no-highlight">1541</i>&nbsp;     * @param maxClockDelta the maximum acceptable clock skew
+<i class="no-highlight">1542</i>&nbsp;     *
+<i class="no-highlight">1543</i>&nbsp;     * @return this
+<i class="no-highlight">1544</i>&nbsp;     *
+<i class="no-highlight">1545</i>&nbsp;     * @throws IllegalArgumentException if the value is not a positive integer
+<i class="no-highlight">1546</i>&nbsp;     */
+<i class="no-highlight">1547</i>&nbsp;    public ReplicationConfig setMaxClockDelta(long maxClockDelta,
+<i class="no-highlight">1548</i>&nbsp;                                              TimeUnit unit)
+<i class="no-highlight">1549</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1550</i>&nbsp;
+<b class="nc"><i class="no-highlight">1551</i>&nbsp;        setMaxClockDeltaVoid(maxClockDelta, unit);</b>
+<b class="nc"><i class="no-highlight">1552</i>&nbsp;        return this;</b>
+<i class="no-highlight">1553</i>&nbsp;    }
+<i class="no-highlight">1554</i>&nbsp;
+<i class="no-highlight">1555</i>&nbsp;    /**
+<i class="no-highlight">1556</i>&nbsp;     * @hidden
+<i class="no-highlight">1557</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1558</i>&nbsp;     */
+<i class="no-highlight">1559</i>&nbsp;    public void setMaxClockDeltaVoid(long maxClockDelta, TimeUnit unit)
+<i class="no-highlight">1560</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1561</i>&nbsp;
+<b class="nc"><i class="no-highlight">1562</i>&nbsp;        DbConfigManager.setDurationVal(props, RepParams.MAX_CLOCK_DELTA,</b>
+<i class="no-highlight">1563</i>&nbsp;                                       maxClockDelta, unit, validateParams);
+<i class="no-highlight">1564</i>&nbsp;    }
+<i class="no-highlight">1565</i>&nbsp;
+<i class="no-highlight">1566</i>&nbsp;    /**
+<i class="no-highlight">1567</i>&nbsp;     * Sets the consistency policy to be associated with the configuration.
+<i class="no-highlight">1568</i>&nbsp;     * This policy acts as the default policy used to govern the consistency
+<i class="no-highlight">1569</i>&nbsp;     * requirements when starting new transactions. See the {@link &lt;a
+<i class="no-highlight">1570</i>&nbsp;     * href=&quot;{@docRoot}../ReplicationGuide/consistency.html&quot;&gt;overview on
+<i class="no-highlight">1571</i>&nbsp;     * consistency in replicated systems&lt;/a&gt;} for more background.
+<i class="no-highlight">1572</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1573</i>&nbsp;     * @param policy the consistency policy to be set for this config.
+<i class="no-highlight">1574</i>&nbsp;     *
+<i class="no-highlight">1575</i>&nbsp;     * @return this
+<i class="no-highlight">1576</i>&nbsp;     */
+<i class="no-highlight">1577</i>&nbsp;    public ReplicationConfig
+<i class="no-highlight">1578</i>&nbsp;        setConsistencyPolicy(ReplicaConsistencyPolicy policy) {
+<i class="no-highlight">1579</i>&nbsp;
+<b class="nc"><i class="no-highlight">1580</i>&nbsp;        setConsistencyPolicyVoid(policy);</b>
+<b class="nc"><i class="no-highlight">1581</i>&nbsp;        return this;</b>
+<i class="no-highlight">1582</i>&nbsp;    }
+<i class="no-highlight">1583</i>&nbsp;
+<i class="no-highlight">1584</i>&nbsp;    /**
+<i class="no-highlight">1585</i>&nbsp;     * @hidden
+<i class="no-highlight">1586</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1587</i>&nbsp;     */
+<i class="no-highlight">1588</i>&nbsp;    public void setConsistencyPolicyVoid(ReplicaConsistencyPolicy policy) {
+<i class="no-highlight">1589</i>&nbsp;
+<b class="nc"><i class="no-highlight">1590</i>&nbsp;        DbConfigManager.setVal(props,</b>
+<i class="no-highlight">1591</i>&nbsp;                               RepParams.CONSISTENCY_POLICY,
+<b class="nc"><i class="no-highlight">1592</i>&nbsp;                               RepUtils.getPropertyString(policy),</b>
+<i class="no-highlight">1593</i>&nbsp;                               validateParams);
+<i class="no-highlight">1594</i>&nbsp;    }
+<i class="no-highlight">1595</i>&nbsp;
+<i class="no-highlight">1596</i>&nbsp;    /**
+<i class="no-highlight">1597</i>&nbsp;     * Returns the default consistency policy associated with the
+<i class="no-highlight">1598</i>&nbsp;     * configuration.
+<i class="no-highlight">1599</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1600</i>&nbsp;     * If the user does not set the default consistency policy through {@link
+<i class="no-highlight">1601</i>&nbsp;     * ReplicationConfig#setConsistencyPolicy}, the system will use the policy
+<i class="no-highlight">1602</i>&nbsp;     * defined by {@link ReplicationConfig#CONSISTENCY_POLICY}.
+<i class="no-highlight">1603</i>&nbsp;     *
+<i class="no-highlight">1604</i>&nbsp;     * @return the consistency policy currently associated with this config.
+<i class="no-highlight">1605</i>&nbsp;     */
+<i class="no-highlight">1606</i>&nbsp;   @Override
+<i class="no-highlight">1607</i>&nbsp;   public ReplicaConsistencyPolicy getConsistencyPolicy() {
+<b class="nc"><i class="no-highlight">1608</i>&nbsp;        String propertyValue =</b>
+<b class="nc"><i class="no-highlight">1609</i>&nbsp;            DbConfigManager.getVal(props,</b>
+<i class="no-highlight">1610</i>&nbsp;                                   RepParams.CONSISTENCY_POLICY);
+<b class="nc"><i class="no-highlight">1611</i>&nbsp;        return RepUtils.getReplicaConsistencyPolicy(propertyValue);</b>
+<i class="no-highlight">1612</i>&nbsp;    }
+<i class="no-highlight">1613</i>&nbsp;
+<i class="no-highlight">1614</i>&nbsp;    @Override
+<i class="no-highlight">1615</i>&nbsp;    public ReplicationConfig setConfigParam(String paramName, String value)
+<i class="no-highlight">1616</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">1617</i>&nbsp;
+<b class="nc"><i class="no-highlight">1618</i>&nbsp;        if (ReplicationNetworkConfig.getRepNetPropertySet().</b>
+<b class="nc"><i class="no-highlight">1619</i>&nbsp;            contains(paramName)) {</b>
+<b class="nc"><i class="no-highlight">1620</i>&nbsp;            getRepNetConfig().setConfigParam(paramName, value);</b>
+<i class="no-highlight">1621</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1622</i>&nbsp;            DbConfigManager.setConfigParam(props,</b>
+<i class="no-highlight">1623</i>&nbsp;                                           paramName,
+<i class="no-highlight">1624</i>&nbsp;                                           value,
+<i class="no-highlight">1625</i>&nbsp;                                           false,   /* require mutability. */
+<i class="no-highlight">1626</i>&nbsp;                                           validateParams,
+<i class="no-highlight">1627</i>&nbsp;                                           true,   /* forReplication */
+<i class="no-highlight">1628</i>&nbsp;                                           true);  /* verifyForReplication */
+<i class="no-highlight">1629</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1630</i>&nbsp;        return this;</b>
+<i class="no-highlight">1631</i>&nbsp;    }
+<i class="no-highlight">1632</i>&nbsp;
+<i class="no-highlight">1633</i>&nbsp;    /**
+<i class="no-highlight">1634</i>&nbsp;     * @hidden SSL deferred
+<i class="no-highlight">1635</i>&nbsp;     * Get the replication service net configuration associated with
+<i class="no-highlight">1636</i>&nbsp;     * this ReplicationConfig.
+<i class="no-highlight">1637</i>&nbsp;     */
+<i class="no-highlight">1638</i>&nbsp;    public ReplicationNetworkConfig getRepNetConfig() {
+<b class="nc"><i class="no-highlight">1639</i>&nbsp;        return (ReplicationNetworkConfig) repNetConfig;</b>
+<i class="no-highlight">1640</i>&nbsp;    }
+<i class="no-highlight">1641</i>&nbsp;
+<i class="no-highlight">1642</i>&nbsp;    /**
+<i class="no-highlight">1643</i>&nbsp;     * @hidden SSL deferred
+<i class="no-highlight">1644</i>&nbsp;     * Set the replication service net configuration associated with
+<i class="no-highlight">1645</i>&nbsp;     * this ReplicationConfig.
+<i class="no-highlight">1646</i>&nbsp;     *
+<i class="no-highlight">1647</i>&nbsp;     * @param netConfig the new ReplicationNetworkConfig to be associated
+<i class="no-highlight">1648</i>&nbsp;     * with this ReplicationConfig.  This must not be null.
+<i class="no-highlight">1649</i>&nbsp;     *
+<i class="no-highlight">1650</i>&nbsp;     * @throws IllegalArgumentException if the netConfig is null
+<i class="no-highlight">1651</i>&nbsp;     */
+<i class="no-highlight">1652</i>&nbsp;    public ReplicationConfig setRepNetConfig(
+<i class="no-highlight">1653</i>&nbsp;        ReplicationNetworkConfig netConfig) {
+<i class="no-highlight">1654</i>&nbsp;
+<b class="nc"><i class="no-highlight">1655</i>&nbsp;        setRepNetConfigVoid(netConfig);</b>
+<b class="nc"><i class="no-highlight">1656</i>&nbsp;        return this;</b>
+<i class="no-highlight">1657</i>&nbsp;    }
+<i class="no-highlight">1658</i>&nbsp;
+<i class="no-highlight">1659</i>&nbsp;    /**
+<i class="no-highlight">1660</i>&nbsp;     * @hidden
+<i class="no-highlight">1661</i>&nbsp;     * For bean editors
+<i class="no-highlight">1662</i>&nbsp;     */
+<i class="no-highlight">1663</i>&nbsp;    public void setRepNetConfigVoid(ReplicationNetworkConfig netConfig) {
+<b class="nc"><i class="no-highlight">1664</i>&nbsp;        if (netConfig == null) {</b>
+<b class="nc"><i class="no-highlight">1665</i>&nbsp;            throw new IllegalArgumentException(&quot;netConfig may not be null&quot;);</b>
+<i class="no-highlight">1666</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1667</i>&nbsp;        repNetConfig = netConfig;</b>
+<i class="no-highlight">1668</i>&nbsp;    }
+<i class="no-highlight">1669</i>&nbsp;
+<i class="no-highlight">1670</i>&nbsp;    /**
+<i class="no-highlight">1671</i>&nbsp;     * Returns a copy of this configuration object.
+<i class="no-highlight">1672</i>&nbsp;     */
+<i class="no-highlight">1673</i>&nbsp;    @Override
+<i class="no-highlight">1674</i>&nbsp;    public ReplicationConfig clone() {
+<i class="no-highlight">1675</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1676</i>&nbsp;            ReplicationConfig copy = (ReplicationConfig) super.clone();</b>
+<b class="nc"><i class="no-highlight">1677</i>&nbsp;            copy.setRepNetConfig(getRepNetConfig().clone());</b>
+<b class="nc"><i class="no-highlight">1678</i>&nbsp;            return copy;</b>
+<b class="nc"><i class="no-highlight">1679</i>&nbsp;        } catch (CloneNotSupportedException willNeverOccur) {</b>
+<b class="nc"><i class="no-highlight">1680</i>&nbsp;            return null;</b>
+<i class="no-highlight">1681</i>&nbsp;        }
+<i class="no-highlight">1682</i>&nbsp;    }
+<i class="no-highlight">1683</i>&nbsp;
+<i class="no-highlight">1684</i>&nbsp;    /**
+<i class="no-highlight">1685</i>&nbsp;     * @hidden
+<i class="no-highlight">1686</i>&nbsp;     * For use by this class and by ReplicatedEnvironment.setupRepConfig()
+<i class="no-highlight">1687</i>&nbsp;     * Moves any properties that belong to ReplicationNetworkConfig to
+<i class="no-highlight">1688</i>&nbsp;     * repNetConfig.
+<i class="no-highlight">1689</i>&nbsp;     * This is intended to be called after a bulk property load.
+<i class="no-highlight">1690</i>&nbsp;     */
+<i class="no-highlight">1691</i>&nbsp;    void propagateRepNetProps() {
+<i class="no-highlight">1692</i>&nbsp;
+<i class="no-highlight">1693</i>&nbsp;        /* If there is no current RepNetConfig, simply adopt the new config. */
+<b class="nc"><i class="no-highlight">1694</i>&nbsp;        final ReplicationNetworkConfig rnConfig = getRepNetConfig();</b>
+<b class="nc"><i class="no-highlight">1695</i>&nbsp;        if (rnConfig == null) {</b>
+<b class="nc"><i class="no-highlight">1696</i>&nbsp;            setRepNetConfig(ReplicationNetworkConfig.create(props));</b>
+<i class="no-highlight">1697</i>&nbsp;            return;
+<i class="no-highlight">1698</i>&nbsp;        }
+<i class="no-highlight">1699</i>&nbsp;
+<i class="no-highlight">1700</i>&nbsp;        /*
+<i class="no-highlight">1701</i>&nbsp;         * Construct a new properties set that includes both the properties
+<i class="no-highlight">1702</i>&nbsp;         * that we hold directly, plus any properties stored on an existing
+<i class="no-highlight">1703</i>&nbsp;         * repNetConfig object.  Our properties will override those on
+<i class="no-highlight">1704</i>&nbsp;         * repNetConfig.
+<i class="no-highlight">1705</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1706</i>&nbsp;        final Properties combProps = new Properties(rnConfig.getProps());</b>
+<b class="nc"><i class="no-highlight">1707</i>&nbsp;        for (String propName : props.stringPropertyNames()) {</b>
+<b class="nc"><i class="no-highlight">1708</i>&nbsp;            combProps.setProperty(propName, props.getProperty(propName));</b>
+<b class="nc"><i class="no-highlight">1709</i>&nbsp;        }</b>
+<i class="no-highlight">1710</i>&nbsp;
+<i class="no-highlight">1711</i>&nbsp;        /*
+<i class="no-highlight">1712</i>&nbsp;         * Create a new ReplicationNetworkConfig instance based on the combined
+<i class="no-highlight">1713</i>&nbsp;         * properties.
+<i class="no-highlight">1714</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1715</i>&nbsp;        ReplicationNetworkConfig newRepNetConfig =</b>
+<b class="nc"><i class="no-highlight">1716</i>&nbsp;            ReplicationNetworkConfig.create(combProps);</b>
+<i class="no-highlight">1717</i>&nbsp;
+<i class="no-highlight">1718</i>&nbsp;        /*
+<i class="no-highlight">1719</i>&nbsp;         * If the type of the config object did not change, there may be
+<i class="no-highlight">1720</i>&nbsp;         * non-property fields that should be retained from the original,
+<i class="no-highlight">1721</i>&nbsp;         * so use the orignal object and just change the properties.
+<i class="no-highlight">1722</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1723</i>&nbsp;        if (newRepNetConfig.getClass() == repNetConfig.getClass()) {</b>
+<b class="nc"><i class="no-highlight">1724</i>&nbsp;            rnConfig.applyRepNetProperties(combProps);</b>
+<i class="no-highlight">1725</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1726</i>&nbsp;            setRepNetConfig(newRepNetConfig);</b>
+<i class="no-highlight">1727</i>&nbsp;        }
+<i class="no-highlight">1728</i>&nbsp;    }
+<i class="no-highlight">1729</i>&nbsp;
+<i class="no-highlight">1730</i>&nbsp;    /**
+<i class="no-highlight">1731</i>&nbsp;     * @hidden
+<i class="no-highlight">1732</i>&nbsp;     *
+<i class="no-highlight">1733</i>&nbsp;     * For internal use only: Internal convenience method.
+<i class="no-highlight">1734</i>&nbsp;     *
+<i class="no-highlight">1735</i>&nbsp;     * Returns the set of sockets associated with helper nodes. This method
+<i class="no-highlight">1736</i>&nbsp;     * should only be used when the configuration object is known to have an
+<i class="no-highlight">1737</i>&nbsp;     * authoritative value for the helper hosts values. In a replication node,
+<i class="no-highlight">1738</i>&nbsp;     * the je.properties file may override the values in this configuration
+<i class="no-highlight">1739</i>&nbsp;     * object.
+<i class="no-highlight">1740</i>&nbsp;     *
+<i class="no-highlight">1741</i>&nbsp;     * @return the set of helper sockets, returns an empty set if there are no
+<i class="no-highlight">1742</i>&nbsp;     * helpers.
+<i class="no-highlight">1743</i>&nbsp;     */
+<i class="no-highlight">1744</i>&nbsp;    public Set&lt;InetSocketAddress&gt; getHelperSockets() {
+<b class="nc"><i class="no-highlight">1745</i>&nbsp;        return HostPortPair.getSockets(getHelperHosts());</b>
+<i class="no-highlight">1746</i>&nbsp;    }
+<i class="no-highlight">1747</i>&nbsp;
+<i class="no-highlight">1748</i>&nbsp;    /**
+<i class="no-highlight">1749</i>&nbsp;     * @hidden
+<i class="no-highlight">1750</i>&nbsp;     * Internal convenience methods for returning replication sockets.
+<i class="no-highlight">1751</i>&nbsp;     *
+<i class="no-highlight">1752</i>&nbsp;     * This method should only be used when the configuration object is known
+<i class="no-highlight">1753</i>&nbsp;     * to have an authoritative value for its socket value. In a replication
+<i class="no-highlight">1754</i>&nbsp;     * node, the je.properties file may override the values in this
+<i class="no-highlight">1755</i>&nbsp;     * configuration object.
+<i class="no-highlight">1756</i>&nbsp;     */
+<i class="no-highlight">1757</i>&nbsp;    public InetSocketAddress getNodeSocketAddress() {
+<i class="no-highlight">1758</i>&nbsp;
+<b class="nc"><i class="no-highlight">1759</i>&nbsp;        return new InetSocketAddress(getNodeHostname(), getNodePort());</b>
+<i class="no-highlight">1760</i>&nbsp;    }
+<i class="no-highlight">1761</i>&nbsp;
+<i class="no-highlight">1762</i>&nbsp;    /**
+<i class="no-highlight">1763</i>&nbsp;     * Returns the hostname component of the nodeHost property.
+<i class="no-highlight">1764</i>&nbsp;     *
+<i class="no-highlight">1765</i>&nbsp;     * @return the hostname string
+<i class="no-highlight">1766</i>&nbsp;     */
+<i class="no-highlight">1767</i>&nbsp;    public String getNodeHostname() {
+<b class="nc"><i class="no-highlight">1768</i>&nbsp;        String hostAndPort =</b>
+<b class="nc"><i class="no-highlight">1769</i>&nbsp;            DbConfigManager.getVal(props, RepParams.NODE_HOST_PORT);</b>
+<b class="nc"><i class="no-highlight">1770</i>&nbsp;        int colonToken = hostAndPort.indexOf(&quot;:&quot;);</b>
+<i class="no-highlight">1771</i>&nbsp;
+<b class="nc"><i class="no-highlight">1772</i>&nbsp;        return (colonToken &gt;= 0) ?</b>
+<b class="nc"><i class="no-highlight">1773</i>&nbsp;                hostAndPort.substring(0, colonToken) : hostAndPort;</b>
+<i class="no-highlight">1774</i>&nbsp;    }
+<i class="no-highlight">1775</i>&nbsp;
+<i class="no-highlight">1776</i>&nbsp;    /**
+<i class="no-highlight">1777</i>&nbsp;     * Returns the port component of the nodeHost property.
+<i class="no-highlight">1778</i>&nbsp;     *
+<i class="no-highlight">1779</i>&nbsp;     * @return the port number
+<i class="no-highlight">1780</i>&nbsp;     */
+<i class="no-highlight">1781</i>&nbsp;    public int getNodePort() {
+<b class="nc"><i class="no-highlight">1782</i>&nbsp;        String hostAndPort =</b>
+<b class="nc"><i class="no-highlight">1783</i>&nbsp;            DbConfigManager.getVal(props, RepParams.NODE_HOST_PORT);</b>
+<b class="nc"><i class="no-highlight">1784</i>&nbsp;        int colonToken = hostAndPort.indexOf(&quot;:&quot;);</b>
+<i class="no-highlight">1785</i>&nbsp;
+<b class="nc"><i class="no-highlight">1786</i>&nbsp;        String portString = (colonToken &gt;= 0) ?</b>
+<b class="nc"><i class="no-highlight">1787</i>&nbsp;            hostAndPort.substring(colonToken + 1) :</b>
+<b class="nc"><i class="no-highlight">1788</i>&nbsp;            DbConfigManager.getVal(props, RepParams.DEFAULT_PORT);</b>
+<i class="no-highlight">1789</i>&nbsp;
+<b class="nc"><i class="no-highlight">1790</i>&nbsp;        return Integer.parseInt(portString) ;</b>
+<i class="no-highlight">1791</i>&nbsp;    }
+<i class="no-highlight">1792</i>&nbsp;
+<i class="no-highlight">1793</i>&nbsp;    /**
+<i class="no-highlight">1794</i>&nbsp;     * Configure the environment to make periodic calls to a {@link
+<i class="no-highlight">1795</i>&nbsp;     * ProgressListener} to provide feedback on replication stream sync-up.
+<i class="no-highlight">1796</i>&nbsp;     * The ProgressListener.progress() method is called at different stages of
+<i class="no-highlight">1797</i>&nbsp;     * the syncup process. See {@link SyncupProgress} for information about
+<i class="no-highlight">1798</i>&nbsp;     * those stages.
+<i class="no-highlight">1799</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1800</i>&nbsp;     * When using progress listeners, review the information at {@link
+<i class="no-highlight">1801</i>&nbsp;     * ProgressListener#progress} to avoid any unintended disruption to
+<i class="no-highlight">1802</i>&nbsp;     * replication stream syncup.
+<i class="no-highlight">1803</i>&nbsp;     * @param progressListener The ProgressListener to callback during
+<i class="no-highlight">1804</i>&nbsp;     * environment instantiation (syncup).
+<i class="no-highlight">1805</i>&nbsp;     * @see &lt;a href=&quot;{@docRoot}/../ReplicationGuide/progoverviewlifecycle.html&quot;
+<i class="no-highlight">1806</i>&nbsp;     * target=&quot;_top&quot;&gt;Replication Group Life Cycle&lt;/a&gt;
+<i class="no-highlight">1807</i>&nbsp;     * @since 5.0
+<i class="no-highlight">1808</i>&nbsp;     */
+<i class="no-highlight">1809</i>&nbsp;    public ReplicationConfig setSyncupProgressListener
+<i class="no-highlight">1810</i>&nbsp;        (final ProgressListener&lt;SyncupProgress&gt; progressListener) {
+<b class="nc"><i class="no-highlight">1811</i>&nbsp;        setSyncupProgressListenerVoid(progressListener);</b>
+<b class="nc"><i class="no-highlight">1812</i>&nbsp;        return this;</b>
+<i class="no-highlight">1813</i>&nbsp;    }
+<i class="no-highlight">1814</i>&nbsp;
+<i class="no-highlight">1815</i>&nbsp;    /**
+<i class="no-highlight">1816</i>&nbsp;     * @hidden
+<i class="no-highlight">1817</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1818</i>&nbsp;     */
+<i class="no-highlight">1819</i>&nbsp;    public void setSyncupProgressListenerVoid
+<i class="no-highlight">1820</i>&nbsp;        (final ProgressListener&lt;SyncupProgress&gt; progressListener) {
+<b class="nc"><i class="no-highlight">1821</i>&nbsp;        this.syncupProgressListener = progressListener;</b>
+<i class="no-highlight">1822</i>&nbsp;    }
+<i class="no-highlight">1823</i>&nbsp;
+<i class="no-highlight">1824</i>&nbsp;    /**
+<i class="no-highlight">1825</i>&nbsp;     * Return the ProgressListener to be used at this environment startup.
+<i class="no-highlight">1826</i>&nbsp;     */
+<i class="no-highlight">1827</i>&nbsp;    public ProgressListener&lt;SyncupProgress&gt; getSyncupProgressListener() {
+<b class="nc"><i class="no-highlight">1828</i>&nbsp;        return syncupProgressListener;</b>
+<i class="no-highlight">1829</i>&nbsp;    }
+<i class="no-highlight">1830</i>&nbsp;
+<i class="no-highlight">1831</i>&nbsp;    /**
+<i class="no-highlight">1832</i>&nbsp;     * @hidden
+<i class="no-highlight">1833</i>&nbsp;     * Installs a callback to be notified when JE is about to modify previously
+<i class="no-highlight">1834</i>&nbsp;     * written log files.
+<i class="no-highlight">1835</i>&nbsp;     */
+<i class="no-highlight">1836</i>&nbsp;    public ReplicationConfig setLogFileRewriteListener
+<i class="no-highlight">1837</i>&nbsp;        (final LogFileRewriteListener listener) {
+<b class="nc"><i class="no-highlight">1838</i>&nbsp;        setLogFileRewriteListenerVoid(listener);</b>
+<b class="nc"><i class="no-highlight">1839</i>&nbsp;        return this;</b>
+<i class="no-highlight">1840</i>&nbsp;    }
+<i class="no-highlight">1841</i>&nbsp;
+<i class="no-highlight">1842</i>&nbsp;    /**
+<i class="no-highlight">1843</i>&nbsp;     * @hidden
+<i class="no-highlight">1844</i>&nbsp;     * The void return setter for use by Bean editors.
+<i class="no-highlight">1845</i>&nbsp;     */
+<i class="no-highlight">1846</i>&nbsp;    public void setLogFileRewriteListenerVoid(final LogFileRewriteListener l) {
+<b class="nc"><i class="no-highlight">1847</i>&nbsp;        logRewriteListener = l;</b>
+<i class="no-highlight">1848</i>&nbsp;    }
+<i class="no-highlight">1849</i>&nbsp;
+<i class="no-highlight">1850</i>&nbsp;    /** @hidden */
+<i class="no-highlight">1851</i>&nbsp;    public LogFileRewriteListener getLogFileRewriteListener() {
+<b class="nc"><i class="no-highlight">1852</i>&nbsp;        return logRewriteListener;</b>
+<i class="no-highlight">1853</i>&nbsp;    }
+<i class="no-highlight">1854</i>&nbsp;
+<i class="no-highlight">1855</i>&nbsp;    /**
+<i class="no-highlight">1856</i>&nbsp;     * @hidden
+<i class="no-highlight">1857</i>&nbsp;     *
+<i class="no-highlight">1858</i>&nbsp;     * Configures a filter object that is transmitted to the remote Feeder as
+<i class="no-highlight">1859</i>&nbsp;     * part of the replica feeder syncup. The remote feeder then invokes this
+<i class="no-highlight">1860</i>&nbsp;     * filter on each record before it sends the record to the replica. The
+<i class="no-highlight">1861</i>&nbsp;     * filter can be used to filter out replication records at the feeder
+<i class="no-highlight">1862</i>&nbsp;     * itself and this eliminate the feeder to replica transmission overhead
+<i class="no-highlight">1863</i>&nbsp;     * for records in which it has no interest.
+<i class="no-highlight">1864</i>&nbsp;     *
+<i class="no-highlight">1865</i>&nbsp;     */
+<i class="no-highlight">1866</i>&nbsp;    public ReplicationConfig setFeederFilter(final FeederFilter feederFilter) {
+<b class="nc"><i class="no-highlight">1867</i>&nbsp;        setFeederFilterVoid(feederFilter);</b>
+<b class="nc"><i class="no-highlight">1868</i>&nbsp;        return this;</b>
+<i class="no-highlight">1869</i>&nbsp;    }
+<i class="no-highlight">1870</i>&nbsp;
+<i class="no-highlight">1871</i>&nbsp;    /** @hidden */
+<i class="no-highlight">1872</i>&nbsp;    public void setFeederFilterVoid(final FeederFilter feederFilter) {
+<b class="nc"><i class="no-highlight">1873</i>&nbsp;        this.feederFilter = feederFilter;</b>
+<i class="no-highlight">1874</i>&nbsp;    }
+<i class="no-highlight">1875</i>&nbsp;
+<i class="no-highlight">1876</i>&nbsp;    /** @hidden */
+<i class="no-highlight">1877</i>&nbsp;    public FeederFilter getFeederFilter() {
+<b class="nc"><i class="no-highlight">1878</i>&nbsp;        return feederFilter;</b>
+<i class="no-highlight">1879</i>&nbsp;    }
+<i class="no-highlight">1880</i>&nbsp;
+<i class="no-highlight">1881</i>&nbsp;    /**
+<i class="no-highlight">1882</i>&nbsp;     * @hidden
+<i class="no-highlight">1883</i>&nbsp;     *
+<i class="no-highlight">1884</i>&nbsp;     * Sets the feeder authenticator.
+<i class="no-highlight">1885</i>&nbsp;     *
+<i class="no-highlight">1886</i>&nbsp;     * @param authenticator the feeder authenticator
+<i class="no-highlight">1887</i>&nbsp;     */
+<i class="no-highlight">1888</i>&nbsp;    public ReplicationConfig setAuthenticator(
+<i class="no-highlight">1889</i>&nbsp;        final StreamAuthenticator authenticator) {
+<i class="no-highlight">1890</i>&nbsp;
+<b class="nc"><i class="no-highlight">1891</i>&nbsp;        setAuthenticatorVoid(authenticator);</b>
+<b class="nc"><i class="no-highlight">1892</i>&nbsp;        return this;</b>
+<i class="no-highlight">1893</i>&nbsp;    }
+<i class="no-highlight">1894</i>&nbsp;
+<i class="no-highlight">1895</i>&nbsp;    /**
+<i class="no-highlight">1896</i>&nbsp;     * @hidden
+<i class="no-highlight">1897</i>&nbsp;     *
+<i class="no-highlight">1898</i>&nbsp;     * Sets the feeder authenticator
+<i class="no-highlight">1899</i>&nbsp;     *
+<i class="no-highlight">1900</i>&nbsp;     * @param authenticator feeder authenticator
+<i class="no-highlight">1901</i>&nbsp;     */
+<i class="no-highlight">1902</i>&nbsp;    public void setAuthenticatorVoid(final StreamAuthenticator authenticator) {
+<b class="nc"><i class="no-highlight">1903</i>&nbsp;        this.authenticator = authenticator;</b>
+<i class="no-highlight">1904</i>&nbsp;    }
+<i class="no-highlight">1905</i>&nbsp;
+<i class="no-highlight">1906</i>&nbsp;    /**
+<i class="no-highlight">1907</i>&nbsp;     * @hidden
+<i class="no-highlight">1908</i>&nbsp;     *
+<i class="no-highlight">1909</i>&nbsp;     * Returns feeder authenticator
+<i class="no-highlight">1910</i>&nbsp;     *
+<i class="no-highlight">1911</i>&nbsp;     * @return feeder authenticator, null if no feeder authenticator is
+<i class="no-highlight">1912</i>&nbsp;     * available.
+<i class="no-highlight">1913</i>&nbsp;     */
+<i class="no-highlight">1914</i>&nbsp;    public StreamAuthenticator getAuthenticator() {
+<b class="nc"><i class="no-highlight">1915</i>&nbsp;        return authenticator;</b>
+<i class="no-highlight">1916</i>&nbsp;    }
+<i class="no-highlight">1917</i>&nbsp;
+<i class="no-highlight">1918</i>&nbsp;    /**
+<i class="no-highlight">1919</i>&nbsp;     * @hidden
+<i class="no-highlight">1920</i>&nbsp;     * For internal use only.
+<i class="no-highlight">1921</i>&nbsp;     *
+<i class="no-highlight">1922</i>&nbsp;     * Performs the checks need to ensure that this is a valid replicated
+<i class="no-highlight">1923</i>&nbsp;     * environment configuration. This method must only be invoked after all
+<i class="no-highlight">1924</i>&nbsp;     * the appropriate fields are set.
+<i class="no-highlight">1925</i>&nbsp;     */
+<i class="no-highlight">1926</i>&nbsp;    public void verify() throws IllegalArgumentException {
+<b class="nc"><i class="no-highlight">1927</i>&nbsp;        if ((getGroupName() == null) || &quot;&quot;.equals(getGroupName())) {</b>
+<b class="nc"><i class="no-highlight">1928</i>&nbsp;            throw new IllegalArgumentException(&quot;Missing group name&quot;);</b>
+<i class="no-highlight">1929</i>&nbsp;        }
+<i class="no-highlight">1930</i>&nbsp;
+<b class="nc"><i class="no-highlight">1931</i>&nbsp;        if ((getNodeName() == null) || &quot;&quot;.equals(getNodeName())){</b>
+<b class="nc"><i class="no-highlight">1932</i>&nbsp;            throw new IllegalArgumentException(&quot;Missing node name&quot;);</b>
+<i class="no-highlight">1933</i>&nbsp;        }
+<i class="no-highlight">1934</i>&nbsp;
+<b class="nc"><i class="no-highlight">1935</i>&nbsp;        if ((getNodeHostPort() == null) || &quot;&quot;.equals(getNodeHostPort())) {</b>
+<b class="nc"><i class="no-highlight">1936</i>&nbsp;            throw new IllegalArgumentException(&quot;Missing node host&quot;);</b>
+<i class="no-highlight">1937</i>&nbsp;        }
+<i class="no-highlight">1938</i>&nbsp;    }
+<i class="no-highlight">1939</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

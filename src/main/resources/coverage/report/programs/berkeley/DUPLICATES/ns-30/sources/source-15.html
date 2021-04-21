@@ -1,0 +1,298 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FileStoreInfo</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: FileStoreInfo (com.sleepycat.je.utilint)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FileStoreInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    71.4%
+  </span>
+  <span class="absValue">
+    (5/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    55.6%
+  </span>
+  <span class="absValue">
+    (10/18)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">FileStoreInfo$Factory</td>
+  </tr>
+  <tr>
+    <td class="name">FileStoreInfo$FailingFactory</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (5/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    45.5%
+  </span>
+  <span class="absValue">
+    (10/22)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;/**
+<i class="no-highlight">19</i>&nbsp; * Provides information about the file store associated with a specific file.
+<i class="no-highlight">20</i>&nbsp; * This class is a wrapper for the information made available by the {@code
+<i class="no-highlight">21</i>&nbsp; * java.nio.file.FileStore} class introduced in Java 7, but using reflection to
+<i class="no-highlight">22</i>&nbsp; * permit Java 6 to determine cleanly at runtime that file stores are not
+<i class="no-highlight">23</i>&nbsp; * supported.
+<i class="no-highlight">24</i>&nbsp; *
+<i class="no-highlight">25</i>&nbsp; * TODO:
+<i class="no-highlight">26</i>&nbsp; * We no longer support Java 6 so much of this mechanism can be removed. Other
+<i class="no-highlight">27</i>&nbsp; * code can assume that a FileStore is always available. Also, if an
+<i class="no-highlight">28</i>&nbsp; * IOException is thrown by FileStore methods, instead of tolerating this we
+<i class="no-highlight">29</i>&nbsp; * should invalidate the Environment, since this is standard JE policy.
+<i class="no-highlight">30</i>&nbsp; * However, we may want to leave the factory interface in place to support
+<i class="no-highlight">31</i>&nbsp; * testing with arbitrary disk space limits.
+<i class="no-highlight">32</i>&nbsp; */
+<i class="no-highlight">33</i>&nbsp;public abstract class FileStoreInfo {
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;    /**
+<i class="no-highlight">36</i>&nbsp;     * The full name of the Java 7 FileStore class, which must be present for
+<i class="no-highlight">37</i>&nbsp;     * this class to be supported.
+<i class="no-highlight">38</i>&nbsp;     */
+<i class="no-highlight">39</i>&nbsp;    public static final String FILE_STORE_CLASS = &quot;java.nio.file.FileStore&quot;;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;    /** The full name of the Java 7 implementation factory class. */
+<i class="no-highlight">42</i>&nbsp;    private static final String JAVA7_FILE_STORE_FACTORY_CLASS =
+<i class="no-highlight">43</i>&nbsp;        &quot;com.sleepycat.je.utilint.Java7FileStoreInfo$Java7Factory&quot;;
+<i class="no-highlight">44</i>&nbsp;
+<i class="no-highlight">45</i>&nbsp;    /** The standard factory. */
+<b class="fc"><i class="no-highlight">46</i>&nbsp;    private static final Factory standardFactory = createFactory();</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /** If not null, a factory to use for testing. */
+<b class="fc"><i class="no-highlight">49</i>&nbsp;    private static volatile Factory testFactory = null;</b>
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    /** A factory interface for getting FileStoreInfo instances. */
+<i class="no-highlight">52</i>&nbsp;    interface Factory {
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;        /** @see #checkSupported */
+<i class="no-highlight">55</i>&nbsp;        void factoryCheckSupported();
+<i class="no-highlight">56</i>&nbsp;
+<i class="no-highlight">57</i>&nbsp;        /** @see #getInfo */
+<i class="no-highlight">58</i>&nbsp;        abstract FileStoreInfo factoryGetInfo(String file)
+<i class="no-highlight">59</i>&nbsp;            throws IOException;
+<i class="no-highlight">60</i>&nbsp;    }
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /** A factory class whose operations fail with a given exception. */
+<i class="no-highlight">63</i>&nbsp;    private static class FailingFactory implements Factory {
+<i class="no-highlight">64</i>&nbsp;        final RuntimeException exception;
+<b class="nc"><i class="no-highlight">65</i>&nbsp;        FailingFactory(final RuntimeException exception) {</b>
+<b class="nc"><i class="no-highlight">66</i>&nbsp;            this.exception = exception;</b>
+<i class="no-highlight">67</i>&nbsp;        }
+<i class="no-highlight">68</i>&nbsp;        @Override
+<i class="no-highlight">69</i>&nbsp;        public void factoryCheckSupported() {
+<b class="nc"><i class="no-highlight">70</i>&nbsp;            throw exception;</b>
+<i class="no-highlight">71</i>&nbsp;        }
+<i class="no-highlight">72</i>&nbsp;        @Override
+<i class="no-highlight">73</i>&nbsp;        public FileStoreInfo factoryGetInfo(@SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">74</i>&nbsp;                                            String file) {
+<b class="nc"><i class="no-highlight">75</i>&nbsp;            throw exception;</b>
+<i class="no-highlight">76</i>&nbsp;        }
+<i class="no-highlight">77</i>&nbsp;    }
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    /** Support subclasses. */
+<b class="fc"><i class="no-highlight">80</i>&nbsp;    protected FileStoreInfo() { }</b>
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    /** Create the standard factory. */
+<i class="no-highlight">83</i>&nbsp;    private static Factory createFactory() {
+<i class="no-highlight">84</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">85</i>&nbsp;            Class.forName(FILE_STORE_CLASS);</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        } catch (ClassNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;            return new FailingFactory(</b>
+<i class="no-highlight">88</i>&nbsp;                new UnsupportedOperationException(
+<i class="no-highlight">89</i>&nbsp;                    &quot;FileStoreInfo is only supported for Java 7 and later&quot;));
+<b class="fc"><i class="no-highlight">90</i>&nbsp;        }</b>
+<i class="no-highlight">91</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">92</i>&nbsp;            return Class.forName(JAVA7_FILE_STORE_FACTORY_CLASS)</b>
+<b class="fc"><i class="no-highlight">93</i>&nbsp;                .asSubclass(Factory.class)</b>
+<b class="fc"><i class="no-highlight">94</i>&nbsp;                .newInstance();</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">96</i>&nbsp;            return new FailingFactory(</b>
+<i class="no-highlight">97</i>&nbsp;                new IllegalStateException(
+<i class="no-highlight">98</i>&nbsp;                    &quot;Problem accessing class &quot; +
+<i class="no-highlight">99</i>&nbsp;                    JAVA7_FILE_STORE_FACTORY_CLASS + &quot;: &quot; + e,
+<i class="no-highlight">100</i>&nbsp;                    e));
+<i class="no-highlight">101</i>&nbsp;        }
+<i class="no-highlight">102</i>&nbsp;    }
+<i class="no-highlight">103</i>&nbsp;
+<i class="no-highlight">104</i>&nbsp;    /**
+<i class="no-highlight">105</i>&nbsp;     * Checks whether the current Java runtime supports providing information
+<i class="no-highlight">106</i>&nbsp;     * about file stores.  Returns normally if called on a Java 7 runtime
+<i class="no-highlight">107</i>&nbsp;     * or later, otherwise throws {@link UnsupportedOperationException}.
+<i class="no-highlight">108</i>&nbsp;     *
+<i class="no-highlight">109</i>&nbsp;     * @throws UnsupportedOperationException if the current runtime does not
+<i class="no-highlight">110</i>&nbsp;     * support file stores
+<i class="no-highlight">111</i>&nbsp;     */
+<i class="no-highlight">112</i>&nbsp;    public static final synchronized void checkSupported() {
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        getFactory().factoryCheckSupported();</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;    }</b>
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;    /** Returns the current factory. */
+<i class="no-highlight">117</i>&nbsp;    private static synchronized Factory getFactory() {
+<b class="fc"><i class="no-highlight">118</i>&nbsp;        return (testFactory == null) ? standardFactory : testFactory;</b>
+<i class="no-highlight">119</i>&nbsp;    }
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /** For testing: specifies the factory, or null for the default. */
+<i class="no-highlight">122</i>&nbsp;    public static void setFactory(final Factory factory) {
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        testFactory = factory;</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;    }</b>
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    /**
+<i class="no-highlight">127</i>&nbsp;     * Returns a {@link FileStoreInfo} instance that provides information about
+<i class="no-highlight">128</i>&nbsp;     * the file store associated with the specified file.  Throws {@link
+<i class="no-highlight">129</i>&nbsp;     * UnsupportedOperationException} if called on a Java runtime prior to Java
+<i class="no-highlight">130</i>&nbsp;     * 7.  Equal objects will be returned for all files associated with the
+<i class="no-highlight">131</i>&nbsp;     * same file store.
+<i class="no-highlight">132</i>&nbsp;     *
+<i class="no-highlight">133</i>&nbsp;     * @param file the file
+<i class="no-highlight">134</i>&nbsp;     * @return an instance of {@code FileStoreInfo}
+<i class="no-highlight">135</i>&nbsp;     * @throws UnsupportedOperationException if called on a Java runtime prior
+<i class="no-highlight">136</i>&nbsp;     * to Java 7
+<i class="no-highlight">137</i>&nbsp;     * @throws IllegalStateException if an unexpected exception occurs when
+<i class="no-highlight">138</i>&nbsp;     * attempting to use reflection to access the underlying implementation
+<i class="no-highlight">139</i>&nbsp;     * @throws IOException if an I/O error occurs
+<i class="no-highlight">140</i>&nbsp;     */
+<i class="no-highlight">141</i>&nbsp;    public static FileStoreInfo getInfo(final String file)
+<i class="no-highlight">142</i>&nbsp;        throws IOException {
+<i class="no-highlight">143</i>&nbsp;
+<b class="fc"><i class="no-highlight">144</i>&nbsp;        return getFactory().factoryGetInfo(file);</b>
+<i class="no-highlight">145</i>&nbsp;    }
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;    /**
+<i class="no-highlight">148</i>&nbsp;     * Returns the size, in bytes, of the file store.
+<i class="no-highlight">149</i>&nbsp;     *
+<i class="no-highlight">150</i>&nbsp;     * @return the size of the file store, in bytes
+<i class="no-highlight">151</i>&nbsp;     * @throws IOException if an I/O error occurs
+<i class="no-highlight">152</i>&nbsp;     */
+<i class="no-highlight">153</i>&nbsp;    public abstract long getTotalSpace()
+<i class="no-highlight">154</i>&nbsp;        throws IOException;
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;    /**
+<i class="no-highlight">157</i>&nbsp;     * Returns the number of bytes available in the file store.
+<i class="no-highlight">158</i>&nbsp;     *
+<i class="no-highlight">159</i>&nbsp;     * @return the number of bytes available
+<i class="no-highlight">160</i>&nbsp;     * @throws IOException if an I/O error occurs
+<i class="no-highlight">161</i>&nbsp;     */
+<i class="no-highlight">162</i>&nbsp;    public abstract long getUsableSpace()
+<i class="no-highlight">163</i>&nbsp;        throws IOException;
+<i class="no-highlight">164</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

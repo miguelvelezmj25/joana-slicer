@@ -1,0 +1,809 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicationGroupAdmin</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.util</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicationGroupAdmin (com.sleepycat.je.rep.util)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicationGroupAdmin</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/20)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/121)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ReplicationGroupAdmin$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/21)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/122)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.rep.util;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">16</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">17</i>&nbsp;import java.util.Set;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">19</i>&nbsp;import java.util.logging.Formatter;
+<i class="no-highlight">20</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.rep.MasterStateException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.rep.MasterTransferFailureException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.MemberActiveException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.MemberNotFoundException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.rep.NodeState;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.rep.NodeType;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.rep.ReplicaStateException;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.ReplicatedEnvironment;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.rep.ReplicationGroup;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.rep.ReplicationNetworkConfig;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.ReplicationNode;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.UnknownMasterException;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.elections.Learner;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.elections.MasterValue;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.elections.Protocol;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.elections.TimebasedProposalGenerator;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.impl.GroupService;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.EnsureOK;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.Fail;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.GroupResponse;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.TransferOK;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupImpl;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.impl.RepNodeImpl;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.MessageExchange;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.OK;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.ProtocolError;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.RequestMessage;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.ResponseMessage;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.rep.utilint.ReplicationFormatter;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher.ServiceConnectFailedException;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.rep.utilint.net.DataChannelFactoryBuilder;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;/**
+<i class="no-highlight">61</i>&nbsp; * Administrative APIs for use by applications which do not have direct access
+<i class="no-highlight">62</i>&nbsp; * to a replicated environment. The class supplies methods that can be
+<i class="no-highlight">63</i>&nbsp; * used to list group members, remove members, update network addresses, and
+<i class="no-highlight">64</i>&nbsp; * find the current master.
+<i class="no-highlight">65</i>&nbsp; *
+<i class="no-highlight">66</i>&nbsp; * Information is found and updated by querying nodes in the group. Because of
+<i class="no-highlight">67</i>&nbsp; * that, ReplicationGroupAdmin can only obtain information when there is at
+<i class="no-highlight">68</i>&nbsp; * least one node alive in the replication group.
+<i class="no-highlight">69</i>&nbsp; */
+<i class="no-highlight">70</i>&nbsp;public class ReplicationGroupAdmin {
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    private final String groupName;
+<i class="no-highlight">73</i>&nbsp;    private Set&lt;InetSocketAddress&gt; helperSockets;
+<i class="no-highlight">74</i>&nbsp;    private final Protocol electionsProtocol;
+<i class="no-highlight">75</i>&nbsp;    private final RepGroupProtocol groupProtocol;
+<i class="no-highlight">76</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">77</i>&nbsp;    private final Formatter formatter;
+<i class="no-highlight">78</i>&nbsp;    private final DataChannelFactory channelFactory;
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /**
+<i class="no-highlight">81</i>&nbsp;     * Constructs a group admin object.
+<i class="no-highlight">82</i>&nbsp;     *
+<i class="no-highlight">83</i>&nbsp;     * @param groupName the name of the group to be administered
+<i class="no-highlight">84</i>&nbsp;     * @param helperSockets the sockets on which it can contact helper nodes
+<i class="no-highlight">85</i>&nbsp;     * in the replication group to carry out admin services.
+<i class="no-highlight">86</i>&nbsp;     */
+<i class="no-highlight">87</i>&nbsp;    public ReplicationGroupAdmin(String groupName,
+<i class="no-highlight">88</i>&nbsp;                                 Set&lt;InetSocketAddress&gt; helperSockets) {
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        this(groupName, helperSockets,</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;             ReplicationNetworkConfig.createDefault());</b>
+<i class="no-highlight">91</i>&nbsp;    }
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /**
+<i class="no-highlight">94</i>&nbsp;     * @hidden SSL deferred
+<i class="no-highlight">95</i>&nbsp;     * Constructs a group admin object.
+<i class="no-highlight">96</i>&nbsp;     *
+<i class="no-highlight">97</i>&nbsp;     * @param groupName the name of the group to be administered
+<i class="no-highlight">98</i>&nbsp;     * @param helperSockets the sockets on which it can contact helper nodes
+<i class="no-highlight">99</i>&nbsp;     * in the replication group to carry out admin services.
+<i class="no-highlight">100</i>&nbsp;     * @param repNetConfig a network configuration to use
+<i class="no-highlight">101</i>&nbsp;     */
+<i class="no-highlight">102</i>&nbsp;    public ReplicationGroupAdmin(String groupName,
+<i class="no-highlight">103</i>&nbsp;                                 Set&lt;InetSocketAddress&gt; helperSockets,
+<i class="no-highlight">104</i>&nbsp;                                 ReplicationNetworkConfig repNetConfig) {
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        this(groupName, helperSockets,</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;             initializeFactory(repNetConfig, groupName));</b>
+<i class="no-highlight">107</i>&nbsp;    }
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /**
+<i class="no-highlight">110</i>&nbsp;     * @hidden SSL deferred
+<i class="no-highlight">111</i>&nbsp;     * Constructs a group admin object.
+<i class="no-highlight">112</i>&nbsp;     *
+<i class="no-highlight">113</i>&nbsp;     * @param groupName the name of the group to be administered
+<i class="no-highlight">114</i>&nbsp;     * @param helperSockets the sockets on which it can contact helper nodes
+<i class="no-highlight">115</i>&nbsp;     * in the replication group to carry out admin services.
+<i class="no-highlight">116</i>&nbsp;     * @param channelFactory the factory for channel creation
+<i class="no-highlight">117</i>&nbsp;     */
+<i class="no-highlight">118</i>&nbsp;    public ReplicationGroupAdmin(String groupName,
+<i class="no-highlight">119</i>&nbsp;                                 Set&lt;InetSocketAddress&gt; helperSockets,
+<b class="nc"><i class="no-highlight">120</i>&nbsp;                                 DataChannelFactory channelFactory) {</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        this.groupName = groupName;</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;        this.helperSockets = helperSockets;</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        this.channelFactory = channelFactory;</b>
+<i class="no-highlight">124</i>&nbsp;
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        electionsProtocol =</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;            new Protocol(TimebasedProposalGenerator.getParser(),</b>
+<b class="nc"><i class="no-highlight">127</i>&nbsp;                         MasterValue.getParser(),</b>
+<i class="no-highlight">128</i>&nbsp;                         groupName,
+<i class="no-highlight">129</i>&nbsp;                         NameIdPair.NOCHECK,
+<i class="no-highlight">130</i>&nbsp;                         null /* repImpl */,
+<i class="no-highlight">131</i>&nbsp;                         channelFactory);
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        groupProtocol =</b>
+<i class="no-highlight">133</i>&nbsp;            new RepGroupProtocol(groupName, NameIdPair.NOCHECK, null,
+<i class="no-highlight">134</i>&nbsp;                                 channelFactory);
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        logger = LoggerUtils.getLoggerFixedPrefix</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;            (getClass(), NameIdPair.NOCHECK.toString());</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        formatter = new ReplicationFormatter(NameIdPair.NOCHECK);</b>
+<i class="no-highlight">138</i>&nbsp;    }
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    /**
+<i class="no-highlight">141</i>&nbsp;     * Returns the helper sockets being used to contact a replication group
+<i class="no-highlight">142</i>&nbsp;     * member, in order to query for the information.
+<i class="no-highlight">143</i>&nbsp;     *
+<i class="no-highlight">144</i>&nbsp;     * @return the set of helper sockets.
+<i class="no-highlight">145</i>&nbsp;     */
+<i class="no-highlight">146</i>&nbsp;    public Set&lt;InetSocketAddress&gt; getHelperSockets() {
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        return helperSockets;</b>
+<i class="no-highlight">148</i>&nbsp;    }
+<i class="no-highlight">149</i>&nbsp;
+<i class="no-highlight">150</i>&nbsp;    /**
+<i class="no-highlight">151</i>&nbsp;     * Sets the helper sockets being used to contact a replication group
+<i class="no-highlight">152</i>&nbsp;     * member, in order to query for the information.
+<i class="no-highlight">153</i>&nbsp;     *
+<i class="no-highlight">154</i>&nbsp;     * @param helperSockets the sockets on which it can contact helper nodes
+<i class="no-highlight">155</i>&nbsp;     * in the replication group to carry out admin services.
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    public void setHelperSockets(Set&lt;InetSocketAddress&gt; helperSockets) {
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        this.helperSockets = helperSockets;</b>
+<i class="no-highlight">159</i>&nbsp;    }
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;    /**
+<i class="no-highlight">162</i>&nbsp;     * Returns the name of the replication group.
+<i class="no-highlight">163</i>&nbsp;     *
+<i class="no-highlight">164</i>&nbsp;     * @return the group name.
+<i class="no-highlight">165</i>&nbsp;     */
+<i class="no-highlight">166</i>&nbsp;    public String getGroupName() {
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        return groupName;</b>
+<i class="no-highlight">168</i>&nbsp;    }
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    /**
+<i class="no-highlight">171</i>&nbsp;     * Returns the socket address associated with the node that&#39;s currently
+<i class="no-highlight">172</i>&nbsp;     * the master.
+<i class="no-highlight">173</i>&nbsp;     *
+<i class="no-highlight">174</i>&nbsp;     * @return the socket address associated with the master
+<i class="no-highlight">175</i>&nbsp;     *
+<i class="no-highlight">176</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">177</i>&nbsp;     *
+<i class="no-highlight">178</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">179</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">180</i>&nbsp;     */
+<i class="no-highlight">181</i>&nbsp;    private InetSocketAddress getMasterSocket()
+<i class="no-highlight">182</i>&nbsp;        throws UnknownMasterException,
+<i class="no-highlight">183</i>&nbsp;               EnvironmentFailureException {
+<i class="no-highlight">184</i>&nbsp;
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        MasterValue masterValue = Learner.findMaster(electionsProtocol,</b>
+<i class="no-highlight">186</i>&nbsp;                                                     helperSockets,
+<i class="no-highlight">187</i>&nbsp;                                                     logger,
+<i class="no-highlight">188</i>&nbsp;                                                     null,
+<i class="no-highlight">189</i>&nbsp;                                                     formatter);
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        return new InetSocketAddress(masterValue.getHostName(),</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;                                     masterValue.getPort());</b>
+<i class="no-highlight">192</i>&nbsp;    }
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;    /**
+<i class="no-highlight">195</i>&nbsp;     * Returns the node name associated with the master
+<i class="no-highlight">196</i>&nbsp;     *
+<i class="no-highlight">197</i>&nbsp;     * @return the master node ID
+<i class="no-highlight">198</i>&nbsp;     *
+<i class="no-highlight">199</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">202</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">203</i>&nbsp;     */
+<i class="no-highlight">204</i>&nbsp;    public String getMasterNodeName()
+<i class="no-highlight">205</i>&nbsp;        throws UnknownMasterException,
+<i class="no-highlight">206</i>&nbsp;               EnvironmentFailureException {
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        MasterValue masterValue = Learner.findMaster(electionsProtocol,</b>
+<i class="no-highlight">208</i>&nbsp;                                                     helperSockets,
+<i class="no-highlight">209</i>&nbsp;                                                     logger,
+<i class="no-highlight">210</i>&nbsp;                                                     null,
+<i class="no-highlight">211</i>&nbsp;                                                     formatter);
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        return masterValue.getNodeName();</b>
+<i class="no-highlight">213</i>&nbsp;    }
+<i class="no-highlight">214</i>&nbsp;
+<i class="no-highlight">215</i>&nbsp;    /**
+<i class="no-highlight">216</i>&nbsp;     * @hidden
+<i class="no-highlight">217</i>&nbsp;     * Internal implementation class.
+<i class="no-highlight">218</i>&nbsp;     *
+<i class="no-highlight">219</i>&nbsp;     * Ensures that this monitor node is a member of the replication group,
+<i class="no-highlight">220</i>&nbsp;     * adding it to the group if it isn&#39;t already.
+<i class="no-highlight">221</i>&nbsp;     *
+<i class="no-highlight">222</i>&nbsp;     * @param monitor the monitor node
+<i class="no-highlight">223</i>&nbsp;     *
+<i class="no-highlight">224</i>&nbsp;     * @return the master node that was contacted to ensure the monitor
+<i class="no-highlight">225</i>&nbsp;     *
+<i class="no-highlight">226</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">227</i>&nbsp;     *
+<i class="no-highlight">228</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">229</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">230</i>&nbsp;     */
+<i class="no-highlight">231</i>&nbsp;    public ReplicationNode ensureMonitor(RepNodeImpl monitor)
+<i class="no-highlight">232</i>&nbsp;        throws UnknownMasterException,
+<i class="no-highlight">233</i>&nbsp;               EnvironmentFailureException {
+<i class="no-highlight">234</i>&nbsp;
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        if (!monitor.getType().isMonitor()) {</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                (&quot;Node type must be Monitor not: &quot; + monitor.getType());</b>
+<i class="no-highlight">238</i>&nbsp;        }
+<i class="no-highlight">239</i>&nbsp;
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        MasterValue masterValue = Learner.findMaster(electionsProtocol,</b>
+<i class="no-highlight">241</i>&nbsp;                                                     helperSockets,
+<i class="no-highlight">242</i>&nbsp;                                                     logger,
+<i class="no-highlight">243</i>&nbsp;                                                     null,
+<i class="no-highlight">244</i>&nbsp;                                                     formatter);
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        EnsureOK okResp = (EnsureOK) doMessageExchange</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            (groupProtocol.new EnsureNode(monitor), EnsureOK.class);</b>
+<i class="no-highlight">247</i>&nbsp;
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        monitor.getNameIdPair().update(okResp.getNameIdPair());</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        return new RepNodeImpl(new NameIdPair(masterValue.getNodeName()),</b>
+<i class="no-highlight">250</i>&nbsp;                               NodeType.ELECTABLE,
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                               masterValue.getHostName(),</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;                               masterValue.getPort(),</b>
+<i class="no-highlight">253</i>&nbsp;                               /* JE version on monitor is not known */
+<i class="no-highlight">254</i>&nbsp;                               null);
+<i class="no-highlight">255</i>&nbsp;    }
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;    /**
+<i class="no-highlight">258</i>&nbsp;     * Removes this node from the group, so that it is no longer a member of
+<i class="no-highlight">259</i>&nbsp;     * the group. When removed, it will no longer be able to connect to a
+<i class="no-highlight">260</i>&nbsp;     * master, nor can it participate in elections. If the node is a {@link
+<i class="no-highlight">261</i>&nbsp;     * com.sleepycat.je.rep.monitor.Monitor} it will no longer be informed of
+<i class="no-highlight">262</i>&nbsp;     * election results. Once removed, a node cannot be added again to the
+<i class="no-highlight">263</i>&nbsp;     * group under the same node name.
+<i class="no-highlight">264</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">265</i>&nbsp;     * Ideally, the node being removed should be shut down before this call is
+<i class="no-highlight">266</i>&nbsp;     * issued.
+<i class="no-highlight">267</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">268</i>&nbsp;     * If the node is an active &lt;code&gt;Replica&lt;/code&gt; the master will terminate
+<i class="no-highlight">269</i>&nbsp;     * its connection with the node and will not allow the replica to reconnect
+<i class="no-highlight">270</i>&nbsp;     * with the group, since it&#39;s no longer a member of the group. If the node
+<i class="no-highlight">271</i>&nbsp;     * wishes to re-join it should do so with a different node name.
+<i class="no-highlight">272</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">273</i>&nbsp;     * An active Master cannot be removed. It must first be shutdown, or
+<i class="no-highlight">274</i>&nbsp;     * transition to the &lt;code&gt;Replica&lt;/code&gt; state before it can be removed
+<i class="no-highlight">275</i>&nbsp;     * from the group.
+<i class="no-highlight">276</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">277</i>&nbsp;     * {@link NodeType#SECONDARY Secondary} nodes cannot be removed; they
+<i class="no-highlight">278</i>&nbsp;     * automatically leave the group when they are shut down or become
+<i class="no-highlight">279</i>&nbsp;     * disconnected from the master.
+<i class="no-highlight">280</i>&nbsp;     *
+<i class="no-highlight">281</i>&nbsp;     * @param nodeName identifies the node being removed from the group
+<i class="no-highlight">282</i>&nbsp;     *
+<i class="no-highlight">283</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">284</i>&nbsp;     *
+<i class="no-highlight">285</i>&nbsp;     * @throws IllegalArgumentException if the type of the node is {@code
+<i class="no-highlight">286</i>&nbsp;     * SECONDARY}
+<i class="no-highlight">287</i>&nbsp;     *
+<i class="no-highlight">288</i>&nbsp;     * @throws MemberNotFoundException if the node denoted by
+<i class="no-highlight">289</i>&nbsp;     * &lt;code&gt;nodeName&lt;/code&gt; is not a member of the replication group
+<i class="no-highlight">290</i>&nbsp;     *
+<i class="no-highlight">291</i>&nbsp;     * @throws MasterStateException if the member being removed is currently
+<i class="no-highlight">292</i>&nbsp;     * the Master
+<i class="no-highlight">293</i>&nbsp;     *
+<i class="no-highlight">294</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">295</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">296</i>&nbsp;     * @see &lt;a
+<i class="no-highlight">297</i>&nbsp;     * href=&quot;{@docRoot}/../ReplicationGuide/utilities.html#node-addremove&quot;
+<i class="no-highlight">298</i>&nbsp;     * target=&quot;_top&quot;&gt;Adding and Removing Nodes From the Group&lt;/a&gt;
+<i class="no-highlight">299</i>&nbsp;     */
+<i class="no-highlight">300</i>&nbsp;    /*
+<i class="no-highlight">301</i>&nbsp;     * TODO: EXTERNAL is hidden for now. The doc need updated to include
+<i class="no-highlight">302</i>&nbsp;     * EXTERNAL when it becomes public.
+<i class="no-highlight">303</i>&nbsp;     */
+<i class="no-highlight">304</i>&nbsp;    public void removeMember(String nodeName)
+<i class="no-highlight">305</i>&nbsp;        throws UnknownMasterException,
+<i class="no-highlight">306</i>&nbsp;               MemberNotFoundException,
+<i class="no-highlight">307</i>&nbsp;               MasterStateException,
+<i class="no-highlight">308</i>&nbsp;               EnvironmentFailureException {
+<i class="no-highlight">309</i>&nbsp;
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        final String masterErrorMessage = &quot;Cannot remove an active master&quot;;</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        final RequestMessage request =</b>
+<i class="no-highlight">312</i>&nbsp;            groupProtocol.new RemoveMember(nodeName);
+<i class="no-highlight">313</i>&nbsp;
+<b class="nc"><i class="no-highlight">314</i>&nbsp;        final RepNodeImpl node = checkMember(</b>
+<i class="no-highlight">315</i>&nbsp;            nodeName, masterErrorMessage, /* electableOnly */ false);
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        if (node.getType().hasTransientId()) {</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">318</i>&nbsp;                &quot;Cannot remove node with transient ID: &quot; + nodeName);
+<i class="no-highlight">319</i>&nbsp;        }
+<i class="no-highlight">320</i>&nbsp;
+<b class="nc"><i class="no-highlight">321</i>&nbsp;        doMessageExchange(request, OK.class);</b>
+<i class="no-highlight">322</i>&nbsp;    }
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    /**
+<i class="no-highlight">325</i>&nbsp;     * @hidden internal, for use in disaster recovery [#23447]
+<i class="no-highlight">326</i>&nbsp;     *
+<i class="no-highlight">327</i>&nbsp;     * Deletes this node from the group, so that it is no longer a member of
+<i class="no-highlight">328</i>&nbsp;     * the group. When deleted, it will not connect to a master, or participate
+<i class="no-highlight">329</i>&nbsp;     * in elections until the environment is reopened. If the node is a {@link
+<i class="no-highlight">330</i>&nbsp;     * com.sleepycat.je.rep.monitor.Monitor} it will no longer be informed of
+<i class="no-highlight">331</i>&nbsp;     * election results. Unlike removed nodes, deleted nodes are completely
+<i class="no-highlight">332</i>&nbsp;     * removed from the group, so they can be added again to the group under
+<i class="no-highlight">333</i>&nbsp;     * the same node name.
+<i class="no-highlight">334</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">335</i>&nbsp;     * The node being deleted must be shut down before this call is issued.
+<i class="no-highlight">336</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">337</i>&nbsp;     * If the node is an active &lt;code&gt;Replica&lt;/code&gt; the master will terminate
+<i class="no-highlight">338</i>&nbsp;     * its connection with the node.
+<i class="no-highlight">339</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">340</i>&nbsp;     * An active Master cannot be deleted. It must first be shutdown, or
+<i class="no-highlight">341</i>&nbsp;     * transition to the &lt;code&gt;Replica&lt;/code&gt; state before it can be deleted
+<i class="no-highlight">342</i>&nbsp;     * from the group.
+<i class="no-highlight">343</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">344</i>&nbsp;     * {@link NodeType#SECONDARY Secondary} and
+<i class="no-highlight">345</i>&nbsp;     * {@link NodeType#EXTERNAL External} nodes cannot be deleted; they
+<i class="no-highlight">346</i>&nbsp;     * automatically leave the group when they are shut down or become
+<i class="no-highlight">347</i>&nbsp;     * disconnected from the master.
+<i class="no-highlight">348</i>&nbsp;     *
+<i class="no-highlight">349</i>&nbsp;     * @param nodeName identifies the node being deleted from the group
+<i class="no-highlight">350</i>&nbsp;     *
+<i class="no-highlight">351</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">352</i>&nbsp;     *
+<i class="no-highlight">353</i>&nbsp;     * @throws MemberActiveException if the type of the node is {@code
+<i class="no-highlight">354</i>&nbsp;     * SECONDARY} or {@code EXTERNAL}, or if the node is active
+<i class="no-highlight">355</i>&nbsp;     *
+<i class="no-highlight">356</i>&nbsp;     * @throws MemberNotFoundException if the node denoted by
+<i class="no-highlight">357</i>&nbsp;     * &lt;code&gt;nodeName&lt;/code&gt; is not a member of the replication group
+<i class="no-highlight">358</i>&nbsp;     *
+<i class="no-highlight">359</i>&nbsp;     * @throws MasterStateException if the member being deleted is currently
+<i class="no-highlight">360</i>&nbsp;     * the Master
+<i class="no-highlight">361</i>&nbsp;     *
+<i class="no-highlight">362</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">363</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">364</i>&nbsp;     */
+<i class="no-highlight">365</i>&nbsp;    public void deleteMember(String nodeName)
+<i class="no-highlight">366</i>&nbsp;        throws UnknownMasterException,
+<i class="no-highlight">367</i>&nbsp;               MemberActiveException,
+<i class="no-highlight">368</i>&nbsp;               MemberNotFoundException,
+<i class="no-highlight">369</i>&nbsp;               MasterStateException,
+<i class="no-highlight">370</i>&nbsp;               EnvironmentFailureException {
+<i class="no-highlight">371</i>&nbsp;
+<b class="nc"><i class="no-highlight">372</i>&nbsp;        final String masterErrorMessage = &quot;Cannot delete an active master&quot;;</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;        final RequestMessage request =</b>
+<i class="no-highlight">374</i>&nbsp;            groupProtocol.new DeleteMember(nodeName);
+<i class="no-highlight">375</i>&nbsp;
+<b class="nc"><i class="no-highlight">376</i>&nbsp;        final RepNodeImpl node = checkMember(</b>
+<i class="no-highlight">377</i>&nbsp;            nodeName, masterErrorMessage, /* electableOnly */ false);
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        if (node.getType().hasTransientId()) {</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">380</i>&nbsp;                &quot;Cannot delete node with transient ID: &quot; + nodeName);
+<i class="no-highlight">381</i>&nbsp;        }
+<i class="no-highlight">382</i>&nbsp;
+<b class="nc"><i class="no-highlight">383</i>&nbsp;        doMessageExchange(request, OK.class);</b>
+<i class="no-highlight">384</i>&nbsp;    }
+<i class="no-highlight">385</i>&nbsp;
+<i class="no-highlight">386</i>&nbsp;    /**
+<i class="no-highlight">387</i>&nbsp;     * Returns the current composition of the group from the Master.
+<i class="no-highlight">388</i>&nbsp;     *
+<i class="no-highlight">389</i>&nbsp;     * @return the group description
+<i class="no-highlight">390</i>&nbsp;     *
+<i class="no-highlight">391</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">392</i>&nbsp;     *
+<i class="no-highlight">393</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">394</i>&nbsp;     * environment-wide failure occurs
+<i class="no-highlight">395</i>&nbsp;     */
+<i class="no-highlight">396</i>&nbsp;    public ReplicationGroup getGroup()
+<i class="no-highlight">397</i>&nbsp;        throws UnknownMasterException,
+<i class="no-highlight">398</i>&nbsp;               EnvironmentFailureException {
+<i class="no-highlight">399</i>&nbsp;
+<b class="nc"><i class="no-highlight">400</i>&nbsp;        GroupResponse resp = (GroupResponse) doMessageExchange</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;            (groupProtocol.new GroupRequest(), GroupResponse.class);</b>
+<i class="no-highlight">402</i>&nbsp;
+<b class="nc"><i class="no-highlight">403</i>&nbsp;        return new ReplicationGroup(resp.getGroup());</b>
+<i class="no-highlight">404</i>&nbsp;    }
+<i class="no-highlight">405</i>&nbsp;
+<i class="no-highlight">406</i>&nbsp;    /**
+<i class="no-highlight">407</i>&nbsp;     * Returns the {@link com.sleepycat.je.rep.NodeState state} of a replicated
+<i class="no-highlight">408</i>&nbsp;     * node and &lt;code&gt;state&lt;/code&gt; of the application where the node is
+<i class="no-highlight">409</i>&nbsp;     * running in.
+<i class="no-highlight">410</i>&nbsp;     *
+<i class="no-highlight">411</i>&nbsp;     * @param repNode a ReplicationNode includes those information which are
+<i class="no-highlight">412</i>&nbsp;     * needed to connect to the node
+<i class="no-highlight">413</i>&nbsp;     * @param socketConnectTimeout the timeout value for creating a socket
+<i class="no-highlight">414</i>&nbsp;     * connection with the replicated node
+<i class="no-highlight">415</i>&nbsp;     *
+<i class="no-highlight">416</i>&nbsp;     * @return the state of the replicated node
+<i class="no-highlight">417</i>&nbsp;     *
+<i class="no-highlight">418</i>&nbsp;     * @throws IOException if the machine is down or no response is returned
+<i class="no-highlight">419</i>&nbsp;     *
+<i class="no-highlight">420</i>&nbsp;     * @throws ServiceConnectFailedException if can&#39;t connect to the service
+<i class="no-highlight">421</i>&nbsp;     * running on the replicated node
+<i class="no-highlight">422</i>&nbsp;     */
+<i class="no-highlight">423</i>&nbsp;    public NodeState getNodeState(ReplicationNode repNode,
+<i class="no-highlight">424</i>&nbsp;                                  int socketConnectTimeout)
+<i class="no-highlight">425</i>&nbsp;        throws IOException, ServiceConnectFailedException {
+<i class="no-highlight">426</i>&nbsp;
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        DbPing ping = new DbPing(</b>
+<i class="no-highlight">428</i>&nbsp;            repNode, groupName, socketConnectTimeout, channelFactory);
+<i class="no-highlight">429</i>&nbsp;
+<b class="nc"><i class="no-highlight">430</i>&nbsp;        return ping.getNodeState();</b>
+<i class="no-highlight">431</i>&nbsp;    }
+<i class="no-highlight">432</i>&nbsp;
+<i class="no-highlight">433</i>&nbsp;    /**
+<i class="no-highlight">434</i>&nbsp;     * Update the network address for a specified member of the replication
+<i class="no-highlight">435</i>&nbsp;     * group. When updating the address of this target replication node, the
+<i class="no-highlight">436</i>&nbsp;     * node cannot be alive. One common use case is when the replication member
+<i class="no-highlight">437</i>&nbsp;     * must be moved to a new host, possibly because of machine failure.
+<i class="no-highlight">438</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">439</i>&nbsp;     * To make a network address change, take these steps:
+<i class="no-highlight">440</i>&nbsp;     * &lt;ol&gt;
+<i class="no-highlight">441</i>&nbsp;     * &lt;li&gt; Shutdown the node that is being updated.
+<i class="no-highlight">442</i>&nbsp;     * &lt;li&gt; Use this method to change the hostname and port of the node.
+<i class="no-highlight">443</i>&nbsp;     * &lt;li&gt; Start the node on the new machine, or at its new port, using the new
+<i class="no-highlight">444</i>&nbsp;     *    hostname/port. If the log files are available at the node, they will
+<i class="no-highlight">445</i>&nbsp;     *    be reused. A network restore operation may need to be initiated by
+<i class="no-highlight">446</i>&nbsp;     *    the application to copy over any needed log files if no log files are
+<i class="no-highlight">447</i>&nbsp;     *    available, or if they have become obsolete.
+<i class="no-highlight">448</i>&nbsp;     * &lt;/ol&gt;
+<i class="no-highlight">449</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">450</i>&nbsp;     * The address of a {@link NodeType#SECONDARY} node cannot be updated with
+<i class="no-highlight">451</i>&nbsp;     * this method, since nodes must be members but not alive to be updated,
+<i class="no-highlight">452</i>&nbsp;     * and secondary nodes are not members when they are not alive.  To change
+<i class="no-highlight">453</i>&nbsp;     * the address of a secondary node, restart the node with the updated
+<i class="no-highlight">454</i>&nbsp;     * address.
+<i class="no-highlight">455</i>&nbsp;     *
+<i class="no-highlight">456</i>&nbsp;     * @param nodeName the name of the node whose address will be updated.
+<i class="no-highlight">457</i>&nbsp;     * @param newHostName the new host name of the node
+<i class="no-highlight">458</i>&nbsp;     * @param newPort the new port number of the node
+<i class="no-highlight">459</i>&nbsp;     *
+<i class="no-highlight">460</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">461</i>&nbsp;     * environment-wide failure occurs
+<i class="no-highlight">462</i>&nbsp;     *
+<i class="no-highlight">463</i>&nbsp;     * @throws MasterStateException if the member being updated is currently
+<i class="no-highlight">464</i>&nbsp;     * the master
+<i class="no-highlight">465</i>&nbsp;     *
+<i class="no-highlight">466</i>&nbsp;     * @throws MemberNotFoundException if the node denoted by
+<i class="no-highlight">467</i>&nbsp;     * &lt;code&gt;nodeName&lt;/code&gt; is not a member of the replication group
+<i class="no-highlight">468</i>&nbsp;     *
+<i class="no-highlight">469</i>&nbsp;     * @throws ReplicaStateException if the member being updated is currently
+<i class="no-highlight">470</i>&nbsp;     * alive
+<i class="no-highlight">471</i>&nbsp;     *
+<i class="no-highlight">472</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">473</i>&nbsp;     *
+<i class="no-highlight">474</i>&nbsp;     * @see DbResetRepGroup DbResetRepGroup, which can be used in a
+<i class="no-highlight">475</i>&nbsp;     * related but different use case to copy and move a group.
+<i class="no-highlight">476</i>&nbsp;     */
+<i class="no-highlight">477</i>&nbsp;    /*
+<i class="no-highlight">478</i>&nbsp;     * TODO: EXTERNAL is hidden for now. The doc need updated to include
+<i class="no-highlight">479</i>&nbsp;     * EXTERNAL when it becomes public.
+<i class="no-highlight">480</i>&nbsp;     */
+<i class="no-highlight">481</i>&nbsp;    public void updateAddress(String nodeName, String newHostName, int newPort)
+<i class="no-highlight">482</i>&nbsp;        throws EnvironmentFailureException,
+<i class="no-highlight">483</i>&nbsp;               MasterStateException,
+<i class="no-highlight">484</i>&nbsp;               MemberNotFoundException,
+<i class="no-highlight">485</i>&nbsp;               ReplicaStateException,
+<i class="no-highlight">486</i>&nbsp;               UnknownMasterException {
+<i class="no-highlight">487</i>&nbsp;
+<b class="nc"><i class="no-highlight">488</i>&nbsp;        final String masterErrorMessage =</b>
+<i class="no-highlight">489</i>&nbsp;            &quot;Can&#39;t update address for the current master.&quot;;
+<b class="nc"><i class="no-highlight">490</i>&nbsp;        RequestMessage request =</b>
+<i class="no-highlight">491</i>&nbsp;            groupProtocol.new UpdateAddress(nodeName, newHostName, newPort);
+<i class="no-highlight">492</i>&nbsp;
+<b class="nc"><i class="no-highlight">493</i>&nbsp;        checkMember(nodeName, masterErrorMessage, /* electableOnly */ false);</b>
+<b class="nc"><i class="no-highlight">494</i>&nbsp;        doMessageExchange(request, OK.class);</b>
+<i class="no-highlight">495</i>&nbsp;    }
+<i class="no-highlight">496</i>&nbsp;
+<i class="no-highlight">497</i>&nbsp;    /**
+<i class="no-highlight">498</i>&nbsp;     * Transfers the master state from the current master to one of the
+<i class="no-highlight">499</i>&nbsp;     * electable replicas supplied in the argument list.  This method sends a
+<i class="no-highlight">500</i>&nbsp;     * request to the original master to perform the operation.
+<i class="no-highlight">501</i>&nbsp;     *
+<i class="no-highlight">502</i>&nbsp;     * @throws MasterTransferFailureException if the master transfer operation
+<i class="no-highlight">503</i>&nbsp;     * fails
+<i class="no-highlight">504</i>&nbsp;     *
+<i class="no-highlight">505</i>&nbsp;     * @throws UnknownMasterException if the master was not found
+<i class="no-highlight">506</i>&nbsp;     *
+<i class="no-highlight">507</i>&nbsp;     * @throws IllegalArgumentException if {@code nodeNames} contains the name
+<i class="no-highlight">508</i>&nbsp;     * of a node that is not electable
+<i class="no-highlight">509</i>&nbsp;     *
+<i class="no-highlight">510</i>&nbsp;     * @see ReplicatedEnvironment#transferMaster
+<i class="no-highlight">511</i>&nbsp;     */
+<i class="no-highlight">512</i>&nbsp;    public String transferMaster(Set&lt;String&gt; nodeNames,
+<i class="no-highlight">513</i>&nbsp;                                 int timeout,
+<i class="no-highlight">514</i>&nbsp;                                 TimeUnit timeUnit,
+<i class="no-highlight">515</i>&nbsp;                                 boolean force)
+<i class="no-highlight">516</i>&nbsp;        throws MasterTransferFailureException,
+<i class="no-highlight">517</i>&nbsp;               UnknownMasterException {
+<i class="no-highlight">518</i>&nbsp;
+<b class="nc"><i class="no-highlight">519</i>&nbsp;        for (String node : nodeNames) {</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;            checkMember(node, null, /* electableOnly */ true);</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;        final String nodeNameList = commaJoin(nodeNames);</b>
+<b class="nc"><i class="no-highlight">523</i>&nbsp;        final long timeoutMillis = timeUnit.toMillis(timeout);</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;        final RequestMessage transferMaster =</b>
+<i class="no-highlight">525</i>&nbsp;            groupProtocol.new TransferMaster(nodeNameList,
+<i class="no-highlight">526</i>&nbsp;                                             timeoutMillis, force);
+<b class="nc"><i class="no-highlight">527</i>&nbsp;        TransferOK result =</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            (TransferOK)doMessageExchange(transferMaster, TransferOK.class);</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;        return result.getWinner();</b>
+<i class="no-highlight">530</i>&nbsp;    }
+<i class="no-highlight">531</i>&nbsp;
+<i class="no-highlight">532</i>&nbsp;    private String commaJoin(Set&lt;String&gt; words) {
+<b class="nc"><i class="no-highlight">533</i>&nbsp;        boolean first = true;</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">535</i>&nbsp;        for (String w : words) {</b>
+<b class="nc"><i class="no-highlight">536</i>&nbsp;            if (!first) {</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;                sb.append(&#39;,&#39;);</b>
+<i class="no-highlight">538</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">539</i>&nbsp;            sb.append(w);</b>
+<b class="nc"><i class="no-highlight">540</i>&nbsp;            first = false;</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">543</i>&nbsp;    }
+<i class="no-highlight">544</i>&nbsp;
+<i class="no-highlight">545</i>&nbsp;    /*
+<i class="no-highlight">546</i>&nbsp;     * Check that the specified node is an appropriate target. For example,
+<i class="no-highlight">547</i>&nbsp;     * make sure it&#39;s a valid node in the group, and it&#39;s not the same as
+<i class="no-highlight">548</i>&nbsp;     * the original node.
+<i class="no-highlight">549</i>&nbsp;     */
+<i class="no-highlight">550</i>&nbsp;    private RepNodeImpl checkMember(String nodeName,
+<i class="no-highlight">551</i>&nbsp;                                    String masterErrorMessage,
+<i class="no-highlight">552</i>&nbsp;                                    boolean electableOnly)
+<i class="no-highlight">553</i>&nbsp;        throws MasterStateException,
+<i class="no-highlight">554</i>&nbsp;               MemberNotFoundException {
+<i class="no-highlight">555</i>&nbsp;
+<b class="nc"><i class="no-highlight">556</i>&nbsp;        final RepGroupImpl group = getGroup().getRepGroupImpl();</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;        final RepNodeImpl node = group.getNode(nodeName);</b>
+<i class="no-highlight">558</i>&nbsp;
+<i class="no-highlight">559</i>&nbsp;        /* Check the membership. */
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        if (node == null ||</b>
+<i class="no-highlight">561</i>&nbsp;            /* Creation is not yet acknowledged */
+<b class="nc"><i class="no-highlight">562</i>&nbsp;            (!node.isRemoved() &amp;&amp; !node.isQuorumAck())) {</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;            throw new MemberNotFoundException(&quot;Node: &quot; + nodeName +</b>
+<i class="no-highlight">564</i>&nbsp;                                              &quot; is not a member of the &quot; +
+<i class="no-highlight">565</i>&nbsp;                                              &quot;group: &quot; + groupName);
+<i class="no-highlight">566</i>&nbsp;        }
+<i class="no-highlight">567</i>&nbsp;
+<b class="nc"><i class="no-highlight">568</i>&nbsp;        if (electableOnly &amp;&amp; !node.getType().isElectable()) {</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;            throw new IllegalArgumentException(&quot;Node: &quot; + nodeName +</b>
+<i class="no-highlight">570</i>&nbsp;                                               &quot; must have node type&quot; +
+<i class="no-highlight">571</i>&nbsp;                                               &quot; ELECTABLE, was &quot; +
+<b class="nc"><i class="no-highlight">572</i>&nbsp;                                               node.getType());</b>
+<i class="no-highlight">573</i>&nbsp;        }
+<i class="no-highlight">574</i>&nbsp;
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        if (node.isRemoved() &amp;&amp; node.isQuorumAck()) {</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;            throw new MemberNotFoundException(&quot;Node: &quot; + nodeName +</b>
+<i class="no-highlight">577</i>&nbsp;                                              &quot; is not currently a member &quot; +
+<i class="no-highlight">578</i>&nbsp;                                              &quot;of the group: &quot; + groupName +
+<i class="no-highlight">579</i>&nbsp;                                              &quot;, it has been removed.&quot;);
+<i class="no-highlight">580</i>&nbsp;        }
+<i class="no-highlight">581</i>&nbsp;
+<i class="no-highlight">582</i>&nbsp;        /* Check if the node itself is the master. */
+<b class="nc"><i class="no-highlight">583</i>&nbsp;        if (masterErrorMessage != null) {</b>
+<b class="nc"><i class="no-highlight">584</i>&nbsp;            final InetSocketAddress masterAddress = getMasterSocket();</b>
+<b class="nc"><i class="no-highlight">585</i>&nbsp;            if (masterAddress.equals(node.getSocketAddress())) {</b>
+<b class="nc"><i class="no-highlight">586</i>&nbsp;                throw new MasterStateException(masterErrorMessage);</b>
+<i class="no-highlight">587</i>&nbsp;            }
+<i class="no-highlight">588</i>&nbsp;        }
+<i class="no-highlight">589</i>&nbsp;
+<b class="nc"><i class="no-highlight">590</i>&nbsp;        return node;</b>
+<i class="no-highlight">591</i>&nbsp;    }
+<i class="no-highlight">592</i>&nbsp;
+<i class="no-highlight">593</i>&nbsp;    /* Do a message exchange with the targeted master. */
+<i class="no-highlight">594</i>&nbsp;    private ResponseMessage doMessageExchange(RequestMessage request,
+<i class="no-highlight">595</i>&nbsp;                                              Class&lt;?&gt; respClass)
+<i class="no-highlight">596</i>&nbsp;        throws EnvironmentFailureException,
+<i class="no-highlight">597</i>&nbsp;               MasterStateException,
+<i class="no-highlight">598</i>&nbsp;               MemberNotFoundException,
+<i class="no-highlight">599</i>&nbsp;               UnknownMasterException {
+<i class="no-highlight">600</i>&nbsp;
+<i class="no-highlight">601</i>&nbsp;        /* Do the communication. */
+<b class="nc"><i class="no-highlight">602</i>&nbsp;        final InetSocketAddress masterAddress = getMasterSocket();</b>
+<b class="nc"><i class="no-highlight">603</i>&nbsp;        final MessageExchange me = groupProtocol.new MessageExchange</b>
+<i class="no-highlight">604</i>&nbsp;            (masterAddress, GroupService.SERVICE_NAME, request);
+<b class="nc"><i class="no-highlight">605</i>&nbsp;        me.run();</b>
+<i class="no-highlight">606</i>&nbsp;
+<b class="nc"><i class="no-highlight">607</i>&nbsp;        ResponseMessage resp = me.getResponseMessage();</b>
+<i class="no-highlight">608</i>&nbsp;
+<b class="nc"><i class="no-highlight">609</i>&nbsp;        if (resp == null) {</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;            if (me.getException() != null) {</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;                throw new UnknownMasterException</b>
+<b class="nc"><i class="no-highlight">612</i>&nbsp;                    (&quot;Problem communicating with master.&quot;, me.getException());</b>
+<i class="no-highlight">613</i>&nbsp;            }
+<i class="no-highlight">614</i>&nbsp;
+<i class="no-highlight">615</i>&nbsp;            /*
+<i class="no-highlight">616</i>&nbsp;             * Returning null on success is part of the message protocol, the
+<i class="no-highlight">617</i>&nbsp;             * caller expects it.
+<i class="no-highlight">618</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">619</i>&nbsp;            return null;</b>
+<i class="no-highlight">620</i>&nbsp;        }
+<i class="no-highlight">621</i>&nbsp;
+<b class="nc"><i class="no-highlight">622</i>&nbsp;        if (respClass == null &amp;&amp; resp instanceof Fail) {</b>
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            throw getException(resp);</b>
+<i class="no-highlight">624</i>&nbsp;        }
+<i class="no-highlight">625</i>&nbsp;
+<b class="nc"><i class="no-highlight">626</i>&nbsp;        if (respClass != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">627</i>&nbsp;            !(resp.getClass().getName().equals(respClass.getName()))) {</b>
+<b class="nc"><i class="no-highlight">628</i>&nbsp;            throw getException(resp);</b>
+<i class="no-highlight">629</i>&nbsp;        }
+<i class="no-highlight">630</i>&nbsp;
+<b class="nc"><i class="no-highlight">631</i>&nbsp;        return resp;</b>
+<i class="no-highlight">632</i>&nbsp;    }
+<i class="no-highlight">633</i>&nbsp;
+<i class="no-highlight">634</i>&nbsp;    /**
+<i class="no-highlight">635</i>&nbsp;     * Examines the response and generates a meaningful error exception.
+<i class="no-highlight">636</i>&nbsp;     */
+<i class="no-highlight">637</i>&nbsp;    private DatabaseException getException(ResponseMessage resp) {
+<b class="nc"><i class="no-highlight">638</i>&nbsp;        if (resp == null) {</b>
+<b class="nc"><i class="no-highlight">639</i>&nbsp;            return EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">640</i>&nbsp;                (&quot;No response to request&quot;);</b>
+<i class="no-highlight">641</i>&nbsp;        }
+<i class="no-highlight">642</i>&nbsp;
+<b class="nc"><i class="no-highlight">643</i>&nbsp;        if (resp instanceof Fail) {</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;            Fail fail = (Fail) resp;</b>
+<b class="nc"><i class="no-highlight">645</i>&nbsp;            switch (fail.getReason()) {</b>
+<i class="no-highlight">646</i>&nbsp;                case MEMBER_NOT_FOUND:
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                    return new MemberNotFoundException(fail.getMessage());</b>
+<i class="no-highlight">648</i>&nbsp;                case IS_MASTER:
+<b class="nc"><i class="no-highlight">649</i>&nbsp;                    return new MasterStateException(fail.getMessage());</b>
+<i class="no-highlight">650</i>&nbsp;                case IS_REPLICA:
+<b class="nc"><i class="no-highlight">651</i>&nbsp;                    return new ReplicaStateException(fail.getMessage());</b>
+<i class="no-highlight">652</i>&nbsp;                case TRANSFER_FAIL:
+<i class="no-highlight">653</i>&nbsp;                    // TODO: not worth it for now, but it wouldn&#39;t be hard to
+<i class="no-highlight">654</i>&nbsp;                    // distinguish IllegalArg. cases here
+<b class="nc"><i class="no-highlight">655</i>&nbsp;                    return new MasterTransferFailureException</b>
+<b class="nc"><i class="no-highlight">656</i>&nbsp;                        (fail.getMessage());</b>
+<i class="no-highlight">657</i>&nbsp;                default:
+<b class="nc"><i class="no-highlight">658</i>&nbsp;                    return EnvironmentFailureException.</b>
+<b class="nc"><i class="no-highlight">659</i>&nbsp;                        unexpectedState(fail.getMessage());</b>
+<i class="no-highlight">660</i>&nbsp;            }
+<i class="no-highlight">661</i>&nbsp;        }
+<i class="no-highlight">662</i>&nbsp;
+<b class="nc"><i class="no-highlight">663</i>&nbsp;        if (resp instanceof ProtocolError) {</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;            return EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">665</i>&nbsp;                (((ProtocolError)resp).getMessage());</b>
+<i class="no-highlight">666</i>&nbsp;        }
+<i class="no-highlight">667</i>&nbsp;
+<b class="nc"><i class="no-highlight">668</i>&nbsp;        return EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">669</i>&nbsp;            (&quot;Response not recognized: &quot; + resp);</b>
+<i class="no-highlight">670</i>&nbsp;    }
+<i class="no-highlight">671</i>&nbsp;
+<i class="no-highlight">672</i>&nbsp;    private static DataChannelFactory initializeFactory(
+<i class="no-highlight">673</i>&nbsp;        ReplicationNetworkConfig repNetConfig,
+<i class="no-highlight">674</i>&nbsp;        String logContext) {
+<i class="no-highlight">675</i>&nbsp;
+<b class="nc"><i class="no-highlight">676</i>&nbsp;        return DataChannelFactoryBuilder.construct(repNetConfig, logContext);</b>
+<i class="no-highlight">677</i>&nbsp;    }
+<i class="no-highlight">678</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

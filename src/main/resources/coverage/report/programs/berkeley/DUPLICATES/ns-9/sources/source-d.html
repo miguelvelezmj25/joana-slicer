@@ -1,0 +1,356 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FilesToMigrate</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: FilesToMigrate (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FilesToMigrate</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (3/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    18.2%
+  </span>
+  <span class="absValue">
+    (16/88)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.List;
+<i class="no-highlight">18</i>&nbsp;import java.util.NoSuchElementException;
+<i class="no-highlight">19</i>&nbsp;import java.util.Set;
+<i class="no-highlight">20</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">21</i>&nbsp;import java.util.StringTokenizer;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;/**
+<i class="no-highlight">28</i>&nbsp; * Iterator over files that should be migrated by cleaning them, even if
+<i class="no-highlight">29</i>&nbsp; * they don&#39;t need to be cleaned for other reasons.
+<i class="no-highlight">30</i>&nbsp; *
+<i class="no-highlight">31</i>&nbsp; * Files are migrated either because they are named in the
+<i class="no-highlight">32</i>&nbsp; * CLEANER_FORCE_CLEAN_FILES parameter or their log version is prior to the
+<i class="no-highlight">33</i>&nbsp; * CLEANER_UPGRADE_TO_LOG_VERSION parameter.
+<i class="no-highlight">34</i>&nbsp; *
+<i class="no-highlight">35</i>&nbsp; * An iterator is used rather than finding the entire set at startup to
+<i class="no-highlight">36</i>&nbsp; * avoid opening a large number of files to examine their log version.  For
+<i class="no-highlight">37</i>&nbsp; * example, if all files are being migrated in a very large data set, this
+<i class="no-highlight">38</i>&nbsp; * would involve opening a very large number of files in order to read
+<i class="no-highlight">39</i>&nbsp; * their header.  This could significantly delay application startup.
+<i class="no-highlight">40</i>&nbsp; *
+<i class="no-highlight">41</i>&nbsp; * Because we don&#39;t have the entire set at startup, we can&#39;t select the
+<i class="no-highlight">42</i>&nbsp; * lowest utilization file from the set to clean next.  Inteaad we iterate
+<i class="no-highlight">43</i>&nbsp; * in file number order to increase the odds of cleaning lower utilization
+<i class="no-highlight">44</i>&nbsp; * files first.
+<i class="no-highlight">45</i>&nbsp; */
+<b class="fc"><i class="no-highlight">46</i>&nbsp;class FilesToMigrate {</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    private final EnvironmentImpl env;
+<i class="no-highlight">49</i>&nbsp;
+<i class="no-highlight">50</i>&nbsp;    /**
+<i class="no-highlight">51</i>&nbsp;     * An array of pairs of file numbers, where each pair is a range of
+<i class="no-highlight">52</i>&nbsp;     * files to be force cleaned.  Index i is the from value and i+1 is the
+<i class="no-highlight">53</i>&nbsp;     * to value, both inclusive.
+<i class="no-highlight">54</i>&nbsp;     */
+<i class="no-highlight">55</i>&nbsp;    private long[] forceCleanFiles;
+<i class="no-highlight">56</i>&nbsp;
+<i class="no-highlight">57</i>&nbsp;    /** Log version to upgrade to, or zero if none. */
+<i class="no-highlight">58</i>&nbsp;    private int upgradeToVersion;
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;    /** Whether to continue checking the log version. */
+<i class="no-highlight">61</i>&nbsp;    private boolean checkLogVersion;
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /** Whether hasNext() has prepared a valid nextFile. */
+<i class="no-highlight">64</i>&nbsp;    private boolean nextAvailable;
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /** File to return; set by hasNext() and returned by next(). */
+<i class="no-highlight">67</i>&nbsp;    private long nextFile;
+<i class="no-highlight">68</i>&nbsp;
+<b class="fc"><i class="no-highlight">69</i>&nbsp;    FilesToMigrate(EnvironmentImpl env) {</b>
+<b class="fc"><i class="no-highlight">70</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">71</i>&nbsp;        String forceCleanProp = env.getConfigManager().get</b>
+<b class="fc"><i class="no-highlight">72</i>&nbsp;            (EnvironmentParams.CLEANER_FORCE_CLEAN_FILES);</b>
+<b class="fc"><i class="no-highlight">73</i>&nbsp;        parseForceCleanFiles(forceCleanProp);</b>
+<i class="no-highlight">74</i>&nbsp;
+<b class="fc"><i class="no-highlight">75</i>&nbsp;        upgradeToVersion = env.getConfigManager().getInt</b>
+<b class="fc"><i class="no-highlight">76</i>&nbsp;            (EnvironmentParams.CLEANER_UPGRADE_TO_LOG_VERSION);</b>
+<b class="fc"><i class="no-highlight">77</i>&nbsp;        if (upgradeToVersion == -1) {</b>
+<b class="nc"><i class="no-highlight">78</i>&nbsp;            upgradeToVersion = LogEntryType.LOG_VERSION;</b>
+<i class="no-highlight">79</i>&nbsp;        }
+<i class="no-highlight">80</i>&nbsp;
+<b class="fc"><i class="no-highlight">81</i>&nbsp;        checkLogVersion = (upgradeToVersion != 0);</b>
+<b class="fc"><i class="no-highlight">82</i>&nbsp;        nextAvailable = false;</b>
+<b class="fc"><i class="no-highlight">83</i>&nbsp;        nextFile = -1;</b>
+<b class="fc"><i class="no-highlight">84</i>&nbsp;    }</b>
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /**
+<i class="no-highlight">87</i>&nbsp;     * Returns whether there are more files to be migrated.  Must be called
+<i class="no-highlight">88</i>&nbsp;     * while synchronized on the UtilizationProfile.
+<i class="no-highlight">89</i>&nbsp;     */
+<i class="no-highlight">90</i>&nbsp;    boolean hasNext(SortedMap&lt;Long, FileSummary&gt; fileSummaryMap,
+<i class="no-highlight">91</i>&nbsp;                    Set&lt;Long&gt; inProgressFiles) {
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        if (nextAvailable) {</b>
+<i class="no-highlight">93</i>&nbsp;            /* hasNext() has returned true since the last next(). */
+<b class="nc"><i class="no-highlight">94</i>&nbsp;            return true;</b>
+<i class="no-highlight">95</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">96</i>&nbsp;        long foundFile = -1;</b>
+<i class="no-highlight">97</i>&nbsp;        for (long file :
+<b class="nc"><i class="no-highlight">98</i>&nbsp;             fileSummaryMap.tailMap(nextFile + 1).keySet()) {</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;            if (inProgressFiles.contains(file)) {</b>
+<b class="nc"><i class="no-highlight">100</i>&nbsp;                continue;</b>
+<i class="no-highlight">101</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">102</i>&nbsp;            if (isForceCleanFile(file)) {</b>
+<i class="no-highlight">103</i>&nbsp;                /* Found a file to force clean. */
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                foundFile = file;</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;                break;</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            } else if (checkLogVersion) {</b>
+<i class="no-highlight">107</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                    int logVersion =</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                        env.getFileManager().getFileLogVersion(file);</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                    if (logVersion &lt; upgradeToVersion) {</b>
+<i class="no-highlight">111</i>&nbsp;                        /* Found a file to migrate. */
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                        foundFile = file;</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                        break;</b>
+<i class="no-highlight">114</i>&nbsp;                    } else {
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;                        /*
+<i class="no-highlight">117</i>&nbsp;                         * All following files have a log version greater
+<i class="no-highlight">118</i>&nbsp;                         * or equal to this one; stop checking.
+<i class="no-highlight">119</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">120</i>&nbsp;                        checkLogVersion = false;</b>
+<i class="no-highlight">121</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">122</i>&nbsp;                } catch (RuntimeException e) {</b>
+<i class="no-highlight">123</i>&nbsp;                    /* Throw exception but allow iterator to continue. */
+<b class="nc"><i class="no-highlight">124</i>&nbsp;                    nextFile = file;</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;                    throw e;</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;                }</b>
+<i class="no-highlight">127</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        if (foundFile != -1) {</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            nextFile = foundFile;</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;            nextAvailable = true;</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;            return true;</b>
+<i class="no-highlight">133</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">134</i>&nbsp;            return false;</b>
+<i class="no-highlight">135</i>&nbsp;        }
+<i class="no-highlight">136</i>&nbsp;    }
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /**
+<i class="no-highlight">139</i>&nbsp;     * Returns the next file file to be migrated.  Must be called while
+<i class="no-highlight">140</i>&nbsp;     * synchronized on the UtilizationProfile.
+<i class="no-highlight">141</i>&nbsp;     */
+<i class="no-highlight">142</i>&nbsp;    long next(SortedMap&lt;Long, FileSummary&gt; fileSummaryMap,
+<i class="no-highlight">143</i>&nbsp;              Set&lt;Long&gt; inProgressFiles)
+<i class="no-highlight">144</i>&nbsp;        throws NoSuchElementException {
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        if (hasNext(fileSummaryMap, inProgressFiles)) {</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;            nextAvailable = false;</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            return nextFile;</b>
+<i class="no-highlight">149</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            throw new NoSuchElementException();</b>
+<i class="no-highlight">151</i>&nbsp;        }
+<i class="no-highlight">152</i>&nbsp;    }
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    /**
+<i class="no-highlight">155</i>&nbsp;     * Returns whether the given file is in the forceCleanFiles set.
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    private boolean isForceCleanFile(long file) {
+<i class="no-highlight">158</i>&nbsp;
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        if (forceCleanFiles != null) {</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            for (int i = 0; i &lt; forceCleanFiles.length; i += 2) {</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                long from = forceCleanFiles[i];</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                long to = forceCleanFiles[i + 1];</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                if (file &gt;= from &amp;&amp; file &lt;= to) {</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                    return true;</b>
+<i class="no-highlight">165</i>&nbsp;                }
+<i class="no-highlight">166</i>&nbsp;            }
+<i class="no-highlight">167</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        return false;</b>
+<i class="no-highlight">169</i>&nbsp;    }
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;    /**
+<i class="no-highlight">172</i>&nbsp;     * Parses the je.cleaner.forceCleanFiles property value and initializes
+<i class="no-highlight">173</i>&nbsp;     * the forceCleanFiles field.
+<i class="no-highlight">174</i>&nbsp;     *
+<i class="no-highlight">175</i>&nbsp;     * @throws IllegalArgumentException via Environment ctor and
+<i class="no-highlight">176</i>&nbsp;     * setMutableConfig.
+<i class="no-highlight">177</i>&nbsp;     */
+<i class="no-highlight">178</i>&nbsp;    private void parseForceCleanFiles(String propValue)
+<i class="no-highlight">179</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">180</i>&nbsp;
+<b class="fc"><i class="no-highlight">181</i>&nbsp;        if (propValue == null || propValue.length() == 0) {</b>
+<b class="fc"><i class="no-highlight">182</i>&nbsp;            forceCleanFiles = null;</b>
+<i class="no-highlight">183</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            String errPrefix = &quot;Error in &quot; +</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;                EnvironmentParams.CLEANER_FORCE_CLEAN_FILES.getName() +</b>
+<i class="no-highlight">186</i>&nbsp;                &quot;=&quot; + propValue + &quot;: &quot;;
+<i class="no-highlight">187</i>&nbsp;
+<b class="nc"><i class="no-highlight">188</i>&nbsp;            StringTokenizer tokens = new StringTokenizer</b>
+<i class="no-highlight">189</i>&nbsp;                (propValue, &quot;,-&quot;, true /*returnDelims*/);
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;            /* Resulting list of Long file numbers. */
+<b class="nc"><i class="no-highlight">192</i>&nbsp;            List&lt;Long&gt; list = new ArrayList&lt;Long&gt;();</b>
+<i class="no-highlight">193</i>&nbsp;
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            while (tokens.hasMoreTokens()) {</b>
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;                /* Get &quot;from&quot; file number. */
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                String fromStr = tokens.nextToken();</b>
+<i class="no-highlight">198</i>&nbsp;                long fromNum;
+<i class="no-highlight">199</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">200</i>&nbsp;                    fromNum = Long.parseLong(fromStr, 16);</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                } catch (NumberFormatException e) {</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                    throw new IllegalArgumentException</b>
+<i class="no-highlight">203</i>&nbsp;                        (errPrefix + &quot;Invalid hex file number: &quot; +
+<i class="no-highlight">204</i>&nbsp;                         fromStr);
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                }</b>
+<i class="no-highlight">206</i>&nbsp;
+<b class="nc"><i class="no-highlight">207</i>&nbsp;                long toNum = -1;</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;                if (tokens.hasMoreTokens()) {</b>
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;                    /* Get delimiter. */
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                    String delim = tokens.nextToken();</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;                    if (&quot;,&quot;.equals(delim)) {</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                        toNum = fromNum;</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                    } else if (&quot;-&quot;.equals(delim)) {</b>
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;                        /* Get &quot;to&quot; file number.&quot; */
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                        if (tokens.hasMoreTokens()) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                            String toStr = tokens.nextToken();</b>
+<i class="no-highlight">219</i>&nbsp;                            try {
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                                toNum = Long.parseLong(toStr, 16);</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;                            } catch (NumberFormatException e) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;                                throw new IllegalArgumentException</b>
+<i class="no-highlight">223</i>&nbsp;                                    (errPrefix +
+<i class="no-highlight">224</i>&nbsp;                                     &quot;Invalid hex file number: &quot; +
+<i class="no-highlight">225</i>&nbsp;                                     toStr);
+<b class="nc"><i class="no-highlight">226</i>&nbsp;                            }</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;                        } else {</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;                            throw new IllegalArgumentException</b>
+<i class="no-highlight">229</i>&nbsp;                                (errPrefix + &quot;Expected file number: &quot; +
+<i class="no-highlight">230</i>&nbsp;                                 delim);
+<i class="no-highlight">231</i>&nbsp;                        }
+<i class="no-highlight">232</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                        throw new IllegalArgumentException</b>
+<i class="no-highlight">234</i>&nbsp;                            (errPrefix + &quot;Expected &#39;-&#39; or &#39;,&#39;: &quot; + delim);
+<i class="no-highlight">235</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                } else {</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                    toNum = fromNum;</b>
+<i class="no-highlight">238</i>&nbsp;                }
+<i class="no-highlight">239</i>&nbsp;
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                assert toNum != -1;</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                list.add(Long.valueOf(fromNum));</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                list.add(Long.valueOf(toNum));</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            }</b>
+<i class="no-highlight">244</i>&nbsp;
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            forceCleanFiles = new long[list.size()];</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            for (int i = 0; i &lt; forceCleanFiles.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;                forceCleanFiles[i] = list.get(i).longValue();</b>
+<i class="no-highlight">248</i>&nbsp;            }
+<i class="no-highlight">249</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">250</i>&nbsp;    }</b>
+<i class="no-highlight">251</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

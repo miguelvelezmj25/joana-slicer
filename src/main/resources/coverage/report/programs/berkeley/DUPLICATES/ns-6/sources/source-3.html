@@ -1,0 +1,673 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > CurrentTransaction</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.collections</a>
+</div>
+
+<h1>Coverage Summary for Class: CurrentTransaction (com.sleepycat.collections)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">CurrentTransaction</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/20)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/123)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">CurrentTransaction$CdbCursors</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">CurrentTransaction$Trans</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/23)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/130)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.collections;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.lang.ref.WeakReference;
+<i class="no-highlight">17</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">18</i>&nbsp;import java.util.List;
+<i class="no-highlight">19</i>&nbsp;import java.util.WeakHashMap;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.compat.DbCompat;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.CursorConfig;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">28</i>&nbsp;/* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException; // for javadoc
+<i class="no-highlight">30</i>&nbsp;/* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.LockMode;
+<i class="no-highlight">32</i>&nbsp;/* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.OperationFailureException; // for javadoc
+<i class="no-highlight">34</i>&nbsp;/* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.util.RuntimeExceptionWrapper;
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;/**
+<i class="no-highlight">40</i>&nbsp; * Provides access to the current transaction for the current thread within the
+<i class="no-highlight">41</i>&nbsp; * context of a Berkeley DB environment.  This class provides explicit
+<i class="no-highlight">42</i>&nbsp; * transaction control beyond that provided by the {@link TransactionRunner}
+<i class="no-highlight">43</i>&nbsp; * class.  However, both methods of transaction control manage per-thread
+<i class="no-highlight">44</i>&nbsp; * transactions.
+<i class="no-highlight">45</i>&nbsp; *
+<i class="no-highlight">46</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">47</i>&nbsp; */
+<i class="no-highlight">48</i>&nbsp;public class CurrentTransaction {
+<i class="no-highlight">49</i>&nbsp;
+<i class="no-highlight">50</i>&nbsp;    /* For internal use, this class doubles as an Environment wrapper. */
+<i class="no-highlight">51</i>&nbsp;
+<b class="nc"><i class="no-highlight">52</i>&nbsp;    private static WeakHashMap&lt;Environment, CurrentTransaction&gt; envMap =</b>
+<i class="no-highlight">53</i>&nbsp;        new WeakHashMap&lt;Environment, CurrentTransaction&gt;();
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    private LockMode writeLockMode;
+<i class="no-highlight">56</i>&nbsp;    private boolean cdbMode;
+<i class="no-highlight">57</i>&nbsp;    private boolean txnMode;
+<i class="no-highlight">58</i>&nbsp;    private boolean lockingMode;
+<b class="nc"><i class="no-highlight">59</i>&nbsp;    private ThreadLocal localTrans = new ThreadLocal();</b>
+<i class="no-highlight">60</i>&nbsp;    private ThreadLocal localCdbCursors;
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /*
+<i class="no-highlight">63</i>&nbsp;     * Use a WeakReference to the Environment to avoid pinning the environment
+<i class="no-highlight">64</i>&nbsp;     * in the envMap.  The WeakHashMap envMap uses the Environment as a weak
+<i class="no-highlight">65</i>&nbsp;     * key, but this won&#39;t prevent GC of the Environment if the map&#39;s value has
+<i class="no-highlight">66</i>&nbsp;     * a hard reference to the Environment.  [#15444]
+<i class="no-highlight">67</i>&nbsp;     */
+<i class="no-highlight">68</i>&nbsp;    private WeakReference&lt;Environment&gt; envRef;
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    /**
+<i class="no-highlight">71</i>&nbsp;     * Gets the CurrentTransaction accessor for a specified Berkeley DB
+<i class="no-highlight">72</i>&nbsp;     * environment.  This method always returns the same reference when called
+<i class="no-highlight">73</i>&nbsp;     * more than once with the same environment parameter.
+<i class="no-highlight">74</i>&nbsp;     *
+<i class="no-highlight">75</i>&nbsp;     * @param env is an open Berkeley DB environment.
+<i class="no-highlight">76</i>&nbsp;     *
+<i class="no-highlight">77</i>&nbsp;     * @return the CurrentTransaction accessor for the given environment, or
+<i class="no-highlight">78</i>&nbsp;     * null if the environment is not transactional.
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;    public static CurrentTransaction getInstance(Environment env) {
+<i class="no-highlight">81</i>&nbsp;
+<b class="nc"><i class="no-highlight">82</i>&nbsp;        CurrentTransaction currentTxn = getInstanceInternal(env);</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        return currentTxn.isTxnMode() ? currentTxn : null;</b>
+<i class="no-highlight">84</i>&nbsp;    }
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /**
+<i class="no-highlight">87</i>&nbsp;     * Gets the CurrentTransaction accessor for a specified Berkeley DB
+<i class="no-highlight">88</i>&nbsp;     * environment.  Unlike getInstance(), this method never returns null.
+<i class="no-highlight">89</i>&nbsp;     *
+<i class="no-highlight">90</i>&nbsp;     * @param env is an open Berkeley DB environment.
+<i class="no-highlight">91</i>&nbsp;     */
+<i class="no-highlight">92</i>&nbsp;    static CurrentTransaction getInstanceInternal(Environment env) {
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        synchronized (envMap) {</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;            CurrentTransaction ct = envMap.get(env);</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;            if (ct == null) {</b>
+<b class="nc"><i class="no-highlight">96</i>&nbsp;                ct = new CurrentTransaction(env);</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;                envMap.put(env, ct);</b>
+<i class="no-highlight">98</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">99</i>&nbsp;            return ct;</b>
+<b class="nc"><i class="no-highlight">100</i>&nbsp;        }</b>
+<i class="no-highlight">101</i>&nbsp;    }
+<i class="no-highlight">102</i>&nbsp;
+<b class="nc"><i class="no-highlight">103</i>&nbsp;    private CurrentTransaction(Environment env) {</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        envRef = new WeakReference&lt;Environment&gt;(env);</b>
+<i class="no-highlight">105</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            EnvironmentConfig config = env.getConfig();</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;            txnMode = config.getTransactional();</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;            lockingMode = DbCompat.getInitializeLocking(config);</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;            if (txnMode || lockingMode) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                writeLockMode = LockMode.RMW;</b>
+<i class="no-highlight">111</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                writeLockMode = LockMode.DEFAULT;</b>
+<i class="no-highlight">113</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">114</i>&nbsp;            cdbMode = DbCompat.getInitializeCDB(config);</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;            if (cdbMode) {</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;                localCdbCursors = new ThreadLocal();</b>
+<i class="no-highlight">117</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;            throw RuntimeExceptionWrapper.wrapIfNeeded(e);</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        }</b>
+<i class="no-highlight">121</i>&nbsp;    }
+<i class="no-highlight">122</i>&nbsp;
+<i class="no-highlight">123</i>&nbsp;    /**
+<i class="no-highlight">124</i>&nbsp;     * Returns whether environment is configured for locking.
+<i class="no-highlight">125</i>&nbsp;     */
+<i class="no-highlight">126</i>&nbsp;    final boolean isLockingMode() {
+<i class="no-highlight">127</i>&nbsp;
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        return lockingMode;</b>
+<i class="no-highlight">129</i>&nbsp;    }
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    /**
+<i class="no-highlight">132</i>&nbsp;     * Returns whether this is a transactional environment.
+<i class="no-highlight">133</i>&nbsp;     */
+<i class="no-highlight">134</i>&nbsp;    final boolean isTxnMode() {
+<i class="no-highlight">135</i>&nbsp;
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        return txnMode;</b>
+<i class="no-highlight">137</i>&nbsp;    }
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    /**
+<i class="no-highlight">140</i>&nbsp;     * Returns whether this is a Concurrent Data Store environment.
+<i class="no-highlight">141</i>&nbsp;     */
+<i class="no-highlight">142</i>&nbsp;    final boolean isCdbMode() {
+<i class="no-highlight">143</i>&nbsp;
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        return cdbMode;</b>
+<i class="no-highlight">145</i>&nbsp;    }
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;    /**
+<i class="no-highlight">148</i>&nbsp;     * Return the LockMode.RMW or null, depending on whether locking is
+<i class="no-highlight">149</i>&nbsp;     * enabled.  LockMode.RMW will cause an error if passed when locking
+<i class="no-highlight">150</i>&nbsp;     * is not enabled.  Locking is enabled if locking or transactions were
+<i class="no-highlight">151</i>&nbsp;     * specified for this environment.
+<i class="no-highlight">152</i>&nbsp;     */
+<i class="no-highlight">153</i>&nbsp;    final LockMode getWriteLockMode() {
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        return writeLockMode;</b>
+<i class="no-highlight">156</i>&nbsp;    }
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * Returns the underlying Berkeley DB environment.
+<i class="no-highlight">160</i>&nbsp;     *
+<i class="no-highlight">161</i>&nbsp;     * @return the Environment.
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    public final Environment getEnvironment() {
+<i class="no-highlight">164</i>&nbsp;
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        return envRef.get();</b>
+<i class="no-highlight">166</i>&nbsp;    }
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;    /**
+<i class="no-highlight">169</i>&nbsp;     * Returns the transaction associated with the current thread for this
+<i class="no-highlight">170</i>&nbsp;     * environment, or null if no transaction is active.
+<i class="no-highlight">171</i>&nbsp;     *
+<i class="no-highlight">172</i>&nbsp;     * @return the Transaction.
+<i class="no-highlight">173</i>&nbsp;     */
+<i class="no-highlight">174</i>&nbsp;    public final Transaction getTransaction() {
+<i class="no-highlight">175</i>&nbsp;
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        Trans trans = (Trans) localTrans.get();</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        return (trans != null) ? trans.txn : null;</b>
+<i class="no-highlight">178</i>&nbsp;    }
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /**
+<i class="no-highlight">181</i>&nbsp;     * Returns whether auto-commit may be performed by the collections API.
+<i class="no-highlight">182</i>&nbsp;     * True is returned if no collections API transaction is currently active,
+<i class="no-highlight">183</i>&nbsp;     * and no XA transaction is currently active.
+<i class="no-highlight">184</i>&nbsp;     */
+<i class="no-highlight">185</i>&nbsp;    boolean isAutoCommitAllowed()
+<i class="no-highlight">186</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">187</i>&nbsp;
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        return getTransaction() == null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;               DbCompat.getThreadTransaction(getEnvironment()) == null;</b>
+<i class="no-highlight">190</i>&nbsp;    }
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;    /**
+<i class="no-highlight">193</i>&nbsp;     * Begins a new transaction for this environment and associates it with
+<i class="no-highlight">194</i>&nbsp;     * the current thread.  If a transaction is already active for this
+<i class="no-highlight">195</i>&nbsp;     * environment and thread, a nested transaction will be created.
+<i class="no-highlight">196</i>&nbsp;     *
+<i class="no-highlight">197</i>&nbsp;     * @param config the transaction configuration used for calling
+<i class="no-highlight">198</i>&nbsp;     * {@link Environment#beginTransaction}, or null to use the default
+<i class="no-highlight">199</i>&nbsp;     * configuration.
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * @return the new transaction.
+<i class="no-highlight">202</i>&nbsp;     *
+<i class="no-highlight">203</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">204</i>&nbsp;     * @throws com.sleepycat.je.rep.InsufficientReplicasException if the Master
+<i class="no-highlight">205</i>&nbsp;     * in a replicated environment could not contact a quorum of replicas as
+<i class="no-highlight">206</i>&nbsp;     * determined by the {@link com.sleepycat.je.Durability.ReplicaAckPolicy}.
+<i class="no-highlight">207</i>&nbsp;     *
+<i class="no-highlight">208</i>&nbsp;     * @throws com.sleepycat.je.rep.ReplicaConsistencyException if a replica
+<i class="no-highlight">209</i>&nbsp;     * in a replicated environment cannot become consistent within the timeout
+<i class="no-highlight">210</i>&nbsp;     * period.
+<i class="no-highlight">211</i>&nbsp;     *
+<i class="no-highlight">212</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">213</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">214</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">215</i>&nbsp;     *
+<i class="no-highlight">216</i>&nbsp;     * @throws DatabaseException if the transaction cannot be started, in which
+<i class="no-highlight">217</i>&nbsp;     * case any existing transaction is not affected.
+<i class="no-highlight">218</i>&nbsp;     *
+<i class="no-highlight">219</i>&nbsp;     * @throws IllegalStateException if a transaction is already active and
+<i class="no-highlight">220</i>&nbsp;     * nested transactions are not supported by the environment.
+<i class="no-highlight">221</i>&nbsp;     */
+<i class="no-highlight">222</i>&nbsp;    public final Transaction beginTransaction(TransactionConfig config)
+<i class="no-highlight">223</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">224</i>&nbsp;
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        Environment env = getEnvironment();</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        Trans trans = (Trans) localTrans.get();</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        if (trans != null) {</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;            if (trans.txn != null) {</b>
+<i class="no-highlight">229</i>&nbsp;                if (!DbCompat.NESTED_TRANSACTIONS) {
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                    throw new IllegalStateException</b>
+<i class="no-highlight">231</i>&nbsp;                        (&quot;Nested transactions are not supported&quot;);
+<i class="no-highlight">232</i>&nbsp;                }
+<i class="no-highlight">233</i>&nbsp;                Transaction parentTxn = trans.txn;
+<i class="no-highlight">234</i>&nbsp;                trans = new Trans(trans, config);
+<i class="no-highlight">235</i>&nbsp;                trans.txn = env.beginTransaction(parentTxn, config);
+<i class="no-highlight">236</i>&nbsp;                localTrans.set(trans);
+<i class="no-highlight">237</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                trans.txn = env.beginTransaction(null, config);</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                trans.config = config;</b>
+<i class="no-highlight">240</i>&nbsp;            }
+<i class="no-highlight">241</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">242</i>&nbsp;            trans = new Trans(null, config);</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            trans.txn = env.beginTransaction(null, config);</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;            localTrans.set(trans);</b>
+<i class="no-highlight">245</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        return trans.txn;</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * Commits the transaction that is active for the current thread for this
+<i class="no-highlight">251</i>&nbsp;     * environment and makes the parent transaction (if any) the current
+<i class="no-highlight">252</i>&nbsp;     * transaction.
+<i class="no-highlight">253</i>&nbsp;     *
+<i class="no-highlight">254</i>&nbsp;     * @return the parent transaction or null if the committed transaction was
+<i class="no-highlight">255</i>&nbsp;     * not nested.
+<i class="no-highlight">256</i>&nbsp;     *
+<i class="no-highlight">257</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">258</i>&nbsp;     * @throws com.sleepycat.je.rep.InsufficientReplicasException if the master
+<i class="no-highlight">259</i>&nbsp;     * in a replicated environment could not contact a quorum of replicas as
+<i class="no-highlight">260</i>&nbsp;     * determined by the {@link com.sleepycat.je.Durability.ReplicaAckPolicy}.
+<i class="no-highlight">261</i>&nbsp;     * The application must abort the transaction and can choose to retry it.
+<i class="no-highlight">262</i>&nbsp;     *
+<i class="no-highlight">263</i>&nbsp;     * @throws com.sleepycat.je.rep.InsufficientAcksException if the master in
+<i class="no-highlight">264</i>&nbsp;     * a replicated environment did not receive enough replica acknowledgments,
+<i class="no-highlight">265</i>&nbsp;     * although the commit succeeded locally.
+<i class="no-highlight">266</i>&nbsp;     *
+<i class="no-highlight">267</i>&nbsp;     * @throws com.sleepycat.je.rep.ReplicaWriteException if a write operation
+<i class="no-highlight">268</i>&nbsp;     * was performed with this transaction, but this node is now a Replica.
+<i class="no-highlight">269</i>&nbsp;     *
+<i class="no-highlight">270</i>&nbsp;     * @throws OperationFailureException if this exception occurred earlier and
+<i class="no-highlight">271</i>&nbsp;     * caused the transaction to be invalidated.
+<i class="no-highlight">272</i>&nbsp;     *
+<i class="no-highlight">273</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">274</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">275</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">276</i>&nbsp;     *
+<i class="no-highlight">277</i>&nbsp;     * @throws DatabaseException if an error occurs committing the transaction.
+<i class="no-highlight">278</i>&nbsp;     * The transaction will still be closed and the parent transaction will
+<i class="no-highlight">279</i>&nbsp;     * become the current transaction.
+<i class="no-highlight">280</i>&nbsp;     *
+<i class="no-highlight">281</i>&nbsp;     * @throws IllegalStateException if no transaction is active for the
+<i class="no-highlight">282</i>&nbsp;     * current thread for this environment.
+<i class="no-highlight">283</i>&nbsp;     */
+<i class="no-highlight">284</i>&nbsp;    public final Transaction commitTransaction()
+<i class="no-highlight">285</i>&nbsp;        throws DatabaseException, IllegalStateException {
+<i class="no-highlight">286</i>&nbsp;
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        Trans trans = (Trans) localTrans.get();</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        if (trans != null &amp;&amp; trans.txn != null) {</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            Transaction parent = closeTxn(trans);</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;            trans.txn.commit();</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            return parent;</b>
+<i class="no-highlight">292</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;            throw new IllegalStateException(&quot;No transaction is active&quot;);</b>
+<i class="no-highlight">294</i>&nbsp;        }
+<i class="no-highlight">295</i>&nbsp;    }
+<i class="no-highlight">296</i>&nbsp;
+<i class="no-highlight">297</i>&nbsp;    /**
+<i class="no-highlight">298</i>&nbsp;     * Aborts the transaction that is active for the current thread for this
+<i class="no-highlight">299</i>&nbsp;     * environment and makes the parent transaction (if any) the current
+<i class="no-highlight">300</i>&nbsp;     * transaction.
+<i class="no-highlight">301</i>&nbsp;     *
+<i class="no-highlight">302</i>&nbsp;     * @return the parent transaction or null if the aborted transaction was
+<i class="no-highlight">303</i>&nbsp;     * not nested.
+<i class="no-highlight">304</i>&nbsp;     *
+<i class="no-highlight">305</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">306</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">307</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">308</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">309</i>&nbsp;     *
+<i class="no-highlight">310</i>&nbsp;     * @throws DatabaseException if an error occurs aborting the transaction.
+<i class="no-highlight">311</i>&nbsp;     * The transaction will still be closed and the parent transaction will
+<i class="no-highlight">312</i>&nbsp;     * become the current transaction.
+<i class="no-highlight">313</i>&nbsp;     *
+<i class="no-highlight">314</i>&nbsp;     * @throws IllegalStateException if no transaction is active for the
+<i class="no-highlight">315</i>&nbsp;     * current thread for this environment.
+<i class="no-highlight">316</i>&nbsp;     */
+<i class="no-highlight">317</i>&nbsp;    public final Transaction abortTransaction()
+<i class="no-highlight">318</i>&nbsp;        throws DatabaseException, IllegalStateException {
+<i class="no-highlight">319</i>&nbsp;
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        Trans trans = (Trans) localTrans.get();</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;        if (trans != null &amp;&amp; trans.txn != null) {</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;            Transaction parent = closeTxn(trans);</b>
+<b class="nc"><i class="no-highlight">323</i>&nbsp;            trans.txn.abort();</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            return parent;</b>
+<i class="no-highlight">325</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            throw new IllegalStateException(&quot;No transaction is active&quot;);</b>
+<i class="no-highlight">327</i>&nbsp;        }
+<i class="no-highlight">328</i>&nbsp;    }
+<i class="no-highlight">329</i>&nbsp;
+<i class="no-highlight">330</i>&nbsp;    /**
+<i class="no-highlight">331</i>&nbsp;     * Returns whether the current transaction is a readUncommitted
+<i class="no-highlight">332</i>&nbsp;     * transaction.
+<i class="no-highlight">333</i>&nbsp;     */
+<i class="no-highlight">334</i>&nbsp;    final boolean isReadUncommitted() {
+<i class="no-highlight">335</i>&nbsp;
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        Trans trans = (Trans) localTrans.get();</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;        if (trans != null &amp;&amp; trans.config != null) {</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;            return trans.config.getReadUncommitted();</b>
+<i class="no-highlight">339</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">340</i>&nbsp;            return false;</b>
+<i class="no-highlight">341</i>&nbsp;        }
+<i class="no-highlight">342</i>&nbsp;    }
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;    private Transaction closeTxn(Trans trans) {
+<i class="no-highlight">345</i>&nbsp;
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        localTrans.set(trans.parent);</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        return (trans.parent != null) ? trans.parent.txn : null;</b>
+<i class="no-highlight">348</i>&nbsp;    }
+<i class="no-highlight">349</i>&nbsp;
+<b class="nc"><i class="no-highlight">350</i>&nbsp;    private static class Trans {</b>
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;        private Trans parent;
+<i class="no-highlight">353</i>&nbsp;        private Transaction txn;
+<i class="no-highlight">354</i>&nbsp;        private TransactionConfig config;
+<i class="no-highlight">355</i>&nbsp;
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        private Trans(Trans parent, TransactionConfig config) {</b>
+<i class="no-highlight">357</i>&nbsp;
+<b class="nc"><i class="no-highlight">358</i>&nbsp;            this.parent = parent;</b>
+<b class="nc"><i class="no-highlight">359</i>&nbsp;            this.config = config;</b>
+<i class="no-highlight">360</i>&nbsp;        }
+<i class="no-highlight">361</i>&nbsp;    }
+<i class="no-highlight">362</i>&nbsp;
+<i class="no-highlight">363</i>&nbsp;    /**
+<i class="no-highlight">364</i>&nbsp;     * Opens a cursor for a given database, dup&#39;ing an existing CDB cursor if
+<i class="no-highlight">365</i>&nbsp;     * one is open for the current thread.
+<i class="no-highlight">366</i>&nbsp;     */
+<i class="no-highlight">367</i>&nbsp;    Cursor openCursor(Database db,
+<i class="no-highlight">368</i>&nbsp;                      CursorConfig cursorConfig,
+<i class="no-highlight">369</i>&nbsp;                      boolean writeCursor,
+<i class="no-highlight">370</i>&nbsp;                      Transaction txn)
+<i class="no-highlight">371</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">372</i>&nbsp;
+<b class="nc"><i class="no-highlight">373</i>&nbsp;        if (cdbMode) {</b>
+<b class="nc"><i class="no-highlight">374</i>&nbsp;            CdbCursors cdbCursors = null;</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;            WeakHashMap cdbCursorsMap = (WeakHashMap) localCdbCursors.get();</b>
+<b class="nc"><i class="no-highlight">376</i>&nbsp;            if (cdbCursorsMap == null) {</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;                cdbCursorsMap = new WeakHashMap();</b>
+<b class="nc"><i class="no-highlight">378</i>&nbsp;                localCdbCursors.set(cdbCursorsMap);</b>
+<i class="no-highlight">379</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">380</i>&nbsp;                cdbCursors = (CdbCursors) cdbCursorsMap.get(db);</b>
+<i class="no-highlight">381</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">382</i>&nbsp;            if (cdbCursors == null) {</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;                cdbCursors = new CdbCursors();</b>
+<b class="nc"><i class="no-highlight">384</i>&nbsp;                cdbCursorsMap.put(db, cdbCursors);</b>
+<i class="no-highlight">385</i>&nbsp;            }
+<i class="no-highlight">386</i>&nbsp;
+<i class="no-highlight">387</i>&nbsp;            /*
+<i class="no-highlight">388</i>&nbsp;             * In CDB mode the cursorConfig specified by the user is ignored
+<i class="no-highlight">389</i>&nbsp;             * and only the writeCursor parameter is honored.  This is the only
+<i class="no-highlight">390</i>&nbsp;             * meaningful cursor attribute for CDB, and here we count on
+<i class="no-highlight">391</i>&nbsp;             * writeCursor flag being set correctly by the caller.
+<i class="no-highlight">392</i>&nbsp;             */
+<i class="no-highlight">393</i>&nbsp;            List cursors;
+<i class="no-highlight">394</i>&nbsp;            CursorConfig cdbConfig;
+<b class="nc"><i class="no-highlight">395</i>&nbsp;            if (writeCursor) {</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                if (cdbCursors.readCursors.size() &gt; 0) {</b>
+<i class="no-highlight">397</i>&nbsp;
+<i class="no-highlight">398</i>&nbsp;                    /*
+<i class="no-highlight">399</i>&nbsp;                     * Although CDB allows opening a write cursor when a read
+<i class="no-highlight">400</i>&nbsp;                     * cursor is open, a self-deadlock will occur if a write is
+<i class="no-highlight">401</i>&nbsp;                     * attempted for a record that is read-locked; we should
+<i class="no-highlight">402</i>&nbsp;                     * avoid self-deadlocks at all costs
+<i class="no-highlight">403</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">404</i>&nbsp;                    throw new IllegalStateException</b>
+<i class="no-highlight">405</i>&nbsp;                        (&quot;Cannot open CDB write cursor when read cursor &quot; +
+<i class="no-highlight">406</i>&nbsp;                         &quot;is open&quot;);
+<i class="no-highlight">407</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                cursors = cdbCursors.writeCursors;</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;                cdbConfig = new CursorConfig();</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;                DbCompat.setWriteCursor(cdbConfig, true);</b>
+<i class="no-highlight">411</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">412</i>&nbsp;                cursors = cdbCursors.readCursors;</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;                cdbConfig = null;</b>
+<i class="no-highlight">414</i>&nbsp;            }
+<i class="no-highlight">415</i>&nbsp;            Cursor cursor;
+<b class="nc"><i class="no-highlight">416</i>&nbsp;            if (cursors.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;                Cursor other = ((Cursor) cursors.get(0));</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;                cursor = other.dup(false);</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;            } else {</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;                cursor = db.openCursor(null, cdbConfig);</b>
+<i class="no-highlight">421</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            cursors.add(cursor);</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;            return cursor;</b>
+<i class="no-highlight">424</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">425</i>&nbsp;            return db.openCursor(txn, cursorConfig);</b>
+<i class="no-highlight">426</i>&nbsp;        }
+<i class="no-highlight">427</i>&nbsp;    }
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;    /**
+<i class="no-highlight">430</i>&nbsp;     * Duplicates a cursor for a given database.
+<i class="no-highlight">431</i>&nbsp;     *
+<i class="no-highlight">432</i>&nbsp;     * @param writeCursor true to open a write cursor in a CDB environment, and
+<i class="no-highlight">433</i>&nbsp;     * ignored for other environments.
+<i class="no-highlight">434</i>&nbsp;     *
+<i class="no-highlight">435</i>&nbsp;     * @param samePosition is passed through to Cursor.dup().
+<i class="no-highlight">436</i>&nbsp;     *
+<i class="no-highlight">437</i>&nbsp;     * @return the open cursor.
+<i class="no-highlight">438</i>&nbsp;     *
+<i class="no-highlight">439</i>&nbsp;     * @throws DatabaseException if a database problem occurs.
+<i class="no-highlight">440</i>&nbsp;     */
+<i class="no-highlight">441</i>&nbsp;    Cursor dupCursor(Cursor cursor, boolean writeCursor, boolean samePosition)
+<i class="no-highlight">442</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">443</i>&nbsp;
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        if (cdbMode) {</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;            WeakHashMap cdbCursorsMap = (WeakHashMap) localCdbCursors.get();</b>
+<b class="nc"><i class="no-highlight">446</i>&nbsp;            if (cdbCursorsMap != null) {</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;                Database db = cursor.getDatabase();</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                CdbCursors cdbCursors = (CdbCursors) cdbCursorsMap.get(db);</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;                if (cdbCursors != null) {</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;                    List cursors = writeCursor ? cdbCursors.writeCursors</b>
+<i class="no-highlight">451</i>&nbsp;                                               : cdbCursors.readCursors;
+<b class="nc"><i class="no-highlight">452</i>&nbsp;                    if (cursors.contains(cursor)) {</b>
+<b class="nc"><i class="no-highlight">453</i>&nbsp;                        Cursor newCursor = cursor.dup(samePosition);</b>
+<b class="nc"><i class="no-highlight">454</i>&nbsp;                        cursors.add(newCursor);</b>
+<b class="nc"><i class="no-highlight">455</i>&nbsp;                        return newCursor;</b>
+<i class="no-highlight">456</i>&nbsp;                    }
+<i class="no-highlight">457</i>&nbsp;                }
+<i class="no-highlight">458</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">459</i>&nbsp;            throw new IllegalStateException(&quot;Cursor to dup not tracked&quot;);</b>
+<i class="no-highlight">460</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">461</i>&nbsp;            return cursor.dup(samePosition);</b>
+<i class="no-highlight">462</i>&nbsp;        }
+<i class="no-highlight">463</i>&nbsp;    }
+<i class="no-highlight">464</i>&nbsp;
+<i class="no-highlight">465</i>&nbsp;    /**
+<i class="no-highlight">466</i>&nbsp;     * Closes a cursor.
+<i class="no-highlight">467</i>&nbsp;     *
+<i class="no-highlight">468</i>&nbsp;     * @param cursor the cursor to close.
+<i class="no-highlight">469</i>&nbsp;     *
+<i class="no-highlight">470</i>&nbsp;     * @throws DatabaseException if a database problem occurs.
+<i class="no-highlight">471</i>&nbsp;     */
+<i class="no-highlight">472</i>&nbsp;    void closeCursor(Cursor cursor)
+<i class="no-highlight">473</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">474</i>&nbsp;
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        if (cursor == null) {</b>
+<i class="no-highlight">476</i>&nbsp;            return;
+<i class="no-highlight">477</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">478</i>&nbsp;        if (cdbMode) {</b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;            WeakHashMap cdbCursorsMap = (WeakHashMap) localCdbCursors.get();</b>
+<b class="nc"><i class="no-highlight">480</i>&nbsp;            if (cdbCursorsMap != null) {</b>
+<b class="nc"><i class="no-highlight">481</i>&nbsp;                Database db = cursor.getDatabase();</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                CdbCursors cdbCursors = (CdbCursors) cdbCursorsMap.get(db);</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                if (cdbCursors != null) {</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;                    if (cdbCursors.readCursors.remove(cursor) ||</b>
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                        cdbCursors.writeCursors.remove(cursor)) {</b>
+<b class="nc"><i class="no-highlight">486</i>&nbsp;                        cursor.close();</b>
+<i class="no-highlight">487</i>&nbsp;                        return;
+<i class="no-highlight">488</i>&nbsp;                    }
+<i class="no-highlight">489</i>&nbsp;                }
+<i class="no-highlight">490</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">491</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">492</i>&nbsp;                (&quot;Closing CDB cursor that was not known to be open&quot;);
+<i class="no-highlight">493</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">494</i>&nbsp;            cursor.close();</b>
+<i class="no-highlight">495</i>&nbsp;        }
+<i class="no-highlight">496</i>&nbsp;    }
+<i class="no-highlight">497</i>&nbsp;
+<i class="no-highlight">498</i>&nbsp;    /**
+<i class="no-highlight">499</i>&nbsp;     * Returns true if a CDB cursor is open and therefore a Database write
+<i class="no-highlight">500</i>&nbsp;     * operation should not be attempted since a self-deadlock may result.
+<i class="no-highlight">501</i>&nbsp;     */
+<i class="no-highlight">502</i>&nbsp;    boolean isCDBCursorOpen(Database db) {
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        if (cdbMode) {</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;            WeakHashMap cdbCursorsMap = (WeakHashMap) localCdbCursors.get();</b>
+<b class="nc"><i class="no-highlight">505</i>&nbsp;            if (cdbCursorsMap != null) {</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;                CdbCursors cdbCursors = (CdbCursors) cdbCursorsMap.get(db);</b>
+<i class="no-highlight">507</i>&nbsp;
+<b class="nc"><i class="no-highlight">508</i>&nbsp;                if (cdbCursors != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                    (cdbCursors.readCursors.size() &gt; 0 ||</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                     cdbCursors.writeCursors.size() &gt; 0)) {</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                    return true;</b>
+<i class="no-highlight">512</i>&nbsp;                }
+<i class="no-highlight">513</i>&nbsp;            }
+<i class="no-highlight">514</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">515</i>&nbsp;        return false;</b>
+<i class="no-highlight">516</i>&nbsp;    }
+<i class="no-highlight">517</i>&nbsp;
+<b class="nc"><i class="no-highlight">518</i>&nbsp;    static final class CdbCursors {</b>
+<i class="no-highlight">519</i>&nbsp;
+<b class="nc"><i class="no-highlight">520</i>&nbsp;        List writeCursors = new ArrayList();</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;        List readCursors = new ArrayList();</b>
+<i class="no-highlight">522</i>&nbsp;    }
+<i class="no-highlight">523</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

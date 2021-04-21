@@ -1,0 +1,1777 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Cleaner</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: Cleaner (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Cleaner</td>
+<td class="coverageStat">
+  <span class="percent">
+    51.2%
+  </span>
+  <span class="absValue">
+    (22/43)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    42.5%
+  </span>
+  <span class="absValue">
+    (235/553)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Cleaner$EnvLockedException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (22/44)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    42.4%
+  </span>
+  <span class="absValue">
+    (235/554)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_ACTIVE_LOG_SIZE;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_AVAILABLE_LOG_SIZE;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_BIN_DELTAS_CLEANED;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_BIN_DELTAS_DEAD;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_BIN_DELTAS_MIGRATED;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_BIN_DELTAS_OBSOLETE;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_CLUSTER_LNS_PROCESSED;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_DELETIONS;
+<i class="no-highlight">24</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_DISK_READS;
+<i class="no-highlight">25</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_ENTRIES_READ;
+<i class="no-highlight">26</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_INS_CLEANED;
+<i class="no-highlight">27</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_INS_DEAD;
+<i class="no-highlight">28</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_INS_MIGRATED;
+<i class="no-highlight">29</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_INS_OBSOLETE;
+<i class="no-highlight">30</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNQUEUE_HITS;
+<i class="no-highlight">31</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_CLEANED;
+<i class="no-highlight">32</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_DEAD;
+<i class="no-highlight">33</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_EXPIRED;
+<i class="no-highlight">34</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_LOCKED;
+<i class="no-highlight">35</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_MARKED;
+<i class="no-highlight">36</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_MIGRATED;
+<i class="no-highlight">37</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_LNS_OBSOLETE;
+<i class="no-highlight">38</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_MARKED_LNS_PROCESSED;
+<i class="no-highlight">39</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_MAX_UTILIZATION;
+<i class="no-highlight">40</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_MIN_UTILIZATION;
+<i class="no-highlight">41</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_PENDING_LNS_LOCKED;
+<i class="no-highlight">42</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_PENDING_LNS_PROCESSED;
+<i class="no-highlight">43</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_PENDING_LN_QUEUE_SIZE;
+<i class="no-highlight">44</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_PROTECTED_LOG_SIZE;
+<i class="no-highlight">45</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_PROTECTED_LOG_SIZE_MAP;
+<i class="no-highlight">46</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_REPEAT_ITERATOR_READS;
+<i class="no-highlight">47</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_RESERVED_LOG_SIZE;
+<i class="no-highlight">48</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_REVISAL_RUNS;
+<i class="no-highlight">49</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_RUNS;
+<i class="no-highlight">50</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_TOTAL_LOG_SIZE;
+<i class="no-highlight">51</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_TO_BE_CLEANED_LNS_PROCESSED;
+<i class="no-highlight">52</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.CLEANER_TWO_PASS_RUNS;
+<i class="no-highlight">53</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.GROUP_DESC;
+<i class="no-highlight">54</i>&nbsp;import static com.sleepycat.je.cleaner.CleanerStatDefinition.GROUP_NAME;
+<i class="no-highlight">55</i>&nbsp;
+<i class="no-highlight">56</i>&nbsp;import java.io.File;
+<i class="no-highlight">57</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">58</i>&nbsp;import java.text.NumberFormat;
+<i class="no-highlight">59</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">60</i>&nbsp;import java.util.Map;
+<i class="no-highlight">61</i>&nbsp;import java.util.SortedSet;
+<i class="no-highlight">62</i>&nbsp;import java.util.TreeSet;
+<i class="no-highlight">63</i>&nbsp;import java.util.concurrent.atomic.AtomicBoolean;
+<i class="no-highlight">64</i>&nbsp;import java.util.concurrent.atomic.AtomicLong;
+<i class="no-highlight">65</i>&nbsp;import java.util.concurrent.locks.ReentrantLock;
+<i class="no-highlight">66</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">67</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.CacheMode;
+<i class="no-highlight">70</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">71</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">72</i>&nbsp;import com.sleepycat.je.EnvironmentMutableConfig;
+<i class="no-highlight">73</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">74</i>&nbsp;import com.sleepycat.je.cleaner.FileSelector.CheckpointStartCleanerState;
+<i class="no-highlight">75</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">76</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">77</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">78</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">79</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">80</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">81</i>&nbsp;import com.sleepycat.je.dbi.EnvConfigObserver;
+<i class="no-highlight">82</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">83</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">84</i>&nbsp;import com.sleepycat.je.log.FileManager;
+<i class="no-highlight">85</i>&nbsp;import com.sleepycat.je.log.LogItem;
+<i class="no-highlight">86</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">87</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">88</i>&nbsp;import com.sleepycat.je.tree.FileSummaryLN;
+<i class="no-highlight">89</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">90</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">91</i>&nbsp;import com.sleepycat.je.tree.Node;
+<i class="no-highlight">92</i>&nbsp;import com.sleepycat.je.tree.Tree;
+<i class="no-highlight">93</i>&nbsp;import com.sleepycat.je.tree.TreeLocation;
+<i class="no-highlight">94</i>&nbsp;import com.sleepycat.je.txn.BasicLocker;
+<i class="no-highlight">95</i>&nbsp;import com.sleepycat.je.txn.LockGrantType;
+<i class="no-highlight">96</i>&nbsp;import com.sleepycat.je.txn.LockManager;
+<i class="no-highlight">97</i>&nbsp;import com.sleepycat.je.txn.LockResult;
+<i class="no-highlight">98</i>&nbsp;import com.sleepycat.je.txn.LockType;
+<i class="no-highlight">99</i>&nbsp;import com.sleepycat.je.utilint.AtomicLongMapStat;
+<i class="no-highlight">100</i>&nbsp;import com.sleepycat.je.utilint.DaemonRunner;
+<i class="no-highlight">101</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">102</i>&nbsp;import com.sleepycat.je.utilint.FileStoreInfo;
+<i class="no-highlight">103</i>&nbsp;import com.sleepycat.je.utilint.IntStat;
+<i class="no-highlight">104</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">105</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">106</i>&nbsp;import com.sleepycat.je.utilint.Pair;
+<i class="no-highlight">107</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">108</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">109</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">110</i>&nbsp;
+<i class="no-highlight">111</i>&nbsp;/**
+<i class="no-highlight">112</i>&nbsp; * The Cleaner is responsible for effectively garbage collecting the JE log.
+<i class="no-highlight">113</i>&nbsp; * It selects the least utilized log file for cleaning (see FileSelector),
+<i class="no-highlight">114</i>&nbsp; * reads through the log file (FileProcessor) and determines whether each entry
+<i class="no-highlight">115</i>&nbsp; * is obsolete (no longer relevant) or active (referenced by the Btree).
+<i class="no-highlight">116</i>&nbsp; * Entries that are active are migrated (copied) to the end of the log, and
+<i class="no-highlight">117</i>&nbsp; * finally the cleaned file is deleted.
+<i class="no-highlight">118</i>&nbsp; *
+<i class="no-highlight">119</i>&nbsp; * The migration of active entries is a multi-step process that can be
+<i class="no-highlight">120</i>&nbsp; * configured to operate in different ways.  Eviction and checkpointing, as
+<i class="no-highlight">121</i>&nbsp; * well as the cleaner threads (FileProcessor instances) are participants in
+<i class="no-highlight">122</i>&nbsp; * this process.  Migration may be immediate or lazy.
+<i class="no-highlight">123</i>&nbsp; *
+<i class="no-highlight">124</i>&nbsp; * Active INs are always migrated lazily, which means that they are marked
+<i class="no-highlight">125</i>&nbsp; * dirty by the FileProcessor, and then logged later by an eviction or
+<i class="no-highlight">126</i>&nbsp; * checkpoint.  Active LNs are always migrated immediately by the FileProcessor
+<i class="no-highlight">127</i>&nbsp; * by logging them.
+<i class="no-highlight">128</i>&nbsp; *
+<i class="no-highlight">129</i>&nbsp; * When the FileProcessor is finished with a file, all lazy migration for that
+<i class="no-highlight">130</i>&nbsp; * file is normally completed by the end of the next checkpoint, if not sooner
+<i class="no-highlight">131</i>&nbsp; * via eviction.  The checkpoint/recovery mechanism will ensure that obsolete
+<i class="no-highlight">132</i>&nbsp; * entries will not be referenced by the Btree.  At the end of the checkpoint,
+<i class="no-highlight">133</i>&nbsp; * it is therefore safe to delete the log file.
+<i class="no-highlight">134</i>&nbsp; *
+<i class="no-highlight">135</i>&nbsp; * There is one exception to the above paragraph.  When attempting to migrate
+<i class="no-highlight">136</i>&nbsp; * an LN, if the LN cannot be locked then we must retry the migration at a
+<i class="no-highlight">137</i>&nbsp; * later time.  Also, if a database removal is in progress, we consider all
+<i class="no-highlight">138</i>&nbsp; * entries in the database obsolete but cannot delete the log file until
+<i class="no-highlight">139</i>&nbsp; * database removal is complete.  Such &quot;pending&quot; LNs and databases are queued
+<i class="no-highlight">140</i>&nbsp; * and processed periodically during file processing and at the start of a
+<i class="no-highlight">141</i>&nbsp; * checkpoint; see processPending().  In this case, we may have to wait for
+<i class="no-highlight">142</i>&nbsp; * more than one checkpoint to occur before the log file can be deleted.  See
+<i class="no-highlight">143</i>&nbsp; * FileSelector and the use of the pendingLNs and pendingDBs collections.
+<i class="no-highlight">144</i>&nbsp; */
+<b class="fc"><i class="no-highlight">145</i>&nbsp;public class Cleaner implements DaemonRunner, EnvConfigObserver {</b>
+<i class="no-highlight">146</i>&nbsp;    /* From cleaner */
+<i class="no-highlight">147</i>&nbsp;    static final String CLEAN_IN = &quot;CleanIN:&quot;;
+<i class="no-highlight">148</i>&nbsp;    static final String CLEAN_LN = &quot;CleanLN:&quot;;
+<i class="no-highlight">149</i>&nbsp;    static final String CLEAN_PENDING_LN = &quot;CleanPendingLN:&quot;;
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;    private static final NumberFormat INT_FORMAT =
+<b class="fc"><i class="no-highlight">152</i>&nbsp;        NumberFormat.getIntegerInstance();</b>
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    /**
+<i class="no-highlight">155</i>&nbsp;     * The CacheMode to use for Btree searches.  This is currently UNCHANGED
+<i class="no-highlight">156</i>&nbsp;     * because we update the generation of the BIN when we migrate an LN.
+<i class="no-highlight">157</i>&nbsp;     * In other other cases, it is not desirable to keep INs in cache.
+<i class="no-highlight">158</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">159</i>&nbsp;    static final CacheMode UPDATE_GENERATION = CacheMode.UNCHANGED;</b>
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;    /**
+<i class="no-highlight">162</i>&nbsp;     * Whether the cleaner should participate in critical eviction.  Ideally
+<i class="no-highlight">163</i>&nbsp;     * the cleaner would not participate in eviction, since that would reduce
+<i class="no-highlight">164</i>&nbsp;     * the cost of cleaning.  However, the cleaner can add large numbers of
+<i class="no-highlight">165</i>&nbsp;     * nodes to the cache.  By not participating in eviction, other threads
+<i class="no-highlight">166</i>&nbsp;     * could be kept in a constant state of eviction and would effectively
+<i class="no-highlight">167</i>&nbsp;     * starve.  Therefore, this setting is currently enabled.
+<i class="no-highlight">168</i>&nbsp;     */
+<i class="no-highlight">169</i>&nbsp;    static final boolean DO_CRITICAL_EVICTION = true;
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;    private static final String DELETED_SUBDIR = &quot;deleted&quot;;
+<i class="no-highlight">172</i>&nbsp;
+<i class="no-highlight">173</i>&nbsp;    /* Used to ensure that the cleaner is woken often enough. */
+<i class="no-highlight">174</i>&nbsp;    private final static long MAX_CLEANER_BYTES_INTERVAL = 100L &lt;&lt; 20;;
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;    /* 10GB is the lower threshold for adjusting MAX_DISK. */
+<i class="no-highlight">177</i>&nbsp;    private final static long MAX_DISK_ADJUSTMENT_THRESHOLD =
+<i class="no-highlight">178</i>&nbsp;        10L * 1024L * 1024L * 1024L;
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /* Used to disable processing of safe-to-delete files during testing. */
+<b class="fc"><i class="no-highlight">181</i>&nbsp;    private boolean fileDeletionEnabled = true;</b>
+<i class="no-highlight">182</i>&nbsp;
+<i class="no-highlight">183</i>&nbsp;    /* Used to limit manageDiskUsage calls to one thread at a time. */
+<b class="fc"><i class="no-highlight">184</i>&nbsp;    private final ReentrantLock manageDiskUsageLock = new ReentrantLock();</b>
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;    /*
+<i class="no-highlight">187</i>&nbsp;     * Cleaner stats. Updates to these counters occur in multiple threads,
+<i class="no-highlight">188</i>&nbsp;     * including FileProcessor threads, and are not synchronized. This could
+<i class="no-highlight">189</i>&nbsp;     * produce errors in counting, but avoids contention around stat updates.
+<i class="no-highlight">190</i>&nbsp;     */
+<i class="no-highlight">191</i>&nbsp;    private final StatGroup statGroup;
+<i class="no-highlight">192</i>&nbsp;    final LongStat nCleanerRuns;
+<i class="no-highlight">193</i>&nbsp;    final LongStat nTwoPassRuns;
+<i class="no-highlight">194</i>&nbsp;    final LongStat nRevisalRuns;
+<i class="no-highlight">195</i>&nbsp;    private final LongStat nCleanerDeletions;
+<i class="no-highlight">196</i>&nbsp;    final LongStat nINsObsolete;
+<i class="no-highlight">197</i>&nbsp;    final LongStat nINsCleaned;
+<i class="no-highlight">198</i>&nbsp;    final LongStat nINsDead;
+<i class="no-highlight">199</i>&nbsp;    final LongStat nINsMigrated;
+<i class="no-highlight">200</i>&nbsp;    final LongStat nBINDeltasObsolete;
+<i class="no-highlight">201</i>&nbsp;    final LongStat nBINDeltasCleaned;
+<i class="no-highlight">202</i>&nbsp;    final LongStat nBINDeltasDead;
+<i class="no-highlight">203</i>&nbsp;    final LongStat nBINDeltasMigrated;
+<i class="no-highlight">204</i>&nbsp;    final LongStat nLNsObsolete;
+<i class="no-highlight">205</i>&nbsp;    final LongStat nLNsExpired;
+<i class="no-highlight">206</i>&nbsp;    final LongStat nLNsCleaned;
+<i class="no-highlight">207</i>&nbsp;    final LongStat nLNsDead;
+<i class="no-highlight">208</i>&nbsp;    final LongStat nLNsLocked;
+<i class="no-highlight">209</i>&nbsp;    final LongStat nLNsMigrated;
+<i class="no-highlight">210</i>&nbsp;    final LongStat nLNsMarked;
+<i class="no-highlight">211</i>&nbsp;    final LongStat nLNQueueHits;
+<i class="no-highlight">212</i>&nbsp;    private final LongStat nPendingLNsProcessed;
+<i class="no-highlight">213</i>&nbsp;    private final LongStat nMarkedLNsProcessed;
+<i class="no-highlight">214</i>&nbsp;    private final LongStat nToBeCleanedLNsProcessed;
+<i class="no-highlight">215</i>&nbsp;    private final LongStat nClusterLNsProcessed;
+<i class="no-highlight">216</i>&nbsp;    private final LongStat nPendingLNsLocked;
+<i class="no-highlight">217</i>&nbsp;    final LongStat nEntriesRead;
+<i class="no-highlight">218</i>&nbsp;    final LongStat nDiskReads;
+<i class="no-highlight">219</i>&nbsp;    final LongStat nRepeatIteratorReads;
+<i class="no-highlight">220</i>&nbsp;    /*
+<i class="no-highlight">221</i>&nbsp;     * Log size stats. These are CUMMULATIVE and the stat objects are created
+<i class="no-highlight">222</i>&nbsp;     * by loadStats. They are accessed as a group while synchronized on
+<i class="no-highlight">223</i>&nbsp;     * statGroup to ensure the set of values is consistent/coherent.
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    private FileProtector.LogSizeStats logSizeStats;
+<i class="no-highlight">226</i>&nbsp;    private long availableLogSize;
+<i class="no-highlight">227</i>&nbsp;    private long totalLogSize;
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    /*
+<i class="no-highlight">230</i>&nbsp;     * Unlike availableLogSize, maxDiskOverage and freeDiskShortage are
+<i class="no-highlight">231</i>&nbsp;     * calculated based on actual disk usage, without subtracting the size of
+<i class="no-highlight">232</i>&nbsp;     * the reserved files. So these values may be GT zero even if
+<i class="no-highlight">233</i>&nbsp;     * availableLogSize is GTE zero. If maxDiskOverage or freeDiskShortage
+<i class="no-highlight">234</i>&nbsp;     * is GT zero, then manageDiskUsage will try to delete log files to
+<i class="no-highlight">235</i>&nbsp;     * avoid a violation.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    private long maxDiskOverage;
+<i class="no-highlight">238</i>&nbsp;    private long freeDiskShortage;
+<i class="no-highlight">239</i>&nbsp;
+<i class="no-highlight">240</i>&nbsp;    /* Message summarizing current log size stats, with limit violations. */
+<i class="no-highlight">241</i>&nbsp;    private String diskUsageMessage;
+<i class="no-highlight">242</i>&nbsp;
+<i class="no-highlight">243</i>&nbsp;    /*
+<i class="no-highlight">244</i>&nbsp;     * If a disk usage limit is violated, this is diskUsageMessage; otherwise
+<i class="no-highlight">245</i>&nbsp;     * it is null. It is volatile so it can be checked cheaply during CRUD ops.
+<i class="no-highlight">246</i>&nbsp;     */
+<i class="no-highlight">247</i>&nbsp;    private volatile String diskUsageViolationMessage;
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /*
+<i class="no-highlight">250</i>&nbsp;     * Used to prevent repeated logging about a disk limit violation.
+<i class="no-highlight">251</i>&nbsp;     * Protected by manageDiskUsageLock.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    private boolean loggedDiskLimitViolation;
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /*
+<i class="no-highlight">256</i>&nbsp;     * Configuration parameters.
+<i class="no-highlight">257</i>&nbsp;     */
+<i class="no-highlight">258</i>&nbsp;    long lockTimeout;
+<i class="no-highlight">259</i>&nbsp;    int readBufferSize;
+<i class="no-highlight">260</i>&nbsp;    int lookAheadCacheSize;
+<i class="no-highlight">261</i>&nbsp;    long nDeadlockRetries;
+<i class="no-highlight">262</i>&nbsp;    boolean expunge;
+<i class="no-highlight">263</i>&nbsp;    private boolean useDeletedDir;
+<i class="no-highlight">264</i>&nbsp;    int twoPassGap;
+<i class="no-highlight">265</i>&nbsp;    int twoPassThreshold;
+<i class="no-highlight">266</i>&nbsp;    boolean gradualExpiration;
+<i class="no-highlight">267</i>&nbsp;    long cleanerBytesInterval;
+<i class="no-highlight">268</i>&nbsp;    boolean trackDetail;
+<i class="no-highlight">269</i>&nbsp;    private boolean fetchObsoleteSize;
+<i class="no-highlight">270</i>&nbsp;    int dbCacheClearCount;
+<i class="no-highlight">271</i>&nbsp;    private final boolean rmwFixEnabled;
+<i class="no-highlight">272</i>&nbsp;    int minUtilization;
+<i class="no-highlight">273</i>&nbsp;    int minFileUtilization;
+<i class="no-highlight">274</i>&nbsp;    int minAge;
+<i class="no-highlight">275</i>&nbsp;    private long maxDiskLimit;
+<i class="no-highlight">276</i>&nbsp;    private long freeDiskLimit;
+<i class="no-highlight">277</i>&nbsp;    private long adjustedMaxDiskLimit;
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;    private final String name;
+<i class="no-highlight">280</i>&nbsp;    private final EnvironmentImpl env;
+<i class="no-highlight">281</i>&nbsp;    private final FileStoreInfo fileStoreInfo;
+<i class="no-highlight">282</i>&nbsp;    private final FileProtector fileProtector;
+<i class="no-highlight">283</i>&nbsp;    private final UtilizationProfile profile;
+<i class="no-highlight">284</i>&nbsp;    private final UtilizationTracker tracker;
+<i class="no-highlight">285</i>&nbsp;    private final ExpirationProfile expirationProfile;
+<i class="no-highlight">286</i>&nbsp;    private final UtilizationCalculator calculator;
+<i class="no-highlight">287</i>&nbsp;    private final FileSelector fileSelector;
+<i class="no-highlight">288</i>&nbsp;    private FileProcessor[] threads;
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">291</i>&nbsp;    final AtomicLong totalRuns;
+<i class="no-highlight">292</i>&nbsp;    TestHook fileChosenHook;
+<i class="no-highlight">293</i>&nbsp;
+<i class="no-highlight">294</i>&nbsp;    /** @see #processPending */
+<b class="fc"><i class="no-highlight">295</i>&nbsp;    private final AtomicBoolean processPendingReentrancyGuard =</b>
+<i class="no-highlight">296</i>&nbsp;        new AtomicBoolean(false);
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    /** @see #wakeupAfterWrite */
+<b class="fc"><i class="no-highlight">299</i>&nbsp;    private final AtomicLong bytesWrittenSinceActivation = new AtomicLong(0);</b>
+<i class="no-highlight">300</i>&nbsp;
+<b class="fc"><i class="no-highlight">301</i>&nbsp;    public Cleaner(EnvironmentImpl env, String name) {</b>
+<b class="fc"><i class="no-highlight">302</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">303</i>&nbsp;        this.name = name;</b>
+<i class="no-highlight">304</i>&nbsp;
+<i class="no-highlight">305</i>&nbsp;        /* Initialize the non-CUMULATIVE stats definitions. */
+<b class="fc"><i class="no-highlight">306</i>&nbsp;        statGroup = new StatGroup(GROUP_NAME, GROUP_DESC);</b>
+<b class="fc"><i class="no-highlight">307</i>&nbsp;        nCleanerRuns = new LongStat(statGroup, CLEANER_RUNS);</b>
+<b class="fc"><i class="no-highlight">308</i>&nbsp;        nTwoPassRuns = new LongStat(statGroup, CLEANER_TWO_PASS_RUNS);</b>
+<b class="fc"><i class="no-highlight">309</i>&nbsp;        nRevisalRuns = new LongStat(statGroup, CLEANER_REVISAL_RUNS);</b>
+<b class="fc"><i class="no-highlight">310</i>&nbsp;        nCleanerDeletions = new LongStat(statGroup, CLEANER_DELETIONS);</b>
+<b class="fc"><i class="no-highlight">311</i>&nbsp;        nINsObsolete = new LongStat(statGroup, CLEANER_INS_OBSOLETE);</b>
+<b class="fc"><i class="no-highlight">312</i>&nbsp;        nINsCleaned = new LongStat(statGroup, CLEANER_INS_CLEANED);</b>
+<b class="fc"><i class="no-highlight">313</i>&nbsp;        nINsDead = new LongStat(statGroup, CLEANER_INS_DEAD);</b>
+<b class="fc"><i class="no-highlight">314</i>&nbsp;        nINsMigrated = new LongStat(statGroup, CLEANER_INS_MIGRATED);</b>
+<b class="fc"><i class="no-highlight">315</i>&nbsp;        nBINDeltasObsolete = new LongStat(statGroup, CLEANER_BIN_DELTAS_OBSOLETE);</b>
+<b class="fc"><i class="no-highlight">316</i>&nbsp;        nBINDeltasCleaned = new LongStat(statGroup, CLEANER_BIN_DELTAS_CLEANED);</b>
+<b class="fc"><i class="no-highlight">317</i>&nbsp;        nBINDeltasDead = new LongStat(statGroup, CLEANER_BIN_DELTAS_DEAD);</b>
+<b class="fc"><i class="no-highlight">318</i>&nbsp;        nBINDeltasMigrated = new LongStat(statGroup, CLEANER_BIN_DELTAS_MIGRATED);</b>
+<b class="fc"><i class="no-highlight">319</i>&nbsp;        nLNsObsolete = new LongStat(statGroup, CLEANER_LNS_OBSOLETE);</b>
+<b class="fc"><i class="no-highlight">320</i>&nbsp;        nLNsExpired = new LongStat(statGroup, CLEANER_LNS_EXPIRED);</b>
+<b class="fc"><i class="no-highlight">321</i>&nbsp;        nLNsCleaned = new LongStat(statGroup, CLEANER_LNS_CLEANED);</b>
+<b class="fc"><i class="no-highlight">322</i>&nbsp;        nLNsDead = new LongStat(statGroup, CLEANER_LNS_DEAD);</b>
+<b class="fc"><i class="no-highlight">323</i>&nbsp;        nLNsLocked = new LongStat(statGroup, CLEANER_LNS_LOCKED);</b>
+<b class="fc"><i class="no-highlight">324</i>&nbsp;        nLNsMigrated = new LongStat(statGroup, CLEANER_LNS_MIGRATED);</b>
+<b class="fc"><i class="no-highlight">325</i>&nbsp;        nLNsMarked = new LongStat(statGroup, CLEANER_LNS_MARKED);</b>
+<b class="fc"><i class="no-highlight">326</i>&nbsp;        nLNQueueHits = new LongStat(statGroup, CLEANER_LNQUEUE_HITS);</b>
+<b class="fc"><i class="no-highlight">327</i>&nbsp;        nPendingLNsProcessed =</b>
+<i class="no-highlight">328</i>&nbsp;            new LongStat(statGroup, CLEANER_PENDING_LNS_PROCESSED);
+<b class="fc"><i class="no-highlight">329</i>&nbsp;        nMarkedLNsProcessed =</b>
+<i class="no-highlight">330</i>&nbsp;            new LongStat(statGroup, CLEANER_MARKED_LNS_PROCESSED);
+<b class="fc"><i class="no-highlight">331</i>&nbsp;        nToBeCleanedLNsProcessed =</b>
+<i class="no-highlight">332</i>&nbsp;            new LongStat(statGroup, CLEANER_TO_BE_CLEANED_LNS_PROCESSED);
+<b class="fc"><i class="no-highlight">333</i>&nbsp;        nClusterLNsProcessed =</b>
+<i class="no-highlight">334</i>&nbsp;            new LongStat(statGroup, CLEANER_CLUSTER_LNS_PROCESSED);
+<b class="fc"><i class="no-highlight">335</i>&nbsp;        nPendingLNsLocked = new LongStat(statGroup, CLEANER_PENDING_LNS_LOCKED);</b>
+<b class="fc"><i class="no-highlight">336</i>&nbsp;        nEntriesRead = new LongStat(statGroup, CLEANER_ENTRIES_READ);</b>
+<b class="fc"><i class="no-highlight">337</i>&nbsp;        nDiskReads = new LongStat(statGroup, CLEANER_DISK_READS);</b>
+<b class="fc"><i class="no-highlight">338</i>&nbsp;        nRepeatIteratorReads =</b>
+<i class="no-highlight">339</i>&nbsp;            new LongStat(statGroup, CLEANER_REPEAT_ITERATOR_READS);
+<i class="no-highlight">340</i>&nbsp;
+<b class="fc"><i class="no-highlight">341</i>&nbsp;        logSizeStats =</b>
+<i class="no-highlight">342</i>&nbsp;            new FileProtector.LogSizeStats(0, 0, 0, new HashMap&lt;&gt;());
+<i class="no-highlight">343</i>&nbsp;
+<b class="fc"><i class="no-highlight">344</i>&nbsp;        if (env.isMemOnly()) {</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            fileStoreInfo = null;</b>
+<i class="no-highlight">346</i>&nbsp;        } else {
+<i class="no-highlight">347</i>&nbsp;            try {
+<b class="fc"><i class="no-highlight">348</i>&nbsp;                fileStoreInfo = FileStoreInfo.getInfo(</b>
+<b class="fc"><i class="no-highlight">349</i>&nbsp;                    env.getEnvironmentHome().getAbsolutePath());</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;            } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;                throw EnvironmentFailureException.unexpectedException(env, e);</b>
+<b class="fc"><i class="no-highlight">352</i>&nbsp;            }</b>
+<i class="no-highlight">353</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">354</i>&nbsp;        fileProtector = new FileProtector(env);</b>
+<b class="fc"><i class="no-highlight">355</i>&nbsp;        tracker = new UtilizationTracker(env, this);</b>
+<b class="fc"><i class="no-highlight">356</i>&nbsp;        profile = new UtilizationProfile(env, tracker);</b>
+<b class="fc"><i class="no-highlight">357</i>&nbsp;        expirationProfile = new ExpirationProfile(env);</b>
+<b class="fc"><i class="no-highlight">358</i>&nbsp;        calculator = new UtilizationCalculator(env, this);</b>
+<b class="fc"><i class="no-highlight">359</i>&nbsp;        fileSelector = new FileSelector();</b>
+<b class="fc"><i class="no-highlight">360</i>&nbsp;        threads = new FileProcessor[0];</b>
+<b class="fc"><i class="no-highlight">361</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<b class="fc"><i class="no-highlight">362</i>&nbsp;        totalRuns = new AtomicLong(0);</b>
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;        /*
+<i class="no-highlight">365</i>&nbsp;         * The trackDetail property is immutable because of the complexity (if
+<i class="no-highlight">366</i>&nbsp;         * it were mutable) in determining whether to update the memory budget
+<i class="no-highlight">367</i>&nbsp;         * and perform eviction.
+<i class="no-highlight">368</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">369</i>&nbsp;        trackDetail = env.getConfigManager().getBoolean</b>
+<b class="fc"><i class="no-highlight">370</i>&nbsp;            (EnvironmentParams.CLEANER_TRACK_DETAIL);</b>
+<i class="no-highlight">371</i>&nbsp;
+<b class="fc"><i class="no-highlight">372</i>&nbsp;        rmwFixEnabled = env.getConfigManager().getBoolean</b>
+<b class="fc"><i class="no-highlight">373</i>&nbsp;            (EnvironmentParams.CLEANER_RMW_FIX);</b>
+<i class="no-highlight">374</i>&nbsp;
+<i class="no-highlight">375</i>&nbsp;        /* Initialize mutable properties and register for notifications. */
+<b class="fc"><i class="no-highlight">376</i>&nbsp;        setMutableProperties(env.getConfigManager());</b>
+<b class="fc"><i class="no-highlight">377</i>&nbsp;        env.addConfigObserver(this);</b>
+<b class="fc"><i class="no-highlight">378</i>&nbsp;    }</b>
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;    /**
+<i class="no-highlight">381</i>&nbsp;     * Process notifications of mutable property changes.
+<i class="no-highlight">382</i>&nbsp;     *
+<i class="no-highlight">383</i>&nbsp;     * @throws IllegalArgumentException via Environment ctor and
+<i class="no-highlight">384</i>&nbsp;     * setMutableConfig.
+<i class="no-highlight">385</i>&nbsp;     */
+<i class="no-highlight">386</i>&nbsp;    public void envConfigUpdate(DbConfigManager cm,
+<i class="no-highlight">387</i>&nbsp;                                EnvironmentMutableConfig ignore) {
+<i class="no-highlight">388</i>&nbsp;
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        setMutableProperties(cm);</b>
+<i class="no-highlight">390</i>&nbsp;
+<i class="no-highlight">391</i>&nbsp;        /* A parameter that impacts cleaning may have changed. */
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        wakeupActivate();</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;    }</b>
+<i class="no-highlight">394</i>&nbsp;
+<i class="no-highlight">395</i>&nbsp;    private void setMutableProperties(final DbConfigManager cm) {
+<i class="no-highlight">396</i>&nbsp;
+<b class="fc"><i class="no-highlight">397</i>&nbsp;        lockTimeout = cm.getDuration(EnvironmentParams.CLEANER_LOCK_TIMEOUT);</b>
+<i class="no-highlight">398</i>&nbsp;
+<b class="fc"><i class="no-highlight">399</i>&nbsp;        readBufferSize = cm.getInt(EnvironmentParams.CLEANER_READ_SIZE);</b>
+<b class="fc"><i class="no-highlight">400</i>&nbsp;        if (readBufferSize &lt;= 0) {</b>
+<b class="fc"><i class="no-highlight">401</i>&nbsp;            readBufferSize =</b>
+<b class="fc"><i class="no-highlight">402</i>&nbsp;                cm.getInt(EnvironmentParams.LOG_ITERATOR_READ_SIZE);</b>
+<i class="no-highlight">403</i>&nbsp;        }
+<i class="no-highlight">404</i>&nbsp;
+<b class="fc"><i class="no-highlight">405</i>&nbsp;        lookAheadCacheSize =</b>
+<b class="fc"><i class="no-highlight">406</i>&nbsp;            cm.getInt(EnvironmentParams.CLEANER_LOOK_AHEAD_CACHE_SIZE);</b>
+<i class="no-highlight">407</i>&nbsp;
+<b class="fc"><i class="no-highlight">408</i>&nbsp;        nDeadlockRetries = cm.getInt(EnvironmentParams.CLEANER_DEADLOCK_RETRY);</b>
+<i class="no-highlight">409</i>&nbsp;
+<b class="fc"><i class="no-highlight">410</i>&nbsp;        expunge = cm.getBoolean(EnvironmentParams.CLEANER_REMOVE);</b>
+<i class="no-highlight">411</i>&nbsp;
+<b class="fc"><i class="no-highlight">412</i>&nbsp;        useDeletedDir =</b>
+<b class="fc"><i class="no-highlight">413</i>&nbsp;            cm.getBoolean(EnvironmentParams.CLEANER_USE_DELETED_DIR);</b>
+<i class="no-highlight">414</i>&nbsp;
+<b class="fc"><i class="no-highlight">415</i>&nbsp;        twoPassGap =</b>
+<b class="fc"><i class="no-highlight">416</i>&nbsp;            cm.getInt(EnvironmentParams.CLEANER_TWO_PASS_GAP);</b>
+<i class="no-highlight">417</i>&nbsp;
+<b class="fc"><i class="no-highlight">418</i>&nbsp;        twoPassThreshold =</b>
+<b class="fc"><i class="no-highlight">419</i>&nbsp;            cm.getInt(EnvironmentParams.CLEANER_TWO_PASS_THRESHOLD);</b>
+<i class="no-highlight">420</i>&nbsp;
+<b class="fc"><i class="no-highlight">421</i>&nbsp;        if (twoPassThreshold == 0) {</b>
+<b class="fc"><i class="no-highlight">422</i>&nbsp;            twoPassThreshold =</b>
+<b class="fc"><i class="no-highlight">423</i>&nbsp;                cm.getInt(EnvironmentParams.CLEANER_MIN_UTILIZATION) - 5;</b>
+<i class="no-highlight">424</i>&nbsp;        }
+<i class="no-highlight">425</i>&nbsp;
+<b class="fc"><i class="no-highlight">426</i>&nbsp;        gradualExpiration =</b>
+<b class="fc"><i class="no-highlight">427</i>&nbsp;            cm.getBoolean(EnvironmentParams.CLEANER_GRADUAL_EXPIRATION);</b>
+<i class="no-highlight">428</i>&nbsp;
+<b class="fc"><i class="no-highlight">429</i>&nbsp;        dbCacheClearCount =</b>
+<b class="fc"><i class="no-highlight">430</i>&nbsp;            cm.getInt(EnvironmentParams.ENV_DB_CACHE_CLEAR_COUNT);</b>
+<i class="no-highlight">431</i>&nbsp;
+<b class="fc"><i class="no-highlight">432</i>&nbsp;        int nThreads = cm.getInt(EnvironmentParams.CLEANER_THREADS);</b>
+<b class="fc"><i class="no-highlight">433</i>&nbsp;        assert nThreads &gt; 0;</b>
+<i class="no-highlight">434</i>&nbsp;
+<b class="fc"><i class="no-highlight">435</i>&nbsp;        if (nThreads != threads.length) {</b>
+<i class="no-highlight">436</i>&nbsp;
+<i class="no-highlight">437</i>&nbsp;            /* Shutdown threads when reducing their number. */
+<b class="fc"><i class="no-highlight">438</i>&nbsp;            for (int i = nThreads; i &lt; threads.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;                if (threads[i] == null) {</b>
+<b class="nc"><i class="no-highlight">440</i>&nbsp;                    continue;</b>
+<i class="no-highlight">441</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">442</i>&nbsp;                threads[i].shutdown();</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;                threads[i] = null;</b>
+<i class="no-highlight">444</i>&nbsp;            }
+<i class="no-highlight">445</i>&nbsp;
+<i class="no-highlight">446</i>&nbsp;            /* Copy existing threads that are still used. */
+<b class="fc"><i class="no-highlight">447</i>&nbsp;            FileProcessor[] newThreads = new FileProcessor[nThreads];</b>
+<b class="fc"><i class="no-highlight">448</i>&nbsp;            for (int i = 0; i &lt; nThreads &amp;&amp; i &lt; threads.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;                newThreads[i] = threads[i];</b>
+<i class="no-highlight">450</i>&nbsp;            }
+<i class="no-highlight">451</i>&nbsp;
+<i class="no-highlight">452</i>&nbsp;            /* Don&#39;t lose track of new threads if an exception occurs. */
+<b class="fc"><i class="no-highlight">453</i>&nbsp;            threads = newThreads;</b>
+<i class="no-highlight">454</i>&nbsp;
+<i class="no-highlight">455</i>&nbsp;            /* Start new threads when increasing their number. */
+<b class="fc"><i class="no-highlight">456</i>&nbsp;            for (int i = 0; i &lt; nThreads; i += 1) {</b>
+<b class="fc"><i class="no-highlight">457</i>&nbsp;                if (threads[i] != null) {</b>
+<b class="nc"><i class="no-highlight">458</i>&nbsp;                    continue;</b>
+<i class="no-highlight">459</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">460</i>&nbsp;                threads[i] = new FileProcessor(</b>
+<i class="no-highlight">461</i>&nbsp;                    name + &#39;-&#39; + (i + 1),
+<i class="no-highlight">462</i>&nbsp;                    i == 0 /*firstThread*/,
+<i class="no-highlight">463</i>&nbsp;                    env, this, profile, calculator, fileSelector);
+<i class="no-highlight">464</i>&nbsp;            }
+<i class="no-highlight">465</i>&nbsp;        }
+<i class="no-highlight">466</i>&nbsp;
+<b class="fc"><i class="no-highlight">467</i>&nbsp;        cleanerBytesInterval = cm.getLong(</b>
+<i class="no-highlight">468</i>&nbsp;            EnvironmentParams.CLEANER_BYTES_INTERVAL);
+<i class="no-highlight">469</i>&nbsp;
+<b class="fc"><i class="no-highlight">470</i>&nbsp;        if (cleanerBytesInterval == 0) {</b>
+<b class="fc"><i class="no-highlight">471</i>&nbsp;            cleanerBytesInterval =</b>
+<b class="fc"><i class="no-highlight">472</i>&nbsp;                cm.getLong(EnvironmentParams.LOG_FILE_MAX) / 4;</b>
+<i class="no-highlight">473</i>&nbsp;
+<b class="fc"><i class="no-highlight">474</i>&nbsp;            cleanerBytesInterval = Math.min(</b>
+<i class="no-highlight">475</i>&nbsp;                cleanerBytesInterval, MAX_CLEANER_BYTES_INTERVAL);
+<i class="no-highlight">476</i>&nbsp;        }
+<i class="no-highlight">477</i>&nbsp;
+<b class="fc"><i class="no-highlight">478</i>&nbsp;        final int wakeupInterval =</b>
+<b class="fc"><i class="no-highlight">479</i>&nbsp;            cm.getDuration(EnvironmentParams.CLEANER_WAKEUP_INTERVAL);</b>
+<i class="no-highlight">480</i>&nbsp;
+<b class="fc"><i class="no-highlight">481</i>&nbsp;        for (FileProcessor thread : threads) {</b>
+<b class="fc"><i class="no-highlight">482</i>&nbsp;            if (thread == null) {</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                continue;</b>
+<i class="no-highlight">484</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">485</i>&nbsp;            thread.setWaitTime(wakeupInterval);</b>
+<i class="no-highlight">486</i>&nbsp;        }
+<i class="no-highlight">487</i>&nbsp;
+<b class="fc"><i class="no-highlight">488</i>&nbsp;        fetchObsoleteSize =</b>
+<b class="fc"><i class="no-highlight">489</i>&nbsp;            cm.getBoolean(EnvironmentParams.CLEANER_FETCH_OBSOLETE_SIZE);</b>
+<i class="no-highlight">490</i>&nbsp;
+<b class="fc"><i class="no-highlight">491</i>&nbsp;        minAge = cm.getInt(EnvironmentParams.CLEANER_MIN_AGE);</b>
+<b class="fc"><i class="no-highlight">492</i>&nbsp;        minUtilization = cm.getInt(EnvironmentParams.CLEANER_MIN_UTILIZATION);</b>
+<b class="fc"><i class="no-highlight">493</i>&nbsp;        minFileUtilization =</b>
+<b class="fc"><i class="no-highlight">494</i>&nbsp;            cm.getInt(EnvironmentParams.CLEANER_MIN_FILE_UTILIZATION);</b>
+<i class="no-highlight">495</i>&nbsp;
+<b class="fc"><i class="no-highlight">496</i>&nbsp;        maxDiskLimit = cm.getLong(EnvironmentParams.MAX_DISK);</b>
+<b class="fc"><i class="no-highlight">497</i>&nbsp;        adjustedMaxDiskLimit = maxDiskLimit;</b>
+<i class="no-highlight">498</i>&nbsp;
+<b class="fc"><i class="no-highlight">499</i>&nbsp;        if (env.isMemOnly()) {</b>
+<i class="no-highlight">500</i>&nbsp;            /* Env home dir may not exist, can&#39;t query file system info. */
+<b class="nc"><i class="no-highlight">501</i>&nbsp;            freeDiskLimit = 0;</b>
+<i class="no-highlight">502</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">503</i>&nbsp;            final int replayFreeDiskPct = env.getReplayFreeDiskPercent();</b>
+<b class="fc"><i class="no-highlight">504</i>&nbsp;            if (replayFreeDiskPct == 0) {</b>
+<i class="no-highlight">505</i>&nbsp;                /* No backward compatibility is needed. */
+<b class="fc"><i class="no-highlight">506</i>&nbsp;                freeDiskLimit = cm.getLong(EnvironmentParams.FREE_DISK);</b>
+<i class="no-highlight">507</i>&nbsp;            } else {
+<i class="no-highlight">508</i>&nbsp;                /* Use replayFreeDiskPercent for backward compatibility. */
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                if (cm.isSpecified(EnvironmentParams.FREE_DISK)) {</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                    throw new IllegalArgumentException(</b>
+<i class="no-highlight">511</i>&nbsp;                        &quot;Cannot specify both &quot; + EnvironmentConfig.FREE_DISK +
+<i class="no-highlight">512</i>&nbsp;                            &quot; and je.rep.replayFreeDiskPercent.&quot;);
+<i class="no-highlight">513</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                freeDiskLimit =</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;                    (getDiskTotalSpace() * replayFreeDiskPct) / 100;</b>
+<i class="no-highlight">516</i>&nbsp;            }
+<i class="no-highlight">517</i>&nbsp;
+<b class="fc"><i class="no-highlight">518</i>&nbsp;            if (maxDiskLimit &gt; MAX_DISK_ADJUSTMENT_THRESHOLD ||</b>
+<b class="fc"><i class="no-highlight">519</i>&nbsp;                cm.isSpecified(EnvironmentParams.FREE_DISK) ||</b>
+<i class="no-highlight">520</i>&nbsp;                replayFreeDiskPct != 0) {
+<b class="nc"><i class="no-highlight">521</i>&nbsp;                adjustedMaxDiskLimit -= freeDiskLimit;</b>
+<i class="no-highlight">522</i>&nbsp;            }
+<i class="no-highlight">523</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">524</i>&nbsp;    }</b>
+<i class="no-highlight">525</i>&nbsp;
+<i class="no-highlight">526</i>&nbsp;    public FileProtector getFileProtector() {
+<b class="fc"><i class="no-highlight">527</i>&nbsp;        return fileProtector;</b>
+<i class="no-highlight">528</i>&nbsp;    }
+<i class="no-highlight">529</i>&nbsp;
+<i class="no-highlight">530</i>&nbsp;    public UtilizationTracker getUtilizationTracker() {
+<b class="fc"><i class="no-highlight">531</i>&nbsp;        return tracker;</b>
+<i class="no-highlight">532</i>&nbsp;    }
+<i class="no-highlight">533</i>&nbsp;
+<i class="no-highlight">534</i>&nbsp;    public UtilizationProfile getUtilizationProfile() {
+<b class="fc"><i class="no-highlight">535</i>&nbsp;        return profile;</b>
+<i class="no-highlight">536</i>&nbsp;    }
+<i class="no-highlight">537</i>&nbsp;
+<i class="no-highlight">538</i>&nbsp;    UtilizationCalculator getUtilizationCalculator() {
+<b class="nc"><i class="no-highlight">539</i>&nbsp;        return calculator;</b>
+<i class="no-highlight">540</i>&nbsp;    }
+<i class="no-highlight">541</i>&nbsp;
+<i class="no-highlight">542</i>&nbsp;    public ExpirationProfile getExpirationProfile() {
+<b class="fc"><i class="no-highlight">543</i>&nbsp;        return expirationProfile;</b>
+<i class="no-highlight">544</i>&nbsp;    }
+<i class="no-highlight">545</i>&nbsp;
+<i class="no-highlight">546</i>&nbsp;    public FileSelector getFileSelector() {
+<b class="nc"><i class="no-highlight">547</i>&nbsp;        return fileSelector;</b>
+<i class="no-highlight">548</i>&nbsp;    }
+<i class="no-highlight">549</i>&nbsp;
+<i class="no-highlight">550</i>&nbsp;    public boolean getFetchObsoleteSize(DatabaseImpl db) {
+<b class="nc"><i class="no-highlight">551</i>&nbsp;        return fetchObsoleteSize &amp;&amp; !db.isLNImmediatelyObsolete();</b>
+<i class="no-highlight">552</i>&nbsp;    }
+<i class="no-highlight">553</i>&nbsp;
+<i class="no-highlight">554</i>&nbsp;    /**
+<i class="no-highlight">555</i>&nbsp;     * @see EnvironmentParams#CLEANER_RMW_FIX
+<i class="no-highlight">556</i>&nbsp;     * @see FileSummaryLN#postFetchInit
+<i class="no-highlight">557</i>&nbsp;     */
+<i class="no-highlight">558</i>&nbsp;    public boolean isRMWFixEnabled() {
+<b class="nc"><i class="no-highlight">559</i>&nbsp;        return rmwFixEnabled;</b>
+<i class="no-highlight">560</i>&nbsp;    }
+<i class="no-highlight">561</i>&nbsp;
+<i class="no-highlight">562</i>&nbsp;    /* For unit testing only. */
+<i class="no-highlight">563</i>&nbsp;    void setFileChosenHook(TestHook hook) {
+<b class="nc"><i class="no-highlight">564</i>&nbsp;        fileChosenHook = hook;</b>
+<b class="nc"><i class="no-highlight">565</i>&nbsp;    }</b>
+<i class="no-highlight">566</i>&nbsp;
+<i class="no-highlight">567</i>&nbsp;    /*
+<i class="no-highlight">568</i>&nbsp;     * Delegate the run/pause/wakeup/shutdown DaemonRunner operations.  We
+<i class="no-highlight">569</i>&nbsp;     * always check for null to account for the possibility of exceptions
+<i class="no-highlight">570</i>&nbsp;     * during thread creation.  Cleaner daemon can&#39;t ever be run if No Locking
+<i class="no-highlight">571</i>&nbsp;     * mode is enabled.
+<i class="no-highlight">572</i>&nbsp;     */
+<i class="no-highlight">573</i>&nbsp;    public void runOrPause(boolean run) {
+<i class="no-highlight">574</i>&nbsp;
+<b class="fc"><i class="no-highlight">575</i>&nbsp;        if (env.isNoLocking()) {</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;            return;</b>
+<i class="no-highlight">577</i>&nbsp;        }
+<i class="no-highlight">578</i>&nbsp;
+<b class="fc"><i class="no-highlight">579</i>&nbsp;        for (FileProcessor processor : threads) {</b>
+<b class="fc"><i class="no-highlight">580</i>&nbsp;            if (processor == null) {</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;                continue;</b>
+<i class="no-highlight">582</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">583</i>&nbsp;            if (run) {</b>
+<b class="nc"><i class="no-highlight">584</i>&nbsp;                processor.activateOnWakeup();</b>
+<i class="no-highlight">585</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">586</i>&nbsp;            processor.runOrPause(run);</b>
+<i class="no-highlight">587</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">588</i>&nbsp;    }</b>
+<i class="no-highlight">589</i>&nbsp;
+<i class="no-highlight">590</i>&nbsp;    /**
+<i class="no-highlight">591</i>&nbsp;     * If the number of bytes written since the last activation exceeds the
+<i class="no-highlight">592</i>&nbsp;     * cleaner&#39;s byte interval, wakeup the file processor threads in activate
+<i class="no-highlight">593</i>&nbsp;     * mode.
+<i class="no-highlight">594</i>&nbsp;     */
+<i class="no-highlight">595</i>&nbsp;    public void wakeupAfterWrite(int writeSize) {
+<i class="no-highlight">596</i>&nbsp;
+<b class="fc"><i class="no-highlight">597</i>&nbsp;        if (bytesWrittenSinceActivation.addAndGet(writeSize) &gt;</b>
+<i class="no-highlight">598</i>&nbsp;            cleanerBytesInterval) {
+<i class="no-highlight">599</i>&nbsp;
+<b class="fc"><i class="no-highlight">600</i>&nbsp;            bytesWrittenSinceActivation.set(0);</b>
+<b class="fc"><i class="no-highlight">601</i>&nbsp;            wakeupActivate();</b>
+<i class="no-highlight">602</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">603</i>&nbsp;    }</b>
+<i class="no-highlight">604</i>&nbsp;
+<i class="no-highlight">605</i>&nbsp;    /**
+<i class="no-highlight">606</i>&nbsp;     * Wakeup the file processor threads in activate mode, meaning that
+<i class="no-highlight">607</i>&nbsp;     * FileProcessor.doClean will be called.
+<i class="no-highlight">608</i>&nbsp;     *
+<i class="no-highlight">609</i>&nbsp;     * @see FileProcessor#onWakeup()
+<i class="no-highlight">610</i>&nbsp;     */
+<i class="no-highlight">611</i>&nbsp;    public void wakeupActivate() {
+<i class="no-highlight">612</i>&nbsp;
+<b class="fc"><i class="no-highlight">613</i>&nbsp;        for (FileProcessor thread : threads) {</b>
+<b class="fc"><i class="no-highlight">614</i>&nbsp;            if (thread == null) {</b>
+<b class="nc"><i class="no-highlight">615</i>&nbsp;                continue;</b>
+<i class="no-highlight">616</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">617</i>&nbsp;            thread.activateOnWakeup();</b>
+<b class="fc"><i class="no-highlight">618</i>&nbsp;            thread.wakeup();</b>
+<i class="no-highlight">619</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">620</i>&nbsp;    }</b>
+<i class="no-highlight">621</i>&nbsp;
+<i class="no-highlight">622</i>&nbsp;    public void requestShutdown() {
+<b class="fc"><i class="no-highlight">623</i>&nbsp;        for (FileProcessor thread : threads) {</b>
+<b class="fc"><i class="no-highlight">624</i>&nbsp;            if (thread == null) {</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;                continue;</b>
+<i class="no-highlight">626</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">627</i>&nbsp;            thread.requestShutdown();</b>
+<i class="no-highlight">628</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">629</i>&nbsp;    }</b>
+<i class="no-highlight">630</i>&nbsp;
+<i class="no-highlight">631</i>&nbsp;    public void shutdown() {
+<b class="fc"><i class="no-highlight">632</i>&nbsp;        for (int i = 0; i &lt; threads.length; i += 1) {</b>
+<b class="fc"><i class="no-highlight">633</i>&nbsp;            if (threads[i] == null) {</b>
+<b class="nc"><i class="no-highlight">634</i>&nbsp;                continue;</b>
+<i class="no-highlight">635</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">636</i>&nbsp;            threads[i].shutdown();</b>
+<b class="fc"><i class="no-highlight">637</i>&nbsp;            threads[i] = null;</b>
+<i class="no-highlight">638</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">639</i>&nbsp;    }</b>
+<i class="no-highlight">640</i>&nbsp;
+<i class="no-highlight">641</i>&nbsp;    public int getNWakeupRequests() {
+<b class="nc"><i class="no-highlight">642</i>&nbsp;        int count = 0;</b>
+<b class="nc"><i class="no-highlight">643</i>&nbsp;        for (FileProcessor thread : threads) {</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;            if (thread == null) {</b>
+<b class="nc"><i class="no-highlight">645</i>&nbsp;                continue;</b>
+<i class="no-highlight">646</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">647</i>&nbsp;            count += thread.getNWakeupRequests();</b>
+<i class="no-highlight">648</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">649</i>&nbsp;        return count;</b>
+<i class="no-highlight">650</i>&nbsp;    }
+<i class="no-highlight">651</i>&nbsp;
+<i class="no-highlight">652</i>&nbsp;    /**
+<i class="no-highlight">653</i>&nbsp;     * Cleans selected files and returns the number of files cleaned.  This
+<i class="no-highlight">654</i>&nbsp;     * method is not invoked by a deamon thread, it is programatically.
+<i class="no-highlight">655</i>&nbsp;     *
+<i class="no-highlight">656</i>&nbsp;     * @param cleanMultipleFiles is true to clean until we&#39;re under budget,
+<i class="no-highlight">657</i>&nbsp;     * or false to clean at most one file.
+<i class="no-highlight">658</i>&nbsp;     *
+<i class="no-highlight">659</i>&nbsp;     * @param forceCleaning is true to clean even if we&#39;re not under the
+<i class="no-highlight">660</i>&nbsp;     * utilization threshold.
+<i class="no-highlight">661</i>&nbsp;     *
+<i class="no-highlight">662</i>&nbsp;     * @return the number of files cleaned, not including files cleaned
+<i class="no-highlight">663</i>&nbsp;     * unsuccessfully.
+<i class="no-highlight">664</i>&nbsp;     */
+<i class="no-highlight">665</i>&nbsp;    public int doClean(boolean cleanMultipleFiles, boolean forceCleaning) {
+<i class="no-highlight">666</i>&nbsp;
+<b class="nc"><i class="no-highlight">667</i>&nbsp;        FileProcessor processor = createProcessor();</b>
+<i class="no-highlight">668</i>&nbsp;
+<b class="nc"><i class="no-highlight">669</i>&nbsp;        return processor.doClean</b>
+<b class="nc"><i class="no-highlight">670</i>&nbsp;            (false /*invokedFromDaemon*/, cleanMultipleFiles, forceCleaning);</b>
+<i class="no-highlight">671</i>&nbsp;    }
+<i class="no-highlight">672</i>&nbsp;
+<i class="no-highlight">673</i>&nbsp;    public FileProcessor createProcessor() {
+<b class="fc"><i class="no-highlight">674</i>&nbsp;        return new FileProcessor(</b>
+<i class="no-highlight">675</i>&nbsp;            &quot;&quot;, false, env, this, profile, calculator, fileSelector);
+<i class="no-highlight">676</i>&nbsp;    }
+<i class="no-highlight">677</i>&nbsp;
+<i class="no-highlight">678</i>&nbsp;    /**
+<i class="no-highlight">679</i>&nbsp;     * Load stats.
+<i class="no-highlight">680</i>&nbsp;     */
+<i class="no-highlight">681</i>&nbsp;    public StatGroup loadStats(StatsConfig config) {
+<i class="no-highlight">682</i>&nbsp;
+<b class="nc"><i class="no-highlight">683</i>&nbsp;        final StatGroup stats = statGroup.cloneGroup(config.getClear());</b>
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;        /* Add all CUMULATIVE stats explicitly. */
+<b class="nc"><i class="no-highlight">686</i>&nbsp;        new IntStat(</b>
+<i class="no-highlight">687</i>&nbsp;            stats, CLEANER_MIN_UTILIZATION,
+<b class="nc"><i class="no-highlight">688</i>&nbsp;            calculator.getCurrentMinUtilization());</b>
+<b class="nc"><i class="no-highlight">689</i>&nbsp;        new IntStat(</b>
+<i class="no-highlight">690</i>&nbsp;            stats, CLEANER_MAX_UTILIZATION,
+<b class="nc"><i class="no-highlight">691</i>&nbsp;            calculator.getCurrentMaxUtilization());</b>
+<b class="nc"><i class="no-highlight">692</i>&nbsp;        new IntStat(</b>
+<i class="no-highlight">693</i>&nbsp;            stats, CLEANER_PENDING_LN_QUEUE_SIZE,
+<b class="nc"><i class="no-highlight">694</i>&nbsp;            fileSelector.getPendingLNQueueSize());</b>
+<i class="no-highlight">695</i>&nbsp;
+<i class="no-highlight">696</i>&nbsp;        /*
+<i class="no-highlight">697</i>&nbsp;         * Synchronize on statGroup while adding log size stats, to return a
+<i class="no-highlight">698</i>&nbsp;         * consistent set of values.
+<i class="no-highlight">699</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">700</i>&nbsp;        synchronized (statGroup) {</b>
+<b class="nc"><i class="no-highlight">701</i>&nbsp;            new LongStat(</b>
+<i class="no-highlight">702</i>&nbsp;                stats, CLEANER_ACTIVE_LOG_SIZE,
+<i class="no-highlight">703</i>&nbsp;                logSizeStats.activeSize);
+<b class="nc"><i class="no-highlight">704</i>&nbsp;            new LongStat(</b>
+<i class="no-highlight">705</i>&nbsp;                stats, CLEANER_RESERVED_LOG_SIZE,
+<i class="no-highlight">706</i>&nbsp;                logSizeStats.reservedSize);
+<b class="nc"><i class="no-highlight">707</i>&nbsp;            new LongStat(</b>
+<i class="no-highlight">708</i>&nbsp;                stats, CLEANER_PROTECTED_LOG_SIZE,
+<i class="no-highlight">709</i>&nbsp;                logSizeStats.protectedSize);
+<b class="nc"><i class="no-highlight">710</i>&nbsp;            new LongStat(</b>
+<i class="no-highlight">711</i>&nbsp;                stats, CLEANER_AVAILABLE_LOG_SIZE,
+<i class="no-highlight">712</i>&nbsp;                availableLogSize);
+<b class="nc"><i class="no-highlight">713</i>&nbsp;            new LongStat(</b>
+<i class="no-highlight">714</i>&nbsp;                stats, CLEANER_TOTAL_LOG_SIZE,
+<i class="no-highlight">715</i>&nbsp;                totalLogSize);
+<i class="no-highlight">716</i>&nbsp;
+<b class="nc"><i class="no-highlight">717</i>&nbsp;            final AtomicLongMapStat protectedSizeMap =</b>
+<i class="no-highlight">718</i>&nbsp;                new AtomicLongMapStat(stats, CLEANER_PROTECTED_LOG_SIZE_MAP);
+<i class="no-highlight">719</i>&nbsp;
+<i class="no-highlight">720</i>&nbsp;            for (final Map.Entry&lt;String, Long&gt; entry :
+<b class="nc"><i class="no-highlight">721</i>&nbsp;                logSizeStats.protectedSizeMap.entrySet()) {</b>
+<i class="no-highlight">722</i>&nbsp;
+<b class="nc"><i class="no-highlight">723</i>&nbsp;                protectedSizeMap.</b>
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                    createStat(entry.getKey()).</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                    set(entry.getValue());</b>
+<b class="nc"><i class="no-highlight">726</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">727</i>&nbsp;        }</b>
+<i class="no-highlight">728</i>&nbsp;
+<b class="nc"><i class="no-highlight">729</i>&nbsp;        return stats;</b>
+<i class="no-highlight">730</i>&nbsp;    }
+<i class="no-highlight">731</i>&nbsp;
+<i class="no-highlight">732</i>&nbsp;    /**
+<i class="no-highlight">733</i>&nbsp;     * Enables or disabling processing of safe-to-delete files, including
+<i class="no-highlight">734</i>&nbsp;     * the truncation of the VLSN index. Disabling this is needed for tests,
+<i class="no-highlight">735</i>&nbsp;     * when VLSNIndex changes should be prevented.
+<i class="no-highlight">736</i>&nbsp;     */
+<i class="no-highlight">737</i>&nbsp;    public synchronized void enableFileDeletion(boolean enable) {
+<b class="nc"><i class="no-highlight">738</i>&nbsp;        fileDeletionEnabled = enable;</b>
+<b class="nc"><i class="no-highlight">739</i>&nbsp;    }</b>
+<i class="no-highlight">740</i>&nbsp;
+<i class="no-highlight">741</i>&nbsp;    /**
+<i class="no-highlight">742</i>&nbsp;     * Updates log size stats and deletes unprotected reserved files in order
+<i class="no-highlight">743</i>&nbsp;     * to stay within disk limits.
+<i class="no-highlight">744</i>&nbsp;     *
+<i class="no-highlight">745</i>&nbsp;     * This method must be called frequently enough to maintain disk usage
+<i class="no-highlight">746</i>&nbsp;     * safely below the limits. For an HA env this is particularly important
+<i class="no-highlight">747</i>&nbsp;     * since we retain all reserved files until we approach the disk limits.
+<i class="no-highlight">748</i>&nbsp;     * For this, calling this method at least every CLEANER_BYTES_INTERVAL
+<i class="no-highlight">749</i>&nbsp;     * should suffice.
+<i class="no-highlight">750</i>&nbsp;     *
+<i class="no-highlight">751</i>&nbsp;     * It is also important to call this method based on a time interval
+<i class="no-highlight">752</i>&nbsp;     * when writing stops, to retry deletions when files are protected or the
+<i class="no-highlight">753</i>&nbsp;     * env is locked by read-only processes. For this, calling this method at
+<i class="no-highlight">754</i>&nbsp;     * least every CLEANER_WAKEUP_INTERVAL should suffice.
+<i class="no-highlight">755</i>&nbsp;     */
+<i class="no-highlight">756</i>&nbsp;    public void manageDiskUsage() {
+<i class="no-highlight">757</i>&nbsp;
+<i class="no-highlight">758</i>&nbsp;        /* Fail loudly if the environment is invalid. */
+<b class="fc"><i class="no-highlight">759</i>&nbsp;        env.checkIfInvalid();</b>
+<i class="no-highlight">760</i>&nbsp;
+<b class="fc"><i class="no-highlight">761</i>&nbsp;        if (env.isMemOnly() || env.mayNotWrite() || !fileDeletionEnabled) {</b>
+<b class="nc"><i class="no-highlight">762</i>&nbsp;            return;</b>
+<i class="no-highlight">763</i>&nbsp;        }
+<i class="no-highlight">764</i>&nbsp;
+<i class="no-highlight">765</i>&nbsp;        /*
+<i class="no-highlight">766</i>&nbsp;         * Only one thread at a time can truncate the VLSNIndex head, request
+<i class="no-highlight">767</i>&nbsp;         * the environment lock, and update stats. This is a periodic action,
+<i class="no-highlight">768</i>&nbsp;         * so probe the lock to avoid blocking other cleaner threads.
+<i class="no-highlight">769</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">770</i>&nbsp;        if (!manageDiskUsageLock.tryLock()) {</b>
+<b class="nc"><i class="no-highlight">771</i>&nbsp;            return;</b>
+<i class="no-highlight">772</i>&nbsp;        }
+<i class="no-highlight">773</i>&nbsp;
+<i class="no-highlight">774</i>&nbsp;        try {
+<i class="no-highlight">775</i>&nbsp;            /* Periodically update the stats. */
+<b class="fc"><i class="no-highlight">776</i>&nbsp;            freshenLogSizeStats();</b>
+<i class="no-highlight">777</i>&nbsp;
+<b class="fc"><i class="no-highlight">778</i>&nbsp;            if (fileProtector.getNReservedFiles() &gt; 0) {</b>
+<i class="no-highlight">779</i>&nbsp;
+<b class="nc"><i class="no-highlight">780</i>&nbsp;                boolean freshenStats = false;</b>
+<i class="no-highlight">781</i>&nbsp;
+<b class="nc"><i class="no-highlight">782</i>&nbsp;                if (env.isReplicated()) {</b>
+<i class="no-highlight">783</i>&nbsp;                    /*
+<i class="no-highlight">784</i>&nbsp;                     * Reserved files are retained until we approach a disk
+<i class="no-highlight">785</i>&nbsp;                     * limit. Determine how many bytes we need to reclaim by
+<i class="no-highlight">786</i>&nbsp;                     * deleting reserved files. Add a reasonable value to stay
+<i class="no-highlight">787</i>&nbsp;                     * safely below the limits between cleaner wakeups. Note
+<i class="no-highlight">788</i>&nbsp;                     * that max(overage,shortage) may be negative, since
+<i class="no-highlight">789</i>&nbsp;                     * overage and shortage may be negative.
+<i class="no-highlight">790</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">791</i>&nbsp;                    final long origBytesNeeded =</b>
+<i class="no-highlight">792</i>&nbsp;                        ((maxDiskLimit &gt; 0) ?
+<b class="nc"><i class="no-highlight">793</i>&nbsp;                            Math.max(maxDiskOverage, freeDiskShortage) :</b>
+<i class="no-highlight">794</i>&nbsp;                            freeDiskShortage) +
+<b class="nc"><i class="no-highlight">795</i>&nbsp;                        Math.max(</b>
+<i class="no-highlight">796</i>&nbsp;                            1L &lt;&lt; 20,
+<i class="no-highlight">797</i>&nbsp;                            3 * cleanerBytesInterval);
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;                    /*
+<i class="no-highlight">800</i>&nbsp;                     * First try deleting files without truncating the
+<i class="no-highlight">801</i>&nbsp;                     * VLSNIndex head.
+<i class="no-highlight">802</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">803</i>&nbsp;                    long bytesNeeded = origBytesNeeded;</b>
+<b class="nc"><i class="no-highlight">804</i>&nbsp;                    if (bytesNeeded &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">805</i>&nbsp;                        bytesNeeded = deleteUnprotectedFiles(bytesNeeded);</b>
+<i class="no-highlight">806</i>&nbsp;                    }
+<i class="no-highlight">807</i>&nbsp;
+<i class="no-highlight">808</i>&nbsp;                    /*
+<i class="no-highlight">809</i>&nbsp;                     * If we still need space, try truncating the VLSNIndex
+<i class="no-highlight">810</i>&nbsp;                     * and then deleting files. See FileProtector for details.
+<i class="no-highlight">811</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">812</i>&nbsp;                    if (bytesNeeded &gt; 0 &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">813</i>&nbsp;                        env.tryVlsnHeadTruncate(bytesNeeded)) {</b>
+<i class="no-highlight">814</i>&nbsp;
+<b class="nc"><i class="no-highlight">815</i>&nbsp;                        bytesNeeded = deleteUnprotectedFiles(bytesNeeded);</b>
+<b class="nc"><i class="no-highlight">816</i>&nbsp;                        freshenStats = true;</b>
+<i class="no-highlight">817</i>&nbsp;                    }
+<i class="no-highlight">818</i>&nbsp;
+<b class="nc"><i class="no-highlight">819</i>&nbsp;                    if (bytesNeeded &lt; origBytesNeeded) {</b>
+<b class="nc"><i class="no-highlight">820</i>&nbsp;                        freshenStats = true;</b>
+<i class="no-highlight">821</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">822</i>&nbsp;                } else {</b>
+<i class="no-highlight">823</i>&nbsp;                    /*
+<i class="no-highlight">824</i>&nbsp;                     * For a non-HA env, simply try to delete all the reserved
+<i class="no-highlight">825</i>&nbsp;                     * files.
+<i class="no-highlight">826</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">827</i>&nbsp;                    final long bytesNeeded =</b>
+<b class="nc"><i class="no-highlight">828</i>&nbsp;                        deleteUnprotectedFiles(Long.MAX_VALUE);</b>
+<i class="no-highlight">829</i>&nbsp;
+<b class="nc"><i class="no-highlight">830</i>&nbsp;                    if (bytesNeeded &lt; Long.MAX_VALUE) {</b>
+<b class="nc"><i class="no-highlight">831</i>&nbsp;                        freshenStats = true;</b>
+<i class="no-highlight">832</i>&nbsp;                    }
+<i class="no-highlight">833</i>&nbsp;                }
+<i class="no-highlight">834</i>&nbsp;
+<i class="no-highlight">835</i>&nbsp;                /*
+<i class="no-highlight">836</i>&nbsp;                 * Freshen the stats if any files are deleted, so write
+<i class="no-highlight">837</i>&nbsp;                 * operations can occur ASAP if they were previously
+<i class="no-highlight">838</i>&nbsp;                 * prohibited. Also freshen the stats if we truncated the
+<i class="no-highlight">839</i>&nbsp;                 * VLSNIndex, so that the stats reflect the current factors
+<i class="no-highlight">840</i>&nbsp;                 * gating file deletion.
+<i class="no-highlight">841</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">842</i>&nbsp;                if (freshenStats) {</b>
+<b class="nc"><i class="no-highlight">843</i>&nbsp;                    freshenLogSizeStats();</b>
+<i class="no-highlight">844</i>&nbsp;                }
+<i class="no-highlight">845</i>&nbsp;            }
+<i class="no-highlight">846</i>&nbsp;
+<i class="no-highlight">847</i>&nbsp;            /*
+<i class="no-highlight">848</i>&nbsp;             * If there is still a violation, and we have not logged it since
+<i class="no-highlight">849</i>&nbsp;             * the violation status changed, then log it now. We do not expect
+<i class="no-highlight">850</i>&nbsp;             * the violation status to change frequently.
+<i class="no-highlight">851</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">852</i>&nbsp;            final String violation = diskUsageViolationMessage;</b>
+<b class="fc"><i class="no-highlight">853</i>&nbsp;            if (violation != null) {</b>
+<b class="nc"><i class="no-highlight">854</i>&nbsp;                if (!loggedDiskLimitViolation) {</b>
+<b class="nc"><i class="no-highlight">855</i>&nbsp;                    LoggerUtils.logMsg(logger, env, Level.SEVERE, violation);</b>
+<b class="nc"><i class="no-highlight">856</i>&nbsp;                    loggedDiskLimitViolation = true;</b>
+<i class="no-highlight">857</i>&nbsp;                }
+<i class="no-highlight">858</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">859</i>&nbsp;                loggedDiskLimitViolation = false;</b>
+<i class="no-highlight">860</i>&nbsp;            }
+<i class="no-highlight">861</i>&nbsp;
+<b class="nc"><i class="no-highlight">862</i>&nbsp;        } catch (EnvLockedException e) {</b>
+<i class="no-highlight">863</i>&nbsp;
+<b class="nc"><i class="no-highlight">864</i>&nbsp;            LoggerUtils.logMsg(</b>
+<i class="no-highlight">865</i>&nbsp;                logger, env, Level.SEVERE,
+<i class="no-highlight">866</i>&nbsp;                &quot;Could not delete files due to read-only processes. &quot; +
+<i class="no-highlight">867</i>&nbsp;                    diskUsageMessage);
+<i class="no-highlight">868</i>&nbsp;
+<i class="no-highlight">869</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">870</i>&nbsp;            manageDiskUsageLock.unlock();</b>
+<b class="fc"><i class="no-highlight">871</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">872</i>&nbsp;    }</b>
+<i class="no-highlight">873</i>&nbsp;
+<i class="no-highlight">874</i>&nbsp;    /** @see #deleteUnprotectedFiles */
+<b class="nc"><i class="no-highlight">875</i>&nbsp;    private static class EnvLockedException extends Exception {}</b>
+<i class="no-highlight">876</i>&nbsp;
+<i class="no-highlight">877</i>&nbsp;    /**
+<i class="no-highlight">878</i>&nbsp;     * Deletes unprotected reserved files in an attempt to free bytesNeeded.
+<i class="no-highlight">879</i>&nbsp;     * In a non-HA env, attempts to delete all reserved files, irrespective of
+<i class="no-highlight">880</i>&nbsp;     * bytesNeeded.
+<i class="no-highlight">881</i>&nbsp;     *
+<i class="no-highlight">882</i>&nbsp;     * &lt;p&gt;An exclusive environment is held while deleting the files to lock
+<i class="no-highlight">883</i>&nbsp;     * out read-only processes. The lock is held while deleting the reserved
+<i class="no-highlight">884</i>&nbsp;     * file records as well, but this is inexpensive and should not cause long
+<i class="no-highlight">885</i>&nbsp;     * delays for read-only processes.&lt;/p&gt;
+<i class="no-highlight">886</i>&nbsp;     *
+<i class="no-highlight">887</i>&nbsp;     * @param bytesNeeded the amount of space we need to reclaim to stay within
+<i class="no-highlight">888</i>&nbsp;     * disk limits.
+<i class="no-highlight">889</i>&nbsp;     *
+<i class="no-highlight">890</i>&nbsp;     * @return number of bytes we could not reclaim due to protected files, or
+<i class="no-highlight">891</i>&nbsp;     * zero if we deleted files totaling bytesNeeded or more.
+<i class="no-highlight">892</i>&nbsp;     *
+<i class="no-highlight">893</i>&nbsp;     * @throws EnvLockedException if we can&#39;t get an exclusive environment
+<i class="no-highlight">894</i>&nbsp;     * lock because the env is locked by read-only processes, and therefore no
+<i class="no-highlight">895</i>&nbsp;     * files can be deleted.
+<i class="no-highlight">896</i>&nbsp;     */
+<i class="no-highlight">897</i>&nbsp;    private long deleteUnprotectedFiles(long bytesNeeded)
+<i class="no-highlight">898</i>&nbsp;        throws EnvLockedException {
+<i class="no-highlight">899</i>&nbsp;
+<b class="nc"><i class="no-highlight">900</i>&nbsp;        final FileManager fileManager = env.getFileManager();</b>
+<b class="nc"><i class="no-highlight">901</i>&nbsp;        final SortedSet&lt;Long&gt; deletedFiles = new TreeSet&lt;&gt;();</b>
+<i class="no-highlight">902</i>&nbsp;
+<b class="nc"><i class="no-highlight">903</i>&nbsp;        if (!fileManager.lockEnvironment(false, true)) {</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;            throw new EnvLockedException();</b>
+<i class="no-highlight">905</i>&nbsp;        }
+<i class="no-highlight">906</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">907</i>&nbsp;            long file = -1;</b>
+<i class="no-highlight">908</i>&nbsp;
+<b class="nc"><i class="no-highlight">909</i>&nbsp;            while (bytesNeeded &gt; 0 || !env.isReplicated()) {</b>
+<i class="no-highlight">910</i>&nbsp;
+<b class="nc"><i class="no-highlight">911</i>&nbsp;                final Pair&lt;Long, Long&gt; pair =</b>
+<b class="nc"><i class="no-highlight">912</i>&nbsp;                    fileProtector.takeCondemnedFile(file + 1);</b>
+<i class="no-highlight">913</i>&nbsp;
+<b class="nc"><i class="no-highlight">914</i>&nbsp;                if (pair == null) {</b>
+<b class="nc"><i class="no-highlight">915</i>&nbsp;                    break;</b>
+<i class="no-highlight">916</i>&nbsp;                }
+<i class="no-highlight">917</i>&nbsp;
+<b class="nc"><i class="no-highlight">918</i>&nbsp;                file = pair.first();</b>
+<b class="nc"><i class="no-highlight">919</i>&nbsp;                final long size = pair.second();</b>
+<i class="no-highlight">920</i>&nbsp;
+<b class="nc"><i class="no-highlight">921</i>&nbsp;                if (!deleteFile(file)) {</b>
+<i class="no-highlight">922</i>&nbsp;                    /* Sometimes files cannot be deleted on Windows. */
+<b class="nc"><i class="no-highlight">923</i>&nbsp;                    fileProtector.putBackCondemnedFile(file, size);</b>
+<b class="nc"><i class="no-highlight">924</i>&nbsp;                    continue;</b>
+<i class="no-highlight">925</i>&nbsp;                }
+<i class="no-highlight">926</i>&nbsp;
+<b class="nc"><i class="no-highlight">927</i>&nbsp;                bytesNeeded = Math.max(0, bytesNeeded - size);</b>
+<b class="nc"><i class="no-highlight">928</i>&nbsp;                profile.deleteReservedFileRecord(file);</b>
+<b class="nc"><i class="no-highlight">929</i>&nbsp;                nCleanerDeletions.increment();</b>
+<b class="nc"><i class="no-highlight">930</i>&nbsp;                deletedFiles.add(file);</b>
+<b class="nc"><i class="no-highlight">931</i>&nbsp;            }</b>
+<i class="no-highlight">932</i>&nbsp;
+<i class="no-highlight">933</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">934</i>&nbsp;            fileManager.releaseExclusiveLock();</b>
+<i class="no-highlight">935</i>&nbsp;
+<b class="nc"><i class="no-highlight">936</i>&nbsp;            if (!deletedFiles.isEmpty()) {</b>
+<i class="no-highlight">937</i>&nbsp;
+<b class="nc"><i class="no-highlight">938</i>&nbsp;                final StringBuilder sb = new StringBuilder(</b>
+<i class="no-highlight">939</i>&nbsp;                    &quot;Cleaner deleted files:&quot;);
+<i class="no-highlight">940</i>&nbsp;
+<b class="nc"><i class="no-highlight">941</i>&nbsp;                for (final Long file : deletedFiles) {</b>
+<b class="nc"><i class="no-highlight">942</i>&nbsp;                    sb.append(&quot; 0x&quot;);</b>
+<b class="nc"><i class="no-highlight">943</i>&nbsp;                    sb.append(Long.toHexString(file));</b>
+<b class="nc"><i class="no-highlight">944</i>&nbsp;                }</b>
+<i class="no-highlight">945</i>&nbsp;
+<b class="nc"><i class="no-highlight">946</i>&nbsp;                LoggerUtils.traceAndLog(</b>
+<b class="nc"><i class="no-highlight">947</i>&nbsp;                    logger, env, Level.INFO, sb.toString());</b>
+<b class="nc"><i class="no-highlight">948</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">949</i>&nbsp;        }</b>
+<i class="no-highlight">950</i>&nbsp;
+<b class="nc"><i class="no-highlight">951</i>&nbsp;        return bytesNeeded;</b>
+<i class="no-highlight">952</i>&nbsp;    }
+<i class="no-highlight">953</i>&nbsp;
+<i class="no-highlight">954</i>&nbsp;    /**
+<i class="no-highlight">955</i>&nbsp;     * Attempts to delete the file and returns whether it has been deleted.
+<i class="no-highlight">956</i>&nbsp;     */
+<i class="no-highlight">957</i>&nbsp;    private boolean deleteFile(final Long file) {
+<b class="nc"><i class="no-highlight">958</i>&nbsp;        final FileManager fileManager = env.getFileManager();</b>
+<i class="no-highlight">959</i>&nbsp;
+<b class="nc"><i class="no-highlight">960</i>&nbsp;        final String expungeLabel = expunge ? &quot;delete&quot; : &quot;rename&quot;;</b>
+<b class="nc"><i class="no-highlight">961</i>&nbsp;        final String expungedLabel = expungeLabel + &quot;d&quot;;</b>
+<i class="no-highlight">962</i>&nbsp;
+<i class="no-highlight">963</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">964</i>&nbsp;            if (expunge) {</b>
+<b class="nc"><i class="no-highlight">965</i>&nbsp;                if (fileManager.deleteFile(file)) {</b>
+<b class="nc"><i class="no-highlight">966</i>&nbsp;                    return true;</b>
+<i class="no-highlight">967</i>&nbsp;                }
+<i class="no-highlight">968</i>&nbsp;            } else {
+<i class="no-highlight">969</i>&nbsp;                /* See EnvironmentConfig.CLEANER_EXPUNGE. */
+<i class="no-highlight">970</i>&nbsp;
+<b class="nc"><i class="no-highlight">971</i>&nbsp;                final File newFile = fileManager.renameFile(</b>
+<b class="nc"><i class="no-highlight">972</i>&nbsp;                    file, FileManager.DEL_SUFFIX,</b>
+<i class="no-highlight">973</i>&nbsp;                    useDeletedDir ? DELETED_SUBDIR : null);
+<i class="no-highlight">974</i>&nbsp;
+<b class="nc"><i class="no-highlight">975</i>&nbsp;                if (newFile != null) {</b>
+<b class="nc"><i class="no-highlight">976</i>&nbsp;                    newFile.setLastModified(System.currentTimeMillis());</b>
+<b class="nc"><i class="no-highlight">977</i>&nbsp;                    return true;</b>
+<i class="no-highlight">978</i>&nbsp;                }
+<i class="no-highlight">979</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">980</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">981</i>&nbsp;            throw new EnvironmentFailureException(</b>
+<i class="no-highlight">982</i>&nbsp;                env, EnvironmentFailureReason.LOG_WRITE,
+<i class="no-highlight">983</i>&nbsp;                &quot;Unable to &quot; + expungeLabel + &quot; &quot; + file, e);
+<b class="nc"><i class="no-highlight">984</i>&nbsp;        }</b>
+<i class="no-highlight">985</i>&nbsp;
+<i class="no-highlight">986</i>&nbsp;        /*
+<i class="no-highlight">987</i>&nbsp;         * If the file is not valid (missing) then the file was previously
+<i class="no-highlight">988</i>&nbsp;         * deleted. This can occur on Windows when we retry deletion (see
+<i class="no-highlight">989</i>&nbsp;         * below).
+<i class="no-highlight">990</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">991</i>&nbsp;        if (!fileManager.isFileValid(file)) {</b>
+<b class="nc"><i class="no-highlight">992</i>&nbsp;            return true;</b>
+<i class="no-highlight">993</i>&nbsp;        }
+<i class="no-highlight">994</i>&nbsp;
+<i class="no-highlight">995</i>&nbsp;        /*
+<i class="no-highlight">996</i>&nbsp;         * Log a message and return false to retry the deletion later. The
+<i class="no-highlight">997</i>&nbsp;         * deletion is known to fail on Windows, and probably this occurs whe
+<i class="no-highlight">998</i>&nbsp;         * the file was recently closed.
+<i class="no-highlight">999</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1000</i>&nbsp;        LoggerUtils.traceAndLog(</b>
+<i class="no-highlight">1001</i>&nbsp;            logger, env, Level.WARNING,
+<b class="nc"><i class="no-highlight">1002</i>&nbsp;            &quot;Log file 0x&quot; + Long.toHexString(file) + &quot; could not be &quot; +</b>
+<i class="no-highlight">1003</i>&nbsp;                expungedLabel + &quot;. The deletion will be retried later.&quot;);
+<i class="no-highlight">1004</i>&nbsp;
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;        return false;</b>
+<i class="no-highlight">1006</i>&nbsp;    }
+<i class="no-highlight">1007</i>&nbsp;
+<i class="no-highlight">1008</i>&nbsp;    /**
+<i class="no-highlight">1009</i>&nbsp;     * Updates the cached set of log size stats, including maxDiskOverage,
+<i class="no-highlight">1010</i>&nbsp;     * freeDiskShortage, diskUsageMessage and diskUsageViolationMessage.
+<i class="no-highlight">1011</i>&nbsp;     *
+<i class="no-highlight">1012</i>&nbsp;     * Normally this should only be called by manageDiskUsage while holding
+<i class="no-highlight">1013</i>&nbsp;     * the manageDiskUsageLock. However, it may be called directly during
+<i class="no-highlight">1014</i>&nbsp;     * (single threaded) recovery.
+<i class="no-highlight">1015</i>&nbsp;     */
+<i class="no-highlight">1016</i>&nbsp;    public void freshenLogSizeStats() {
+<i class="no-highlight">1017</i>&nbsp;
+<b class="fc"><i class="no-highlight">1018</i>&nbsp;        recalcLogSizeStats(</b>
+<b class="fc"><i class="no-highlight">1019</i>&nbsp;            fileProtector.getLogSizeStats(), getDiskFreeSpace());</b>
+<b class="fc"><i class="no-highlight">1020</i>&nbsp;    }</b>
+<i class="no-highlight">1021</i>&nbsp;
+<i class="no-highlight">1022</i>&nbsp;    /**
+<i class="no-highlight">1023</i>&nbsp;     * Implementation of freshenLogSizeStats. Exposed for testing.
+<i class="no-highlight">1024</i>&nbsp;     */
+<i class="no-highlight">1025</i>&nbsp;    void recalcLogSizeStats(final FileProtector.LogSizeStats stats,
+<i class="no-highlight">1026</i>&nbsp;                            final long diskFreeSpace) {
+<i class="no-highlight">1027</i>&nbsp;
+<i class="no-highlight">1028</i>&nbsp;        /*
+<i class="no-highlight">1029</i>&nbsp;         * Use locals for limits, since they may be changed by other threads.
+<i class="no-highlight">1030</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1031</i>&nbsp;        final long maxLimit = maxDiskLimit;</b>
+<b class="fc"><i class="no-highlight">1032</i>&nbsp;        final long adjustedMax = adjustedMaxDiskLimit;</b>
+<b class="fc"><i class="no-highlight">1033</i>&nbsp;        final long freeLimit = freeDiskLimit;</b>
+<i class="no-highlight">1034</i>&nbsp;
+<i class="no-highlight">1035</i>&nbsp;        /*
+<i class="no-highlight">1036</i>&nbsp;         * Calculate overage/shortage and available size. Below are examples of
+<i class="no-highlight">1037</i>&nbsp;         * availableLogBytes values where:
+<i class="no-highlight">1038</i>&nbsp;         *
+<i class="no-highlight">1039</i>&nbsp;         *  totalLS=75 activeLS=50 reservedLS=25 protectedLS=5
+<i class="no-highlight">1040</i>&nbsp;         *
+<i class="no-highlight">1041</i>&nbsp;         *    freeDL maxDL diskFS freeB1 freeB2 availableLS
+<i class="no-highlight">1042</i>&nbsp;         *      5      -     20     15      15      35
+<i class="no-highlight">1043</i>&nbsp;         *     25      -      5    -20     -20       0
+<i class="no-highlight">1044</i>&nbsp;         *     30      -      5    -25     -25      -5
+<i class="no-highlight">1045</i>&nbsp;         *      5    100     20     15      15      35
+<i class="no-highlight">1046</i>&nbsp;         *     25    100     20     -5      -5      15
+<i class="no-highlight">1047</i>&nbsp;         *      5     80     20     15       0      20
+<i class="no-highlight">1048</i>&nbsp;         *     25     80     20     -5     -20       0
+<i class="no-highlight">1049</i>&nbsp;         *     25    200      5    -20     -20       0
+<i class="no-highlight">1050</i>&nbsp;         *     25     75     20     -5     -25      -5
+<i class="no-highlight">1051</i>&nbsp;         *     50     80     90     40     -45     -25
+<i class="no-highlight">1052</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1053</i>&nbsp;        final long freeBytes1 = diskFreeSpace - freeLimit;</b>
+<b class="fc"><i class="no-highlight">1054</i>&nbsp;        final long freeShortage = 0 - freeBytes1;</b>
+<b class="fc"><i class="no-highlight">1055</i>&nbsp;        final long totalSize = stats.activeSize + stats.reservedSize;</b>
+<i class="no-highlight">1056</i>&nbsp;        final long maxOverage;
+<i class="no-highlight">1057</i>&nbsp;        final long freeBytes2;
+<i class="no-highlight">1058</i>&nbsp;
+<b class="fc"><i class="no-highlight">1059</i>&nbsp;        if (adjustedMax &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1060</i>&nbsp;            maxOverage = totalSize - adjustedMax;</b>
+<b class="nc"><i class="no-highlight">1061</i>&nbsp;            freeBytes2 = Math.min(freeBytes1, adjustedMax - totalSize);</b>
+<i class="no-highlight">1062</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">1063</i>&nbsp;            maxOverage = 0;</b>
+<b class="fc"><i class="no-highlight">1064</i>&nbsp;            freeBytes2 = freeBytes1;</b>
+<i class="no-highlight">1065</i>&nbsp;        }
+<i class="no-highlight">1066</i>&nbsp;
+<b class="fc"><i class="no-highlight">1067</i>&nbsp;        final long availBytes =</b>
+<i class="no-highlight">1068</i>&nbsp;            freeBytes2 + stats.reservedSize - stats.protectedSize;
+<i class="no-highlight">1069</i>&nbsp;
+<b class="fc"><i class="no-highlight">1070</i>&nbsp;        final StringBuilder sb = new StringBuilder();</b>
+<i class="no-highlight">1071</i>&nbsp;
+<b class="fc"><i class="no-highlight">1072</i>&nbsp;        if (availBytes &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;            sb.append(&quot;Disk usage is not within je.maxDisk or je.freeDisk &quot;);</b>
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;            sb.append(&quot;limits and write operations are prohibited:&quot;);</b>
+<i class="no-highlight">1075</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">1076</i>&nbsp;            sb.append(&quot;Disk usage is currently within je.maxDisk and &quot;);</b>
+<b class="fc"><i class="no-highlight">1077</i>&nbsp;            sb.append(&quot;je.freeDisk limits:&quot;);</b>
+<i class="no-highlight">1078</i>&nbsp;        }
+<i class="no-highlight">1079</i>&nbsp;
+<b class="fc"><i class="no-highlight">1080</i>&nbsp;        sb.append(&quot; maxDiskLimit=&quot;);</b>
+<b class="fc"><i class="no-highlight">1081</i>&nbsp;        sb.append(INT_FORMAT.format(maxLimit));</b>
+<b class="fc"><i class="no-highlight">1082</i>&nbsp;        sb.append(&quot; freeDiskLimit=&quot;);</b>
+<b class="fc"><i class="no-highlight">1083</i>&nbsp;        sb.append(INT_FORMAT.format(freeLimit));</b>
+<b class="fc"><i class="no-highlight">1084</i>&nbsp;        sb.append(&quot; adjustedMaxDiskLimit=&quot;);</b>
+<b class="fc"><i class="no-highlight">1085</i>&nbsp;        sb.append(INT_FORMAT.format(adjustedMax));</b>
+<b class="fc"><i class="no-highlight">1086</i>&nbsp;        sb.append(&quot; maxDiskOverage=&quot;);</b>
+<b class="fc"><i class="no-highlight">1087</i>&nbsp;        sb.append(INT_FORMAT.format(maxOverage));</b>
+<b class="fc"><i class="no-highlight">1088</i>&nbsp;        sb.append(&quot; freeDiskShortage=&quot;);</b>
+<b class="fc"><i class="no-highlight">1089</i>&nbsp;        sb.append(INT_FORMAT.format(freeShortage));</b>
+<b class="fc"><i class="no-highlight">1090</i>&nbsp;        sb.append(&quot; diskFreeSpace=&quot;);</b>
+<b class="fc"><i class="no-highlight">1091</i>&nbsp;        sb.append(INT_FORMAT.format(diskFreeSpace));</b>
+<b class="fc"><i class="no-highlight">1092</i>&nbsp;        sb.append(&quot; availableLogSize=&quot;);</b>
+<b class="fc"><i class="no-highlight">1093</i>&nbsp;        sb.append(INT_FORMAT.format(availBytes));</b>
+<b class="fc"><i class="no-highlight">1094</i>&nbsp;        sb.append(&quot; totalLogSize=&quot;);</b>
+<b class="fc"><i class="no-highlight">1095</i>&nbsp;        sb.append(INT_FORMAT.format(totalSize));</b>
+<b class="fc"><i class="no-highlight">1096</i>&nbsp;        sb.append(&quot; activeLogSize=&quot;);</b>
+<b class="fc"><i class="no-highlight">1097</i>&nbsp;        sb.append(INT_FORMAT.format(stats.activeSize));</b>
+<b class="fc"><i class="no-highlight">1098</i>&nbsp;        sb.append(&quot; reservedLogSize=&quot;);</b>
+<b class="fc"><i class="no-highlight">1099</i>&nbsp;        sb.append(INT_FORMAT.format(stats.reservedSize));</b>
+<b class="fc"><i class="no-highlight">1100</i>&nbsp;        sb.append(&quot; protectedLogSize=&quot;);</b>
+<b class="fc"><i class="no-highlight">1101</i>&nbsp;        sb.append(INT_FORMAT.format(stats.protectedSize));</b>
+<b class="fc"><i class="no-highlight">1102</i>&nbsp;        sb.append(&quot; protectedLogSizeMap={&quot;);</b>
+<i class="no-highlight">1103</i>&nbsp;
+<i class="no-highlight">1104</i>&nbsp;        for (final Map.Entry&lt;String, Long&gt; entry :
+<b class="fc"><i class="no-highlight">1105</i>&nbsp;                stats.protectedSizeMap.entrySet()) {</b>
+<i class="no-highlight">1106</i>&nbsp;
+<b class="nc"><i class="no-highlight">1107</i>&nbsp;            sb.append(entry.getKey()).append(&quot;:&quot;);</b>
+<b class="nc"><i class="no-highlight">1108</i>&nbsp;            sb.append(INT_FORMAT.format(entry.getValue()));</b>
+<b class="nc"><i class="no-highlight">1109</i>&nbsp;        }</b>
+<i class="no-highlight">1110</i>&nbsp;
+<b class="fc"><i class="no-highlight">1111</i>&nbsp;        sb.append(&quot;}&quot;);</b>
+<i class="no-highlight">1112</i>&nbsp;
+<b class="fc"><i class="no-highlight">1113</i>&nbsp;        final String msg = sb.toString();</b>
+<i class="no-highlight">1114</i>&nbsp;
+<i class="no-highlight">1115</i>&nbsp;        /* Synchronize on statGroup to maintain consistent set of stats. */
+<b class="fc"><i class="no-highlight">1116</i>&nbsp;        synchronized (statGroup) {</b>
+<b class="fc"><i class="no-highlight">1117</i>&nbsp;            maxDiskOverage = maxOverage;</b>
+<b class="fc"><i class="no-highlight">1118</i>&nbsp;            freeDiskShortage = freeShortage;</b>
+<b class="fc"><i class="no-highlight">1119</i>&nbsp;            diskUsageMessage = msg;</b>
+<b class="fc"><i class="no-highlight">1120</i>&nbsp;            diskUsageViolationMessage = (availBytes &lt;= 0) ? msg : null;</b>
+<b class="fc"><i class="no-highlight">1121</i>&nbsp;            availableLogSize = availBytes;</b>
+<b class="fc"><i class="no-highlight">1122</i>&nbsp;            totalLogSize = totalSize;</b>
+<b class="fc"><i class="no-highlight">1123</i>&nbsp;            logSizeStats = stats;</b>
+<b class="fc"><i class="no-highlight">1124</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">1125</i>&nbsp;    }</b>
+<i class="no-highlight">1126</i>&nbsp;
+<i class="no-highlight">1127</i>&nbsp;    private long getDiskFreeSpace() {
+<i class="no-highlight">1128</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">1129</i>&nbsp;            return fileStoreInfo.getUsableSpace();</b>
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">1131</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(env, e);</b>
+<i class="no-highlight">1132</i>&nbsp;        }
+<i class="no-highlight">1133</i>&nbsp;    }
+<i class="no-highlight">1134</i>&nbsp;
+<i class="no-highlight">1135</i>&nbsp;    private long getDiskTotalSpace() {
+<i class="no-highlight">1136</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1137</i>&nbsp;            return fileStoreInfo.getTotalSpace();</b>
+<b class="nc"><i class="no-highlight">1138</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">1139</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(env, e);</b>
+<i class="no-highlight">1140</i>&nbsp;        }
+<i class="no-highlight">1141</i>&nbsp;    }
+<i class="no-highlight">1142</i>&nbsp;
+<i class="no-highlight">1143</i>&nbsp;    /**
+<i class="no-highlight">1144</i>&nbsp;     * Returns a message describing disk space limits and usage, regardless of
+<i class="no-highlight">1145</i>&nbsp;     * whether the limit is violated or not. If there is a limit violation,
+<i class="no-highlight">1146</i>&nbsp;     * returns the same value as {@link #getDiskLimitViolation()}. Does not
+<i class="no-highlight">1147</i>&nbsp;     * return null.
+<i class="no-highlight">1148</i>&nbsp;     */
+<i class="no-highlight">1149</i>&nbsp;    public String getDiskLimitMessage() {
+<b class="nc"><i class="no-highlight">1150</i>&nbsp;        return diskUsageMessage;</b>
+<i class="no-highlight">1151</i>&nbsp;    }
+<i class="no-highlight">1152</i>&nbsp;
+<i class="no-highlight">1153</i>&nbsp;    /**
+<i class="no-highlight">1154</i>&nbsp;     * Uses cached disk usage info to determine whether disk space limits are
+<i class="no-highlight">1155</i>&nbsp;     * currently violated. This method simply returns a volatile field. The
+<i class="no-highlight">1156</i>&nbsp;     * cached information is updated frequently enough to prevent violating the
+<i class="no-highlight">1157</i>&nbsp;     * limits by a large amount.
+<i class="no-highlight">1158</i>&nbsp;     *
+<i class="no-highlight">1159</i>&nbsp;     * @return a non-null message (appropriate for an exception) if a disk
+<i class="no-highlight">1160</i>&nbsp;     * limit is currently violated, else null.
+<i class="no-highlight">1161</i>&nbsp;     */
+<i class="no-highlight">1162</i>&nbsp;    public String getDiskLimitViolation() {
+<b class="fc"><i class="no-highlight">1163</i>&nbsp;        return diskUsageViolationMessage;</b>
+<i class="no-highlight">1164</i>&nbsp;    }
+<i class="no-highlight">1165</i>&nbsp;
+<i class="no-highlight">1166</i>&nbsp;    long getMaxDiskOverage() {
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;        return maxDiskOverage;</b>
+<i class="no-highlight">1168</i>&nbsp;    }
+<i class="no-highlight">1169</i>&nbsp;
+<i class="no-highlight">1170</i>&nbsp;    long getFreeDiskShortage() {
+<b class="nc"><i class="no-highlight">1171</i>&nbsp;        return freeDiskShortage;</b>
+<i class="no-highlight">1172</i>&nbsp;    }
+<i class="no-highlight">1173</i>&nbsp;
+<i class="no-highlight">1174</i>&nbsp;    /**
+<i class="no-highlight">1175</i>&nbsp;     * Returns a copy of the cleaned and processed files at the time a
+<i class="no-highlight">1176</i>&nbsp;     * checkpoint starts.
+<i class="no-highlight">1177</i>&nbsp;     *
+<i class="no-highlight">1178</i>&nbsp;     * &lt;p&gt;If non-null is returned, the checkpoint should flush an extra level,
+<i class="no-highlight">1179</i>&nbsp;     * and addCheckpointedFiles() should be called when the checkpoint is
+<i class="no-highlight">1180</i>&nbsp;     * complete.&lt;/p&gt;
+<i class="no-highlight">1181</i>&nbsp;     */
+<i class="no-highlight">1182</i>&nbsp;    public CheckpointStartCleanerState getFilesAtCheckpointStart() {
+<i class="no-highlight">1183</i>&nbsp;
+<i class="no-highlight">1184</i>&nbsp;        /* Pending LNs can prevent file deletion. */
+<b class="fc"><i class="no-highlight">1185</i>&nbsp;        processPending();</b>
+<i class="no-highlight">1186</i>&nbsp;
+<b class="fc"><i class="no-highlight">1187</i>&nbsp;        return fileSelector.getFilesAtCheckpointStart();</b>
+<i class="no-highlight">1188</i>&nbsp;    }
+<i class="no-highlight">1189</i>&nbsp;
+<i class="no-highlight">1190</i>&nbsp;    /**
+<i class="no-highlight">1191</i>&nbsp;     * When a checkpoint is complete, update the files that were returned at
+<i class="no-highlight">1192</i>&nbsp;     * the beginning of the checkpoint.
+<i class="no-highlight">1193</i>&nbsp;     */
+<i class="no-highlight">1194</i>&nbsp;    public void updateFilesAtCheckpointEnd(CheckpointStartCleanerState info) {
+<i class="no-highlight">1195</i>&nbsp;
+<i class="no-highlight">1196</i>&nbsp;        /* Update cleaned file status and get newly reserved files. */
+<b class="fc"><i class="no-highlight">1197</i>&nbsp;        final Map&lt;Long, FileSelector.FileInfo&gt; reservedFiles =</b>
+<b class="fc"><i class="no-highlight">1198</i>&nbsp;            fileSelector.updateFilesAtCheckpointEnd(env, info);</b>
+<i class="no-highlight">1199</i>&nbsp;
+<i class="no-highlight">1200</i>&nbsp;        /*
+<i class="no-highlight">1201</i>&nbsp;         * Insert reserved file db record and delete other (unnecessary)
+<i class="no-highlight">1202</i>&nbsp;         * metadata for reserved files.
+<i class="no-highlight">1203</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1204</i>&nbsp;        profile.reserveFiles(reservedFiles);</b>
+<i class="no-highlight">1205</i>&nbsp;
+<i class="no-highlight">1206</i>&nbsp;        /* Try deleting files since file status may have changed. */
+<b class="fc"><i class="no-highlight">1207</i>&nbsp;        manageDiskUsage();</b>
+<i class="no-highlight">1208</i>&nbsp;
+<i class="no-highlight">1209</i>&nbsp;        /*
+<i class="no-highlight">1210</i>&nbsp;         * Periodically process completed expiration trackers. This is done
+<i class="no-highlight">1211</i>&nbsp;         * here in case cleaner threads are disabled.
+<i class="no-highlight">1212</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1213</i>&nbsp;        expirationProfile.processCompletedTrackers();</b>
+<b class="fc"><i class="no-highlight">1214</i>&nbsp;    }</b>
+<i class="no-highlight">1215</i>&nbsp;
+<i class="no-highlight">1216</i>&nbsp;    /**
+<i class="no-highlight">1217</i>&nbsp;     * If any LNs or databases are pending, process them.  This method should
+<i class="no-highlight">1218</i>&nbsp;     * be called often enough to prevent the pending LN set from growing too
+<i class="no-highlight">1219</i>&nbsp;     * large.
+<i class="no-highlight">1220</i>&nbsp;     */
+<i class="no-highlight">1221</i>&nbsp;    void processPending() {
+<i class="no-highlight">1222</i>&nbsp;
+<i class="no-highlight">1223</i>&nbsp;        /*
+<i class="no-highlight">1224</i>&nbsp;         * This method is not synchronized because that would block cleaner
+<i class="no-highlight">1225</i>&nbsp;         * and checkpointer threads unnecessarily.  However, we do prevent
+<i class="no-highlight">1226</i>&nbsp;         * reentrancy, for two reasons:
+<i class="no-highlight">1227</i>&nbsp;         * 1. It is wasteful for two threads to process the same pending
+<i class="no-highlight">1228</i>&nbsp;         *    entries.
+<i class="no-highlight">1229</i>&nbsp;         * 2. Many threads calling getDb may increase the liklihood of
+<i class="no-highlight">1230</i>&nbsp;         *    livelock. [#20816]
+<i class="no-highlight">1231</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1232</i>&nbsp;        if (!processPendingReentrancyGuard.compareAndSet(false, true)) {</b>
+<b class="nc"><i class="no-highlight">1233</i>&nbsp;            return;</b>
+<i class="no-highlight">1234</i>&nbsp;        }
+<i class="no-highlight">1235</i>&nbsp;
+<i class="no-highlight">1236</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">1237</i>&nbsp;            final DbTree dbMapTree = env.getDbTree();</b>
+<i class="no-highlight">1238</i>&nbsp;
+<b class="fc"><i class="no-highlight">1239</i>&nbsp;            final LockManager lockManager =</b>
+<b class="fc"><i class="no-highlight">1240</i>&nbsp;                env.getTxnManager().getLockManager();</b>
+<i class="no-highlight">1241</i>&nbsp;
+<b class="fc"><i class="no-highlight">1242</i>&nbsp;            final Map&lt;Long, LNInfo&gt; pendingLNs = fileSelector.getPendingLNs();</b>
+<i class="no-highlight">1243</i>&nbsp;
+<b class="fc"><i class="no-highlight">1244</i>&nbsp;            if (pendingLNs != null) {</b>
+<b class="nc"><i class="no-highlight">1245</i>&nbsp;                final TreeLocation location = new TreeLocation();</b>
+<i class="no-highlight">1246</i>&nbsp;
+<i class="no-highlight">1247</i>&nbsp;                for (final Map.Entry&lt;Long, LNInfo&gt; entry :
+<b class="nc"><i class="no-highlight">1248</i>&nbsp;                     pendingLNs.entrySet()) {</b>
+<i class="no-highlight">1249</i>&nbsp;
+<b class="nc"><i class="no-highlight">1250</i>&nbsp;                    if (!env.isValid()) {</b>
+<b class="nc"><i class="no-highlight">1251</i>&nbsp;                        return;</b>
+<i class="no-highlight">1252</i>&nbsp;                    }
+<i class="no-highlight">1253</i>&nbsp;
+<b class="nc"><i class="no-highlight">1254</i>&nbsp;                    if (diskUsageViolationMessage != null) {</b>
+<b class="nc"><i class="no-highlight">1255</i>&nbsp;                        break; /* We can&#39;t write. */</b>
+<i class="no-highlight">1256</i>&nbsp;                    }
+<i class="no-highlight">1257</i>&nbsp;
+<b class="nc"><i class="no-highlight">1258</i>&nbsp;                    final long logLsn = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">1259</i>&nbsp;                    final LNInfo info = entry.getValue();</b>
+<i class="no-highlight">1260</i>&nbsp;
+<b class="nc"><i class="no-highlight">1261</i>&nbsp;                    if (env.expiresWithin(</b>
+<b class="nc"><i class="no-highlight">1262</i>&nbsp;                        info.getExpirationTime(),</b>
+<b class="nc"><i class="no-highlight">1263</i>&nbsp;                        0 - env.getTtlLnPurgeDelay())) {</b>
+<i class="no-highlight">1264</i>&nbsp;
+<b class="nc"><i class="no-highlight">1265</i>&nbsp;                        if (lockManager.isLockUncontended(logLsn)) {</b>
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;                            fileSelector.removePendingLN(logLsn);</b>
+<b class="nc"><i class="no-highlight">1267</i>&nbsp;                            nLNsExpired.increment();</b>
+<b class="nc"><i class="no-highlight">1268</i>&nbsp;                            nLNsObsolete.increment();</b>
+<i class="no-highlight">1269</i>&nbsp;                        } else {
+<b class="nc"><i class="no-highlight">1270</i>&nbsp;                            nPendingLNsLocked.increment();</b>
+<i class="no-highlight">1271</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">1272</i>&nbsp;                        continue;</b>
+<i class="no-highlight">1273</i>&nbsp;                    }
+<i class="no-highlight">1274</i>&nbsp;
+<b class="nc"><i class="no-highlight">1275</i>&nbsp;                    final DatabaseId dbId = info.getDbId();</b>
+<b class="nc"><i class="no-highlight">1276</i>&nbsp;                    final DatabaseImpl db = dbMapTree.getDb(dbId, lockTimeout);</b>
+<i class="no-highlight">1277</i>&nbsp;
+<i class="no-highlight">1278</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">1279</i>&nbsp;                        final byte[] key = info.getKey();</b>
+<i class="no-highlight">1280</i>&nbsp;
+<i class="no-highlight">1281</i>&nbsp;                        /* Evict before processing each entry. */
+<i class="no-highlight">1282</i>&nbsp;                        if (DO_CRITICAL_EVICTION) {
+<b class="nc"><i class="no-highlight">1283</i>&nbsp;                            env.daemonEviction(true /*backgroundIO*/);</b>
+<i class="no-highlight">1284</i>&nbsp;                        }
+<i class="no-highlight">1285</i>&nbsp;
+<b class="nc"><i class="no-highlight">1286</i>&nbsp;                        processPendingLN(logLsn, db, key, location);</b>
+<i class="no-highlight">1287</i>&nbsp;
+<i class="no-highlight">1288</i>&nbsp;                    } finally {
+<b class="nc"><i class="no-highlight">1289</i>&nbsp;                        dbMapTree.releaseDb(db);</b>
+<b class="nc"><i class="no-highlight">1290</i>&nbsp;                    }</b>
+<b class="nc"><i class="no-highlight">1291</i>&nbsp;                }</b>
+<i class="no-highlight">1292</i>&nbsp;            }
+<i class="no-highlight">1293</i>&nbsp;
+<b class="fc"><i class="no-highlight">1294</i>&nbsp;            final DatabaseId[] pendingDBs = fileSelector.getPendingDBs();</b>
+<b class="fc"><i class="no-highlight">1295</i>&nbsp;            if (pendingDBs != null) {</b>
+<b class="nc"><i class="no-highlight">1296</i>&nbsp;                for (final DatabaseId dbId : pendingDBs) {</b>
+<b class="nc"><i class="no-highlight">1297</i>&nbsp;                    if (!env.isValid()) {</b>
+<b class="nc"><i class="no-highlight">1298</i>&nbsp;                        return;</b>
+<i class="no-highlight">1299</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1300</i>&nbsp;                    final DatabaseImpl db = dbMapTree.getDb(dbId, lockTimeout);</b>
+<i class="no-highlight">1301</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">1302</i>&nbsp;                        if (db == null || db.isDeleteFinished()) {</b>
+<b class="nc"><i class="no-highlight">1303</i>&nbsp;                            fileSelector.removePendingDB(dbId);</b>
+<i class="no-highlight">1304</i>&nbsp;                        }
+<i class="no-highlight">1305</i>&nbsp;                    } finally {
+<b class="nc"><i class="no-highlight">1306</i>&nbsp;                        dbMapTree.releaseDb(db);</b>
+<b class="nc"><i class="no-highlight">1307</i>&nbsp;                    }</b>
+<i class="no-highlight">1308</i>&nbsp;                }
+<i class="no-highlight">1309</i>&nbsp;            }
+<i class="no-highlight">1310</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">1311</i>&nbsp;            processPendingReentrancyGuard.set(false);</b>
+<b class="fc"><i class="no-highlight">1312</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">1313</i>&nbsp;    }</b>
+<i class="no-highlight">1314</i>&nbsp;
+<i class="no-highlight">1315</i>&nbsp;    /**
+<i class="no-highlight">1316</i>&nbsp;     * Processes a pending LN, getting the lock first to ensure that the
+<i class="no-highlight">1317</i>&nbsp;     * overhead of retries is minimal.
+<i class="no-highlight">1318</i>&nbsp;     */
+<i class="no-highlight">1319</i>&nbsp;    private void processPendingLN(
+<i class="no-highlight">1320</i>&nbsp;        final long logLsn,
+<i class="no-highlight">1321</i>&nbsp;        final DatabaseImpl db,
+<i class="no-highlight">1322</i>&nbsp;        final byte[] keyFromLog,
+<i class="no-highlight">1323</i>&nbsp;        final TreeLocation location) {
+<i class="no-highlight">1324</i>&nbsp;
+<i class="no-highlight">1325</i>&nbsp;        boolean parentFound;          // We found the parent BIN.
+<b class="nc"><i class="no-highlight">1326</i>&nbsp;        boolean processedHere = true; // The LN was cleaned here.</b>
+<b class="nc"><i class="no-highlight">1327</i>&nbsp;        boolean lockDenied = false;   // The LN lock was denied.</b>
+<b class="nc"><i class="no-highlight">1328</i>&nbsp;        boolean obsolete = false;     // The LN is no longer in use.</b>
+<b class="nc"><i class="no-highlight">1329</i>&nbsp;        boolean completed = false;    // This method completed.</b>
+<i class="no-highlight">1330</i>&nbsp;
+<b class="nc"><i class="no-highlight">1331</i>&nbsp;        BasicLocker locker = null;</b>
+<b class="nc"><i class="no-highlight">1332</i>&nbsp;        BIN bin = null;</b>
+<i class="no-highlight">1333</i>&nbsp;
+<i class="no-highlight">1334</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1335</i>&nbsp;            nPendingLNsProcessed.increment();</b>
+<i class="no-highlight">1336</i>&nbsp;
+<i class="no-highlight">1337</i>&nbsp;            /*
+<i class="no-highlight">1338</i>&nbsp;             * If the DB is gone, this LN is obsolete.  If delete cleanup is in
+<i class="no-highlight">1339</i>&nbsp;             * progress, put the DB into the DB pending set; this LN will be
+<i class="no-highlight">1340</i>&nbsp;             * declared deleted after the delete cleanup is finished.
+<i class="no-highlight">1341</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1342</i>&nbsp;            if (db == null || db.isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">1343</i>&nbsp;                addPendingDB(db);</b>
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;                nLNsDead.increment();</b>
+<b class="nc"><i class="no-highlight">1345</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1346</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1347</i>&nbsp;                return;</b>
+<i class="no-highlight">1348</i>&nbsp;            }
+<i class="no-highlight">1349</i>&nbsp;
+<b class="nc"><i class="no-highlight">1350</i>&nbsp;            final Tree tree = db.getTree();</b>
+<b class="nc"><i class="no-highlight">1351</i>&nbsp;            assert tree != null;</b>
+<i class="no-highlight">1352</i>&nbsp;
+<i class="no-highlight">1353</i>&nbsp;            /*
+<i class="no-highlight">1354</i>&nbsp;             * Get a non-blocking read lock on the original log LSN.  If this
+<i class="no-highlight">1355</i>&nbsp;             * fails, then the original LSN is still write-locked.  We may have
+<i class="no-highlight">1356</i>&nbsp;             * to lock again, if the LSN has changed in the BIN, but this
+<i class="no-highlight">1357</i>&nbsp;             * initial check prevents a Btree lookup in some cases.
+<i class="no-highlight">1358</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1359</i>&nbsp;            locker = BasicLocker.createBasicLocker(env, false /*noWait*/);</b>
+<i class="no-highlight">1360</i>&nbsp;
+<i class="no-highlight">1361</i>&nbsp;            /* Don&#39;t allow this short-lived lock to be preempted/stolen. */
+<b class="nc"><i class="no-highlight">1362</i>&nbsp;            locker.setPreemptable(false);</b>
+<i class="no-highlight">1363</i>&nbsp;
+<b class="nc"><i class="no-highlight">1364</i>&nbsp;            final LockResult lockRet = locker.nonBlockingLock(</b>
+<i class="no-highlight">1365</i>&nbsp;                logLsn, LockType.READ, false /*jumpAheadOfWaiters*/, db);
+<i class="no-highlight">1366</i>&nbsp;
+<b class="nc"><i class="no-highlight">1367</i>&nbsp;            if (lockRet.getLockGrant() == LockGrantType.DENIED) {</b>
+<i class="no-highlight">1368</i>&nbsp;                /* Try again later. */
+<b class="nc"><i class="no-highlight">1369</i>&nbsp;                nPendingLNsLocked.increment();</b>
+<b class="nc"><i class="no-highlight">1370</i>&nbsp;                lockDenied = true;</b>
+<b class="nc"><i class="no-highlight">1371</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1372</i>&nbsp;                return;</b>
+<i class="no-highlight">1373</i>&nbsp;            }
+<i class="no-highlight">1374</i>&nbsp;
+<i class="no-highlight">1375</i>&nbsp;            /*
+<i class="no-highlight">1376</i>&nbsp;             * Search down to the bottom most level for the parent of this LN.
+<i class="no-highlight">1377</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1378</i>&nbsp;            parentFound = tree.getParentBINForChildLN(</b>
+<i class="no-highlight">1379</i>&nbsp;                location, keyFromLog, false /*splitsAllowed*/,
+<i class="no-highlight">1380</i>&nbsp;                false /*blindDeltaOps*/, UPDATE_GENERATION);
+<i class="no-highlight">1381</i>&nbsp;
+<b class="nc"><i class="no-highlight">1382</i>&nbsp;            bin = location.bin;</b>
+<b class="nc"><i class="no-highlight">1383</i>&nbsp;            final int index = location.index;</b>
+<i class="no-highlight">1384</i>&nbsp;
+<b class="nc"><i class="no-highlight">1385</i>&nbsp;            if (!parentFound) {</b>
+<b class="nc"><i class="no-highlight">1386</i>&nbsp;                nLNsDead.increment();</b>
+<b class="nc"><i class="no-highlight">1387</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1388</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1389</i>&nbsp;                return;</b>
+<i class="no-highlight">1390</i>&nbsp;            }
+<i class="no-highlight">1391</i>&nbsp;
+<i class="no-highlight">1392</i>&nbsp;            /* Migrate an LN. */
+<b class="nc"><i class="no-highlight">1393</i>&nbsp;            processedHere = false;</b>
+<i class="no-highlight">1394</i>&nbsp;
+<b class="nc"><i class="no-highlight">1395</i>&nbsp;            lockDenied =</b>
+<b class="nc"><i class="no-highlight">1396</i>&nbsp;                migratePendingLN(db, logLsn, bin.getLsn(index), bin, index);</b>
+<i class="no-highlight">1397</i>&nbsp;
+<b class="nc"><i class="no-highlight">1398</i>&nbsp;            completed = true;</b>
+<i class="no-highlight">1399</i>&nbsp;
+<b class="nc"><i class="no-highlight">1400</i>&nbsp;        } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">1401</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">1402</i>&nbsp;            LoggerUtils.traceAndLogException(</b>
+<i class="no-highlight">1403</i>&nbsp;                env, &quot;com.sleepycat.je.cleaner.Cleaner&quot;,
+<i class="no-highlight">1404</i>&nbsp;                &quot;processLN&quot;, &quot;Exception thrown: &quot;, e);
+<b class="nc"><i class="no-highlight">1405</i>&nbsp;            throw e;</b>
+<i class="no-highlight">1406</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1407</i>&nbsp;            if (bin != null) {</b>
+<b class="nc"><i class="no-highlight">1408</i>&nbsp;                bin.releaseLatch();</b>
+<i class="no-highlight">1409</i>&nbsp;            }
+<i class="no-highlight">1410</i>&nbsp;
+<b class="nc"><i class="no-highlight">1411</i>&nbsp;            if (locker != null) {</b>
+<b class="nc"><i class="no-highlight">1412</i>&nbsp;                locker.operationEnd();</b>
+<i class="no-highlight">1413</i>&nbsp;            }
+<i class="no-highlight">1414</i>&nbsp;
+<i class="no-highlight">1415</i>&nbsp;            /* BIN must not be latched when synchronizing on FileSelector. */
+<b class="nc"><i class="no-highlight">1416</i>&nbsp;            if (completed &amp;&amp; !lockDenied) {</b>
+<b class="nc"><i class="no-highlight">1417</i>&nbsp;                fileSelector.removePendingLN(logLsn);</b>
+<i class="no-highlight">1418</i>&nbsp;            }
+<i class="no-highlight">1419</i>&nbsp;
+<i class="no-highlight">1420</i>&nbsp;            /*
+<i class="no-highlight">1421</i>&nbsp;             * If migratePendingLN was not called above, perform tracing in
+<i class="no-highlight">1422</i>&nbsp;             * this method.
+<i class="no-highlight">1423</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1424</i>&nbsp;            if (processedHere) {</b>
+<b class="nc"><i class="no-highlight">1425</i>&nbsp;                logFine(CLEAN_PENDING_LN, null /*node*/, DbLsn.NULL_LSN,</b>
+<i class="no-highlight">1426</i>&nbsp;                        completed, obsolete, false /*migrated*/);
+<i class="no-highlight">1427</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1428</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1429</i>&nbsp;    }</b>
+<i class="no-highlight">1430</i>&nbsp;
+<i class="no-highlight">1431</i>&nbsp;    /**
+<i class="no-highlight">1432</i>&nbsp;     * Migrate a pending LN in the given BIN entry, if it is not obsolete.  The
+<i class="no-highlight">1433</i>&nbsp;     * BIN must be latched on entry and is left latched by this method.
+<i class="no-highlight">1434</i>&nbsp;     *
+<i class="no-highlight">1435</i>&nbsp;     * @return whether migration could not be completed because the LN lock was
+<i class="no-highlight">1436</i>&nbsp;     * denied.
+<i class="no-highlight">1437</i>&nbsp;     */
+<i class="no-highlight">1438</i>&nbsp;    private boolean migratePendingLN(
+<i class="no-highlight">1439</i>&nbsp;        final DatabaseImpl db,
+<i class="no-highlight">1440</i>&nbsp;        final long logLsn,
+<i class="no-highlight">1441</i>&nbsp;        final long treeLsn,
+<i class="no-highlight">1442</i>&nbsp;        final BIN bin,
+<i class="no-highlight">1443</i>&nbsp;        final int index) {
+<i class="no-highlight">1444</i>&nbsp;
+<i class="no-highlight">1445</i>&nbsp;        /* Status variables are used to generate debug tracing info. */
+<b class="nc"><i class="no-highlight">1446</i>&nbsp;        boolean obsolete = false;    // The LN is no longer in use.</b>
+<b class="nc"><i class="no-highlight">1447</i>&nbsp;        boolean migrated = false;    // The LN was in use and is migrated.</b>
+<b class="nc"><i class="no-highlight">1448</i>&nbsp;        boolean completed = false;   // This method completed.</b>
+<b class="nc"><i class="no-highlight">1449</i>&nbsp;        boolean clearTarget = false; // Node was non-resident when called.</b>
+<i class="no-highlight">1450</i>&nbsp;
+<i class="no-highlight">1451</i>&nbsp;        /*
+<i class="no-highlight">1452</i>&nbsp;         * If wasCleaned is false we don&#39;t count statistics unless we migrate
+<i class="no-highlight">1453</i>&nbsp;         * the LN.  This avoids double counting.
+<i class="no-highlight">1454</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1455</i>&nbsp;        BasicLocker locker = null;</b>
+<b class="nc"><i class="no-highlight">1456</i>&nbsp;        LN ln = null;</b>
+<i class="no-highlight">1457</i>&nbsp;
+<i class="no-highlight">1458</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1459</i>&nbsp;            if (treeLsn == DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">1460</i>&nbsp;                /* This node was never written, no need to migrate. */
+<b class="nc"><i class="no-highlight">1461</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1462</i>&nbsp;                return false;</b>
+<i class="no-highlight">1463</i>&nbsp;            }
+<i class="no-highlight">1464</i>&nbsp;
+<i class="no-highlight">1465</i>&nbsp;            /* If the record has been deleted, the logrec is obsolete */
+<b class="nc"><i class="no-highlight">1466</i>&nbsp;            if (bin.isEntryKnownDeleted(index)) {</b>
+<b class="nc"><i class="no-highlight">1467</i>&nbsp;                nLNsDead.increment();</b>
+<b class="nc"><i class="no-highlight">1468</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1469</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1470</i>&nbsp;                return false;</b>
+<i class="no-highlight">1471</i>&nbsp;            }
+<i class="no-highlight">1472</i>&nbsp;
+<i class="no-highlight">1473</i>&nbsp;            /*
+<i class="no-highlight">1474</i>&nbsp;             * Get a non-blocking read lock on the LN.  A pending node is
+<i class="no-highlight">1475</i>&nbsp;             * already locked, but the original pending LSN may have changed.
+<i class="no-highlight">1476</i>&nbsp;             * We must lock the current LSN to guard against aborts.
+<i class="no-highlight">1477</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1478</i>&nbsp;            if (logLsn != treeLsn) {</b>
+<i class="no-highlight">1479</i>&nbsp;
+<b class="nc"><i class="no-highlight">1480</i>&nbsp;                locker = BasicLocker.createBasicLocker(env, false /*noWait*/);</b>
+<i class="no-highlight">1481</i>&nbsp;                /* Don&#39;t allow this short-lived lock to be preempted/stolen. */
+<b class="nc"><i class="no-highlight">1482</i>&nbsp;                locker.setPreemptable(false);</b>
+<i class="no-highlight">1483</i>&nbsp;
+<b class="nc"><i class="no-highlight">1484</i>&nbsp;                final LockResult lockRet = locker.nonBlockingLock(</b>
+<i class="no-highlight">1485</i>&nbsp;                    treeLsn, LockType.READ, false /*jumpAheadOfWaiters*/, db);
+<i class="no-highlight">1486</i>&nbsp;
+<b class="nc"><i class="no-highlight">1487</i>&nbsp;                if (lockRet.getLockGrant() == LockGrantType.DENIED) {</b>
+<i class="no-highlight">1488</i>&nbsp;
+<i class="no-highlight">1489</i>&nbsp;                    /*
+<i class="no-highlight">1490</i>&nbsp;                     * LN is currently locked by another Locker, so we can&#39;t
+<i class="no-highlight">1491</i>&nbsp;                     * assume anything about the value of the LSN in the bin.
+<i class="no-highlight">1492</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1493</i>&nbsp;                    nLNsLocked.increment();</b>
+<b class="nc"><i class="no-highlight">1494</i>&nbsp;                    completed = true;</b>
+<b class="nc"><i class="no-highlight">1495</i>&nbsp;                    return true;</b>
+<i class="no-highlight">1496</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1497</i>&nbsp;                    nLNsDead.increment();</b>
+<b class="nc"><i class="no-highlight">1498</i>&nbsp;                    obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1499</i>&nbsp;                    completed = true;</b>
+<b class="nc"><i class="no-highlight">1500</i>&nbsp;                    return false;</b>
+<i class="no-highlight">1501</i>&nbsp;                }
+<i class="no-highlight">1502</i>&nbsp;
+<b class="nc"><i class="no-highlight">1503</i>&nbsp;            } else if (bin.isEmbeddedLN(index)) {</b>
+<b class="nc"><i class="no-highlight">1504</i>&nbsp;                throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">1505</i>&nbsp;                    env,
+<i class="no-highlight">1506</i>&nbsp;                    &quot;LN is embedded although its associated logrec (at &quot; +
+<i class="no-highlight">1507</i>&nbsp;                    treeLsn + &quot; does not have the embedded flag on&quot;);
+<i class="no-highlight">1508</i>&nbsp;            }
+<i class="no-highlight">1509</i>&nbsp;
+<i class="no-highlight">1510</i>&nbsp;            /*
+<i class="no-highlight">1511</i>&nbsp;             * Get the ln so that we can log it to its new position.
+<i class="no-highlight">1512</i>&nbsp;             * Notice that the fetchLN() call below will return null if the
+<i class="no-highlight">1513</i>&nbsp;             * slot is defunct and the LN has been purged by the cleaner.
+<i class="no-highlight">1514</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1515</i>&nbsp;            ln = (LN) bin.getTarget(index);</b>
+<b class="nc"><i class="no-highlight">1516</i>&nbsp;            if (ln == null) {</b>
+<b class="nc"><i class="no-highlight">1517</i>&nbsp;                ln = bin.fetchLN(index, CacheMode.EVICT_LN);</b>
+<b class="nc"><i class="no-highlight">1518</i>&nbsp;                clearTarget = !db.getId().equals(DbTree.ID_DB_ID);</b>
+<i class="no-highlight">1519</i>&nbsp;            }
+<i class="no-highlight">1520</i>&nbsp;
+<i class="no-highlight">1521</i>&nbsp;            /* Don&#39;t migrate defunct LNs. */
+<b class="nc"><i class="no-highlight">1522</i>&nbsp;            if (ln == null || ln.isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">1523</i>&nbsp;                bin.setKnownDeletedAndEvictLN(index);</b>
+<b class="nc"><i class="no-highlight">1524</i>&nbsp;                nLNsDead.increment();</b>
+<b class="nc"><i class="no-highlight">1525</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1526</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1527</i>&nbsp;                return false;</b>
+<i class="no-highlight">1528</i>&nbsp;            }
+<i class="no-highlight">1529</i>&nbsp;
+<i class="no-highlight">1530</i>&nbsp;            /*
+<i class="no-highlight">1531</i>&nbsp;             * Migrate the LN.
+<i class="no-highlight">1532</i>&nbsp;             *
+<i class="no-highlight">1533</i>&nbsp;             * Do not pass a locker, because there is no need to lock the new
+<i class="no-highlight">1534</i>&nbsp;             * LSN, as done for user operations.  Another locker cannot attempt
+<i class="no-highlight">1535</i>&nbsp;             * to lock the new LSN until we&#39;re done, because we release the
+<i class="no-highlight">1536</i>&nbsp;             * lock before we release the BIN latch.
+<i class="no-highlight">1537</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1538</i>&nbsp;            final LogItem logItem = ln.log(</b>
+<i class="no-highlight">1539</i>&nbsp;                env, db, null /*locker*/, null /*writeLockInfo*/,
+<b class="nc"><i class="no-highlight">1540</i>&nbsp;                false /*newEmbeddedLN*/, bin.getKey(index),</b>
+<b class="nc"><i class="no-highlight">1541</i>&nbsp;                bin.getExpiration(index), bin.isExpirationInHours(),</b>
+<b class="nc"><i class="no-highlight">1542</i>&nbsp;                false /*currEmbeddedLN*/, treeLsn, bin.getLastLoggedSize(index),</b>
+<i class="no-highlight">1543</i>&nbsp;                false /*isInsertion*/, true /*backgroundIO*/,
+<b class="nc"><i class="no-highlight">1544</i>&nbsp;                getMigrationRepContext(ln));</b>
+<i class="no-highlight">1545</i>&nbsp;
+<b class="nc"><i class="no-highlight">1546</i>&nbsp;            bin.updateEntry(</b>
+<b class="nc"><i class="no-highlight">1547</i>&nbsp;                index, logItem.lsn, ln.getVLSNSequence(),</b>
+<i class="no-highlight">1548</i>&nbsp;                logItem.size);
+<i class="no-highlight">1549</i>&nbsp;
+<b class="nc"><i class="no-highlight">1550</i>&nbsp;            nLNsMigrated.increment();</b>
+<i class="no-highlight">1551</i>&nbsp;
+<i class="no-highlight">1552</i>&nbsp;            /* Lock new LSN on behalf of existing lockers. */
+<b class="nc"><i class="no-highlight">1553</i>&nbsp;            CursorImpl.lockAfterLsnChange(</b>
+<i class="no-highlight">1554</i>&nbsp;                db, treeLsn, logItem.lsn, null /*excludeLocker*/);
+<i class="no-highlight">1555</i>&nbsp;
+<b class="nc"><i class="no-highlight">1556</i>&nbsp;            migrated = true;</b>
+<b class="nc"><i class="no-highlight">1557</i>&nbsp;            completed = true;</b>
+<b class="nc"><i class="no-highlight">1558</i>&nbsp;            return false;</b>
+<i class="no-highlight">1559</i>&nbsp;
+<i class="no-highlight">1560</i>&nbsp;        } finally {
+<i class="no-highlight">1561</i>&nbsp;            /*
+<i class="no-highlight">1562</i>&nbsp;             * If the node was originally non-resident, evict it now so that we
+<i class="no-highlight">1563</i>&nbsp;             * don&#39;t create more work for the evictor and reduce the cache
+<i class="no-highlight">1564</i>&nbsp;             * memory available to the application.
+<i class="no-highlight">1565</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1566</i>&nbsp;            if (clearTarget) {</b>
+<b class="nc"><i class="no-highlight">1567</i>&nbsp;                bin.evictLN(index);</b>
+<i class="no-highlight">1568</i>&nbsp;            }
+<i class="no-highlight">1569</i>&nbsp;
+<b class="nc"><i class="no-highlight">1570</i>&nbsp;            if (locker != null) {</b>
+<b class="nc"><i class="no-highlight">1571</i>&nbsp;                locker.operationEnd();</b>
+<i class="no-highlight">1572</i>&nbsp;            }
+<i class="no-highlight">1573</i>&nbsp;
+<b class="nc"><i class="no-highlight">1574</i>&nbsp;            logFine(</b>
+<i class="no-highlight">1575</i>&nbsp;                CLEAN_PENDING_LN, ln, treeLsn, completed, obsolete, migrated);
+<b class="nc"><i class="no-highlight">1576</i>&nbsp;        }</b>
+<i class="no-highlight">1577</i>&nbsp;    }
+<i class="no-highlight">1578</i>&nbsp;
+<i class="no-highlight">1579</i>&nbsp;    /**
+<i class="no-highlight">1580</i>&nbsp;     * Returns the ReplicationContext to use for migrating the given LN.  If
+<i class="no-highlight">1581</i>&nbsp;     * VLSNs are preserved in this Environment then the VLSN is logically part
+<i class="no-highlight">1582</i>&nbsp;     * of the data record, and LN.getVLSNSequence will return the VLSN, which
+<i class="no-highlight">1583</i>&nbsp;     * should be included in the migrated LN.
+<i class="no-highlight">1584</i>&nbsp;     */
+<i class="no-highlight">1585</i>&nbsp;    static ReplicationContext getMigrationRepContext(LN ln) {
+<b class="nc"><i class="no-highlight">1586</i>&nbsp;        long vlsnSeq = ln.getVLSNSequence();</b>
+<b class="nc"><i class="no-highlight">1587</i>&nbsp;        if (vlsnSeq &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1588</i>&nbsp;            return ReplicationContext.NO_REPLICATE;</b>
+<i class="no-highlight">1589</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1590</i>&nbsp;        return new ReplicationContext(new VLSN(vlsnSeq),</b>
+<i class="no-highlight">1591</i>&nbsp;                                      false /*inReplicationStream*/);
+<i class="no-highlight">1592</i>&nbsp;    }
+<i class="no-highlight">1593</i>&nbsp;
+<i class="no-highlight">1594</i>&nbsp;    /**
+<i class="no-highlight">1595</i>&nbsp;     * Adds the DB ID to the pending DB set if it is being deleted but deletion
+<i class="no-highlight">1596</i>&nbsp;     * is not yet complete.
+<i class="no-highlight">1597</i>&nbsp;     */
+<i class="no-highlight">1598</i>&nbsp;    void addPendingDB(DatabaseImpl db) {
+<b class="nc"><i class="no-highlight">1599</i>&nbsp;        if (db != null &amp;&amp; db.isDeleted() &amp;&amp; !db.isDeleteFinished()) {</b>
+<b class="nc"><i class="no-highlight">1600</i>&nbsp;            DatabaseId id = db.getId();</b>
+<b class="nc"><i class="no-highlight">1601</i>&nbsp;            if (fileSelector.addPendingDB(id)) {</b>
+<b class="nc"><i class="no-highlight">1602</i>&nbsp;                LoggerUtils.logMsg(logger, env, Level.FINE,</b>
+<i class="no-highlight">1603</i>&nbsp;                                   &quot;CleanAddPendingDB &quot; + id);
+<i class="no-highlight">1604</i>&nbsp;            }
+<i class="no-highlight">1605</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1606</i>&nbsp;    }</b>
+<i class="no-highlight">1607</i>&nbsp;
+<i class="no-highlight">1608</i>&nbsp;    /**
+<i class="no-highlight">1609</i>&nbsp;     * Send trace messages to the java.util.logger. Don&#39;t rely on the logger
+<i class="no-highlight">1610</i>&nbsp;     * alone to conditionalize whether we send this message, we don&#39;t even want
+<i class="no-highlight">1611</i>&nbsp;     * to construct the message if the level is not enabled.
+<i class="no-highlight">1612</i>&nbsp;     */
+<i class="no-highlight">1613</i>&nbsp;    void logFine(String action,
+<i class="no-highlight">1614</i>&nbsp;               Node node,
+<i class="no-highlight">1615</i>&nbsp;               long logLsn,
+<i class="no-highlight">1616</i>&nbsp;               boolean completed,
+<i class="no-highlight">1617</i>&nbsp;               boolean obsolete,
+<i class="no-highlight">1618</i>&nbsp;               boolean dirtiedMigrated) {
+<i class="no-highlight">1619</i>&nbsp;
+<b class="nc"><i class="no-highlight">1620</i>&nbsp;        if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">1621</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1622</i>&nbsp;            sb.append(action);</b>
+<b class="nc"><i class="no-highlight">1623</i>&nbsp;            if (node instanceof IN) {</b>
+<b class="nc"><i class="no-highlight">1624</i>&nbsp;                sb.append(&quot; node=&quot;);</b>
+<b class="nc"><i class="no-highlight">1625</i>&nbsp;                sb.append(((IN) node).getNodeId());</b>
+<i class="no-highlight">1626</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1627</i>&nbsp;            sb.append(&quot; logLsn=&quot;);</b>
+<b class="nc"><i class="no-highlight">1628</i>&nbsp;            sb.append(DbLsn.getNoFormatString(logLsn));</b>
+<b class="nc"><i class="no-highlight">1629</i>&nbsp;            sb.append(&quot; complete=&quot;).append(completed);</b>
+<b class="nc"><i class="no-highlight">1630</i>&nbsp;            sb.append(&quot; obsolete=&quot;).append(obsolete);</b>
+<b class="nc"><i class="no-highlight">1631</i>&nbsp;            sb.append(&quot; dirtiedOrMigrated=&quot;).append(dirtiedMigrated);</b>
+<i class="no-highlight">1632</i>&nbsp;
+<b class="nc"><i class="no-highlight">1633</i>&nbsp;            LoggerUtils.logMsg(logger, env, Level.FINE, sb.toString());</b>
+<i class="no-highlight">1634</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1635</i>&nbsp;    }</b>
+<i class="no-highlight">1636</i>&nbsp;
+<i class="no-highlight">1637</i>&nbsp;    /**
+<i class="no-highlight">1638</i>&nbsp;     * Release resources and update memory budget. Should only be called
+<i class="no-highlight">1639</i>&nbsp;     * when this environment is closed and will never be accessed again.
+<i class="no-highlight">1640</i>&nbsp;     */
+<i class="no-highlight">1641</i>&nbsp;    public void close() {
+<b class="fc"><i class="no-highlight">1642</i>&nbsp;        profile.close();</b>
+<b class="fc"><i class="no-highlight">1643</i>&nbsp;        tracker.close();</b>
+<b class="fc"><i class="no-highlight">1644</i>&nbsp;        fileSelector.close(env.getMemoryBudget());</b>
+<b class="fc"><i class="no-highlight">1645</i>&nbsp;    }</b>
+<i class="no-highlight">1646</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

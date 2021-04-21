@@ -1,0 +1,585 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FileSummaryLN</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.tree</a>
+</div>
+
+<h1>Coverage Summary for Class: FileSummaryLN (com.sleepycat.je.tree)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FileSummaryLN</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    43.3%
+  </span>
+  <span class="absValue">
+    (13/30)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    48.7%
+  </span>
+  <span class="absValue">
+    (57/117)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.tree;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.cleaner.FileSummary;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.cleaner.PackedOffsets;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.cleaner.TrackedFileSummary;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.log.LogUtils;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.log.Loggable;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.utilint.StringUtils;
+<i class="no-highlight">28</i>&nbsp;
+<i class="no-highlight">29</i>&nbsp;/**
+<i class="no-highlight">30</i>&nbsp; * A FileSummaryLN represents a Leaf Node in the UtilizationProfile database.
+<i class="no-highlight">31</i>&nbsp; *
+<i class="no-highlight">32</i>&nbsp; * &lt;p&gt;The contents of the FileSummaryLN are not fixed until the moment at which
+<i class="no-highlight">33</i>&nbsp; * the LN is added to the log.  A base summary object contains the summary last
+<i class="no-highlight">34</i>&nbsp; * added to the log.  A tracked summary object contains live summary info being
+<i class="no-highlight">35</i>&nbsp; * updated in real time.  The tracked summary is added to the base summary just
+<i class="no-highlight">36</i>&nbsp; * before logging it, and then the tracked summary is reset.  This ensures that
+<i class="no-highlight">37</i>&nbsp; * the logged summary will accurately reflect the totals calculated at the
+<i class="no-highlight">38</i>&nbsp; * point in the log where the LN is added.&lt;/p&gt;
+<i class="no-highlight">39</i>&nbsp; *
+<i class="no-highlight">40</i>&nbsp; * &lt;p&gt;This is all done in the writeToLog method, which operates under the log
+<i class="no-highlight">41</i>&nbsp; * write latch.  All utilization tracking must be done under the log write
+<i class="no-highlight">42</i>&nbsp; * latch.&lt;/p&gt;
+<i class="no-highlight">43</i>&nbsp; *
+<i class="no-highlight">44</i>&nbsp; * &lt;p&gt;In record version 1, obsolete offset tracking was added and multiple
+<i class="no-highlight">45</i>&nbsp; * records are stored for a single file rather than a single record.  Each
+<i class="no-highlight">46</i>&nbsp; * record contains the offsets that were tracked since the last record was
+<i class="no-highlight">47</i>&nbsp; * written.
+<i class="no-highlight">48</i>&nbsp; *
+<i class="no-highlight">49</i>&nbsp; * &lt;p&gt;The key is 8 bytes: 4 bytes for the file number followed by 4 bytes for
+<i class="no-highlight">50</i>&nbsp; * the sequence number.  The lowest valued key for a given file contains the
+<i class="no-highlight">51</i>&nbsp; * most recent summary information, while to get a complete list of obsolete
+<i class="no-highlight">52</i>&nbsp; * offsets all records for the file must be read.  A range search using just
+<i class="no-highlight">53</i>&nbsp; * the first 4 bytes can be used to find the most recent record -- this is
+<i class="no-highlight">54</i>&nbsp; * possible because the sequence number values are decreasing over time for a
+<i class="no-highlight">55</i>&nbsp; * given file.  Here are example keys for three summary records in file 1:&lt;/p&gt;
+<i class="no-highlight">56</i>&nbsp; *
+<i class="no-highlight">57</i>&nbsp; * &lt;pre&gt;
+<i class="no-highlight">58</i>&nbsp; * (file=1, sequence=Integer.MAX_VALUE - 300)
+<i class="no-highlight">59</i>&nbsp; * (file=1, sequence=Integer.MAX_VALUE - 200)
+<i class="no-highlight">60</i>&nbsp; * (file=1, sequence=Integer.MAX_VALUE - 100)
+<i class="no-highlight">61</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; * &lt;p&gt;The sequence number is the number of obsolete entries counted so far,
+<i class="no-highlight">64</i>&nbsp; * subtracted from Integer.MAX_VALUE to cause the latest written record to have
+<i class="no-highlight">65</i>&nbsp; * the lowest key.&lt;/p&gt;
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; * &lt;h3&gt;Log version information&lt;/h3&gt;
+<i class="no-highlight">68</i>&nbsp; * &lt;p&gt;Version 0: Keys are old format strings. No obsolete detail is
+<i class="no-highlight">69</i>&nbsp; * present.&lt;/p&gt;
+<i class="no-highlight">70</i>&nbsp; * &lt;p&gt;Version 1: Keys are two 4 byte integers: {file, sequence}.  Obsolete
+<i class="no-highlight">71</i>&nbsp; * detail is present.  Some offsets may be invalid if RMW was used.&lt;/p&gt;
+<i class="no-highlight">72</i>&nbsp; * &lt;p&gt;Version 2: The RMW problem with invalid offsets was corrected.  There is
+<i class="no-highlight">73</i>&nbsp; * no data format change; all versions of JE 2.0.x can read version 1.&lt;/p&gt;
+<i class="no-highlight">74</i>&nbsp; *
+<i class="no-highlight">75</i>&nbsp; * @see com.sleepycat.je.cleaner.UtilizationProfile
+<i class="no-highlight">76</i>&nbsp; */
+<b class="fc"><i class="no-highlight">77</i>&nbsp;public final class FileSummaryLN extends LN {</b>
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    private static final String BEGIN_TAG = &quot;&lt;fileSummaryLN&gt;&quot;;
+<i class="no-highlight">80</i>&nbsp;    private static final String END_TAG = &quot;&lt;/fileSummaryLN&gt;&quot;;
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    private int extraMarshaledMemorySize;
+<i class="no-highlight">83</i>&nbsp;    private final FileSummary baseSummary;
+<i class="no-highlight">84</i>&nbsp;    private TrackedFileSummary trackedSummary;
+<i class="no-highlight">85</i>&nbsp;    private PackedOffsets obsoleteOffsets;
+<i class="no-highlight">86</i>&nbsp;    private boolean needOffsets;
+<i class="no-highlight">87</i>&nbsp;    private int entryVersion;
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;    /**
+<i class="no-highlight">90</i>&nbsp;     * Creates a new LN with a given base summary.
+<i class="no-highlight">91</i>&nbsp;     */
+<i class="no-highlight">92</i>&nbsp;    public FileSummaryLN(FileSummary baseSummary) {
+<b class="fc"><i class="no-highlight">93</i>&nbsp;        super(new byte[0]);</b>
+<b class="fc"><i class="no-highlight">94</i>&nbsp;        assert baseSummary != null;</b>
+<b class="fc"><i class="no-highlight">95</i>&nbsp;        this.baseSummary = baseSummary;</b>
+<b class="fc"><i class="no-highlight">96</i>&nbsp;        obsoleteOffsets = new PackedOffsets();</b>
+<b class="fc"><i class="no-highlight">97</i>&nbsp;        entryVersion = -1;</b>
+<b class="fc"><i class="no-highlight">98</i>&nbsp;    }</b>
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;    /**
+<i class="no-highlight">101</i>&nbsp;     * Creates an empty LN to be filled in from the log.
+<i class="no-highlight">102</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">103</i>&nbsp;    public FileSummaryLN() {</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        baseSummary = new FileSummary();</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        obsoleteOffsets = new PackedOffsets();</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;    }</b>
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    /**
+<i class="no-highlight">109</i>&nbsp;     * Creates a deleted FileSummaryLN.
+<i class="no-highlight">110</i>&nbsp;     *
+<i class="no-highlight">111</i>&nbsp;     * @param deletedMarker makes this constructor signature unique, the value
+<i class="no-highlight">112</i>&nbsp;     * passed doesn&#39;t matter.
+<i class="no-highlight">113</i>&nbsp;     */
+<i class="no-highlight">114</i>&nbsp;    private FileSummaryLN(boolean deletedMarker) {
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        super((byte[]) null);</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        baseSummary = new FileSummary();</b>
+<b class="nc"><i class="no-highlight">117</i>&nbsp;        obsoleteOffsets = new PackedOffsets();</b>
+<b class="nc"><i class="no-highlight">118</i>&nbsp;    }</b>
+<i class="no-highlight">119</i>&nbsp;
+<i class="no-highlight">120</i>&nbsp;    /**
+<i class="no-highlight">121</i>&nbsp;     * Creates a deleted FileSummaryLN.
+<i class="no-highlight">122</i>&nbsp;     */
+<i class="no-highlight">123</i>&nbsp;    public static LN makeDeletedLN() {
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        return new FileSummaryLN(true /*deletedMarker*/);</b>
+<i class="no-highlight">125</i>&nbsp;    }
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;    /**
+<i class="no-highlight">128</i>&nbsp;     * Sets the live summary object that will be added to the base summary at
+<i class="no-highlight">129</i>&nbsp;     * the time the LN is logged.
+<i class="no-highlight">130</i>&nbsp;     */
+<i class="no-highlight">131</i>&nbsp;    public void setTrackedSummary(TrackedFileSummary trackedSummary) {
+<b class="fc"><i class="no-highlight">132</i>&nbsp;        this.trackedSummary = trackedSummary;</b>
+<b class="fc"><i class="no-highlight">133</i>&nbsp;        needOffsets = true;</b>
+<b class="fc"><i class="no-highlight">134</i>&nbsp;    }</b>
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    /**
+<i class="no-highlight">137</i>&nbsp;     * Returns the tracked summary, or null if setTrackedSummary was not
+<i class="no-highlight">138</i>&nbsp;     * called.
+<i class="no-highlight">139</i>&nbsp;     */
+<i class="no-highlight">140</i>&nbsp;    public TrackedFileSummary getTrackedSummary() {
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        return trackedSummary;</b>
+<i class="no-highlight">142</i>&nbsp;    }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    /**
+<i class="no-highlight">145</i>&nbsp;     * Returns the base summary for the file that is stored in the LN.
+<i class="no-highlight">146</i>&nbsp;     */
+<i class="no-highlight">147</i>&nbsp;    public FileSummary getBaseSummary() {
+<b class="fc"><i class="no-highlight">148</i>&nbsp;        return baseSummary;</b>
+<i class="no-highlight">149</i>&nbsp;    }
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;    /**
+<i class="no-highlight">152</i>&nbsp;     * Returns the obsolete offsets for the file.
+<i class="no-highlight">153</i>&nbsp;     */
+<i class="no-highlight">154</i>&nbsp;    public PackedOffsets getObsoleteOffsets() {
+<b class="fc"><i class="no-highlight">155</i>&nbsp;        return obsoleteOffsets;</b>
+<i class="no-highlight">156</i>&nbsp;    }
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * Returns true if the given key for this LN is a String file number key.
+<i class="no-highlight">160</i>&nbsp;     * For the old version of the LN there will be a single record per file.
+<i class="no-highlight">161</i>&nbsp;     *
+<i class="no-highlight">162</i>&nbsp;     * If this is a version 0 log entry, the key is a string.  However, such an
+<i class="no-highlight">163</i>&nbsp;     * LN may be migrated by the cleaner, in which case the version will be 1
+<i class="no-highlight">164</i>&nbsp;     * or greater [#13061].  In the latter case, we can distinguish a string
+<i class="no-highlight">165</i>&nbsp;     * key by:
+<i class="no-highlight">166</i>&nbsp;     *
+<i class="no-highlight">167</i>&nbsp;     * 1) If the key is not 8 bytes long, it has to be a string key.
+<i class="no-highlight">168</i>&nbsp;     *
+<i class="no-highlight">169</i>&nbsp;     * 2) If the key is 8 bytes long, but bytes[4] is ascii &quot;0&quot; to &quot;9&quot;, then it
+<i class="no-highlight">170</i>&nbsp;     * must be a string key.  bytes[4] to bytes[7] are a sequence number that
+<i class="no-highlight">171</i>&nbsp;     * is the number of log entries counted.  For this number to be greater
+<i class="no-highlight">172</i>&nbsp;     * than 0x30000000, the binary value of 4 digits starting with ascii &quot;0&quot;,
+<i class="no-highlight">173</i>&nbsp;     * over 400 million log entries would have to occur in a single file; this
+<i class="no-highlight">174</i>&nbsp;     * should never happen.
+<i class="no-highlight">175</i>&nbsp;     *
+<i class="no-highlight">176</i>&nbsp;     * Note that having to rely on method (2) is unlikely.  A string key will
+<i class="no-highlight">177</i>&nbsp;     * only be 8 bytes if the file number reach 8 decimal digits (10,000,000 to
+<i class="no-highlight">178</i>&nbsp;     * 99,999,999).  This is a very large file number and unlikely to have
+<i class="no-highlight">179</i>&nbsp;     * occurred using JE 1.7.1 or earlier.
+<i class="no-highlight">180</i>&nbsp;     *
+<i class="no-highlight">181</i>&nbsp;     * In summary, the only time the algorithm here could fail is if there were
+<i class="no-highlight">182</i>&nbsp;     * more than 400 million log entries per file, and more than 10 million
+<i class="no-highlight">183</i>&nbsp;     * were written with JE 1.7.1 or earlier.
+<i class="no-highlight">184</i>&nbsp;     */
+<i class="no-highlight">185</i>&nbsp;    public static boolean hasStringKey(byte[] bytes) {
+<i class="no-highlight">186</i>&nbsp;
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        if (bytes.length != 8) {</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;            return true;</b>
+<i class="no-highlight">189</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">190</i>&nbsp;           return (bytes[4] &gt;= &#39;0&#39; &amp;&amp; bytes[4] &lt;= &#39;9&#39;);</b>
+<i class="no-highlight">191</i>&nbsp;        }
+<i class="no-highlight">192</i>&nbsp;    }
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;    /**
+<i class="no-highlight">195</i>&nbsp;     * Convert a FileSummaryLN key from a byte array to a long.  The file
+<i class="no-highlight">196</i>&nbsp;     * number is the first 4 bytes of the key.
+<i class="no-highlight">197</i>&nbsp;     */
+<i class="no-highlight">198</i>&nbsp;    public static long getFileNumber(byte[] bytes) {
+<i class="no-highlight">199</i>&nbsp;
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        if (hasStringKey(bytes)) {</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;            return Long.valueOf(StringUtils.fromUTF8(bytes)).longValue();</b>
+<i class="no-highlight">202</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">203</i>&nbsp;            ByteBuffer buf = ByteBuffer.wrap(bytes);</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            return LogUtils.readIntMSB(buf) &amp; 0xFFFFFFFFL;</b>
+<i class="no-highlight">205</i>&nbsp;        }
+<i class="no-highlight">206</i>&nbsp;    }
+<i class="no-highlight">207</i>&nbsp;
+<i class="no-highlight">208</i>&nbsp;    /**
+<i class="no-highlight">209</i>&nbsp;     * Get the sequence number from the byte array. The sequence number is the
+<i class="no-highlight">210</i>&nbsp;     * last 4 bytes of the key.
+<i class="no-highlight">211</i>&nbsp;     */
+<i class="no-highlight">212</i>&nbsp;    private static long getSequence(byte[] bytes) {
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        if (hasStringKey(bytes)) {</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;            return 0;</b>
+<i class="no-highlight">215</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">216</i>&nbsp;            ByteBuffer buf = ByteBuffer.wrap(bytes);</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            LogUtils.readIntMSB(buf);</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            return </b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                (Integer.MAX_VALUE - LogUtils.readIntMSB(buf)) &amp; 0xFFFFFFFFL;</b>
+<i class="no-highlight">220</i>&nbsp;        }
+<i class="no-highlight">221</i>&nbsp;    }
+<i class="no-highlight">222</i>&nbsp;
+<i class="no-highlight">223</i>&nbsp;    /**
+<i class="no-highlight">224</i>&nbsp;     * Returns the first 4 bytes of the key for the given file number.  This
+<i class="no-highlight">225</i>&nbsp;     * can be used to do a range search to find the first LN for the file.
+<i class="no-highlight">226</i>&nbsp;     */
+<i class="no-highlight">227</i>&nbsp;    public static byte[] makePartialKey(long fileNum) {
+<i class="no-highlight">228</i>&nbsp;
+<b class="fc"><i class="no-highlight">229</i>&nbsp;        byte[] bytes = new byte[4];</b>
+<b class="fc"><i class="no-highlight">230</i>&nbsp;        ByteBuffer buf = ByteBuffer.wrap(bytes);</b>
+<i class="no-highlight">231</i>&nbsp;
+<b class="fc"><i class="no-highlight">232</i>&nbsp;        LogUtils.writeIntMSB(buf, (int) fileNum);</b>
+<i class="no-highlight">233</i>&nbsp;
+<b class="fc"><i class="no-highlight">234</i>&nbsp;        return bytes;</b>
+<i class="no-highlight">235</i>&nbsp;    }
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    /**
+<i class="no-highlight">238</i>&nbsp;     * Returns the full two-part key for a given file number and unique
+<i class="no-highlight">239</i>&nbsp;     * sequence.  This can be used to insert a new LN.
+<i class="no-highlight">240</i>&nbsp;     *
+<i class="no-highlight">241</i>&nbsp;     * @param sequence is a unique identifier for the LN for the given file,
+<i class="no-highlight">242</i>&nbsp;     * and must be greater than the last sequence.
+<i class="no-highlight">243</i>&nbsp;     */
+<i class="no-highlight">244</i>&nbsp;    public static byte[] makeFullKey(long fileNum, int sequence) {
+<i class="no-highlight">245</i>&nbsp;
+<b class="fc"><i class="no-highlight">246</i>&nbsp;        assert sequence &gt;= 0;</b>
+<i class="no-highlight">247</i>&nbsp;
+<b class="fc"><i class="no-highlight">248</i>&nbsp;        byte[] bytes = new byte[8];</b>
+<b class="fc"><i class="no-highlight">249</i>&nbsp;        ByteBuffer buf = ByteBuffer.wrap(bytes);</b>
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;        /*
+<i class="no-highlight">252</i>&nbsp;         * The sequence is subtracted from MAX_VALUE so that increasing values
+<i class="no-highlight">253</i>&nbsp;         * will be sorted first.  This allows a simple range search to find the
+<i class="no-highlight">254</i>&nbsp;         * most recent value.
+<i class="no-highlight">255</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">256</i>&nbsp;        LogUtils.writeIntMSB(buf, (int) fileNum);</b>
+<b class="fc"><i class="no-highlight">257</i>&nbsp;        LogUtils.writeIntMSB(buf, Integer.MAX_VALUE - sequence);</b>
+<i class="no-highlight">258</i>&nbsp;
+<b class="fc"><i class="no-highlight">259</i>&nbsp;        return bytes;</b>
+<i class="no-highlight">260</i>&nbsp;    }
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;    /**
+<i class="no-highlight">263</i>&nbsp;     * Initialize a node that has been faulted in from the log.  If this FSLN
+<i class="no-highlight">264</i>&nbsp;     * contains version 1 offsets that can be incorrect when RMW was used, and
+<i class="no-highlight">265</i>&nbsp;     * if je.cleaner.rmwFix is enabled, discard the offsets.  [#13158]
+<i class="no-highlight">266</i>&nbsp;     */
+<i class="no-highlight">267</i>&nbsp;    @Override
+<i class="no-highlight">268</i>&nbsp;    public void postFetchInit(DatabaseImpl db, long sourceLsn)
+<i class="no-highlight">269</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">270</i>&nbsp;
+<b class="nc"><i class="no-highlight">271</i>&nbsp;        super.postFetchInit(db, sourceLsn);</b>
+<i class="no-highlight">272</i>&nbsp;
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        if (entryVersion == 1 &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            db.getEnv().getCleaner().isRMWFixEnabled()) {</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            obsoleteOffsets = new PackedOffsets();</b>
+<i class="no-highlight">276</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">277</i>&nbsp;    }</b>
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;    /*
+<i class="no-highlight">280</i>&nbsp;     * Dumping
+<i class="no-highlight">281</i>&nbsp;     */
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;    @Override
+<i class="no-highlight">284</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        return dumpString(0, true);</b>
+<i class="no-highlight">286</i>&nbsp;    }
+<i class="no-highlight">287</i>&nbsp;
+<i class="no-highlight">288</i>&nbsp;    @Override
+<i class="no-highlight">289</i>&nbsp;    public String beginTag() {
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        return BEGIN_TAG;</b>
+<i class="no-highlight">291</i>&nbsp;    }
+<i class="no-highlight">292</i>&nbsp;
+<i class="no-highlight">293</i>&nbsp;    @Override
+<i class="no-highlight">294</i>&nbsp;    public String endTag() {
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        return END_TAG;</b>
+<i class="no-highlight">296</i>&nbsp;    }
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    @Override
+<i class="no-highlight">299</i>&nbsp;    public String dumpString(int nSpaces, boolean dumpTags) {
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        sb.append(super.dumpString(nSpaces, dumpTags));</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;        sb.append(&#39;\n&#39;);</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        if (!isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            sb.append(baseSummary.toString());</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            sb.append(obsoleteOffsets.toString());</b>
+<i class="no-highlight">306</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">308</i>&nbsp;    }
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;    /**
+<i class="no-highlight">311</i>&nbsp;     * Dump additional fields. Done this way so the additional info can
+<i class="no-highlight">312</i>&nbsp;     * be within the XML tags defining the dumped log entry.
+<i class="no-highlight">313</i>&nbsp;     */
+<i class="no-highlight">314</i>&nbsp;    @Override
+<i class="no-highlight">315</i>&nbsp;    protected void dumpLogAdditional(StringBuilder sb, boolean verbose) {
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        if (!isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            baseSummary.dumpLog(sb, true);</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            if (verbose) {</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;                obsoleteOffsets.dumpLog(sb, true);</b>
+<i class="no-highlight">320</i>&nbsp;            }
+<i class="no-highlight">321</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">322</i>&nbsp;    }</b>
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    /*
+<i class="no-highlight">325</i>&nbsp;     * Logging
+<i class="no-highlight">326</i>&nbsp;     */
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;    /**
+<i class="no-highlight">329</i>&nbsp;     * Return the correct log type for a FileSummaryLN. 
+<i class="no-highlight">330</i>&nbsp;     *
+<i class="no-highlight">331</i>&nbsp;     * Note: FileSummaryLN will never be transactional.
+<i class="no-highlight">332</i>&nbsp;     */
+<i class="no-highlight">333</i>&nbsp;    @Override
+<i class="no-highlight">334</i>&nbsp;    protected LogEntryType getLogType(boolean isInsert,
+<i class="no-highlight">335</i>&nbsp;                                      boolean isTransactional,
+<i class="no-highlight">336</i>&nbsp;                                      DatabaseImpl db) {
+<b class="fc"><i class="no-highlight">337</i>&nbsp;        assert !isTransactional : &quot;Txnl access to UP db not allowed&quot;;</b>
+<i class="no-highlight">338</i>&nbsp;
+<b class="fc"><i class="no-highlight">339</i>&nbsp;        return LogEntryType.LOG_FILESUMMARYLN;</b>
+<i class="no-highlight">340</i>&nbsp;    }
+<i class="no-highlight">341</i>&nbsp;
+<i class="no-highlight">342</i>&nbsp;    /**
+<i class="no-highlight">343</i>&nbsp;     * This log entry type is configured to perform marshaling (getLogSize and
+<i class="no-highlight">344</i>&nbsp;     * writeToLog) under the write log mutex.  Otherwise, the size could change
+<i class="no-highlight">345</i>&nbsp;     * in between calls to these two methods as the result of utilizaton
+<i class="no-highlight">346</i>&nbsp;     * tracking.
+<i class="no-highlight">347</i>&nbsp;     */
+<i class="no-highlight">348</i>&nbsp;    @Override
+<i class="no-highlight">349</i>&nbsp;    public int getLogSize(final int logVersion, final boolean forReplication) {
+<b class="fc"><i class="no-highlight">350</i>&nbsp;        int size = super.getLogSize(logVersion, forReplication);</b>
+<b class="fc"><i class="no-highlight">351</i>&nbsp;        if (!isDeleted()) {</b>
+<b class="fc"><i class="no-highlight">352</i>&nbsp;            size += baseSummary.getLogSize();</b>
+<b class="fc"><i class="no-highlight">353</i>&nbsp;            getOffsets();</b>
+<b class="fc"><i class="no-highlight">354</i>&nbsp;            size += obsoleteOffsets.getLogSize();</b>
+<i class="no-highlight">355</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">356</i>&nbsp;        return size;</b>
+<i class="no-highlight">357</i>&nbsp;    }
+<i class="no-highlight">358</i>&nbsp;
+<i class="no-highlight">359</i>&nbsp;    @Override
+<i class="no-highlight">360</i>&nbsp;    public void writeToLog(final ByteBuffer logBuffer,
+<i class="no-highlight">361</i>&nbsp;                           final int logVersion,
+<i class="no-highlight">362</i>&nbsp;                           final boolean forReplication) {
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;        /*
+<i class="no-highlight">365</i>&nbsp;         * Add the tracked (live) summary to the base summary before writing it
+<i class="no-highlight">366</i>&nbsp;         * to the log, and reset the tracked summary.  When deleting the LN,
+<i class="no-highlight">367</i>&nbsp;         * the tracked summary is cleared explicitly and will be null.
+<i class="no-highlight">368</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">369</i>&nbsp;        if (trackedSummary != null &amp;&amp; !isDeleted()) {</b>
+<b class="fc"><i class="no-highlight">370</i>&nbsp;            baseSummary.add(trackedSummary);</b>
+<b class="fc"><i class="no-highlight">371</i>&nbsp;            getOffsets();</b>
+<i class="no-highlight">372</i>&nbsp;            /* Reset the totals to zero and clear the tracked offsets. */
+<b class="fc"><i class="no-highlight">373</i>&nbsp;            trackedSummary.reset();</b>
+<i class="no-highlight">374</i>&nbsp;        }
+<i class="no-highlight">375</i>&nbsp;
+<b class="fc"><i class="no-highlight">376</i>&nbsp;        super.writeToLog(logBuffer, logVersion, forReplication);</b>
+<i class="no-highlight">377</i>&nbsp;
+<b class="fc"><i class="no-highlight">378</i>&nbsp;        if (!isDeleted()) {</b>
+<b class="fc"><i class="no-highlight">379</i>&nbsp;            baseSummary.writeToLog(logBuffer);</b>
+<b class="fc"><i class="no-highlight">380</i>&nbsp;            obsoleteOffsets.writeToLog(logBuffer);</b>
+<i class="no-highlight">381</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">382</i>&nbsp;    }</b>
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;    @Override
+<i class="no-highlight">385</i>&nbsp;    public void readFromLog(ByteBuffer itemBuffer, int entryVersion) {
+<i class="no-highlight">386</i>&nbsp;
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        this.entryVersion = entryVersion;</b>
+<i class="no-highlight">388</i>&nbsp;
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        super.readFromLog(itemBuffer, entryVersion);</b>
+<i class="no-highlight">390</i>&nbsp;
+<b class="nc"><i class="no-highlight">391</i>&nbsp;        if (!isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;            baseSummary.readFromLog(itemBuffer, entryVersion);</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            if (entryVersion &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;                obsoleteOffsets.readFromLog(itemBuffer, entryVersion);</b>
+<i class="no-highlight">395</i>&nbsp;            }
+<i class="no-highlight">396</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">397</i>&nbsp;    }</b>
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;    /**
+<i class="no-highlight">400</i>&nbsp;     * Should never be replicated.
+<i class="no-highlight">401</i>&nbsp;     */
+<i class="no-highlight">402</i>&nbsp;    @Override
+<i class="no-highlight">403</i>&nbsp;    public boolean logicalEquals(Loggable other) {
+<b class="nc"><i class="no-highlight">404</i>&nbsp;        return false;</b>
+<i class="no-highlight">405</i>&nbsp;    }
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;    /**
+<i class="no-highlight">408</i>&nbsp;     * If tracked offsets may be present, get them so they are ready to be
+<i class="no-highlight">409</i>&nbsp;     * written to the log.
+<i class="no-highlight">410</i>&nbsp;     */
+<i class="no-highlight">411</i>&nbsp;    private void getOffsets() {
+<b class="fc"><i class="no-highlight">412</i>&nbsp;        assert !isDeleted();</b>
+<b class="fc"><i class="no-highlight">413</i>&nbsp;        if (needOffsets) {</b>
+<b class="fc"><i class="no-highlight">414</i>&nbsp;            long[] offsets = trackedSummary.getObsoleteOffsets();</b>
+<b class="fc"><i class="no-highlight">415</i>&nbsp;            if (offsets != null) {</b>
+<b class="fc"><i class="no-highlight">416</i>&nbsp;                int oldSize = obsoleteOffsets.getExtraMemorySize();</b>
+<b class="fc"><i class="no-highlight">417</i>&nbsp;                obsoleteOffsets.pack(offsets);</b>
+<b class="fc"><i class="no-highlight">418</i>&nbsp;                int newSize = obsoleteOffsets.getExtraMemorySize();</b>
+<b class="fc"><i class="no-highlight">419</i>&nbsp;                extraMarshaledMemorySize = newSize - oldSize;</b>
+<i class="no-highlight">420</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">421</i>&nbsp;            needOffsets = false;</b>
+<i class="no-highlight">422</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">423</i>&nbsp;    }</b>
+<i class="no-highlight">424</i>&nbsp;
+<i class="no-highlight">425</i>&nbsp;    /**
+<i class="no-highlight">426</i>&nbsp;     * Overrides this method to add space occupied by this object&#39;s fields.
+<i class="no-highlight">427</i>&nbsp;     */
+<i class="no-highlight">428</i>&nbsp;    @Override
+<i class="no-highlight">429</i>&nbsp;    public long getMemorySizeIncludedByParent() {
+<b class="fc"><i class="no-highlight">430</i>&nbsp;        return super.getMemorySizeIncludedByParent() +</b>
+<i class="no-highlight">431</i>&nbsp;               (MemoryBudget.FILESUMMARYLN_OVERHEAD -
+<i class="no-highlight">432</i>&nbsp;                MemoryBudget.LN_OVERHEAD) +
+<b class="fc"><i class="no-highlight">433</i>&nbsp;               obsoleteOffsets.getExtraMemorySize();</b>
+<i class="no-highlight">434</i>&nbsp;    }
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;    /**
+<i class="no-highlight">437</i>&nbsp;     * Clear out the obsoleteOffsets to save memory when the LN is deleted.
+<i class="no-highlight">438</i>&nbsp;     */
+<i class="no-highlight">439</i>&nbsp;    @Override
+<i class="no-highlight">440</i>&nbsp;    void makeDeleted() {
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        super.makeDeleted();</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;        obsoleteOffsets = new PackedOffsets();</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;    }</b>
+<i class="no-highlight">444</i>&nbsp;
+<i class="no-highlight">445</i>&nbsp;    /**
+<i class="no-highlight">446</i>&nbsp;     * Adds the extra memory used by obsoleteOffsets to the parent BIN memory
+<i class="no-highlight">447</i>&nbsp;     * size. Must be called after LN is inserted into the BIN and logged,
+<i class="no-highlight">448</i>&nbsp;     * while the cursor is still positioned on the inserted LN.  The BIN must
+<i class="no-highlight">449</i>&nbsp;     * be latched.  [#17462]
+<i class="no-highlight">450</i>&nbsp;     *
+<i class="no-highlight">451</i>&nbsp;     * &lt;p&gt;The obsoleteOffsets memory size is not intially budgeted in the usual
+<i class="no-highlight">452</i>&nbsp;     * way because PackedOffsets.pack (which changes the memory size) is called
+<i class="no-highlight">453</i>&nbsp;     * during marshalling (see getOffset).  This amount is not counted in the
+<i class="no-highlight">454</i>&nbsp;     * parent IN size in the usual way, because LN logging / marshalling occurs
+<i class="no-highlight">455</i>&nbsp;     * after the LN is inserted in the BIN and its memory size has been counted
+<i class="no-highlight">456</i>&nbsp;     * (see CursorImpl.putInternal).&lt;/p&gt;
+<i class="no-highlight">457</i>&nbsp;     * 
+<i class="no-highlight">458</i>&nbsp;     * &lt;p&gt;Note that the tree memory usage cannot be updated directly in
+<i class="no-highlight">459</i>&nbsp;     * getOffsets because the tree memory usage must always be the sum of all
+<i class="no-highlight">460</i>&nbsp;     * IN sizes, and it is reset to this sum each checkpoint.&lt;/p&gt;
+<i class="no-highlight">461</i>&nbsp;     */
+<i class="no-highlight">462</i>&nbsp;    @Override
+<i class="no-highlight">463</i>&nbsp;    public void addExtraMarshaledMemorySize(BIN parentBIN) {
+<b class="fc"><i class="no-highlight">464</i>&nbsp;        if (extraMarshaledMemorySize != 0) {</b>
+<b class="fc"><i class="no-highlight">465</i>&nbsp;            assert trackedSummary != null; /* Must be set during the insert. */</b>
+<b class="fc"><i class="no-highlight">466</i>&nbsp;            assert parentBIN.isLatchExclusiveOwner();</b>
+<b class="fc"><i class="no-highlight">467</i>&nbsp;            parentBIN.updateMemorySize(0, extraMarshaledMemorySize);</b>
+<b class="fc"><i class="no-highlight">468</i>&nbsp;            extraMarshaledMemorySize = 0;</b>
+<i class="no-highlight">469</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">470</i>&nbsp;    }</b>
+<i class="no-highlight">471</i>&nbsp;
+<i class="no-highlight">472</i>&nbsp;    @Override
+<i class="no-highlight">473</i>&nbsp;    public void dumpKey(StringBuilder sb, byte[] key) {
+<b class="nc"><i class="no-highlight">474</i>&nbsp;        sb.append(&quot;&lt;fileSummaryLNKey fileNumber=\&quot;0x&quot; + </b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;                  Long.toHexString(getFileNumber(key)) + &quot;\&quot; &quot;);</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        sb.append(&quot;sequence=\&quot;0x&quot; + </b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;                  Long.toHexString(getSequence(key)) + &quot;\&quot;/&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">478</i>&nbsp;        super.dumpKey(sb, key);</b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;    }</b>
+<i class="no-highlight">480</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

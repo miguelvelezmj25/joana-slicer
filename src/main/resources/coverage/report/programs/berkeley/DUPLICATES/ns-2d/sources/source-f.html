@@ -1,0 +1,1041 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Locker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: Locker (com.sleepycat.je.txn)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Locker</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    32.7%
+  </span>
+  <span class="absValue">
+    (18/55)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    31.3%
+  </span>
+  <span class="absValue">
+    (46/147)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">17</i>&nbsp;import java.util.Map;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.LockConflictException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.LockNotAvailableException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.OperationFailureException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.tree.BINReference;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;/**
+<i class="no-highlight">36</i>&nbsp; * Locker instances are JE&#39;s route to locking and transactional support.  This
+<i class="no-highlight">37</i>&nbsp; * class is the abstract base class for BasicLocker, ThreadLocker, Txn,
+<i class="no-highlight">38</i>&nbsp; * MasterTxn and ReadonlyTxn.  Locker instances are in fact only a transaction
+<i class="no-highlight">39</i>&nbsp; * shell to get to the lock manager, and don&#39;t guarantee transactional
+<i class="no-highlight">40</i>&nbsp; * semantics.
+<i class="no-highlight">41</i>&nbsp; *
+<i class="no-highlight">42</i>&nbsp; * Txn (includes Txns marked autoTxn) MasterTxn and ReadonlyTxn instances are
+<i class="no-highlight">43</i>&nbsp; * truly transactional. They have potentially different transaction begin and
+<i class="no-highlight">44</i>&nbsp; * end behaviors.
+<i class="no-highlight">45</i>&nbsp; */
+<i class="no-highlight">46</i>&nbsp;public abstract class Locker {
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    protected EnvironmentImpl envImpl;
+<i class="no-highlight">49</i>&nbsp;    protected LockManager lockManager;
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    protected long id;                        // transaction id
+<i class="no-highlight">52</i>&nbsp;    private boolean readUncommittedDefault; // read-uncommitted is default
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /* Timeouts */
+<i class="no-highlight">55</i>&nbsp;    boolean defaultNoWait; // true for non-blocking
+<i class="no-highlight">56</i>&nbsp;    private long lockTimeoutMillis;       // timeout period for lock, in ms
+<i class="no-highlight">57</i>&nbsp;    private long txnTimeoutMillis;        // timeout period for txns, in ms
+<i class="no-highlight">58</i>&nbsp;    private long txnStartMillis;          // for txn timeout determination
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;    /* The lsn of the lock that this locker is waiting for. */
+<i class="no-highlight">61</i>&nbsp;    private Long waitingFor;
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /* The LockType corresponding to waitingFor. */
+<i class="no-highlight">64</i>&nbsp;    private LockType waitingForType;
+<i class="no-highlight">65</i>&nbsp;    
+<i class="no-highlight">66</i>&nbsp;    /* The current thread ID when waitingFor is set. */
+<i class="no-highlight">67</i>&nbsp;    private long waiterThreadId;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /*
+<i class="no-highlight">70</i>&nbsp;     * DeleteInfo refers to BINReferences that should be sent to the
+<i class="no-highlight">71</i>&nbsp;     * INCompressor for asynchronous compressing after the transaction ends.
+<i class="no-highlight">72</i>&nbsp;     */
+<i class="no-highlight">73</i>&nbsp;    Map&lt;Long,BINReference&gt; deleteInfo;
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    /**
+<i class="no-highlight">76</i>&nbsp;     * The thread that created this locker.  Used for debugging, and by the
+<i class="no-highlight">77</i>&nbsp;     * ThreadLocker subclass. Note that thread may be null if the Locker is
+<i class="no-highlight">78</i>&nbsp;     * instantiated by reading the log.
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;    protected Thread thread;
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    /**
+<i class="no-highlight">83</i>&nbsp;     * Set to false when close() is called.  After that point no other locker
+<i class="no-highlight">84</i>&nbsp;     * operations should occur.
+<i class="no-highlight">85</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">86</i>&nbsp;    private boolean isOpen = true;</b>
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /**
+<i class="no-highlight">89</i>&nbsp;     * True if my locks can be preempted/stolen.
+<i class="no-highlight">90</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">91</i>&nbsp;    private boolean preemptable = true;</b>
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /**
+<i class="no-highlight">94</i>&nbsp;     * Non-null if a lock has been stolen from this locker by the HA replayer.
+<i class="no-highlight">95</i>&nbsp;     */
+<i class="no-highlight">96</i>&nbsp;    private RuntimeException preemptedCause;
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * Non-null if this locker is replacing another locker that is in the
+<i class="no-highlight">100</i>&nbsp;     * process of closing because a cursor is being moved.
+<i class="no-highlight">101</i>&nbsp;     */
+<i class="no-highlight">102</i>&nbsp;    private Locker closingLocker;
+<i class="no-highlight">103</i>&nbsp;
+<i class="no-highlight">104</i>&nbsp;    /**
+<i class="no-highlight">105</i>&nbsp;     * Create a locker id. This constructor is called very often, so it should
+<i class="no-highlight">106</i>&nbsp;     * be as streamlined as possible. It should never be called directly,
+<i class="no-highlight">107</i>&nbsp;     * because the mandatedId mechanism only works if the generateId() method
+<i class="no-highlight">108</i>&nbsp;     * is overridden to use the mandatedId value.
+<i class="no-highlight">109</i>&nbsp;     *
+<i class="no-highlight">110</i>&nbsp;     * @param readUncommittedDefault if true, this transaction does
+<i class="no-highlight">111</i>&nbsp;     * read-uncommitted by default
+<i class="no-highlight">112</i>&nbsp;     * @param noWait if true, non-blocking lock requests are used.
+<i class="no-highlight">113</i>&nbsp;     */
+<i class="no-highlight">114</i>&nbsp;    protected Locker(EnvironmentImpl envImpl,
+<i class="no-highlight">115</i>&nbsp;                     boolean readUncommittedDefault,
+<i class="no-highlight">116</i>&nbsp;                     boolean noWait,
+<b class="fc"><i class="no-highlight">117</i>&nbsp;                     long mandatedId) {</b>
+<i class="no-highlight">118</i>&nbsp;
+<b class="fc"><i class="no-highlight">119</i>&nbsp;        TxnManager txnManager = envImpl.getTxnManager();</b>
+<b class="fc"><i class="no-highlight">120</i>&nbsp;        this.lockManager = txnManager.getLockManager();</b>
+<b class="fc"><i class="no-highlight">121</i>&nbsp;        this.id = generateId(txnManager, mandatedId);</b>
+<b class="fc"><i class="no-highlight">122</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">123</i>&nbsp;        this.readUncommittedDefault = readUncommittedDefault;</b>
+<b class="fc"><i class="no-highlight">124</i>&nbsp;        this.waitingFor = null;</b>
+<b class="fc"><i class="no-highlight">125</i>&nbsp;        this.waitingForType = null;</b>
+<b class="fc"><i class="no-highlight">126</i>&nbsp;        this.waiterThreadId = -1;</b>
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;        /* get the default lock timeout. */
+<b class="fc"><i class="no-highlight">129</i>&nbsp;        defaultNoWait = noWait;</b>
+<b class="fc"><i class="no-highlight">130</i>&nbsp;        lockTimeoutMillis = getInitialLockTimeout();</b>
+<i class="no-highlight">131</i>&nbsp;
+<i class="no-highlight">132</i>&nbsp;        /*
+<i class="no-highlight">133</i>&nbsp;         * Check the default txn timeout. If non-zero, remember the txn start
+<i class="no-highlight">134</i>&nbsp;         * time.
+<i class="no-highlight">135</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">136</i>&nbsp;        txnTimeoutMillis = envImpl.getTxnTimeout();</b>
+<i class="no-highlight">137</i>&nbsp;
+<b class="fc"><i class="no-highlight">138</i>&nbsp;        if (txnTimeoutMillis != 0) {</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            txnStartMillis = System.currentTimeMillis();</b>
+<i class="no-highlight">140</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">141</i>&nbsp;            txnStartMillis = 0;</b>
+<i class="no-highlight">142</i>&nbsp;        }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;        /* Save the thread used to create the locker. */
+<b class="fc"><i class="no-highlight">145</i>&nbsp;        thread = Thread.currentThread();</b>
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;        /* Do lazy initialization of deleteInfo, to conserve memory. */
+<b class="fc"><i class="no-highlight">148</i>&nbsp;    }</b>
+<i class="no-highlight">149</i>&nbsp;    
+<i class="no-highlight">150</i>&nbsp;    /**
+<i class="no-highlight">151</i>&nbsp;     * For reading from the log.
+<i class="no-highlight">152</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">153</i>&nbsp;    Locker() {       </b>
+<b class="fc"><i class="no-highlight">154</i>&nbsp;        defaultNoWait = false;</b>
+<b class="fc"><i class="no-highlight">155</i>&nbsp;    }</b>
+<i class="no-highlight">156</i>&nbsp;
+<i class="no-highlight">157</i>&nbsp;    protected long getInitialLockTimeout() {
+<b class="fc"><i class="no-highlight">158</i>&nbsp;        return envImpl.getLockTimeout();</b>
+<i class="no-highlight">159</i>&nbsp;    }
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;    public EnvironmentImpl getEnvironment() {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        return envImpl;</b>
+<i class="no-highlight">163</i>&nbsp;    }
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    /**
+<i class="no-highlight">166</i>&nbsp;     * A Locker has to generate its next id. Some subtypes, like BasicLocker,
+<i class="no-highlight">167</i>&nbsp;     * have a single id for all instances because they are never used for
+<i class="no-highlight">168</i>&nbsp;     * recovery. Other subtypes ask the txn manager for an id or use a
+<i class="no-highlight">169</i>&nbsp;     * specific, mandated id.
+<i class="no-highlight">170</i>&nbsp;     */
+<i class="no-highlight">171</i>&nbsp;    protected abstract long generateId(TxnManager txnManager, long mandatedId);
+<i class="no-highlight">172</i>&nbsp;
+<i class="no-highlight">173</i>&nbsp;    /**
+<i class="no-highlight">174</i>&nbsp;     * @return the transaction&#39;s id.
+<i class="no-highlight">175</i>&nbsp;     */
+<i class="no-highlight">176</i>&nbsp;    public long getId() {
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        return id;</b>
+<i class="no-highlight">178</i>&nbsp;    }
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /**
+<i class="no-highlight">181</i>&nbsp;     * @return the default no-wait (non-blocking) setting.
+<i class="no-highlight">182</i>&nbsp;     */
+<i class="no-highlight">183</i>&nbsp;    public boolean getDefaultNoWait() {
+<b class="fc"><i class="no-highlight">184</i>&nbsp;        return defaultNoWait;</b>
+<i class="no-highlight">185</i>&nbsp;    }
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    public void setDefaultNoWait(boolean noWait) {
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        defaultNoWait = noWait;</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;    }</b>
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    /**
+<i class="no-highlight">192</i>&nbsp;     * Get the lock timeout period for this locker, in milliseconds
+<i class="no-highlight">193</i>&nbsp;     *
+<i class="no-highlight">194</i>&nbsp;     * WARNING: Be sure to always access the timeout with this accessor, since
+<i class="no-highlight">195</i>&nbsp;     * it is overridden in BuddyLocker.
+<i class="no-highlight">196</i>&nbsp;     */
+<i class="no-highlight">197</i>&nbsp;    public synchronized long getLockTimeout() {
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        return lockTimeoutMillis;</b>
+<i class="no-highlight">199</i>&nbsp;    }
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    /**
+<i class="no-highlight">202</i>&nbsp;     * Set the lock timeout period for any locks in this transaction,
+<i class="no-highlight">203</i>&nbsp;     * in milliseconds.
+<i class="no-highlight">204</i>&nbsp;     *
+<i class="no-highlight">205</i>&nbsp;     * @param timeout The timeout value for the transaction lifetime, in
+<i class="no-highlight">206</i>&nbsp;     * milliseconds. A value of 0 disables timeouts for the transaction.
+<i class="no-highlight">207</i>&nbsp;     *
+<i class="no-highlight">208</i>&nbsp;     * @throws IllegalArgumentException via Transaction.setLockTimeout
+<i class="no-highlight">209</i>&nbsp;     */
+<i class="no-highlight">210</i>&nbsp;    public synchronized void setLockTimeout(long timeout) {
+<i class="no-highlight">211</i>&nbsp;
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        if (timeout &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">214</i>&nbsp;                (&quot;the timeout value cannot be negative&quot;);
+<b class="nc"><i class="no-highlight">215</i>&nbsp;        } else if (timeout &gt; Math.pow(2, 32)) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">217</i>&nbsp;                (&quot;the timeout value cannot be greater than 2^32&quot;);
+<i class="no-highlight">218</i>&nbsp;        }
+<i class="no-highlight">219</i>&nbsp;
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        lockTimeoutMillis = timeout;</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;    }</b>
+<i class="no-highlight">222</i>&nbsp;
+<i class="no-highlight">223</i>&nbsp;    /**
+<i class="no-highlight">224</i>&nbsp;     * Set the timeout period for this transaction, in milliseconds.
+<i class="no-highlight">225</i>&nbsp;     *
+<i class="no-highlight">226</i>&nbsp;     * @param timeout The timeout value for the transaction lifetime, in
+<i class="no-highlight">227</i>&nbsp;     * microseconds. A value of 0 disables timeouts for the transaction.
+<i class="no-highlight">228</i>&nbsp;     *
+<i class="no-highlight">229</i>&nbsp;     * @throws IllegalArgumentException via Transaction.setLockTimeout
+<i class="no-highlight">230</i>&nbsp;     */
+<i class="no-highlight">231</i>&nbsp;    public synchronized void setTxnTimeout(long timeout) {
+<i class="no-highlight">232</i>&nbsp;
+<b class="nc"><i class="no-highlight">233</i>&nbsp;        if (timeout &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">235</i>&nbsp;                (&quot;the timeout value cannot be negative&quot;);
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        } else if (timeout &gt; Math.pow(2, 32)) {</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">238</i>&nbsp;                (&quot;the timeout value cannot be greater than 2^32&quot;);
+<i class="no-highlight">239</i>&nbsp;        }
+<i class="no-highlight">240</i>&nbsp;
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        txnTimeoutMillis = timeout;</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        if (txnTimeoutMillis != 0) {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            txnStartMillis = System.currentTimeMillis();</b>
+<i class="no-highlight">244</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            txnStartMillis = 0;</b>
+<i class="no-highlight">246</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">247</i>&nbsp;    }</b>
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * @return true if transaction was created with read-uncommitted as a
+<i class="no-highlight">251</i>&nbsp;     * default.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    public boolean isReadUncommittedDefault() {
+<b class="fc"><i class="no-highlight">254</i>&nbsp;        return readUncommittedDefault;</b>
+<i class="no-highlight">255</i>&nbsp;    }
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;    void setWaitingFor(Long lsn, LockType type) {
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        waitingFor = lsn;</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        waitingForType = type;</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        waiterThreadId = Thread.currentThread().getId();</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;    }</b>
+<i class="no-highlight">262</i>&nbsp;
+<i class="no-highlight">263</i>&nbsp;    void clearWaitingFor() {
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        waitingFor = null;</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        waitingForType = null;</b>
+<b class="nc"><i class="no-highlight">266</i>&nbsp;        waiterThreadId = -1;</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;    }</b>
+<i class="no-highlight">268</i>&nbsp;
+<i class="no-highlight">269</i>&nbsp;    Long getWaitingFor() {
+<b class="nc"><i class="no-highlight">270</i>&nbsp;        return waitingFor;</b>
+<i class="no-highlight">271</i>&nbsp;    }
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;    LockType getWaitingForType() {
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        return waitingForType;</b>
+<i class="no-highlight">275</i>&nbsp;    }
+<i class="no-highlight">276</i>&nbsp;
+<i class="no-highlight">277</i>&nbsp;    long getWaiterThreadId() {
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        return waiterThreadId;</b>
+<i class="no-highlight">279</i>&nbsp;    }
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;    /**
+<i class="no-highlight">282</i>&nbsp;     * Set the state of a transaction to abort-only.  Should ONLY be called
+<i class="no-highlight">283</i>&nbsp;     * by OperationFailureException.
+<i class="no-highlight">284</i>&nbsp;     */
+<i class="no-highlight">285</i>&nbsp;    public void setOnlyAbortable(OperationFailureException cause) {
+<i class="no-highlight">286</i>&nbsp;        /* no-op unless Txn. */
+<b class="nc"><i class="no-highlight">287</i>&nbsp;    }</b>
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    /**
+<i class="no-highlight">290</i>&nbsp;     * Set the state of a transaction&#39;s IMPORTUNATE bit.
+<i class="no-highlight">291</i>&nbsp;     */
+<i class="no-highlight">292</i>&nbsp;    public void setImportunate(boolean importunate) {
+<i class="no-highlight">293</i>&nbsp;        /* no-op unless Txn. */
+<b class="nc"><i class="no-highlight">294</i>&nbsp;    }</b>
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;    /**
+<i class="no-highlight">297</i>&nbsp;     * Get the state of a transaction&#39;s IMPORTUNATE bit.
+<i class="no-highlight">298</i>&nbsp;     */
+<i class="no-highlight">299</i>&nbsp;    public boolean getImportunate() {
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        return false;</b>
+<i class="no-highlight">301</i>&nbsp;    }
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;    /**
+<i class="no-highlight">304</i>&nbsp;     * Allows/disallows my locks from being stolen/preemted.
+<i class="no-highlight">305</i>&nbsp;     */
+<i class="no-highlight">306</i>&nbsp;    public void setPreemptable(boolean preemptable) {
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        this.preemptable = preemptable;</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;    }</b>
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;    /**
+<i class="no-highlight">311</i>&nbsp;     * Returns whether my locks can be stolen/preemted.
+<i class="no-highlight">312</i>&nbsp;     */
+<i class="no-highlight">313</i>&nbsp;    public boolean getPreemptable() {
+<b class="nc"><i class="no-highlight">314</i>&nbsp;        return preemptable;</b>
+<i class="no-highlight">315</i>&nbsp;    }
+<i class="no-highlight">316</i>&nbsp;
+<i class="no-highlight">317</i>&nbsp;    /**
+<i class="no-highlight">318</i>&nbsp;     * Called when a lock is stolen from this locker by the HA replayer.
+<i class="no-highlight">319</i>&nbsp;     */
+<i class="no-highlight">320</i>&nbsp;    public void setPreempted() {
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;        /*
+<i class="no-highlight">323</i>&nbsp;         * Record the stack trace when a lock is stolen.  This will provide
+<i class="no-highlight">324</i>&nbsp;         * more &quot;cause&quot; information when it is wrapped in a
+<i class="no-highlight">325</i>&nbsp;         * LockPreemptedException that is thrown later -- see checkPreempted.
+<i class="no-highlight">326</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">327</i>&nbsp;        preemptedCause = new RuntimeException</b>
+<i class="no-highlight">328</i>&nbsp;            (&quot;Lock was preempted by the replication replayer&quot;);
+<b class="nc"><i class="no-highlight">329</i>&nbsp;    }</b>
+<i class="no-highlight">330</i>&nbsp;
+<i class="no-highlight">331</i>&nbsp;    /**
+<i class="no-highlight">332</i>&nbsp;     * Called when obtaining a lock to cause a LockPreemptedException to be
+<i class="no-highlight">333</i>&nbsp;     * thrown if a lock was preempted earlier.
+<i class="no-highlight">334</i>&nbsp;     *
+<i class="no-highlight">335</i>&nbsp;     * This operation is split into two methods, checkPreempted and
+<i class="no-highlight">336</i>&nbsp;     * throwIfPreempted, so that Txn.checkPreempted can call throwIfPreempted
+<i class="no-highlight">337</i>&nbsp;     * for all its BuddyLockers without causing an infinite recursion.  This
+<i class="no-highlight">338</i>&nbsp;     * method is overridden by BuddyLocker to forward the call to its parent
+<i class="no-highlight">339</i>&nbsp;     * buddy (the Txn), and by Txn to check all its child buddies.
+<i class="no-highlight">340</i>&nbsp;     *
+<i class="no-highlight">341</i>&nbsp;     * @param allowPreemptedLocker is a locker that is being closed as the
+<i class="no-highlight">342</i>&nbsp;     * result of a cursor move operation.  If the operation is successful then
+<i class="no-highlight">343</i>&nbsp;     * allowPreemptedLocker will be closed, and the fact that a lock has been
+<i class="no-highlight">344</i>&nbsp;     * stolen from allowPreemptedLocker can be ignored.
+<i class="no-highlight">345</i>&nbsp;     */
+<i class="no-highlight">346</i>&nbsp;    public void checkPreempted(final Locker allowPreemptedLocker) 
+<i class="no-highlight">347</i>&nbsp;        throws OperationFailureException {
+<i class="no-highlight">348</i>&nbsp;
+<b class="fc"><i class="no-highlight">349</i>&nbsp;        throwIfPreempted(allowPreemptedLocker);</b>
+<b class="fc"><i class="no-highlight">350</i>&nbsp;    }</b>
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;    /**
+<i class="no-highlight">353</i>&nbsp;     * Called by checkPreempted to cause a LockPreemptedException to be thrown
+<i class="no-highlight">354</i>&nbsp;     * if a lock was preempted earlier.  Creating the LockPreemptedException
+<i class="no-highlight">355</i>&nbsp;     * sets the txn to abort-only.
+<i class="no-highlight">356</i>&nbsp;     *
+<i class="no-highlight">357</i>&nbsp;     * @see #checkPreempted
+<i class="no-highlight">358</i>&nbsp;     */
+<i class="no-highlight">359</i>&nbsp;    final void throwIfPreempted(final Locker allowPreemptedLocker) 
+<i class="no-highlight">360</i>&nbsp;        throws OperationFailureException {
+<i class="no-highlight">361</i>&nbsp;
+<b class="fc"><i class="no-highlight">362</i>&nbsp;        if (this != allowPreemptedLocker &amp;&amp;</b>
+<i class="no-highlight">363</i>&nbsp;            preemptedCause != null) {
+<b class="nc"><i class="no-highlight">364</i>&nbsp;            throw envImpl.createLockPreemptedException(this, preemptedCause);</b>
+<i class="no-highlight">365</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">366</i>&nbsp;    }</b>
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    /** For unit testing. */
+<i class="no-highlight">369</i>&nbsp;    final boolean isPreempted() {
+<b class="nc"><i class="no-highlight">370</i>&nbsp;        return (preemptedCause != null);</b>
+<i class="no-highlight">371</i>&nbsp;    }
+<i class="no-highlight">372</i>&nbsp;
+<i class="no-highlight">373</i>&nbsp;    /**
+<i class="no-highlight">374</i>&nbsp;     * This method is called to set the closingLocker when a cursor has been
+<i class="no-highlight">375</i>&nbsp;     * duplicated prior to being moved.  The new locker is informed of the old
+<i class="no-highlight">376</i>&nbsp;     * locker, so that a preempted lock taken by the old locker can be ignored.
+<i class="no-highlight">377</i>&nbsp;     * When the operation is complete, this method is called to clear the
+<i class="no-highlight">378</i>&nbsp;     * closingLocker so that a reference to the old closed locker is not held
+<i class="no-highlight">379</i>&nbsp;     * by this object.  [#16513]
+<i class="no-highlight">380</i>&nbsp;     *
+<i class="no-highlight">381</i>&nbsp;     * @param closingLocker the old locker that will be closed if the new
+<i class="no-highlight">382</i>&nbsp;     * cursor (using this locker) is moved successfully.
+<i class="no-highlight">383</i>&nbsp;     */
+<i class="no-highlight">384</i>&nbsp;    public void setClosingLocker(final Locker closingLocker) {
+<b class="fc"><i class="no-highlight">385</i>&nbsp;        this.closingLocker = closingLocker;</b>
+<b class="fc"><i class="no-highlight">386</i>&nbsp;    }</b>
+<i class="no-highlight">387</i>&nbsp;
+<i class="no-highlight">388</i>&nbsp;    /**
+<i class="no-highlight">389</i>&nbsp;     * See ThreadLocker.allowMultithreadedAccess.
+<i class="no-highlight">390</i>&nbsp;     */
+<i class="no-highlight">391</i>&nbsp;    boolean setAllowMultithreadedAccess(boolean allow) {
+<i class="no-highlight">392</i>&nbsp;        /* Do nothing by default. Is overridden by ThreadLocker. */
+<b class="nc"><i class="no-highlight">393</i>&nbsp;        return false;</b>
+<i class="no-highlight">394</i>&nbsp;    }
+<i class="no-highlight">395</i>&nbsp;
+<i class="no-highlight">396</i>&nbsp;    protected abstract void checkState(boolean ignoreCalledByAbort)
+<i class="no-highlight">397</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;    /**
+<i class="no-highlight">400</i>&nbsp;     * Overridden to perform actions in a non-transactional cursor when it is
+<i class="no-highlight">401</i>&nbsp;     * opened, for example, ReplicaThreadLocker performs consistency checks.
+<i class="no-highlight">402</i>&nbsp;     */
+<i class="no-highlight">403</i>&nbsp;    public void openCursorHook(DatabaseImpl dbImpl) {
+<i class="no-highlight">404</i>&nbsp;        /* Do nothing. */
+<b class="fc"><i class="no-highlight">405</i>&nbsp;    }</b>
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;    /**
+<i class="no-highlight">408</i>&nbsp;     * Returns whether a transaction is method indicates whether the txn is
+<i class="no-highlight">409</i>&nbsp;     * part of the rep stream.
+<i class="no-highlight">410</i>&nbsp;     *
+<i class="no-highlight">411</i>&nbsp;     * A replicated txn must be used for writing to a replicated DB, and a
+<i class="no-highlight">412</i>&nbsp;     * non-replicated txn must be used for writing to a non-replicated DB.
+<i class="no-highlight">413</i>&nbsp;     * This is critical for avoiding corruption when HA failovers occur
+<i class="no-highlight">414</i>&nbsp;     * [#23234] [#23330].
+<i class="no-highlight">415</i>&nbsp;     *
+<i class="no-highlight">416</i>&nbsp;     * See guard in LN.logInternal.
+<i class="no-highlight">417</i>&nbsp;     */
+<i class="no-highlight">418</i>&nbsp;    public boolean isReplicated() {
+<b class="fc"><i class="no-highlight">419</i>&nbsp;        return TxnManager.isReplicatedTxn(id);</b>
+<i class="no-highlight">420</i>&nbsp;    }
+<i class="no-highlight">421</i>&nbsp;
+<i class="no-highlight">422</i>&nbsp;    /**
+<i class="no-highlight">423</i>&nbsp;     * Returns true if writes may only be to non-replicated DBs using this
+<i class="no-highlight">424</i>&nbsp;     * locker, or false if writes may only be to replicated DBs.
+<i class="no-highlight">425</i>&nbsp;     *
+<i class="no-highlight">426</i>&nbsp;     * By default (this implementation) local-write is true, since it is
+<i class="no-highlight">427</i>&nbsp;     * allowed for all non-txnal lockers and for all lockers in a standalone
+<i class="no-highlight">428</i>&nbsp;     * environment.  This method is overridden and returns false for
+<i class="no-highlight">429</i>&nbsp;     * for user transactions in a replicated environment that are not
+<i class="no-highlight">430</i>&nbsp;     * explicitly configured for local-write.
+<i class="no-highlight">431</i>&nbsp;     *
+<i class="no-highlight">432</i>&nbsp;     * This method is used to describe a locker&#39;s configured usage for checking
+<i class="no-highlight">433</i>&nbsp;     * the validity of an API write operation.  This is checked by Cursor
+<i class="no-highlight">434</i>&nbsp;     * methods at the beginning of each write operation.
+<i class="no-highlight">435</i>&nbsp;     */
+<i class="no-highlight">436</i>&nbsp;    public boolean isLocalWrite() {
+<b class="fc"><i class="no-highlight">437</i>&nbsp;        return true;</b>
+<i class="no-highlight">438</i>&nbsp;    }
+<i class="no-highlight">439</i>&nbsp;
+<i class="no-highlight">440</i>&nbsp;    /**
+<i class="no-highlight">441</i>&nbsp;     * Returns whether writes are prohibited using this locker.
+<i class="no-highlight">442</i>&nbsp;     */
+<i class="no-highlight">443</i>&nbsp;    public boolean isReadOnly() {
+<b class="fc"><i class="no-highlight">444</i>&nbsp;        return false;</b>
+<i class="no-highlight">445</i>&nbsp;    }
+<i class="no-highlight">446</i>&nbsp;
+<i class="no-highlight">447</i>&nbsp;    /*
+<i class="no-highlight">448</i>&nbsp;     * Obtain and release locks.
+<i class="no-highlight">449</i>&nbsp;     */
+<i class="no-highlight">450</i>&nbsp;
+<i class="no-highlight">451</i>&nbsp;    /**
+<i class="no-highlight">452</i>&nbsp;     * Abstract method to a blocking or non-blocking lock of the given type on
+<i class="no-highlight">453</i>&nbsp;     * the given LSN.  Unlike the lock() method, this method does not throw
+<i class="no-highlight">454</i>&nbsp;     * LockNotAvailableException and can therefore be used by nonBlockingLock
+<i class="no-highlight">455</i>&nbsp;     * to probe for a lock without the overhead of an exception stack trace.
+<i class="no-highlight">456</i>&nbsp;     *
+<i class="no-highlight">457</i>&nbsp;     * @param lsn is the node to lock.
+<i class="no-highlight">458</i>&nbsp;     *
+<i class="no-highlight">459</i>&nbsp;     * @param lockType is the type of lock to request.
+<i class="no-highlight">460</i>&nbsp;     *
+<i class="no-highlight">461</i>&nbsp;     * @param noWait is true to override the defaultNoWait setting.  If true,
+<i class="no-highlight">462</i>&nbsp;     * or if defaultNoWait is true, throws LockNotAvailableException if the
+<i class="no-highlight">463</i>&nbsp;     * lock cannot be granted without waiting.
+<i class="no-highlight">464</i>&nbsp;     *
+<i class="no-highlight">465</i>&nbsp;     * @param jumpAheadOfWaiters grant the lock before other waiters, if any.
+<i class="no-highlight">466</i>&nbsp;     *
+<i class="no-highlight">467</i>&nbsp;     * @param database is the database containing lsn.
+<i class="no-highlight">468</i>&nbsp;     *
+<i class="no-highlight">469</i>&nbsp;     * @throws LockConflictException if a blocking lock could not be acquired.
+<i class="no-highlight">470</i>&nbsp;     */
+<i class="no-highlight">471</i>&nbsp;    abstract LockResult lockInternal(long lsn,
+<i class="no-highlight">472</i>&nbsp;                                     LockType lockType,
+<i class="no-highlight">473</i>&nbsp;                                     boolean noWait,
+<i class="no-highlight">474</i>&nbsp;                                     boolean jumpAheadOfWaiters,
+<i class="no-highlight">475</i>&nbsp;                                     DatabaseImpl database)
+<i class="no-highlight">476</i>&nbsp;        throws LockConflictException, DatabaseException;
+<i class="no-highlight">477</i>&nbsp;
+<i class="no-highlight">478</i>&nbsp;    /**
+<i class="no-highlight">479</i>&nbsp;     * Request a blocking or non-blocking lock of the given type on the given
+<i class="no-highlight">480</i>&nbsp;     * LSN.
+<i class="no-highlight">481</i>&nbsp;     *
+<i class="no-highlight">482</i>&nbsp;     * @param lsn is the node to lock.
+<i class="no-highlight">483</i>&nbsp;     *
+<i class="no-highlight">484</i>&nbsp;     * @param lockType is the type of lock to request.
+<i class="no-highlight">485</i>&nbsp;     *
+<i class="no-highlight">486</i>&nbsp;     * @param noWait is true to override the defaultNoWait setting.  If true,
+<i class="no-highlight">487</i>&nbsp;     * or if defaultNoWait is true, throws LockNotAvailableException if the
+<i class="no-highlight">488</i>&nbsp;     * lock cannot be granted without waiting.
+<i class="no-highlight">489</i>&nbsp;     *
+<i class="no-highlight">490</i>&nbsp;     * @param database is the database containing lsn.
+<i class="no-highlight">491</i>&nbsp;     *
+<i class="no-highlight">492</i>&nbsp;     * @throws LockNotAvailableException if a non-blocking lock was denied.
+<i class="no-highlight">493</i>&nbsp;     *
+<i class="no-highlight">494</i>&nbsp;     * @throws LockConflictException if a blocking lock could not be acquired.
+<i class="no-highlight">495</i>&nbsp;     */
+<i class="no-highlight">496</i>&nbsp;    public LockResult lock(long lsn,
+<i class="no-highlight">497</i>&nbsp;                           LockType lockType,
+<i class="no-highlight">498</i>&nbsp;                           boolean noWait,
+<i class="no-highlight">499</i>&nbsp;                           DatabaseImpl database)
+<i class="no-highlight">500</i>&nbsp;        throws LockNotAvailableException, LockConflictException {
+<i class="no-highlight">501</i>&nbsp;
+<b class="nc"><i class="no-highlight">502</i>&nbsp;        final LockResult result = lockInternal</b>
+<b class="nc"><i class="no-highlight">503</i>&nbsp;            (lsn, lockType, noWait, false /*jumpAheadOfWaiters*/, database);</b>
+<i class="no-highlight">504</i>&nbsp;
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        if (result.getLockGrant() == LockGrantType.DENIED) {</b>
+<i class="no-highlight">506</i>&nbsp;            /* DENIED can only be returned for a non-blocking lock. */
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            throw new LockNotAvailableException(</b>
+<i class="no-highlight">508</i>&nbsp;                this, &quot;Non-blocking lock was denied.&quot;);
+<i class="no-highlight">509</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">510</i>&nbsp;            checkPreempted(closingLocker);</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;            return result;</b>
+<i class="no-highlight">512</i>&nbsp;        }
+<i class="no-highlight">513</i>&nbsp;    }
+<i class="no-highlight">514</i>&nbsp;
+<i class="no-highlight">515</i>&nbsp;    /**
+<i class="no-highlight">516</i>&nbsp;     * Request a non-blocking lock of the given type on the given LSN.
+<i class="no-highlight">517</i>&nbsp;     *
+<i class="no-highlight">518</i>&nbsp;     * &lt;p&gt;Unlike lock(), this method returns LockGrantType.DENIED if the lock
+<i class="no-highlight">519</i>&nbsp;     * is denied rather than throwing LockNotAvailableException.  This method
+<i class="no-highlight">520</i>&nbsp;     * should therefore not be used as the final lock for a user operation,
+<i class="no-highlight">521</i>&nbsp;     * since in that case LockNotAvailableException should be thrown for a
+<i class="no-highlight">522</i>&nbsp;     * denied lock.  It is normally used only to probe for a lock internally,
+<i class="no-highlight">523</i>&nbsp;     * and other recourse is taken if the lock is denied.&lt;/p&gt;
+<i class="no-highlight">524</i>&nbsp;     *
+<i class="no-highlight">525</i>&nbsp;     * @param lsn is the node to lock.
+<i class="no-highlight">526</i>&nbsp;     *
+<i class="no-highlight">527</i>&nbsp;     * @param lockType is the type of lock to request.
+<i class="no-highlight">528</i>&nbsp;     *
+<i class="no-highlight">529</i>&nbsp;     * @param jumpAheadOfWaiters grant the lock before other waiters, if any.
+<i class="no-highlight">530</i>&nbsp;     *
+<i class="no-highlight">531</i>&nbsp;     * @param database is the database containing LSN.
+<i class="no-highlight">532</i>&nbsp;     */
+<i class="no-highlight">533</i>&nbsp;    public LockResult nonBlockingLock(long lsn,
+<i class="no-highlight">534</i>&nbsp;                                      LockType lockType,
+<i class="no-highlight">535</i>&nbsp;                                      boolean jumpAheadOfWaiters,
+<i class="no-highlight">536</i>&nbsp;                                      DatabaseImpl database) {
+<b class="fc"><i class="no-highlight">537</i>&nbsp;        final LockResult result = lockInternal</b>
+<b class="fc"><i class="no-highlight">538</i>&nbsp;            (lsn, lockType, true /*noWait*/, jumpAheadOfWaiters, database);</b>
+<b class="fc"><i class="no-highlight">539</i>&nbsp;        if (result.getLockGrant() != LockGrantType.DENIED) {</b>
+<b class="fc"><i class="no-highlight">540</i>&nbsp;            checkPreempted(closingLocker);</b>
+<i class="no-highlight">541</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">542</i>&nbsp;        return result;</b>
+<i class="no-highlight">543</i>&nbsp;    }
+<i class="no-highlight">544</i>&nbsp;
+<i class="no-highlight">545</i>&nbsp;    /**
+<i class="no-highlight">546</i>&nbsp;     * Release the lock on this LN and remove from the transaction&#39;s owning
+<i class="no-highlight">547</i>&nbsp;     * set.
+<i class="no-highlight">548</i>&nbsp;     */
+<i class="no-highlight">549</i>&nbsp;    public synchronized boolean releaseLock(long lsn)
+<i class="no-highlight">550</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">551</i>&nbsp;
+<b class="nc"><i class="no-highlight">552</i>&nbsp;        boolean ret = lockManager.release(lsn, this);</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;        removeLock(lsn);</b>
+<b class="nc"><i class="no-highlight">554</i>&nbsp;        return ret;</b>
+<i class="no-highlight">555</i>&nbsp;    }
+<i class="no-highlight">556</i>&nbsp;
+<i class="no-highlight">557</i>&nbsp;    /**
+<i class="no-highlight">558</i>&nbsp;     * Revert this lock from a write lock to a read lock.
+<i class="no-highlight">559</i>&nbsp;     */
+<i class="no-highlight">560</i>&nbsp;    public void demoteLock(long lsn)
+<i class="no-highlight">561</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">562</i>&nbsp;
+<i class="no-highlight">563</i>&nbsp;        /*
+<i class="no-highlight">564</i>&nbsp;         * If successful, the lock manager will call back to the transaction
+<i class="no-highlight">565</i>&nbsp;         * and adjust the location of the lock in the lock collection.
+<i class="no-highlight">566</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">567</i>&nbsp;        lockManager.demote(lsn, this);</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;    }</b>
+<i class="no-highlight">569</i>&nbsp;
+<i class="no-highlight">570</i>&nbsp;    /**
+<i class="no-highlight">571</i>&nbsp;     * Called when an LN is logged by an operation that will not hold the lock
+<i class="no-highlight">572</i>&nbsp;     * such as eviction/checkpoint deferred-write logging or cleaner LN
+<i class="no-highlight">573</i>&nbsp;     * migration.  We must acquire a lock on the new LSN on behalf of every
+<i class="no-highlight">574</i>&nbsp;     * locker that currently holds a lock on the old LSN.
+<i class="no-highlight">575</i>&nbsp;     *
+<i class="no-highlight">576</i>&nbsp;     * Lock is non-blocking because no contention is possible on the new LSN.
+<i class="no-highlight">577</i>&nbsp;     *
+<i class="no-highlight">578</i>&nbsp;     * Because this locker is being used by multiple threads, this method may
+<i class="no-highlight">579</i>&nbsp;     * be called for a locker that has been closed or for which the lock on the
+<i class="no-highlight">580</i>&nbsp;     * old LSN has been released.  Unlike other locking methods, in this case
+<i class="no-highlight">581</i>&nbsp;     * we simply return rather than report an error.
+<i class="no-highlight">582</i>&nbsp;     */
+<i class="no-highlight">583</i>&nbsp;    public synchronized void lockAfterLsnChange(long oldLsn,
+<i class="no-highlight">584</i>&nbsp;                                                long newLsn,
+<i class="no-highlight">585</i>&nbsp;                                                DatabaseImpl dbImpl) {
+<b class="nc"><i class="no-highlight">586</i>&nbsp;        if (!isValid()) {</b>
+<i class="no-highlight">587</i>&nbsp;            /* Locker was recently closed, made abort-only, etc. */
+<b class="nc"><i class="no-highlight">588</i>&nbsp;            return;</b>
+<i class="no-highlight">589</i>&nbsp;        }
+<i class="no-highlight">590</i>&nbsp;
+<b class="nc"><i class="no-highlight">591</i>&nbsp;        final LockType lockType = lockManager.getOwnedLockType(oldLsn, this);</b>
+<b class="nc"><i class="no-highlight">592</i>&nbsp;        if (lockType == null) {</b>
+<i class="no-highlight">593</i>&nbsp;            /* Lock was recently released. */
+<b class="nc"><i class="no-highlight">594</i>&nbsp;            return;</b>
+<i class="no-highlight">595</i>&nbsp;        }
+<i class="no-highlight">596</i>&nbsp;
+<b class="nc"><i class="no-highlight">597</i>&nbsp;        final LockResult lockResult = nonBlockingLock</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;            (newLsn, lockType, false /*jumpAheadOfWaiters*/, dbImpl);</b>
+<i class="no-highlight">599</i>&nbsp;
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        if (lockResult.getLockGrant() == LockGrantType.DENIED) {</b>
+<b class="nc"><i class="no-highlight">601</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">602</i>&nbsp;                (&quot;No contention is possible on new LSN: &quot; +</b>
+<b class="nc"><i class="no-highlight">603</i>&nbsp;                 DbLsn.getNoFormatString(newLsn) +</b>
+<b class="nc"><i class="no-highlight">604</i>&nbsp;                 &quot; old LSN: &quot; + DbLsn.getNoFormatString(oldLsn) +</b>
+<i class="no-highlight">605</i>&nbsp;                 &quot; LockType: &quot; + lockType);
+<i class="no-highlight">606</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">607</i>&nbsp;    }</b>
+<i class="no-highlight">608</i>&nbsp;
+<i class="no-highlight">609</i>&nbsp;    /**
+<i class="no-highlight">610</i>&nbsp;     * In the case where logging occurs before locking, allow lockers to reject
+<i class="no-highlight">611</i>&nbsp;     * the operation (e.g., if writing on a replica) and also prepare to undo
+<i class="no-highlight">612</i>&nbsp;     * in the (very unlikely) event that logging succeeds but locking fails.
+<i class="no-highlight">613</i>&nbsp;     */
+<i class="no-highlight">614</i>&nbsp;    public abstract void preLogWithoutLock(DatabaseImpl database);
+<i class="no-highlight">615</i>&nbsp;
+<i class="no-highlight">616</i>&nbsp;    /**
+<i class="no-highlight">617</i>&nbsp;     * Throws ReplicaWriteException if called for a locker on a Replica.  This
+<i class="no-highlight">618</i>&nbsp;     * implementation does nothing but is overridden by replication lockers.
+<i class="no-highlight">619</i>&nbsp;     * [#20543]
+<i class="no-highlight">620</i>&nbsp;     */
+<i class="no-highlight">621</i>&nbsp;    public void disallowReplicaWrite() {
+<b class="nc"><i class="no-highlight">622</i>&nbsp;    }</b>
+<i class="no-highlight">623</i>&nbsp;
+<i class="no-highlight">624</i>&nbsp;    /**
+<i class="no-highlight">625</i>&nbsp;     * Returns whether this locker is transactional.
+<i class="no-highlight">626</i>&nbsp;     */
+<i class="no-highlight">627</i>&nbsp;    public abstract boolean isTransactional();
+<i class="no-highlight">628</i>&nbsp;
+<i class="no-highlight">629</i>&nbsp;    /**
+<i class="no-highlight">630</i>&nbsp;     * Returns whether the isolation level of this locker is serializable.
+<i class="no-highlight">631</i>&nbsp;     */
+<i class="no-highlight">632</i>&nbsp;    public abstract boolean isSerializableIsolation();
+<i class="no-highlight">633</i>&nbsp;
+<i class="no-highlight">634</i>&nbsp;    /**
+<i class="no-highlight">635</i>&nbsp;     * Returns whether the isolation level of this locker is read-committed.
+<i class="no-highlight">636</i>&nbsp;     */
+<i class="no-highlight">637</i>&nbsp;    public abstract boolean isReadCommittedIsolation();
+<i class="no-highlight">638</i>&nbsp;
+<i class="no-highlight">639</i>&nbsp;    /**
+<i class="no-highlight">640</i>&nbsp;     * Returns the underlying Txn if the locker is transactional, or null if
+<i class="no-highlight">641</i>&nbsp;     * the locker is non-transactional.  For a Txn-based locker, this method
+<i class="no-highlight">642</i>&nbsp;     * returns &#39;this&#39;.  For a BuddyLocker, this method may return the buddy.
+<i class="no-highlight">643</i>&nbsp;     */
+<i class="no-highlight">644</i>&nbsp;    public abstract Txn getTxnLocker();
+<i class="no-highlight">645</i>&nbsp;  
+<i class="no-highlight">646</i>&nbsp;    /**
+<i class="no-highlight">647</i>&nbsp;     * Returns a Transaction if the locker is transctional, or null otherwise.
+<i class="no-highlight">648</i>&nbsp;     */
+<i class="no-highlight">649</i>&nbsp;    public Transaction getTransaction() {
+<b class="fc"><i class="no-highlight">650</i>&nbsp;        return null;</b>
+<i class="no-highlight">651</i>&nbsp;    }
+<i class="no-highlight">652</i>&nbsp;
+<i class="no-highlight">653</i>&nbsp;    /**
+<i class="no-highlight">654</i>&nbsp;     * Only BuddyLockers have buddies.
+<i class="no-highlight">655</i>&nbsp;     */
+<i class="no-highlight">656</i>&nbsp;    Locker getBuddy() {
+<b class="nc"><i class="no-highlight">657</i>&nbsp;        return null;</b>
+<i class="no-highlight">658</i>&nbsp;    }
+<i class="no-highlight">659</i>&nbsp;
+<i class="no-highlight">660</i>&nbsp;    /**
+<i class="no-highlight">661</i>&nbsp;     * Creates a fresh non-transactional locker, while retaining any
+<i class="no-highlight">662</i>&nbsp;     * transactional locks held by this locker.  This method is called when the
+<i class="no-highlight">663</i>&nbsp;     * cursor for this locker is cloned.
+<i class="no-highlight">664</i>&nbsp;     *
+<i class="no-highlight">665</i>&nbsp;     * &lt;p&gt;This method must return a locker that shares locks with this
+<i class="no-highlight">666</i>&nbsp;     * locker, e.g., a ThreadLocker.&lt;/p&gt;
+<i class="no-highlight">667</i>&nbsp;     *
+<i class="no-highlight">668</i>&nbsp;     * &lt;p&gt;In general, transactional lockers return &#39;this&#39; when this method is
+<i class="no-highlight">669</i>&nbsp;     * called, while non-transactional lockers return a new instance.&lt;/p&gt;
+<i class="no-highlight">670</i>&nbsp;     */
+<i class="no-highlight">671</i>&nbsp;    public abstract Locker newNonTxnLocker()
+<i class="no-highlight">672</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">673</i>&nbsp;
+<i class="no-highlight">674</i>&nbsp;    /**
+<i class="no-highlight">675</i>&nbsp;     * Releases any non-transactional locks held by this locker.  This method
+<i class="no-highlight">676</i>&nbsp;     * is called when the cursor moves to a new position or is closed.
+<i class="no-highlight">677</i>&nbsp;     *
+<i class="no-highlight">678</i>&nbsp;     * &lt;p&gt;In general, transactional lockers do nothing when this method is
+<i class="no-highlight">679</i>&nbsp;     * called, while non-transactional lockers release all locks as if
+<i class="no-highlight">680</i>&nbsp;     * operationEnd were called.&lt;/p&gt;
+<i class="no-highlight">681</i>&nbsp;     */
+<i class="no-highlight">682</i>&nbsp;    public abstract void releaseNonTxnLocks()
+<i class="no-highlight">683</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;    /**
+<i class="no-highlight">686</i>&nbsp;     * Releases locks and closes the locker at the end of a non-transactional
+<i class="no-highlight">687</i>&nbsp;     * cursor operation.  For a transctional cursor this method should do
+<i class="no-highlight">688</i>&nbsp;     * nothing, since locks must be held until transaction end.
+<i class="no-highlight">689</i>&nbsp;     */
+<i class="no-highlight">690</i>&nbsp;    public abstract void nonTxnOperationEnd()
+<i class="no-highlight">691</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">692</i>&nbsp;
+<i class="no-highlight">693</i>&nbsp;    /**
+<i class="no-highlight">694</i>&nbsp;     * By default the set of buddy lockers is not maintained.  This is
+<i class="no-highlight">695</i>&nbsp;     * overridden by Txn.
+<i class="no-highlight">696</i>&nbsp;     */
+<i class="no-highlight">697</i>&nbsp;    void addBuddy(BuddyLocker buddy) {
+<b class="nc"><i class="no-highlight">698</i>&nbsp;    }</b>
+<i class="no-highlight">699</i>&nbsp;
+<i class="no-highlight">700</i>&nbsp;    /**
+<i class="no-highlight">701</i>&nbsp;     * By default the set of buddy lockers is not maintained.  This is
+<i class="no-highlight">702</i>&nbsp;     * overridden by Txn.
+<i class="no-highlight">703</i>&nbsp;     */
+<i class="no-highlight">704</i>&nbsp;    void removeBuddy(BuddyLocker buddy) {
+<b class="nc"><i class="no-highlight">705</i>&nbsp;    }</b>
+<i class="no-highlight">706</i>&nbsp;
+<i class="no-highlight">707</i>&nbsp;    /**
+<i class="no-highlight">708</i>&nbsp;     * Returns whether this locker can share locks with the given locker.
+<i class="no-highlight">709</i>&nbsp;     */
+<i class="no-highlight">710</i>&nbsp;    public boolean sharesLocksWith(Locker other) {
+<b class="fc"><i class="no-highlight">711</i>&nbsp;        return false;</b>
+<i class="no-highlight">712</i>&nbsp;    }
+<i class="no-highlight">713</i>&nbsp;
+<i class="no-highlight">714</i>&nbsp;    /**
+<i class="no-highlight">715</i>&nbsp;     * The equivalent of calling operationEnd(true).
+<i class="no-highlight">716</i>&nbsp;     */
+<i class="no-highlight">717</i>&nbsp;    public final void operationEnd()
+<i class="no-highlight">718</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">719</i>&nbsp;
+<b class="fc"><i class="no-highlight">720</i>&nbsp;        operationEnd(true);</b>
+<b class="fc"><i class="no-highlight">721</i>&nbsp;    }</b>
+<i class="no-highlight">722</i>&nbsp;
+<i class="no-highlight">723</i>&nbsp;    /**
+<i class="no-highlight">724</i>&nbsp;     * A SUCCESS status equals operationOk.
+<i class="no-highlight">725</i>&nbsp;     */
+<i class="no-highlight">726</i>&nbsp;    public final void operationEnd(OperationStatus status)
+<i class="no-highlight">727</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">728</i>&nbsp;
+<b class="nc"><i class="no-highlight">729</i>&nbsp;        operationEnd(status == OperationStatus.SUCCESS);</b>
+<b class="nc"><i class="no-highlight">730</i>&nbsp;    }</b>
+<i class="no-highlight">731</i>&nbsp;
+<i class="no-highlight">732</i>&nbsp;    /**
+<i class="no-highlight">733</i>&nbsp;     * Different types of transactions do different things when the operation
+<i class="no-highlight">734</i>&nbsp;     * ends. Txn does nothing, auto Txn commits or aborts, and BasicLocker (and
+<i class="no-highlight">735</i>&nbsp;     * its subclasses) just releases locks.
+<i class="no-highlight">736</i>&nbsp;     *
+<i class="no-highlight">737</i>&nbsp;     * @param operationOK is whether the operation succeeded, since
+<i class="no-highlight">738</i>&nbsp;     * that may impact ending behavior. (i.e for an auto Txn)
+<i class="no-highlight">739</i>&nbsp;     */
+<i class="no-highlight">740</i>&nbsp;    public abstract void operationEnd(boolean operationOK)
+<i class="no-highlight">741</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">742</i>&nbsp;
+<i class="no-highlight">743</i>&nbsp;    /**
+<i class="no-highlight">744</i>&nbsp;     * Should be called by all subclasses when the locker is no longer used.
+<i class="no-highlight">745</i>&nbsp;     * For Txns and auto Txns this is at commit or abort.  For
+<i class="no-highlight">746</i>&nbsp;     * non-transactional lockers it is at operationEnd.
+<i class="no-highlight">747</i>&nbsp;     */
+<i class="no-highlight">748</i>&nbsp;    void close()
+<i class="no-highlight">749</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">750</i>&nbsp;
+<b class="fc"><i class="no-highlight">751</i>&nbsp;        isOpen = false;</b>
+<b class="fc"><i class="no-highlight">752</i>&nbsp;    }</b>
+<i class="no-highlight">753</i>&nbsp;
+<i class="no-highlight">754</i>&nbsp;    /**
+<i class="no-highlight">755</i>&nbsp;     * Used to determine whether the locker is usable.
+<i class="no-highlight">756</i>&nbsp;     *
+<i class="no-highlight">757</i>&nbsp;     * FUTURE: Note that this method is overridden by Txn, and Txn.abort sets
+<i class="no-highlight">758</i>&nbsp;     * the state to closed when it begins rather than when it ends, but calls
+<i class="no-highlight">759</i>&nbsp;     * close() (the method above) when it ends.  This is not ideal and deserves
+<i class="no-highlight">760</i>&nbsp;     * attention in the future.
+<i class="no-highlight">761</i>&nbsp;     */
+<i class="no-highlight">762</i>&nbsp;    public boolean isValid() {
+<b class="nc"><i class="no-highlight">763</i>&nbsp;        return isOpen;</b>
+<i class="no-highlight">764</i>&nbsp;    }
+<i class="no-highlight">765</i>&nbsp;
+<i class="no-highlight">766</i>&nbsp;    /**
+<i class="no-highlight">767</i>&nbsp;     * @see Txn#addOpenedDatabase
+<i class="no-highlight">768</i>&nbsp;     */
+<i class="no-highlight">769</i>&nbsp;    public void addOpenedDatabase(Database dbHandle) {
+<b class="fc"><i class="no-highlight">770</i>&nbsp;    }</b>
+<i class="no-highlight">771</i>&nbsp;
+<i class="no-highlight">772</i>&nbsp;    /**
+<i class="no-highlight">773</i>&nbsp;     * @see HandleLocker#allowReleaseLockAfterLsnChange
+<i class="no-highlight">774</i>&nbsp;     */
+<i class="no-highlight">775</i>&nbsp;    public boolean allowReleaseLockAfterLsnChange() {
+<b class="nc"><i class="no-highlight">776</i>&nbsp;        return false;</b>
+<i class="no-highlight">777</i>&nbsp;    }
+<i class="no-highlight">778</i>&nbsp;
+<i class="no-highlight">779</i>&nbsp;    /**
+<i class="no-highlight">780</i>&nbsp;     * Tell this transaction about a cursor.
+<i class="no-highlight">781</i>&nbsp;     */
+<i class="no-highlight">782</i>&nbsp;    public abstract void registerCursor(CursorImpl cursor);
+<i class="no-highlight">783</i>&nbsp;
+<i class="no-highlight">784</i>&nbsp;    /**
+<i class="no-highlight">785</i>&nbsp;     * Remove a cursor from this txn.
+<i class="no-highlight">786</i>&nbsp;     */
+<i class="no-highlight">787</i>&nbsp;    public abstract void unRegisterCursor(CursorImpl cursor);
+<i class="no-highlight">788</i>&nbsp;
+<i class="no-highlight">789</i>&nbsp;    /**
+<i class="no-highlight">790</i>&nbsp;     * Returns true if locking is required for this Locker.  All Txnal lockers
+<i class="no-highlight">791</i>&nbsp;     * require it; most BasicLockers do not, but BasicLockers on internal dbs
+<i class="no-highlight">792</i>&nbsp;     * do.
+<i class="no-highlight">793</i>&nbsp;     */
+<i class="no-highlight">794</i>&nbsp;    public abstract boolean lockingRequired();
+<i class="no-highlight">795</i>&nbsp;
+<i class="no-highlight">796</i>&nbsp;    /*
+<i class="no-highlight">797</i>&nbsp;     * Transactional support
+<i class="no-highlight">798</i>&nbsp;     */
+<i class="no-highlight">799</i>&nbsp;
+<i class="no-highlight">800</i>&nbsp;    /**
+<i class="no-highlight">801</i>&nbsp;     * @return the WriteLockInfo for this node.
+<i class="no-highlight">802</i>&nbsp;     */
+<i class="no-highlight">803</i>&nbsp;    public abstract WriteLockInfo getWriteLockInfo(long lsn);
+<i class="no-highlight">804</i>&nbsp;
+<i class="no-highlight">805</i>&nbsp;    /**
+<i class="no-highlight">806</i>&nbsp;     * Database operations like remove and truncate leave behind
+<i class="no-highlight">807</i>&nbsp;     * residual DatabaseImpls that must be purged at transaction
+<i class="no-highlight">808</i>&nbsp;     * commit or abort.
+<i class="no-highlight">809</i>&nbsp;     */
+<i class="no-highlight">810</i>&nbsp;    public abstract void markDeleteAtTxnEnd(DatabaseImpl db,
+<i class="no-highlight">811</i>&nbsp;                                            boolean deleteAtCommit)
+<i class="no-highlight">812</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">813</i>&nbsp;
+<i class="no-highlight">814</i>&nbsp;    /**
+<i class="no-highlight">815</i>&nbsp;     * Add delete information, to be added to the inCompressor queue when the
+<i class="no-highlight">816</i>&nbsp;     * transaction ends.
+<i class="no-highlight">817</i>&nbsp;     */
+<i class="no-highlight">818</i>&nbsp;    public void addDeleteInfo(BIN bin) {
+<i class="no-highlight">819</i>&nbsp;
+<i class="no-highlight">820</i>&nbsp;        /*
+<i class="no-highlight">821</i>&nbsp;         * Skip queue addition if a delta will be logged.  In this case the
+<i class="no-highlight">822</i>&nbsp;         * slot compression will occur in BIN.beforeLog, when a full version is
+<i class="no-highlight">823</i>&nbsp;         * logged.
+<i class="no-highlight">824</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">825</i>&nbsp;        if (bin.shouldLogDelta()) {</b>
+<b class="nc"><i class="no-highlight">826</i>&nbsp;            return;</b>
+<i class="no-highlight">827</i>&nbsp;        }
+<i class="no-highlight">828</i>&nbsp;
+<b class="nc"><i class="no-highlight">829</i>&nbsp;        synchronized (this) {</b>
+<i class="no-highlight">830</i>&nbsp;            /* Maintain only one binRef per node. */
+<b class="nc"><i class="no-highlight">831</i>&nbsp;            if (deleteInfo == null) {</b>
+<b class="nc"><i class="no-highlight">832</i>&nbsp;                deleteInfo = new HashMap&lt;&gt;();</b>
+<i class="no-highlight">833</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">834</i>&nbsp;            Long nodeId = bin.getNodeId();</b>
+<b class="nc"><i class="no-highlight">835</i>&nbsp;            if (deleteInfo.containsKey(nodeId)) {</b>
+<b class="nc"><i class="no-highlight">836</i>&nbsp;                return;</b>
+<i class="no-highlight">837</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">838</i>&nbsp;            deleteInfo.put(nodeId, bin.createReference());</b>
+<b class="nc"><i class="no-highlight">839</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">840</i>&nbsp;    }</b>
+<i class="no-highlight">841</i>&nbsp;
+<i class="no-highlight">842</i>&nbsp;    /*
+<i class="no-highlight">843</i>&nbsp;     * Manage locks owned by this transaction. Note that transactions that will
+<i class="no-highlight">844</i>&nbsp;     * be multithreaded must override these methods and provide synchronized
+<i class="no-highlight">845</i>&nbsp;     * implementations.
+<i class="no-highlight">846</i>&nbsp;     */
+<i class="no-highlight">847</i>&nbsp;
+<i class="no-highlight">848</i>&nbsp;    /**
+<i class="no-highlight">849</i>&nbsp;     * Add a lock to set owned by this transaction.
+<i class="no-highlight">850</i>&nbsp;     */
+<i class="no-highlight">851</i>&nbsp;    protected abstract void addLock(Long lsn,
+<i class="no-highlight">852</i>&nbsp;                                    LockType type,
+<i class="no-highlight">853</i>&nbsp;                                    LockGrantType grantStatus)
+<i class="no-highlight">854</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">855</i>&nbsp;
+<i class="no-highlight">856</i>&nbsp;    /**
+<i class="no-highlight">857</i>&nbsp;     * Remove the lock from the set owned by this transaction. If specified to
+<i class="no-highlight">858</i>&nbsp;     * LockManager.release, the lock manager will call this when its releasing
+<i class="no-highlight">859</i>&nbsp;     * a lock.
+<i class="no-highlight">860</i>&nbsp;     */
+<i class="no-highlight">861</i>&nbsp;    abstract void removeLock(long lsn)
+<i class="no-highlight">862</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">863</i>&nbsp;
+<i class="no-highlight">864</i>&nbsp;    /**
+<i class="no-highlight">865</i>&nbsp;     * A lock is being demoted. Move it from the write collection into the read
+<i class="no-highlight">866</i>&nbsp;     * collection.
+<i class="no-highlight">867</i>&nbsp;     */
+<i class="no-highlight">868</i>&nbsp;    abstract void moveWriteToReadLock(long lsn, Lock lock);
+<i class="no-highlight">869</i>&nbsp;
+<i class="no-highlight">870</i>&nbsp;    /**
+<i class="no-highlight">871</i>&nbsp;     * Get lock count, for per transaction lock stats, for internal debugging.
+<i class="no-highlight">872</i>&nbsp;     */
+<i class="no-highlight">873</i>&nbsp;    public abstract StatGroup collectStats()
+<i class="no-highlight">874</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">875</i>&nbsp;
+<i class="no-highlight">876</i>&nbsp;    /*
+<i class="no-highlight">877</i>&nbsp;     * Check txn timeout, if set. Called by the lock manager when blocking on a
+<i class="no-highlight">878</i>&nbsp;     * lock.
+<i class="no-highlight">879</i>&nbsp;     */
+<i class="no-highlight">880</i>&nbsp;    public boolean isTimedOut() {
+<b class="nc"><i class="no-highlight">881</i>&nbsp;        long timeout = getTxnTimeout();</b>
+<b class="nc"><i class="no-highlight">882</i>&nbsp;        if (timeout != 0) {</b>
+<b class="nc"><i class="no-highlight">883</i>&nbsp;            long diff = System.currentTimeMillis() - txnStartMillis;</b>
+<b class="nc"><i class="no-highlight">884</i>&nbsp;            if (diff &gt; timeout) {</b>
+<b class="nc"><i class="no-highlight">885</i>&nbsp;                return true;</b>
+<i class="no-highlight">886</i>&nbsp;            }
+<i class="no-highlight">887</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">888</i>&nbsp;        return false;</b>
+<i class="no-highlight">889</i>&nbsp;    }
+<i class="no-highlight">890</i>&nbsp;
+<i class="no-highlight">891</i>&nbsp;    /**
+<i class="no-highlight">892</i>&nbsp;     * Get the transaction timeout period for this locker, in milliseconds
+<i class="no-highlight">893</i>&nbsp;     *
+<i class="no-highlight">894</i>&nbsp;     * public for jca/ra/JELocalTransaction.
+<i class="no-highlight">895</i>&nbsp;     *
+<i class="no-highlight">896</i>&nbsp;     * WARNING: Be sure to always access the timeout with this accessor, since
+<i class="no-highlight">897</i>&nbsp;     * it is overridden in BuddyLocker.
+<i class="no-highlight">898</i>&nbsp;     */
+<i class="no-highlight">899</i>&nbsp;    public synchronized long getTxnTimeout() {
+<b class="nc"><i class="no-highlight">900</i>&nbsp;        return txnTimeoutMillis;</b>
+<i class="no-highlight">901</i>&nbsp;    }
+<i class="no-highlight">902</i>&nbsp;
+<i class="no-highlight">903</i>&nbsp;    long getTxnStartMillis() {
+<b class="nc"><i class="no-highlight">904</i>&nbsp;        return txnStartMillis;</b>
+<i class="no-highlight">905</i>&nbsp;    }
+<i class="no-highlight">906</i>&nbsp;
+<i class="no-highlight">907</i>&nbsp;    /**
+<i class="no-highlight">908</i>&nbsp;     * @return if this locker has ever been rolled back.
+<i class="no-highlight">909</i>&nbsp;     */
+<i class="no-highlight">910</i>&nbsp;    public boolean isRolledBack() {
+<b class="nc"><i class="no-highlight">911</i>&nbsp;        return false;  // most Locker types will never roll back.</b>
+<i class="no-highlight">912</i>&nbsp;    }
+<i class="no-highlight">913</i>&nbsp;
+<i class="no-highlight">914</i>&nbsp;    /**
+<i class="no-highlight">915</i>&nbsp;     * This method is safe to call without synchronizing and this fact is
+<i class="no-highlight">916</i>&nbsp;     * relied on by LockManager when creating exception messages.
+<i class="no-highlight">917</i>&nbsp;     */
+<i class="no-highlight">918</i>&nbsp;    @Override
+<i class="no-highlight">919</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">920</i>&nbsp;        String className = getClass().getName();</b>
+<b class="nc"><i class="no-highlight">921</i>&nbsp;        className = className.substring(className.lastIndexOf(&#39;.&#39;) + 1);</b>
+<i class="no-highlight">922</i>&nbsp;
+<b class="nc"><i class="no-highlight">923</i>&nbsp;        return System.identityHashCode(this) + &quot; &quot; + Long.toString(id) + &quot;_&quot; +</b>
+<b class="nc"><i class="no-highlight">924</i>&nbsp;               ((thread == null) ? &quot;&quot; : thread.getName()) + &quot;_&quot; +</b>
+<i class="no-highlight">925</i>&nbsp;               className;
+<i class="no-highlight">926</i>&nbsp;    }
+<i class="no-highlight">927</i>&nbsp;
+<i class="no-highlight">928</i>&nbsp;    /**
+<i class="no-highlight">929</i>&nbsp;     * Dump lock table, for debugging
+<i class="no-highlight">930</i>&nbsp;     */
+<i class="no-highlight">931</i>&nbsp;    public void dumpLockTable()
+<i class="no-highlight">932</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">933</i>&nbsp;
+<b class="nc"><i class="no-highlight">934</i>&nbsp;        lockManager.dump();</b>
+<b class="nc"><i class="no-highlight">935</i>&nbsp;    }</b>
+<i class="no-highlight">936</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

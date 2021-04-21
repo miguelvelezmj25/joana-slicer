@@ -1,0 +1,312 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DbFileSummaryMap</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: DbFileSummaryMap (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DbFileSummaryMap</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    61.5%
+  </span>
+  <span class="absValue">
+    (8/13)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    49.2%
+  </span>
+  <span class="absValue">
+    (29/59)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">18</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">19</i>&nbsp;import java.util.Map;
+<i class="no-highlight">20</i>&nbsp;import java.util.Set;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.log.FileManager;
+<i class="no-highlight">25</i>&nbsp;
+<b class="fc"><i class="no-highlight">26</i>&nbsp;public class DbFileSummaryMap {</b>
+<i class="no-highlight">27</i>&nbsp;
+<b class="fc"><i class="no-highlight">28</i>&nbsp;    private final static int FILE_ENTRY_OVERHEAD =</b>
+<i class="no-highlight">29</i>&nbsp;        MemoryBudget.HASHMAP_ENTRY_OVERHEAD +
+<i class="no-highlight">30</i>&nbsp;        MemoryBudget.LONG_OVERHEAD +
+<i class="no-highlight">31</i>&nbsp;        MemoryBudget.DBFILESUMMARY_OVERHEAD;
+<i class="no-highlight">32</i>&nbsp;
+<i class="no-highlight">33</i>&nbsp;    private Map&lt;Long, DbFileSummary&gt; map;
+<i class="no-highlight">34</i>&nbsp;    private int memSize;
+<i class="no-highlight">35</i>&nbsp;    private MemoryBudget budget;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;    /**
+<i class="no-highlight">38</i>&nbsp;     * Creates a map of Long file number to DbFileSummary.  The init() method
+<i class="no-highlight">39</i>&nbsp;     * must be called after creating this object.
+<i class="no-highlight">40</i>&nbsp;     *
+<i class="no-highlight">41</i>&nbsp;     * &lt;p&gt;Always counts this object and its contained objects in the memory
+<i class="no-highlight">42</i>&nbsp;     * budget.  If countParentMapEntry is true, also counts a single HashMap
+<i class="no-highlight">43</i>&nbsp;     * entry that contains this object.  This option allows all memory budget
+<i class="no-highlight">44</i>&nbsp;     * adjustments for LocalUtilizationTracker to be contained in this
+<i class="no-highlight">45</i>&nbsp;     * class.&lt;/p&gt;
+<i class="no-highlight">46</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">47</i>&nbsp;    public DbFileSummaryMap(boolean countParentMapEntry) {</b>
+<b class="fc"><i class="no-highlight">48</i>&nbsp;        map = new HashMap&lt;Long, DbFileSummary&gt;();</b>
+<b class="fc"><i class="no-highlight">49</i>&nbsp;        memSize = MemoryBudget.HASHMAP_OVERHEAD;</b>
+<b class="fc"><i class="no-highlight">50</i>&nbsp;        if (countParentMapEntry) {</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;            memSize += MemoryBudget.HASHMAP_ENTRY_OVERHEAD;</b>
+<i class="no-highlight">52</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">53</i>&nbsp;    }</b>
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    /**
+<i class="no-highlight">56</i>&nbsp;     * Starts memory budgeting.  The map and its entries will be counted in
+<i class="no-highlight">57</i>&nbsp;     * the budget.  When adding entries via the get() method prior to calling
+<i class="no-highlight">58</i>&nbsp;     * this method, the adjustMemBudget parameter must be false.  After calling
+<i class="no-highlight">59</i>&nbsp;     * this method, the adjustMemBudget parameter must be true.
+<i class="no-highlight">60</i>&nbsp;     *
+<i class="no-highlight">61</i>&nbsp;     * &lt;p&gt;This method is separate from the constructor so that the map may be
+<i class="no-highlight">62</i>&nbsp;     * read from the log without having the EnvironmentImpl object
+<i class="no-highlight">63</i>&nbsp;     * available.&lt;/p&gt;
+<i class="no-highlight">64</i>&nbsp;     */
+<i class="no-highlight">65</i>&nbsp;    public void init(EnvironmentImpl env) {
+<b class="fc"><i class="no-highlight">66</i>&nbsp;        budget = env.getMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">67</i>&nbsp;        budget.updateTreeAdminMemoryUsage(memSize);</b>
+<b class="fc"><i class="no-highlight">68</i>&nbsp;    }</b>
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    /**
+<i class="no-highlight">71</i>&nbsp;     * Returns the DbFileSummary for the given file, allocating it if
+<i class="no-highlight">72</i>&nbsp;     * necessary.
+<i class="no-highlight">73</i>&nbsp;     *
+<i class="no-highlight">74</i>&nbsp;     * &lt;p&gt;Must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">75</i>&nbsp;     *
+<i class="no-highlight">76</i>&nbsp;     * @param fileNum the file identifying the summary.
+<i class="no-highlight">77</i>&nbsp;     *
+<i class="no-highlight">78</i>&nbsp;     * @param adjustMemBudget see init().
+<i class="no-highlight">79</i>&nbsp;     *
+<i class="no-highlight">80</i>&nbsp;     * @param checkResurrected is true if this method should check fileNum and
+<i class="no-highlight">81</i>&nbsp;     * return null if the file does not exist. When checkResurrected is false,
+<i class="no-highlight">82</i>&nbsp;     * the expensive call to File.exists will not be made.
+<i class="no-highlight">83</i>&nbsp;     *
+<i class="no-highlight">84</i>&nbsp;     * @param fileManager is used to check for resurrected files and may be
+<i class="no-highlight">85</i>&nbsp;     * null if checkResurrected is false.
+<i class="no-highlight">86</i>&nbsp;     */
+<i class="no-highlight">87</i>&nbsp;    public DbFileSummary get(Long fileNum,
+<i class="no-highlight">88</i>&nbsp;                             boolean adjustMemBudget,
+<i class="no-highlight">89</i>&nbsp;                             boolean checkResurrected,
+<i class="no-highlight">90</i>&nbsp;                             FileManager fileManager) {
+<i class="no-highlight">91</i>&nbsp;
+<b class="fc"><i class="no-highlight">92</i>&nbsp;        assert adjustMemBudget == (budget != null);</b>
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;        /*
+<i class="no-highlight">95</i>&nbsp;         * Note that the call below to isFileValid (which calls File.exists) is
+<i class="no-highlight">96</i>&nbsp;         * only made if the file number is less than the last file in the log,
+<i class="no-highlight">97</i>&nbsp;         * and the file is not already present in the map.  When the file is
+<i class="no-highlight">98</i>&nbsp;         * not the last file, we are recording obsoleteness and the file should
+<i class="no-highlight">99</i>&nbsp;         * already be in the map.  So we only incur the overhead of File.exists
+<i class="no-highlight">100</i>&nbsp;         * when resurrecting a file, which should be pretty rare.
+<i class="no-highlight">101</i>&nbsp;         *
+<i class="no-highlight">102</i>&nbsp;         * The reliability of this approach is questionable. Earlier we had an
+<i class="no-highlight">103</i>&nbsp;         * assertion that double-checked this condition after adding a new map
+<i class="no-highlight">104</i>&nbsp;         * entry and the assertion sometimes fired, indicating that the file
+<i class="no-highlight">105</i>&nbsp;         * was deleted during the execution of this method. Luckily, we plan
+<i class="no-highlight">106</i>&nbsp;         * to remove per-DB utilization metadata completely in the future.
+<i class="no-highlight">107</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">108</i>&nbsp;        DbFileSummary summary = map.get(fileNum);</b>
+<b class="fc"><i class="no-highlight">109</i>&nbsp;        if (summary == null) {</b>
+<b class="fc"><i class="no-highlight">110</i>&nbsp;            if (checkResurrected &amp;&amp; </b>
+<b class="fc"><i class="no-highlight">111</i>&nbsp;                fileNum &lt; fileManager.getCurrentFileNum() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                !fileManager.isFileValid(fileNum)) {</b>
+<i class="no-highlight">113</i>&nbsp;                /* Will return null. */
+<i class="no-highlight">114</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">115</i>&nbsp;                summary = new DbFileSummary();</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;                Object oldVal = map.put(fileNum, summary);</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;                assert oldVal == null;</b>
+<b class="fc"><i class="no-highlight">118</i>&nbsp;                memSize += FILE_ENTRY_OVERHEAD;</b>
+<b class="fc"><i class="no-highlight">119</i>&nbsp;                if (adjustMemBudget) {</b>
+<b class="fc"><i class="no-highlight">120</i>&nbsp;                   budget.updateTreeAdminMemoryUsage(FILE_ENTRY_OVERHEAD);     </b>
+<i class="no-highlight">121</i>&nbsp;                }
+<i class="no-highlight">122</i>&nbsp;            }
+<i class="no-highlight">123</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">124</i>&nbsp;        return summary;</b>
+<i class="no-highlight">125</i>&nbsp;    }
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;    /**
+<i class="no-highlight">128</i>&nbsp;     * Removes the DbFileSummary for the given file.
+<i class="no-highlight">129</i>&nbsp;     *
+<i class="no-highlight">130</i>&nbsp;     * &lt;p&gt;Must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">131</i>&nbsp;     */
+<i class="no-highlight">132</i>&nbsp;    public boolean remove(Long fileNum) {
+<b class="nc"><i class="no-highlight">133</i>&nbsp;        if (map.remove(fileNum) != null) {</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;            budget.updateTreeAdminMemoryUsage(0 - FILE_ENTRY_OVERHEAD);</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;            memSize -= FILE_ENTRY_OVERHEAD;</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;            return true;</b>
+<i class="no-highlight">137</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">138</i>&nbsp;            return false;</b>
+<i class="no-highlight">139</i>&nbsp;        }
+<i class="no-highlight">140</i>&nbsp;    }
+<i class="no-highlight">141</i>&nbsp;
+<i class="no-highlight">142</i>&nbsp;    /*
+<i class="no-highlight">143</i>&nbsp;     * Get this map&#39;s memory size. Usually it&#39;s built up over time and added to
+<i class="no-highlight">144</i>&nbsp;     * the global memory budget, but this is used to reinitialize the memory
+<i class="no-highlight">145</i>&nbsp;     * budget after recovery, when DbFileSummaryMaps may be cut adrift by the
+<i class="no-highlight">146</i>&nbsp;     * process of overlaying new portions of the btree.
+<i class="no-highlight">147</i>&nbsp;     */
+<i class="no-highlight">148</i>&nbsp;    public long getMemorySize() {
+<b class="fc"><i class="no-highlight">149</i>&nbsp;        return memSize;</b>
+<i class="no-highlight">150</i>&nbsp;    }
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    public void subtractFromMemoryBudget() {
+<i class="no-highlight">153</i>&nbsp;        /* May not have been initialized if it was read by a FileReader */
+<b class="fc"><i class="no-highlight">154</i>&nbsp;        if (budget != null) {</b>
+<b class="fc"><i class="no-highlight">155</i>&nbsp;            budget.updateTreeAdminMemoryUsage(0 - memSize);</b>
+<b class="fc"><i class="no-highlight">156</i>&nbsp;            memSize = 0;</b>
+<i class="no-highlight">157</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">158</i>&nbsp;    }</b>
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;    public Set&lt;Map.Entry&lt;Long,DbFileSummary&gt;&gt; entrySet() {
+<b class="fc"><i class="no-highlight">161</i>&nbsp;        return map.entrySet();</b>
+<i class="no-highlight">162</i>&nbsp;    }
+<i class="no-highlight">163</i>&nbsp;
+<i class="no-highlight">164</i>&nbsp;    public boolean contains(Long fileNum) {
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        return map.containsKey(fileNum);</b>
+<i class="no-highlight">166</i>&nbsp;    }
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;    public int size() {
+<b class="fc"><i class="no-highlight">169</i>&nbsp;        return map.size();</b>
+<i class="no-highlight">170</i>&nbsp;    }
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;    public Map&lt;Long, DbFileSummary&gt; cloneMap() {
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        final Map&lt;Long, DbFileSummary&gt; clone =</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            new HashMap&lt;Long, DbFileSummary&gt;(map.size());</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;        final Iterator&lt;Map.Entry&lt;Long, DbFileSummary&gt;&gt; i =</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            map.entrySet().iterator();</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        while (i.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;            final Map.Entry&lt;Long, DbFileSummary&gt; entry = i.next();</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;            final Long fileNum = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;            final DbFileSummary summary = entry.getValue();</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;            clone.put(fileNum, summary.clone());</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        return clone;</b>
+<i class="no-highlight">184</i>&nbsp;    }
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;    @Override
+<i class="no-highlight">187</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        return map.toString();</b>
+<i class="no-highlight">189</i>&nbsp;    }
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    /**
+<i class="no-highlight">192</i>&nbsp;     * Removes entries for deleted files that were created by JE 3.3.74 and
+<i class="no-highlight">193</i>&nbsp;     * earlier.  [#16610]
+<i class="no-highlight">194</i>&nbsp;     */
+<i class="no-highlight">195</i>&nbsp;    public void repair(EnvironmentImpl env) {
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        Long[] existingFiles = env.getFileManager().getAllFileNumbers();</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        Iterator&lt;Long&gt; iter = map.keySet().iterator();</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            Long fileNum = iter.next();</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            if (Arrays.binarySearch(existingFiles, fileNum) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                iter.remove();</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                budget.updateTreeAdminMemoryUsage(0 - FILE_ENTRY_OVERHEAD);</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                memSize -= FILE_ENTRY_OVERHEAD;</b>
+<i class="no-highlight">204</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;    }</b>
+<i class="no-highlight">207</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

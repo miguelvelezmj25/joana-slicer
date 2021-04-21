@@ -1,0 +1,818 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplayTxn</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplayTxn (com.sleepycat.je.rep.txn)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplayTxn</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/32)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/153)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.utilint.DbLsn.NULL_LSN;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">19</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">20</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">21</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">22</i>&nbsp;import java.util.List;
+<i class="no-highlight">23</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">24</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.Durability;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.Durability.SyncPolicy;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.recovery.RecoveryManager;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.utilint.SimpleTxnMap;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.tree.TreeLocation;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.txn.LockAttemptResult;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.txn.LockType;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.txn.TxnChain;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.txn.TxnChain.RevertInfo;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.txn.TxnManager;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.txn.UndoReader;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">48</i>&nbsp;
+<i class="no-highlight">49</i>&nbsp;/**
+<i class="no-highlight">50</i>&nbsp; * Used for replaying replicated operations at replica nodes.
+<i class="no-highlight">51</i>&nbsp; */
+<b class="nc"><i class="no-highlight">52</i>&nbsp;public class ReplayTxn extends Txn {</b>
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /* The time the Txn was initiated. */
+<b class="nc"><i class="no-highlight">55</i>&nbsp;    private final long startTime = System.currentTimeMillis();</b>
+<i class="no-highlight">56</i>&nbsp;
+<i class="no-highlight">57</i>&nbsp;    /* The time the txn was committed or aborted. Zero if in progress */
+<b class="nc"><i class="no-highlight">58</i>&nbsp;    private long endTime = 0;</b>
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;    /*
+<i class="no-highlight">61</i>&nbsp;     * The last VLSN applied by this txn. Used for sanity checking.
+<i class="no-highlight">62</i>&nbsp;     * This field is currently not precisely set when a transaction is
+<i class="no-highlight">63</i>&nbsp;     * resurrected. The sanity check could be made more robust by setting
+<i class="no-highlight">64</i>&nbsp;     * this field at resurrection.
+<i class="no-highlight">65</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">66</i>&nbsp;    private VLSN lastApplied = VLSN.NULL_VLSN;</b>
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    /* Tracks whether the rep group db was changed by the transaction */
+<b class="nc"><i class="no-highlight">69</i>&nbsp;    private boolean repGroupDbChange = false;</b>
+<i class="no-highlight">70</i>&nbsp;
+<i class="no-highlight">71</i>&nbsp;    /* NodeId of the master which initiated the commit or abort. */
+<i class="no-highlight">72</i>&nbsp;    private int masterNodeId;
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /*
+<i class="no-highlight">75</i>&nbsp;     * The DTVLSN to be associated with this replay TXN. It&#39;s null for
+<i class="no-highlight">76</i>&nbsp;     * ReplayTxns that are actually written as part of a replica to master
+<i class="no-highlight">77</i>&nbsp;     * transition.
+<i class="no-highlight">78</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">79</i>&nbsp;    private long dtvlsn = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    private SimpleTxnMap&lt;ReplayTxn&gt; activeTxns;
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;    /*
+<i class="no-highlight">84</i>&nbsp;     * ReplayTxns are frequently constructed. Don&#39;t create its own logger;
+<i class="no-highlight">85</i>&nbsp;     * instead, use the Replay&#39;s logger.
+<i class="no-highlight">86</i>&nbsp;     */
+<i class="no-highlight">87</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;    /**
+<i class="no-highlight">90</i>&nbsp;     * Used when creating ReplayTxns for Replay. The ReplayTxn adds itself to
+<i class="no-highlight">91</i>&nbsp;     * the activeTxns map.
+<i class="no-highlight">92</i>&nbsp;     */
+<i class="no-highlight">93</i>&nbsp;    public ReplayTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">94</i>&nbsp;                     TransactionConfig config,
+<i class="no-highlight">95</i>&nbsp;                     long txnId,
+<i class="no-highlight">96</i>&nbsp;                     SimpleTxnMap&lt;ReplayTxn&gt; activeTxns,
+<i class="no-highlight">97</i>&nbsp;                     Logger logger)
+<i class="no-highlight">98</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">99</i>&nbsp;
+<b class="nc"><i class="no-highlight">100</i>&nbsp;        this(envImpl, config, txnId, logger);</b>
+<b class="nc"><i class="no-highlight">101</i>&nbsp;        registerWithActiveTxns(activeTxns);</b>
+<i class="no-highlight">102</i>&nbsp;    }
+<i class="no-highlight">103</i>&nbsp;
+<i class="no-highlight">104</i>&nbsp;    /**
+<i class="no-highlight">105</i>&nbsp;     * Used when creating ReplayTxns at recovery. No ActiveTxns map is
+<i class="no-highlight">106</i>&nbsp;     * available.
+<i class="no-highlight">107</i>&nbsp;     */
+<i class="no-highlight">108</i>&nbsp;    public ReplayTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">109</i>&nbsp;                     TransactionConfig config,
+<i class="no-highlight">110</i>&nbsp;                     long txnId,
+<i class="no-highlight">111</i>&nbsp;                     Logger logger)
+<i class="no-highlight">112</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">113</i>&nbsp;
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        super(envImpl,</b>
+<i class="no-highlight">115</i>&nbsp;              config,
+<i class="no-highlight">116</i>&nbsp;              null,      // ReplicationContext set later
+<i class="no-highlight">117</i>&nbsp;              txnId);    // mandatedId
+<i class="no-highlight">118</i>&nbsp;        /* Preempt reader transactions when a lock conflict occurs. */
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        setImportunate(true);</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        this.logger = logger;</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        assert !config.getLocalWrite();</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /**
+<i class="no-highlight">125</i>&nbsp;     * Don&#39;t let the ReplayTxn have a timeout of 0. If it did, it could be
+<i class="no-highlight">126</i>&nbsp;     * deadlocked against a reader txn. As long as there is a non zero timeout,
+<i class="no-highlight">127</i>&nbsp;     * any conflicts will be adjugated by the LockManager in its favor.
+<i class="no-highlight">128</i>&nbsp;     */
+<i class="no-highlight">129</i>&nbsp;    @Override
+<i class="no-highlight">130</i>&nbsp;    protected long getInitialLockTimeout() {
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        return envImpl.getReplayTxnTimeout();</b>
+<i class="no-highlight">132</i>&nbsp;    }
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    @Override
+<i class="no-highlight">135</i>&nbsp;    public boolean isLocalWrite() {
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        return false;</b>
+<i class="no-highlight">137</i>&nbsp;    }
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    public boolean getRepGroupDbChange() {
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        return repGroupDbChange;</b>
+<i class="no-highlight">141</i>&nbsp;    }
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    public void noteRepGroupDbChange() {
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        repGroupDbChange = true;</b>
+<i class="no-highlight">145</i>&nbsp;    }
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;    public void registerWithActiveTxns(SimpleTxnMap&lt;ReplayTxn&gt; newActiveTxns) {
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        assert activeTxns == null;</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        activeTxns = newActiveTxns;</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        activeTxns.put(this);</b>
+<i class="no-highlight">151</i>&nbsp;    }
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;    /**
+<i class="no-highlight">154</i>&nbsp;     * Replay transactions always use the txn id that is included in its
+<i class="no-highlight">155</i>&nbsp;     * replicated operation.
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    @Override
+<i class="no-highlight">158</i>&nbsp;    protected long generateId(TxnManager txnManager,
+<i class="no-highlight">159</i>&nbsp;                              long mandatedId) {
+<b class="nc"><i class="no-highlight">160</i>&nbsp;        return mandatedId;</b>
+<i class="no-highlight">161</i>&nbsp;    }
+<i class="no-highlight">162</i>&nbsp;
+<i class="no-highlight">163</i>&nbsp;    /*
+<i class="no-highlight">164</i>&nbsp;     * A ReplayTxn always writes the node ID of the master which generated
+<i class="no-highlight">165</i>&nbsp;     * the commit or abort.
+<i class="no-highlight">166</i>&nbsp;     */
+<i class="no-highlight">167</i>&nbsp;    @Override
+<i class="no-highlight">168</i>&nbsp;    protected int getReplicatorNodeId() {
+<b class="nc"><i class="no-highlight">169</i>&nbsp;        return masterNodeId;</b>
+<i class="no-highlight">170</i>&nbsp;    }
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;    /**
+<i class="no-highlight">173</i>&nbsp;     * Utility method to validate DTVLSN. It ensures that the DTVLSN is not
+<i class="no-highlight">174</i>&nbsp;     * null and that DTVLSN(vlsn) &lt;= VLSN.
+<i class="no-highlight">175</i>&nbsp;     */
+<i class="no-highlight">176</i>&nbsp;    private long validateDTVLSN(VLSN txnVLSN,
+<i class="no-highlight">177</i>&nbsp;                                long checkDTVLSN) {
+<i class="no-highlight">178</i>&nbsp;
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        if ((txnVLSN != null) &amp;&amp; VLSN.isNull(checkDTVLSN)) {</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;            throw new IllegalStateException(&quot;DTVLSN(&quot; + txnVLSN +&quot;) is null&quot;);</b>
+<i class="no-highlight">181</i>&nbsp;        }
+<i class="no-highlight">182</i>&nbsp;
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        if (txnVLSN == null) {</b>
+<i class="no-highlight">184</i>&nbsp;            /*
+<i class="no-highlight">185</i>&nbsp;             * Can be null, if this is a in-flight replay Txn that is being
+<i class="no-highlight">186</i>&nbsp;             * aborted as part of a replica -&gt; master transition and
+<i class="no-highlight">187</i>&nbsp;             * consequently does not have a pre-assigned vlsn; a VLSN will
+<i class="no-highlight">188</i>&nbsp;             * be assigned when the abort is actually written
+<i class="no-highlight">189</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">190</i>&nbsp;            return checkDTVLSN;</b>
+<i class="no-highlight">191</i>&nbsp;        }
+<i class="no-highlight">192</i>&nbsp;
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        if (checkDTVLSN &gt; txnVLSN.getSequence()) {</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            throw new IllegalStateException(&quot;DTVLSN(vlsn)=&quot; + checkDTVLSN +</b>
+<i class="no-highlight">195</i>&nbsp;                                            &quot; &gt; &quot; + &quot;vlsn=&quot; + txnVLSN);
+<i class="no-highlight">196</i>&nbsp;        }
+<i class="no-highlight">197</i>&nbsp;
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        return checkDTVLSN;</b>
+<i class="no-highlight">199</i>&nbsp;    }
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    /**
+<i class="no-highlight">202</i>&nbsp;     * Commits the txn being replayed.
+<i class="no-highlight">203</i>&nbsp;     *
+<i class="no-highlight">204</i>&nbsp;     * @param syncPolicy to be used for the commit.
+<i class="no-highlight">205</i>&nbsp;     * @param clientRepContext the replication context it encapsulates the VLSN
+<i class="no-highlight">206</i>&nbsp;     * associated with the txn.
+<i class="no-highlight">207</i>&nbsp;     * @param commitDTVLSN the dtvlsn
+<i class="no-highlight">208</i>&nbsp;     *
+<i class="no-highlight">209</i>&nbsp;     * @return the commit LSN
+<i class="no-highlight">210</i>&nbsp;     *
+<i class="no-highlight">211</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">212</i>&nbsp;     */
+<i class="no-highlight">213</i>&nbsp;    public long commit(SyncPolicy syncPolicy,
+<i class="no-highlight">214</i>&nbsp;                       ReplicationContext clientRepContext,
+<i class="no-highlight">215</i>&nbsp;                       int commitMasterNodeId,
+<i class="no-highlight">216</i>&nbsp;                       long commitDTVLSN)
+<i class="no-highlight">217</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            LoggerUtils.fine(logger, envImpl, &quot;commit called for &quot; + getId());</b>
+<i class="no-highlight">222</i>&nbsp;        }
+<i class="no-highlight">223</i>&nbsp;
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        setRepContext(clientRepContext);</b>
+<i class="no-highlight">225</i>&nbsp;
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        this.dtvlsn =</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            validateDTVLSN(clientRepContext.getClientVLSN(), commitDTVLSN);</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        Durability durability = null;</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        if (syncPolicy == SyncPolicy.SYNC) {</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;            durability = Durability.COMMIT_SYNC;</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        } else if (syncPolicy == SyncPolicy.NO_SYNC) {</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;            durability = Durability.COMMIT_NO_SYNC;</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;        } else if (syncPolicy == SyncPolicy.WRITE_NO_SYNC) {</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            durability = Durability.COMMIT_WRITE_NO_SYNC;</b>
+<i class="no-highlight">235</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                (&quot;Unknown sync policy: &quot; + syncPolicy);</b>
+<i class="no-highlight">238</i>&nbsp;        }
+<i class="no-highlight">239</i>&nbsp;
+<i class="no-highlight">240</i>&nbsp;        /*
+<i class="no-highlight">241</i>&nbsp;         * Set the master id before commit is called, so getReplicatorNodeId()
+<i class="no-highlight">242</i>&nbsp;         * will return this value and write the originating node&#39;s id into
+<i class="no-highlight">243</i>&nbsp;         * the commit record on this log.
+<i class="no-highlight">244</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        this.masterNodeId = commitMasterNodeId;</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        long lsn = super.commit(durability);</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        endTime = System.currentTimeMillis();</b>
+<i class="no-highlight">248</i>&nbsp;
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        return lsn;</b>
+<i class="no-highlight">250</i>&nbsp;    }
+<i class="no-highlight">251</i>&nbsp;
+<i class="no-highlight">252</i>&nbsp;    @Override
+<i class="no-highlight">253</i>&nbsp;    public long commit() {
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            (&quot;Replay Txn abort semantics require use of internal commit api&quot;);</b>
+<i class="no-highlight">256</i>&nbsp;    }
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;    @Override
+<i class="no-highlight">259</i>&nbsp;    public long commit(Durability durability) {
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;            (&quot;Replay Txn abort semantics require use of internal commit api&quot;);</b>
+<i class="no-highlight">262</i>&nbsp;    }
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;    @Override
+<i class="no-highlight">265</i>&nbsp;    public void abort() {
+<b class="nc"><i class="no-highlight">266</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            (&quot;Replay Txn abort semantics require use of internal abort api&quot;);</b>
+<i class="no-highlight">268</i>&nbsp;    }
+<i class="no-highlight">269</i>&nbsp;
+<i class="no-highlight">270</i>&nbsp;    @Override
+<i class="no-highlight">271</i>&nbsp;    public long abort(boolean forceFlush) {
+<b class="nc"><i class="no-highlight">272</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            (&quot;Replay Txn abort semantics require use of internal abort api&quot;);</b>
+<i class="no-highlight">274</i>&nbsp;    }
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    @Override
+<i class="no-highlight">277</i>&nbsp;    protected long getDTVLSN() {
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        return dtvlsn;</b>
+<i class="no-highlight">279</i>&nbsp;    }
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;    public long abort(ReplicationContext clientRepContext,
+<i class="no-highlight">282</i>&nbsp;                      int abortMasterNodeId,
+<i class="no-highlight">283</i>&nbsp;                      long abortDTVLSN)
+<i class="no-highlight">284</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">285</i>&nbsp;
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        setRepContext(clientRepContext);</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        this.dtvlsn = validateDTVLSN(clientRepContext.getClientVLSN(),</b>
+<i class="no-highlight">288</i>&nbsp;                                     abortDTVLSN);
+<i class="no-highlight">289</i>&nbsp;        /*
+<i class="no-highlight">290</i>&nbsp;         * Set the master id before abort is called, so getReplicatorNodeId()
+<i class="no-highlight">291</i>&nbsp;         * will return this value and write the originating node&#39;s id into
+<i class="no-highlight">292</i>&nbsp;         * the abort record on this log.
+<i class="no-highlight">293</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">294</i>&nbsp;        this.masterNodeId = abortMasterNodeId;</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        long lsn = super.abort(false /* forceFlush */);</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        endTime = System.currentTimeMillis();</b>
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        return lsn;</b>
+<i class="no-highlight">299</i>&nbsp;    }
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;    /**
+<i class="no-highlight">302</i>&nbsp;     * Always return true in order to ensure that the VLSN is logged.  Normally
+<i class="no-highlight">303</i>&nbsp;     * this method returns false when no LN has been logged by the txn.  But
+<i class="no-highlight">304</i>&nbsp;     * when replaying a Master txn, we need to guarantee that the VLSN is
+<i class="no-highlight">305</i>&nbsp;     * logged on the Replica.  [#20543]
+<i class="no-highlight">306</i>&nbsp;     */
+<i class="no-highlight">307</i>&nbsp;    @Override
+<i class="no-highlight">308</i>&nbsp;    protected boolean updateLoggedForTxn() {
+<b class="nc"><i class="no-highlight">309</i>&nbsp;        return true;</b>
+<i class="no-highlight">310</i>&nbsp;    }
+<i class="no-highlight">311</i>&nbsp;
+<i class="no-highlight">312</i>&nbsp;    @Override
+<i class="no-highlight">313</i>&nbsp;    public void close(boolean isCommit)
+<i class="no-highlight">314</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">315</i>&nbsp;
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        super.close(isCommit);</b>
+<i class="no-highlight">317</i>&nbsp;
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        if (activeTxns != null) {</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;            Txn removed = activeTxns.remove(getId());</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;            assert removed != null : &quot;txn was not in map &quot; + this + &quot; &quot; +</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;                LoggerUtils.getStackTrace();</b>
+<i class="no-highlight">322</i>&nbsp;        }
+<i class="no-highlight">323</i>&nbsp;    }
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;    /**
+<i class="no-highlight">326</i>&nbsp;     * Invoked when a ReplayTxn is being abandoned on shutdown.
+<i class="no-highlight">327</i>&nbsp;     */
+<i class="no-highlight">328</i>&nbsp;    public void cleanup()
+<i class="no-highlight">329</i>&nbsp;        throws DatabaseException {
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        releaseWriteLocks();</b>
+<i class="no-highlight">331</i>&nbsp;        /* Close the transaction thus causing it to be unregistered. */
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        close(false);</b>
+<i class="no-highlight">333</i>&nbsp;    }
+<i class="no-highlight">334</i>&nbsp;
+<i class="no-highlight">335</i>&nbsp;    /**
+<i class="no-highlight">336</i>&nbsp;     * Rollback all write operations that are logged with an LSN &gt; the
+<i class="no-highlight">337</i>&nbsp;     * matchpointLsn parameter. This is logically a truncation of the log
+<i class="no-highlight">338</i>&nbsp;     * entries written by this transaction. Any log entries created by this
+<i class="no-highlight">339</i>&nbsp;     * transaction are marked obsolete.
+<i class="no-highlight">340</i>&nbsp;     *
+<i class="no-highlight">341</i>&nbsp;     * Note that this is by no means a complete implementation of what would be
+<i class="no-highlight">342</i>&nbsp;     * needed to support user visible savepoints. This method only rolls back
+<i class="no-highlight">343</i>&nbsp;     * write operations and doesn&#39;t handle other types of state, like read
+<i class="no-highlight">344</i>&nbsp;     * locks and open cursors.
+<i class="no-highlight">345</i>&nbsp;     *
+<i class="no-highlight">346</i>&nbsp;     * There are several key assumptions:
+<i class="no-highlight">347</i>&nbsp;     * - the transaction does not hold read locks.
+<i class="no-highlight">348</i>&nbsp;     * - the transaction will either be resumed, and any rolled back
+<i class="no-highlight">349</i>&nbsp;     * operations will be repeated, or the transaction will be aborted
+<i class="no-highlight">350</i>&nbsp;     * in its entirety.
+<i class="no-highlight">351</i>&nbsp;     *
+<i class="no-highlight">352</i>&nbsp;     * If all operations in the transaction are rolled back, this transaction
+<i class="no-highlight">353</i>&nbsp;     * is also unregistered and closed.
+<i class="no-highlight">354</i>&nbsp;     *
+<i class="no-highlight">355</i>&nbsp;     * Rolling back a log entry through rollback is akin to truncating the
+<i class="no-highlight">356</i>&nbsp;     * transactional log. The on-disk entries should not be referred to by
+<i class="no-highlight">357</i>&nbsp;     * anything in the in-memory tree or the transaction chain. JE&#39;s append
+<i class="no-highlight">358</i>&nbsp;     * only storage and the fact that the transactional log entries are
+<i class="no-highlight">359</i>&nbsp;     * intertwined through the physical log prohibits any log truncation. To
+<i class="no-highlight">360</i>&nbsp;     * mimic log truncation, any rolled back log entry is marked as
+<i class="no-highlight">361</i>&nbsp;     * obsolete. Since only the last version of any data record is alive,
+<i class="no-highlight">362</i>&nbsp;     * any future uses of this transaction must use the obsoleteDupsAllowed
+<i class="no-highlight">363</i>&nbsp;     * option (see Txn.countObsoleteExact) to prevent asserts about duplicate
+<i class="no-highlight">364</i>&nbsp;     * obsolete offsets. For example, suppose the transaction logs this:
+<i class="no-highlight">365</i>&nbsp;     *
+<i class="no-highlight">366</i>&nbsp;     * 100 LNa (version1)
+<i class="no-highlight">367</i>&nbsp;     * 200 LNa (version2)
+<i class="no-highlight">368</i>&nbsp;     * 300 LNa (version3)
+<i class="no-highlight">369</i>&nbsp;     *
+<i class="no-highlight">370</i>&nbsp;     * At this point in time, LSN 100 and 200 are obsolete.
+<i class="no-highlight">371</i>&nbsp;     *
+<i class="no-highlight">372</i>&nbsp;     * Now, suppose we roll back to LSN 100. LSNs 200 and 300 are marked
+<i class="no-highlight">373</i>&nbsp;     * obsolete by the rollback.(although LSN 200 was already obsolete).  It is
+<i class="no-highlight">374</i>&nbsp;     * true that for an instance in time LSN 100 is incorrectly marked as
+<i class="no-highlight">375</i>&nbsp;     * obsolete, when it&#39;s really alive. But this transaction is going to
+<i class="no-highlight">376</i>&nbsp;     * either abort or resume exactly as it was before, so LSN 100 is going to
+<i class="no-highlight">377</i>&nbsp;     * be obsolete again.
+<i class="no-highlight">378</i>&nbsp;     *
+<i class="no-highlight">379</i>&nbsp;     * Suppose txn.abort() is called. The abort() logic will mark LSN 100 as
+<i class="no-highlight">380</i>&nbsp;     * obsolete, since it is the latest version of the record in the
+<i class="no-highlight">381</i>&nbsp;     * transaction. Using the obsoleteDupsAllowed option avoids an assertion on
+<i class="no-highlight">382</i>&nbsp;     * the double recording of LSN 100.
+<i class="no-highlight">383</i>&nbsp;     *
+<i class="no-highlight">384</i>&nbsp;     * Alternatively, suppose LNa (version2) is retransmitted and logged as LSN
+<i class="no-highlight">385</i>&nbsp;     * 400. Normal execution of LN.log() marks LSN 100 as obsolete, which would
+<i class="no-highlight">386</i>&nbsp;     * trigger the assertion were it not for obsoleteDupsAllowed.
+<i class="no-highlight">387</i>&nbsp;     *
+<i class="no-highlight">388</i>&nbsp;     * @return list of LSNs that were rolled back
+<i class="no-highlight">389</i>&nbsp;     */
+<i class="no-highlight">390</i>&nbsp;    public Collection&lt;Long&gt; rollback(long matchpointLsn)
+<i class="no-highlight">391</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">392</i>&nbsp;
+<b class="nc"><i class="no-highlight">393</i>&nbsp;        List&lt;Long&gt; rollbackLsns = new ArrayList&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;        LoggerUtils.finest(logger, envImpl, &quot;Partial Rollback of &quot; + this);</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;            checkState(true);</b>
+<i class="no-highlight">397</i>&nbsp;
+<i class="no-highlight">398</i>&nbsp;            /* This transaction didn&#39;t log anything, nothing to rollback. */
+<b class="nc"><i class="no-highlight">399</i>&nbsp;            if (lastLoggedLsn == NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;                return rollbackLsns;</b>
+<i class="no-highlight">401</i>&nbsp;            }
+<i class="no-highlight">402</i>&nbsp;
+<i class="no-highlight">403</i>&nbsp;            /*
+<i class="no-highlight">404</i>&nbsp;             * This transaction doesn&#39;t include any operations that are after
+<i class="no-highlight">405</i>&nbsp;             * the matchpointLsn. There is nothing to rollback.
+<i class="no-highlight">406</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">407</i>&nbsp;            if (DbLsn.compareTo(lastLoggedLsn, matchpointLsn) &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                return rollbackLsns;</b>
+<i class="no-highlight">409</i>&nbsp;            }
+<i class="no-highlight">410</i>&nbsp;
+<b class="nc"><i class="no-highlight">411</i>&nbsp;            setRollback();</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            undoWrites(matchpointLsn, rollbackLsns);</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;        }</b>
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;        /*
+<i class="no-highlight">416</i>&nbsp;         * The call to undoWrites() may have rolled everything back, and set
+<i class="no-highlight">417</i>&nbsp;         * lastLoggedLsn to NULL_LSN.
+<i class="no-highlight">418</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">419</i>&nbsp;        if (lastLoggedLsn == NULL_LSN) {</b>
+<i class="no-highlight">420</i>&nbsp;            /* Everything was rolled back. */
+<i class="no-highlight">421</i>&nbsp;            try {
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;                /*
+<i class="no-highlight">424</i>&nbsp;                 * Purge any databaseImpls not needed as a result of the abort.
+<i class="no-highlight">425</i>&nbsp;                 * Be sure to do this outside the synchronization block, to
+<i class="no-highlight">426</i>&nbsp;                 * avoid conflict w/checkpointer.
+<i class="no-highlight">427</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">428</i>&nbsp;                cleanupDatabaseImpls(false);</b>
+<i class="no-highlight">429</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                close(false /* isCommit */);</b>
+<b class="nc"><i class="no-highlight">431</i>&nbsp;            }</b>
+<i class="no-highlight">432</i>&nbsp;        }
+<i class="no-highlight">433</i>&nbsp;
+<i class="no-highlight">434</i>&nbsp;        /*
+<i class="no-highlight">435</i>&nbsp;         * We don&#39;t expect there to be any database handles associated with
+<i class="no-highlight">436</i>&nbsp;         * a ReplayTxn, because only DatabaseImpls are used. Because of that,
+<i class="no-highlight">437</i>&nbsp;         * there should be no cleanup needed.
+<i class="no-highlight">438</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">439</i>&nbsp;        if (openedDatabaseHandles != null) {</b>
+<b class="nc"><i class="no-highlight">440</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;                (&quot;Replay Txn &quot; + getId() + &quot; has a openedDatabaseHandles&quot;);</b>
+<i class="no-highlight">442</i>&nbsp;        }
+<i class="no-highlight">443</i>&nbsp;
+<i class="no-highlight">444</i>&nbsp;        /*
+<i class="no-highlight">445</i>&nbsp;         * There is no need to call cleanupDatabaseImpls if the txn still holds
+<i class="no-highlight">446</i>&nbsp;         * locks. The operations in this txn will either be entirely aborted,
+<i class="no-highlight">447</i>&nbsp;         * or will be repeated, so any cleanup will happen when the txn ends.
+<i class="no-highlight">448</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">449</i>&nbsp;        return rollbackLsns;</b>
+<i class="no-highlight">450</i>&nbsp;    }
+<i class="no-highlight">451</i>&nbsp;
+<i class="no-highlight">452</i>&nbsp;    /**
+<i class="no-highlight">453</i>&nbsp;     * Rollback the changes to this txn&#39;s write locked nodes up to but not
+<i class="no-highlight">454</i>&nbsp;     * including the entry at the specified matchpoint. When we log a
+<i class="no-highlight">455</i>&nbsp;     * transactional entry, we record the LSN of the original,
+<i class="no-highlight">456</i>&nbsp;     * before-this-transaction version as the abort LSN. This means that if
+<i class="no-highlight">457</i>&nbsp;     * there are multiple updates to a given record in a single transaction,
+<i class="no-highlight">458</i>&nbsp;     * each update only references that original version and its true
+<i class="no-highlight">459</i>&nbsp;     * predecessor.
+<i class="no-highlight">460</i>&nbsp;     *
+<i class="no-highlight">461</i>&nbsp;     * This was done to streamline abort processing, so that an undo reverts
+<i class="no-highlight">462</i>&nbsp;     * directly to the original version rather than stepping through all the
+<i class="no-highlight">463</i>&nbsp;     * intermediates. The intermediates are skipped.  However, undo to a
+<i class="no-highlight">464</i>&nbsp;     * matchpoint may need to stop at an intermediate point, so we need to
+<i class="no-highlight">465</i>&nbsp;     * create a true chain of versions.
+<i class="no-highlight">466</i>&nbsp;     *
+<i class="no-highlight">467</i>&nbsp;     * To do so, we read the transaction backwards from the last logged LSN
+<i class="no-highlight">468</i>&nbsp;     * to reconstruct a transaction chain that links intermediate versions
+<i class="no-highlight">469</i>&nbsp;     * of records. For example, suppose our transaction looks like this and
+<i class="no-highlight">470</i>&nbsp;     * that we are undoing up to LSN 250
+<i class="no-highlight">471</i>&nbsp;     *
+<i class="no-highlight">472</i>&nbsp;     * lsn=100 node=A (version 1)
+<i class="no-highlight">473</i>&nbsp;     * lsn=200 node=B (version 1)
+<i class="no-highlight">474</i>&nbsp;     *                        &lt;-- matchpointLsn
+<i class="no-highlight">475</i>&nbsp;     * lsn=300 node=C (version 1)
+<i class="no-highlight">476</i>&nbsp;     * lsn=400 node=A (version 2)
+<i class="no-highlight">477</i>&nbsp;     * lsn=500 node=B (version 2)
+<i class="no-highlight">478</i>&nbsp;     * lsn=600 node=A (version 3)
+<i class="no-highlight">479</i>&nbsp;     * lsn=700 node=A (version 4)
+<i class="no-highlight">480</i>&nbsp;     *
+<i class="no-highlight">481</i>&nbsp;     * To setup the old versions, We walk from LSN 700 -&gt; 100
+<i class="no-highlight">482</i>&nbsp;     *   700 (A) rolls back to 600
+<i class="no-highlight">483</i>&nbsp;     *   600 (A) rolls back to 400
+<i class="no-highlight">484</i>&nbsp;     *   500 (B) rolls back to 200
+<i class="no-highlight">485</i>&nbsp;     *   400 (A) rolls back to 100
+<i class="no-highlight">486</i>&nbsp;     *   300 (C) rolls back to an empty slot (NULL_LSN).
+<i class="no-highlight">487</i>&nbsp;     *
+<i class="no-highlight">488</i>&nbsp;     * A partial rollback also requires resetting the lastLoggedLsn field,
+<i class="no-highlight">489</i>&nbsp;     * because these operations are no longer in the btree and their on-disk
+<i class="no-highlight">490</i>&nbsp;     * entries are no longer valid.
+<i class="no-highlight">491</i>&nbsp;     *
+<i class="no-highlight">492</i>&nbsp;     * Lastly, the appropriate write locks must be released.
+<i class="no-highlight">493</i>&nbsp;     * @param matchpointLsn the rollback should go up to but not include this
+<i class="no-highlight">494</i>&nbsp;     * LSN.
+<i class="no-highlight">495</i>&nbsp;     */
+<i class="no-highlight">496</i>&nbsp;    private void undoWrites(long matchpointLsn, List&lt;Long&gt; rollbackLsns)
+<i class="no-highlight">497</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">498</i>&nbsp;
+<i class="no-highlight">499</i>&nbsp;        /*
+<i class="no-highlight">500</i>&nbsp;         * Generate a map of node-&gt;List of intermediate LSNs for this node.
+<i class="no-highlight">501</i>&nbsp;         * to re-create the transaction chain.
+<i class="no-highlight">502</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        TreeLocation location = new TreeLocation();</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;        Long undoLsn = lastLoggedLsn;</b>
+<i class="no-highlight">505</i>&nbsp;
+<b class="nc"><i class="no-highlight">506</i>&nbsp;        TxnChain chain =</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            new TxnChain(undoLsn, id, matchpointLsn, undoDatabases, envImpl);</b>
+<i class="no-highlight">508</i>&nbsp;
+<i class="no-highlight">509</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">510</i>&nbsp;            while ((undoLsn != DbLsn.NULL_LSN) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                    DbLsn.compareTo(undoLsn, matchpointLsn) &gt; 0) {</b>
+<i class="no-highlight">512</i>&nbsp;
+<b class="nc"><i class="no-highlight">513</i>&nbsp;                UndoReader undo =</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                    UndoReader.create(envImpl, undoLsn, undoDatabases);</b>
+<i class="no-highlight">515</i>&nbsp;
+<b class="nc"><i class="no-highlight">516</i>&nbsp;                RevertInfo revertTo = chain.pop();</b>
+<i class="no-highlight">517</i>&nbsp;
+<b class="nc"><i class="no-highlight">518</i>&nbsp;                logFinest(undoLsn, undo, revertTo);</b>
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;                /*
+<i class="no-highlight">521</i>&nbsp;                 * When we undo this log entry, we&#39;ve logically truncated
+<i class="no-highlight">522</i>&nbsp;                 * it from the log. Remove it from the btree and mark it
+<i class="no-highlight">523</i>&nbsp;                 * obsolete.
+<i class="no-highlight">524</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">525</i>&nbsp;                RecoveryManager.rollbackUndo(</b>
+<i class="no-highlight">526</i>&nbsp;                    logger, Level.FINER, location,
+<b class="nc"><i class="no-highlight">527</i>&nbsp;                    undo.db, undo.logEntry, undoLsn, revertTo);</b>
+<i class="no-highlight">528</i>&nbsp;
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                countObsoleteInexact(undoLsn, undo);</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;                rollbackLsns.add(undoLsn);</b>
+<i class="no-highlight">531</i>&nbsp;
+<i class="no-highlight">532</i>&nbsp;                /*
+<i class="no-highlight">533</i>&nbsp;                 * Move on to the previous log entry for this txn and update
+<i class="no-highlight">534</i>&nbsp;                 * what is considered to be the end of the transaction chain.
+<i class="no-highlight">535</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">536</i>&nbsp;                undoLsn = undo.logEntry.getUserTxn().getLastLsn();</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;                lastLoggedLsn = undoLsn;</b>
+<b class="nc"><i class="no-highlight">538</i>&nbsp;            }</b>
+<i class="no-highlight">539</i>&nbsp;
+<i class="no-highlight">540</i>&nbsp;            /*
+<i class="no-highlight">541</i>&nbsp;             * Correct the fields which hold LSN and VLSN state that may
+<i class="no-highlight">542</i>&nbsp;             * now be changed.
+<i class="no-highlight">543</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">544</i>&nbsp;            lastApplied = chain.getLastValidVLSN();</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;            if (!updateLoggedForTxn()) {</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;                firstLoggedLsn = NULL_LSN;</b>
+<i class="no-highlight">547</i>&nbsp;            }
+<i class="no-highlight">548</i>&nbsp;
+<b class="nc"><i class="no-highlight">549</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">550</i>&nbsp;            LoggerUtils.traceAndLogException(envImpl, &quot;Txn&quot;, &quot;undo&quot;,</b>
+<i class="no-highlight">551</i>&nbsp;                                     &quot;For LSN=&quot; +
+<b class="nc"><i class="no-highlight">552</i>&nbsp;                                     DbLsn.getNoFormatString(undoLsn), e);</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">554</i>&nbsp;        } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            throw EnvironmentFailureException.unexpectedException</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;                (&quot;Txn undo for LSN=&quot; + DbLsn.getNoFormatString(undoLsn), e);</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;        }</b>
+<i class="no-highlight">558</i>&nbsp;
+<b class="nc"><i class="no-highlight">559</i>&nbsp;        if (lastLoggedLsn == DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">560</i>&nbsp;
+<i class="no-highlight">561</i>&nbsp;            /*
+<i class="no-highlight">562</i>&nbsp;             * The whole txn is rolled back, and it may not appear again. This
+<i class="no-highlight">563</i>&nbsp;             * is the equivalent of an abort. Do any delete processing for an
+<i class="no-highlight">564</i>&nbsp;             * abort which is needed.
+<i class="no-highlight">565</i>&nbsp;             *
+<i class="no-highlight">566</i>&nbsp;             * Set database state for deletes before releasing any write
+<i class="no-highlight">567</i>&nbsp;             * locks.
+<i class="no-highlight">568</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">569</i>&nbsp;            setDeletedDatabaseState(false);</b>
+<i class="no-highlight">570</i>&nbsp;        }
+<i class="no-highlight">571</i>&nbsp;
+<i class="no-highlight">572</i>&nbsp;        /* Clear any write locks that are no longer needed. */
+<b class="nc"><i class="no-highlight">573</i>&nbsp;        clearWriteLocks(chain.getRemainingLockedNodes());</b>
+<i class="no-highlight">574</i>&nbsp;    }
+<i class="no-highlight">575</i>&nbsp;
+<i class="no-highlight">576</i>&nbsp;    /**
+<i class="no-highlight">577</i>&nbsp;     * Count an LN obsolete that is being made invisble by rollback.
+<i class="no-highlight">578</i>&nbsp;     *
+<i class="no-highlight">579</i>&nbsp;     * Use inexact counting.  Since invisible entries are not processed by the
+<i class="no-highlight">580</i>&nbsp;     * cleaner, recording the obsolete offset would be a waste of resources.
+<i class="no-highlight">581</i>&nbsp;     * Since we don&#39;t count offsets, we don&#39;t need to worry about duplicate
+<i class="no-highlight">582</i>&nbsp;     * offsets.
+<i class="no-highlight">583</i>&nbsp;     *
+<i class="no-highlight">584</i>&nbsp;     * Some entries may be double counted if they were previously counted
+<i class="no-highlight">585</i>&nbsp;     * obsolete, for example, when multiple versions of an LN were logged.
+<i class="no-highlight">586</i>&nbsp;     * This is tolerated for an exceptional situation like rollback.
+<i class="no-highlight">587</i>&nbsp;     */
+<i class="no-highlight">588</i>&nbsp;    private void countObsoleteInexact(long undoLsn, UndoReader undo) {
+<i class="no-highlight">589</i>&nbsp;
+<i class="no-highlight">590</i>&nbsp;        /*
+<i class="no-highlight">591</i>&nbsp;         * &quot;Immediately obsolete&quot; LNs are counted as obsolete when they are
+<i class="no-highlight">592</i>&nbsp;         * logged, so no need to repeat here.
+<i class="no-highlight">593</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">594</i>&nbsp;        if (undo.logEntry.isImmediatelyObsolete(undo.db)) {</b>
+<i class="no-highlight">595</i>&nbsp;            return;
+<i class="no-highlight">596</i>&nbsp;        }
+<i class="no-highlight">597</i>&nbsp;
+<b class="nc"><i class="no-highlight">598</i>&nbsp;        envImpl.getLogManager().countObsoleteNode(undoLsn,</b>
+<i class="no-highlight">599</i>&nbsp;                                                  null, /*type*/
+<i class="no-highlight">600</i>&nbsp;                                                  undo.logEntrySize,
+<i class="no-highlight">601</i>&nbsp;                                                  undo.db,
+<i class="no-highlight">602</i>&nbsp;                                                  false /*countExact*/);
+<i class="no-highlight">603</i>&nbsp;    }
+<i class="no-highlight">604</i>&nbsp;
+<i class="no-highlight">605</i>&nbsp;    /**
+<i class="no-highlight">606</i>&nbsp;     * Returns the elapsed time associated with this transaction. If the
+<i class="no-highlight">607</i>&nbsp;     * transaction is in progress, it returns the running elapsed time.
+<i class="no-highlight">608</i>&nbsp;     *
+<i class="no-highlight">609</i>&nbsp;     * @return the elapsed time as above.
+<i class="no-highlight">610</i>&nbsp;     */
+<i class="no-highlight">611</i>&nbsp;    public long elapsedTime() {
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        return ((endTime &gt; 0) ? endTime : System.currentTimeMillis()) -</b>
+<i class="no-highlight">613</i>&nbsp;            startTime;
+<i class="no-highlight">614</i>&nbsp;    }
+<i class="no-highlight">615</i>&nbsp;
+<i class="no-highlight">616</i>&nbsp;    /**
+<i class="no-highlight">617</i>&nbsp;     * Returns the time when this transaction was committed or aborted.
+<i class="no-highlight">618</i>&nbsp;     * Returns zero if the transaction is still in progress.
+<i class="no-highlight">619</i>&nbsp;     *
+<i class="no-highlight">620</i>&nbsp;     * @return the end time or zero
+<i class="no-highlight">621</i>&nbsp;     */
+<i class="no-highlight">622</i>&nbsp;    public long getEndTime() {
+<b class="nc"><i class="no-highlight">623</i>&nbsp;        return endTime;</b>
+<i class="no-highlight">624</i>&nbsp;    }
+<i class="no-highlight">625</i>&nbsp;
+<i class="no-highlight">626</i>&nbsp;    public void setLastAppliedVLSN(VLSN justApplied) {
+<b class="nc"><i class="no-highlight">627</i>&nbsp;        if (justApplied.compareTo(lastApplied) &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">628</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">629</i>&nbsp;                (&quot;Txn &quot; + getId() + &quot; attempted VLSN = &quot; + justApplied +</b>
+<i class="no-highlight">630</i>&nbsp;                 &quot; txnLastApplied = &quot; +  lastApplied);
+<i class="no-highlight">631</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">632</i>&nbsp;        this.lastApplied = justApplied;</b>
+<i class="no-highlight">633</i>&nbsp;    }
+<i class="no-highlight">634</i>&nbsp;
+<i class="no-highlight">635</i>&nbsp;    /**
+<i class="no-highlight">636</i>&nbsp;     * ReplicatedTxns set it when the txn commit
+<i class="no-highlight">637</i>&nbsp;     * or abort arrives.
+<i class="no-highlight">638</i>&nbsp;     */
+<i class="no-highlight">639</i>&nbsp;    public void setRepContext(ReplicationContext repContext) {
+<b class="nc"><i class="no-highlight">640</i>&nbsp;        this.repContext = repContext;</b>
+<i class="no-highlight">641</i>&nbsp;    }
+<i class="no-highlight">642</i>&nbsp;
+<i class="no-highlight">643</i>&nbsp;    /* Wrap the call to logger to reduce runtime overhead. */
+<i class="no-highlight">644</i>&nbsp;    private void logFinest(long lsn, UndoReader undo, RevertInfo revertTo) {
+<b class="nc"><i class="no-highlight">645</i>&nbsp;        if ((logger != null) &amp;&amp; (logger.isLoggable(Level.FINEST))) {</b>
+<b class="nc"><i class="no-highlight">646</i>&nbsp;            LoggerUtils.finest(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                               &quot;undoLsn=&quot; + DbLsn.getNoFormatString(lsn) +</b>
+<i class="no-highlight">648</i>&nbsp;                               &quot; undo=&quot; + undo + &quot; revertInfo=&quot; + revertTo);
+<i class="no-highlight">649</i>&nbsp;        }
+<i class="no-highlight">650</i>&nbsp;    }
+<i class="no-highlight">651</i>&nbsp;
+<i class="no-highlight">652</i>&nbsp;    @Override
+<i class="no-highlight">653</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">654</i>&nbsp;        StringBuilder sb = new StringBuilder(&quot;&lt;ReplayTxn id=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">655</i>&nbsp;        sb.append(id);</b>
+<b class="nc"><i class="no-highlight">656</i>&nbsp;        sb.append(&quot;\&quot;&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">657</i>&nbsp;        sb.append(super.toString());</b>
+<b class="nc"><i class="no-highlight">658</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">659</i>&nbsp;    }
+<i class="no-highlight">660</i>&nbsp;
+<i class="no-highlight">661</i>&nbsp;    /*
+<i class="no-highlight">662</i>&nbsp;     * Copy all collections that will be needed to convert masterTxn to this
+<i class="no-highlight">663</i>&nbsp;     * ReplayTxn. Note that we do not need to copy the openDatabaseHandle
+<i class="no-highlight">664</i>&nbsp;     * collection.  That collection is only needed by an application-facing
+<i class="no-highlight">665</i>&nbsp;     * Txn, so that those database handles can be invalidated if
+<i class="no-highlight">666</i>&nbsp;     * needed. ReplayTxn is not application-facing, and uses DatabaseImpls
+<i class="no-highlight">667</i>&nbsp;     * rather than Databases.
+<i class="no-highlight">668</i>&nbsp;     */
+<i class="no-highlight">669</i>&nbsp;    public void copyDatabasesForConversion(Txn masterTxn) {
+<b class="nc"><i class="no-highlight">670</i>&nbsp;        if (masterTxn.getUndoDatabases() != null) {</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;            if (undoDatabases == null) {</b>
+<b class="nc"><i class="no-highlight">672</i>&nbsp;                undoDatabases = new HashMap&lt;DatabaseId, DatabaseImpl&gt;();</b>
+<i class="no-highlight">673</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">674</i>&nbsp;            undoDatabases.putAll(masterTxn.getUndoDatabases());</b>
+<i class="no-highlight">675</i>&nbsp;        }
+<i class="no-highlight">676</i>&nbsp;
+<b class="nc"><i class="no-highlight">677</i>&nbsp;        if (masterTxn.getDeletedDatabases() != null) {</b>
+<b class="nc"><i class="no-highlight">678</i>&nbsp;            if (deletedDatabases == null) {</b>
+<b class="nc"><i class="no-highlight">679</i>&nbsp;                deletedDatabases = new HashSet&lt;DatabaseCleanupInfo&gt;();</b>
+<i class="no-highlight">680</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">681</i>&nbsp;            deletedDatabases.addAll(masterTxn.getDeletedDatabases());</b>
+<i class="no-highlight">682</i>&nbsp;        }
+<i class="no-highlight">683</i>&nbsp;    }
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;    /**
+<i class="no-highlight">686</i>&nbsp;     * Transfer a lock from another transaction to this one. Used for master-&gt;
+<i class="no-highlight">687</i>&nbsp;     * replica transitions, when a node has to transform a MasterTxn into a
+<i class="no-highlight">688</i>&nbsp;     * ReplayTxn. Another approach would be to have this importunate ReplayTxn
+<i class="no-highlight">689</i>&nbsp;     * call lock() on the lsn, but that path is not available because we
+<i class="no-highlight">690</i>&nbsp;     * do not have a handle on a databaseImpl.
+<i class="no-highlight">691</i>&nbsp;     */
+<i class="no-highlight">692</i>&nbsp;    public void stealLockFromMasterTxn(Long lsn) {
+<i class="no-highlight">693</i>&nbsp;
+<b class="nc"><i class="no-highlight">694</i>&nbsp;        LockAttemptResult result = lockManager.stealLock</b>
+<b class="nc"><i class="no-highlight">695</i>&nbsp;            (lsn, this, LockType.WRITE);</b>
+<i class="no-highlight">696</i>&nbsp;
+<i class="no-highlight">697</i>&nbsp;        /*
+<i class="no-highlight">698</i>&nbsp;         * Assert, and if something strange happened, opt to invalidate
+<i class="no-highlight">699</i>&nbsp;         * the environment and wipe the slate clean.
+<i class="no-highlight">700</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">701</i>&nbsp;        if (!result.success) {</b>
+<b class="nc"><i class="no-highlight">702</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">703</i>&nbsp;                (envImpl,</b>
+<i class="no-highlight">704</i>&nbsp;                 &quot;Transferring from master to replica state, txn &quot; +
+<b class="nc"><i class="no-highlight">705</i>&nbsp;                 getId() + &quot; was unable to transfer lock for &quot; +</b>
+<b class="nc"><i class="no-highlight">706</i>&nbsp;                 DbLsn.getNoFormatString(lsn) + &quot;, lock grant type=&quot; +</b>
+<i class="no-highlight">707</i>&nbsp;                 result.lockGrant);
+<i class="no-highlight">708</i>&nbsp;        }
+<i class="no-highlight">709</i>&nbsp;
+<b class="nc"><i class="no-highlight">710</i>&nbsp;        addLock(Long.valueOf(lsn), LockType.WRITE,  result.lockGrant);</b>
+<b class="nc"><i class="no-highlight">711</i>&nbsp;        addLogInfo(lsn);</b>
+<i class="no-highlight">712</i>&nbsp;    }
+<i class="no-highlight">713</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

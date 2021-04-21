@@ -1,0 +1,201 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LogEntry</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log.entry</a>
+</div>
+
+<h1>Coverage Summary for Class: LogEntry (com.sleepycat.je.log.entry)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+</tr>
+<tr>
+  <td class="name">LogEntry</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log.entry;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.log.LogEntryHeader;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;/**
+<i class="no-highlight">26</i>&nbsp; * A Log entry allows you to read, write and dump a database log entry.  Each
+<i class="no-highlight">27</i>&nbsp; * entry may be made up of one or more loggable items.
+<i class="no-highlight">28</i>&nbsp; *
+<i class="no-highlight">29</i>&nbsp; * &lt;p&gt;The log entry on disk consists of a log header defined by LogManager and
+<i class="no-highlight">30</i>&nbsp; * the specific contents of the log entry.
+<i class="no-highlight">31</i>&nbsp; *
+<i class="no-highlight">32</i>&nbsp; * &lt;p&gt;Log entries that support replication are required to implement {@link
+<i class="no-highlight">33</i>&nbsp; * ReplicableLogEntry}.
+<i class="no-highlight">34</i>&nbsp; */
+<i class="no-highlight">35</i>&nbsp;public interface LogEntry extends Cloneable {
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;    /**
+<i class="no-highlight">38</i>&nbsp;     * Inform a LogEntry instance of its corresponding LogEntryType.
+<i class="no-highlight">39</i>&nbsp;     */
+<i class="no-highlight">40</i>&nbsp;    public void setLogType(LogEntryType entryType);
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;    /**
+<i class="no-highlight">43</i>&nbsp;     * @return the type of log entry
+<i class="no-highlight">44</i>&nbsp;     */
+<i class="no-highlight">45</i>&nbsp;    public LogEntryType getLogType();
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;    /**
+<i class="no-highlight">48</i>&nbsp;     * Read in a log entry.
+<i class="no-highlight">49</i>&nbsp;     */
+<i class="no-highlight">50</i>&nbsp;    public void readEntry(EnvironmentImpl envImpl,
+<i class="no-highlight">51</i>&nbsp;        LogEntryHeader header,
+<i class="no-highlight">52</i>&nbsp;        ByteBuffer entryBuffer);
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /**
+<i class="no-highlight">55</i>&nbsp;     * Print out the contents of an entry.
+<i class="no-highlight">56</i>&nbsp;     */
+<i class="no-highlight">57</i>&nbsp;    public StringBuilder dumpEntry(StringBuilder sb, boolean verbose);
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /**
+<i class="no-highlight">60</i>&nbsp;     * @return the first item of the log entry
+<i class="no-highlight">61</i>&nbsp;     */
+<i class="no-highlight">62</i>&nbsp;    public Object getMainItem();
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;    /**
+<i class="no-highlight">65</i>&nbsp;     * Construct a complete item from a item entry, fetching additional log
+<i class="no-highlight">66</i>&nbsp;     * entries as needed to ensure that a usable main object is available.
+<i class="no-highlight">67</i>&nbsp;     *
+<i class="no-highlight">68</i>&nbsp;     * For an OldBINDeltaLogEntry, fetches the full BIN and merges the delta
+<i class="no-highlight">69</i>&nbsp;     * information.  This is necessary to return a Node main object.
+<i class="no-highlight">70</i>&nbsp;     * However, for the new BINDeltaLogEntry, the full BIN is not fetched,
+<i class="no-highlight">71</i>&nbsp;     * since the partial BIN (the delta) is usable as a Node.
+<i class="no-highlight">72</i>&nbsp;     */
+<i class="no-highlight">73</i>&nbsp;    public Object getResolvedItem(DatabaseImpl dbImpl);
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    /**
+<i class="no-highlight">76</i>&nbsp;     * @return the ID of the database containing this entry, or null if this
+<i class="no-highlight">77</i>&nbsp;     * entry type is not part of a database.
+<i class="no-highlight">78</i>&nbsp;     */
+<i class="no-highlight">79</i>&nbsp;    public DatabaseId getDbId();
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /**
+<i class="no-highlight">82</i>&nbsp;     * @return return the transaction id if this log entry is transactional,
+<i class="no-highlight">83</i>&nbsp;     * 0 otherwise.
+<i class="no-highlight">84</i>&nbsp;     */
+<i class="no-highlight">85</i>&nbsp;    public long getTransactionId();
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    /**
+<i class="no-highlight">88</i>&nbsp;     * @return size of byte buffer needed to store this entry.
+<i class="no-highlight">89</i>&nbsp;     */
+<i class="no-highlight">90</i>&nbsp;    public int getSize();
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;    /**
+<i class="no-highlight">93</i>&nbsp;     * Serialize this object into the buffer.
+<i class="no-highlight">94</i>&nbsp;     * @param logBuffer is the destination buffer
+<i class="no-highlight">95</i>&nbsp;     */
+<i class="no-highlight">96</i>&nbsp;    public void writeEntry(ByteBuffer logBuffer);
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * Returns true if this item should be counted as obsolete when logged.
+<i class="no-highlight">100</i>&nbsp;     */
+<i class="no-highlight">101</i>&nbsp;    public boolean isImmediatelyObsolete(DatabaseImpl dbImpl);
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    /**
+<i class="no-highlight">104</i>&nbsp;     * Returns whether this is a deleted LN.
+<i class="no-highlight">105</i>&nbsp;     */
+<i class="no-highlight">106</i>&nbsp;    public boolean isDeleted();
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    /**
+<i class="no-highlight">109</i>&nbsp;     * Do any processing we need to do after logging, while under the logging
+<i class="no-highlight">110</i>&nbsp;     * latch.
+<i class="no-highlight">111</i>&nbsp;     */
+<i class="no-highlight">112</i>&nbsp;    public void postLogWork(LogEntryHeader header,
+<i class="no-highlight">113</i>&nbsp;        long justLoggedLsn,
+<i class="no-highlight">114</i>&nbsp;        VLSN vlsn);
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;    /**
+<i class="no-highlight">117</i>&nbsp;     * @return a shallow clone.
+<i class="no-highlight">118</i>&nbsp;     */
+<i class="no-highlight">119</i>&nbsp;    public LogEntry clone();
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /**
+<i class="no-highlight">122</i>&nbsp;     * @return true if these two log entries are logically the same.
+<i class="no-highlight">123</i>&nbsp;     * Used for replication.
+<i class="no-highlight">124</i>&nbsp;     */
+<i class="no-highlight">125</i>&nbsp;    public boolean logicalEquals(LogEntry other);
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;    /**
+<i class="no-highlight">128</i>&nbsp;     * Dump the contents of the log entry that are interesting for
+<i class="no-highlight">129</i>&nbsp;     * replication.
+<i class="no-highlight">130</i>&nbsp;     */
+<i class="no-highlight">131</i>&nbsp;    public void dumpRep(StringBuilder sb);
+<i class="no-highlight">132</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

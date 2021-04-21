@@ -1,0 +1,967 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DirtyINMap</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.recovery</a>
+</div>
+
+<h1>Coverage Summary for Class: DirtyINMap (com.sleepycat.je.recovery)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DirtyINMap</td>
+<td class="coverageStat">
+  <span class="percent">
+    88%
+  </span>
+  <span class="absValue">
+    (22/25)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    75%
+  </span>
+  <span class="absValue">
+    (198/264)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">DirtyINMap$CkptState</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (4/4)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    88.9%
+  </span>
+  <span class="absValue">
+    (24/27)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    75.4%
+  </span>
+  <span class="absValue">
+    (202/268)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.recovery;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">18</i>&nbsp;import java.util.IdentityHashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;import java.util.Set;
+<i class="no-highlight">22</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">23</i>&nbsp;import java.util.TreeMap;
+<i class="no-highlight">24</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.CacheMode;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.INList;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.log.Provisional;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.recovery.Checkpointer.CheckpointReference;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.tree.MapLN;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.utilint.Pair;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;/**
+<i class="no-highlight">43</i>&nbsp; * Manages the by-level map of checkpoint references that are to be flushed by
+<i class="no-highlight">44</i>&nbsp; * a checkpoint or Database.sync, the MapLNs to be flushed, the highest level
+<i class="no-highlight">45</i>&nbsp; * by database to be flushed, and the state of the checkpoint.
+<i class="no-highlight">46</i>&nbsp; *
+<i class="no-highlight">47</i>&nbsp; * An single instance of this class is used for checkpoints and has the same
+<i class="no-highlight">48</i>&nbsp; * lifetime as the checkpointer and environment.  An instance per Database.sync
+<i class="no-highlight">49</i>&nbsp; * is created as needed.  Only one checkpoint can occur at a time, but multiple
+<i class="no-highlight">50</i>&nbsp; * syncs may occur concurrently with each other and with the checkpoint.
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * The methods in this class are synchronized to protect internal state from
+<i class="no-highlight">53</i>&nbsp; * concurrent access by the checkpointer and eviction, and to coordinate state
+<i class="no-highlight">54</i>&nbsp; * changes between the two.  Eviction must participate in the checkpoint so
+<i class="no-highlight">55</i>&nbsp; * that INs cascade up properly; see coordinateEvictionWithCheckpoint.
+<i class="no-highlight">56</i>&nbsp; *
+<i class="no-highlight">57</i>&nbsp; * When INs are latched along with synchronization on a DirtyINMap, the order
+<i class="no-highlight">58</i>&nbsp; * must be: 1) IN latches and 2) synchronize on DirtyINMap.  For example,
+<i class="no-highlight">59</i>&nbsp; * the evictor latches the parent and child IN before calling the synchronized
+<i class="no-highlight">60</i>&nbsp; * method coordinateEvictionWithCheckpoint, and selectDirtyINsForCheckpoint
+<i class="no-highlight">61</i>&nbsp; * latches the IN before calling the synchronized method selectForCheckpoint.
+<i class="no-highlight">62</i>&nbsp; */
+<b class="fc"><i class="no-highlight">63</i>&nbsp;class DirtyINMap {</b>
+<i class="no-highlight">64</i>&nbsp;
+<i class="no-highlight">65</i>&nbsp;    static final boolean DIRTY_SET_DEBUG_TRACE = false;
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">68</i>&nbsp;    private final SortedMap&lt;Integer,
+<i class="no-highlight">69</i>&nbsp;                            Pair&lt;Map&lt;Long, CheckpointReference&gt;,
+<i class="no-highlight">70</i>&nbsp;                                 Map&lt;Long, CheckpointReference&gt;&gt;&gt; levelMap;
+<i class="no-highlight">71</i>&nbsp;    private int numEntries;
+<i class="no-highlight">72</i>&nbsp;    private final Set&lt;DatabaseId&gt; mapLNsToFlush;
+<i class="no-highlight">73</i>&nbsp;    private final Map&lt;DatabaseImpl, Integer&gt; highestFlushLevels;
+<i class="no-highlight">74</i>&nbsp;
+<b class="fc"><i class="no-highlight">75</i>&nbsp;    enum CkptState {</b>
+<i class="no-highlight">76</i>&nbsp;        /** No checkpoint in progress, or is used for Database.sync. */
+<b class="fc"><i class="no-highlight">77</i>&nbsp;        NONE,</b>
+<i class="no-highlight">78</i>&nbsp;        /** Checkpoint started but dirty map is not yet complete. */
+<b class="fc"><i class="no-highlight">79</i>&nbsp;        DIRTY_MAP_INCOMPLETE,</b>
+<i class="no-highlight">80</i>&nbsp;        /** Checkpoint in progress and dirty map is complete. */
+<b class="fc"><i class="no-highlight">81</i>&nbsp;        DIRTY_MAP_COMPLETE,</b>
+<i class="no-highlight">82</i>&nbsp;    };
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    private CkptState ckptState;
+<i class="no-highlight">85</i>&nbsp;    private boolean ckptFlushAll;
+<i class="no-highlight">86</i>&nbsp;    private boolean ckptFlushExtraLevel;
+<i class="no-highlight">87</i>&nbsp;
+<b class="fc"><i class="no-highlight">88</i>&nbsp;    DirtyINMap(EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">89</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">90</i>&nbsp;        levelMap = new TreeMap&lt;&gt;();</b>
+<b class="fc"><i class="no-highlight">91</i>&nbsp;        numEntries = 0;</b>
+<b class="fc"><i class="no-highlight">92</i>&nbsp;        mapLNsToFlush = new HashSet&lt;DatabaseId&gt;();</b>
+<b class="fc"><i class="no-highlight">93</i>&nbsp;        highestFlushLevels = new IdentityHashMap&lt;DatabaseImpl, Integer&gt;();</b>
+<b class="fc"><i class="no-highlight">94</i>&nbsp;        ckptState = CkptState.NONE;</b>
+<b class="fc"><i class="no-highlight">95</i>&nbsp;    }</b>
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;    /**
+<i class="no-highlight">98</i>&nbsp;     * Coordinates an eviction with an in-progress checkpoint and returns
+<i class="no-highlight">99</i>&nbsp;     * whether or not provisional logging is needed.
+<i class="no-highlight">100</i>&nbsp;     *
+<i class="no-highlight">101</i>&nbsp;     * @return the provisional status to use for logging the target.
+<i class="no-highlight">102</i>&nbsp;     */
+<i class="no-highlight">103</i>&nbsp;    synchronized Provisional coordinateEvictionWithCheckpoint(
+<i class="no-highlight">104</i>&nbsp;        final DatabaseImpl db,
+<i class="no-highlight">105</i>&nbsp;        final int targetLevel,
+<i class="no-highlight">106</i>&nbsp;        final IN parent) {
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;        /*
+<i class="no-highlight">109</i>&nbsp;         * If the checkpoint is in-progress and has not finished dirty map
+<i class="no-highlight">110</i>&nbsp;         * construction, we must add the parent to the dirty map.  That way the
+<i class="no-highlight">111</i>&nbsp;         * dirtiness and logging will cascade up in the same way as if the
+<i class="no-highlight">112</i>&nbsp;         * target were not evicted, and instead were encountered during dirty
+<i class="no-highlight">113</i>&nbsp;         * map construction.  We don&#39;t want the evictor&#39;s actions to introduce
+<i class="no-highlight">114</i>&nbsp;         * an IN in the log that has not cascaded up properly.
+<i class="no-highlight">115</i>&nbsp;         *
+<i class="no-highlight">116</i>&nbsp;         * Note that we add the parent even if it is not dirty here.  It will
+<i class="no-highlight">117</i>&nbsp;         * become dirty after the target child is logged, but that hasn&#39;t
+<i class="no-highlight">118</i>&nbsp;         * happened yet.
+<i class="no-highlight">119</i>&nbsp;         *
+<i class="no-highlight">120</i>&nbsp;         * We do not add the parent if it is null, which is the case when the
+<i class="no-highlight">121</i>&nbsp;         * root is being evicted.
+<i class="no-highlight">122</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">123</i>&nbsp;        if (ckptState == CkptState.DIRTY_MAP_INCOMPLETE &amp;&amp;</b>
+<i class="no-highlight">124</i>&nbsp;            parent != null) {
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;            /* Add latched parent IN to dirty map. */
+<b class="nc"><i class="no-highlight">127</i>&nbsp;            selectForCheckpoint(parent, -1 /*index*/);</b>
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;            /* Save dirty/temp DBs for later. */
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            saveMapLNsToFlush(parent);</b>
+<i class="no-highlight">131</i>&nbsp;        }
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;        /*
+<i class="no-highlight">134</i>&nbsp;         * The evictor has to log provisionally in three cases:
+<i class="no-highlight">135</i>&nbsp;         *
+<i class="no-highlight">136</i>&nbsp;         * 1 - The eviction target is part of a deferred write database.
+<i class="no-highlight">137</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">138</i>&nbsp;        if (db.isDeferredWriteMode()) {</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            return Provisional.YES;</b>
+<i class="no-highlight">140</i>&nbsp;        }
+<i class="no-highlight">141</i>&nbsp;
+<i class="no-highlight">142</i>&nbsp;        /*
+<i class="no-highlight">143</i>&nbsp;         * 2 - The checkpoint is in-progress and has not finished dirty map
+<i class="no-highlight">144</i>&nbsp;         *     construction, and the target is not the root. The parent IN has
+<i class="no-highlight">145</i>&nbsp;         *     been added to the dirty map, so we know the child IN is at a
+<i class="no-highlight">146</i>&nbsp;         *     level below the max flush level.
+<i class="no-highlight">147</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">148</i>&nbsp;        if (ckptState == CkptState.DIRTY_MAP_INCOMPLETE &amp;&amp;</b>
+<i class="no-highlight">149</i>&nbsp;            parent != null) {
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            return Provisional.YES;</b>
+<i class="no-highlight">151</i>&nbsp;        }
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;        /*
+<i class="no-highlight">154</i>&nbsp;         * 3 - The checkpoint is in-progress and has finished dirty map
+<i class="no-highlight">155</i>&nbsp;         *     construction, and is at a level above the eviction target.
+<i class="no-highlight">156</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">157</i>&nbsp;        if (ckptState == CkptState.DIRTY_MAP_COMPLETE &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            targetLevel &lt; getHighestFlushLevel(db)) {</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            return Provisional.YES;</b>
+<i class="no-highlight">160</i>&nbsp;        }
+<i class="no-highlight">161</i>&nbsp;
+<i class="no-highlight">162</i>&nbsp;        /* Otherwise, log non-provisionally. */
+<b class="fc"><i class="no-highlight">163</i>&nbsp;        return Provisional.NO;</b>
+<i class="no-highlight">164</i>&nbsp;    }
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;    /**
+<i class="no-highlight">167</i>&nbsp;     * Coordinates a split with an in-progress checkpoint.
+<i class="no-highlight">168</i>&nbsp;     *
+<i class="no-highlight">169</i>&nbsp;     * TODO:
+<i class="no-highlight">170</i>&nbsp;     * Is it necessary to perform MapLN flushing for nodes logged by a split
+<i class="no-highlight">171</i>&nbsp;     * (and not just the new sibling)?
+<i class="no-highlight">172</i>&nbsp;     *
+<i class="no-highlight">173</i>&nbsp;     * @param newSibling the sibling IN created by the split.
+<i class="no-highlight">174</i>&nbsp;     */
+<i class="no-highlight">175</i>&nbsp;    void coordinateSplitWithCheckpoint(final IN newSibling) {
+<i class="no-highlight">176</i>&nbsp;
+<b class="fc"><i class="no-highlight">177</i>&nbsp;        assert newSibling.isLatchExclusiveOwner();</b>
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;        /*
+<i class="no-highlight">180</i>&nbsp;         * If the checkpoint is in-progress and has not finished dirty map
+<i class="no-highlight">181</i>&nbsp;         * construction, we must add the BIN children of the new sibling to the
+<i class="no-highlight">182</i>&nbsp;         * dirty map. The new sibling will be added to the INList but it may or
+<i class="no-highlight">183</i>&nbsp;         * may not be seen by the in-progress INList iteration, and we must
+<i class="no-highlight">184</i>&nbsp;         * ensure that its dirty BIN children are logged by the checkpoint.
+<i class="no-highlight">185</i>&nbsp;         *
+<i class="no-highlight">186</i>&nbsp;         * Note that we cannot synchronize on &#39;this&#39; before calling
+<i class="no-highlight">187</i>&nbsp;         * selectDirtyBINChildrenForCheckpoint, since it latches BIN children.
+<i class="no-highlight">188</i>&nbsp;         * IN latching must come before synchronization on &#39;this&#39;. Eventually
+<i class="no-highlight">189</i>&nbsp;         * after latching the IN, selectForCheckpoint is called , which  is
+<i class="no-highlight">190</i>&nbsp;         * synchronized and checks for ckptState == DIRTY_MAP_INCOMPLETE.
+<i class="no-highlight">191</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">192</i>&nbsp;        selectDirtyBINChildrenForCheckpoint(newSibling);</b>
+<b class="fc"><i class="no-highlight">193</i>&nbsp;    }</b>
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    /**
+<i class="no-highlight">196</i>&nbsp;     * Must be called before starting a checkpoint, and must not be called for
+<i class="no-highlight">197</i>&nbsp;     * Database.sync.  Updates memory budget and sets checkpoint state.
+<i class="no-highlight">198</i>&nbsp;     */
+<i class="no-highlight">199</i>&nbsp;    synchronized void beginCheckpoint(boolean flushAll,
+<i class="no-highlight">200</i>&nbsp;                                      boolean flushExtraLevel) {
+<b class="fc"><i class="no-highlight">201</i>&nbsp;        assert levelMap.isEmpty();</b>
+<b class="fc"><i class="no-highlight">202</i>&nbsp;        assert mapLNsToFlush.isEmpty();</b>
+<b class="fc"><i class="no-highlight">203</i>&nbsp;        assert highestFlushLevels.isEmpty();</b>
+<b class="fc"><i class="no-highlight">204</i>&nbsp;        assert numEntries == 0;</b>
+<b class="fc"><i class="no-highlight">205</i>&nbsp;        assert ckptState == CkptState.NONE;</b>
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        ckptState = CkptState.DIRTY_MAP_INCOMPLETE;</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;        ckptFlushAll = flushAll;</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;        ckptFlushExtraLevel = flushExtraLevel;</b>
+<b class="fc"><i class="no-highlight">209</i>&nbsp;    }</b>
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;    /**
+<i class="no-highlight">212</i>&nbsp;     * Must be called after a checkpoint or Database.sync is complete.  Updates
+<i class="no-highlight">213</i>&nbsp;     * memory budget and clears checkpoint state.
+<i class="no-highlight">214</i>&nbsp;     */
+<i class="no-highlight">215</i>&nbsp;    synchronized void reset() {
+<b class="fc"><i class="no-highlight">216</i>&nbsp;        removeCostFromMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">217</i>&nbsp;        levelMap.clear();</b>
+<b class="fc"><i class="no-highlight">218</i>&nbsp;        mapLNsToFlush.clear();</b>
+<b class="fc"><i class="no-highlight">219</i>&nbsp;        highestFlushLevels.clear();</b>
+<b class="fc"><i class="no-highlight">220</i>&nbsp;        numEntries = 0;</b>
+<b class="fc"><i class="no-highlight">221</i>&nbsp;        ckptState = CkptState.NONE;</b>
+<b class="fc"><i class="no-highlight">222</i>&nbsp;    }</b>
+<i class="no-highlight">223</i>&nbsp;
+<i class="no-highlight">224</i>&nbsp;    /**
+<i class="no-highlight">225</i>&nbsp;     * Scan the INList for all dirty INs, excluding temp DB INs.  Save them in
+<i class="no-highlight">226</i>&nbsp;     * a tree-level ordered map for level ordered flushing.
+<i class="no-highlight">227</i>&nbsp;     *
+<i class="no-highlight">228</i>&nbsp;     * Take this opportunity to recalculate the memory budget tree usage.
+<i class="no-highlight">229</i>&nbsp;     *
+<i class="no-highlight">230</i>&nbsp;     * This method itself is not synchronized to allow concurrent eviction.
+<i class="no-highlight">231</i>&nbsp;     * Synchronization is performed on a per-IN basis to protect the data
+<i class="no-highlight">232</i>&nbsp;     * structures here, and eviction can occur in between INs.
+<i class="no-highlight">233</i>&nbsp;     */
+<i class="no-highlight">234</i>&nbsp;    void selectDirtyINsForCheckpoint() {
+<b class="fc"><i class="no-highlight">235</i>&nbsp;        assert ckptState == CkptState.DIRTY_MAP_INCOMPLETE;</b>
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;        /*
+<i class="no-highlight">238</i>&nbsp;         * Opportunistically recalculate the INList memory budget while
+<i class="no-highlight">239</i>&nbsp;         * traversing the entire INList.
+<i class="no-highlight">240</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">241</i>&nbsp;        final INList inMemINs = envImpl.getInMemoryINs();</b>
+<b class="fc"><i class="no-highlight">242</i>&nbsp;        inMemINs.memRecalcBegin();</b>
+<i class="no-highlight">243</i>&nbsp;
+<b class="fc"><i class="no-highlight">244</i>&nbsp;        boolean completed = false;</b>
+<i class="no-highlight">245</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">246</i>&nbsp;            for (IN in : inMemINs) {</b>
+<b class="fc"><i class="no-highlight">247</i>&nbsp;                in.latchShared(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">248</i>&nbsp;                try {
+<b class="fc"><i class="no-highlight">249</i>&nbsp;                    if (!in.getInListResident()) {</b>
+<i class="no-highlight">250</i>&nbsp;                        continue;
+<i class="no-highlight">251</i>&nbsp;                    }
+<i class="no-highlight">252</i>&nbsp;
+<b class="fc"><i class="no-highlight">253</i>&nbsp;                    inMemINs.memRecalcIterate(in);</b>
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;                    /* Add dirty UIN to dirty map. */
+<b class="fc"><i class="no-highlight">256</i>&nbsp;                    if (in.getDirty() &amp;&amp; !in.isBIN()) {</b>
+<b class="fc"><i class="no-highlight">257</i>&nbsp;                        selectForCheckpoint(in, -1 /*index*/);</b>
+<i class="no-highlight">258</i>&nbsp;                    }
+<i class="no-highlight">259</i>&nbsp;
+<i class="no-highlight">260</i>&nbsp;                    /* Add dirty level 2 children to dirty map. */
+<b class="fc"><i class="no-highlight">261</i>&nbsp;                    selectDirtyBINChildrenForCheckpoint(in);</b>
+<i class="no-highlight">262</i>&nbsp;
+<i class="no-highlight">263</i>&nbsp;                    /* Save dirty/temp DBs for later. */
+<b class="fc"><i class="no-highlight">264</i>&nbsp;                    saveMapLNsToFlush(in);</b>
+<i class="no-highlight">265</i>&nbsp;                } finally {
+<b class="fc"><i class="no-highlight">266</i>&nbsp;                    in.releaseLatch();</b>
+<b class="fc"><i class="no-highlight">267</i>&nbsp;                }</b>
+<i class="no-highlight">268</i>&nbsp;
+<i class="no-highlight">269</i>&nbsp;                /* Call test hook after releasing latch. */
+<b class="fc"><i class="no-highlight">270</i>&nbsp;                TestHookExecute.doHookIfSet(</b>
+<i class="no-highlight">271</i>&nbsp;                    Checkpointer.examineINForCheckpointHook, in);
+<b class="fc"><i class="no-highlight">272</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">273</i>&nbsp;            completed = true;</b>
+<i class="no-highlight">274</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">275</i>&nbsp;            inMemINs.memRecalcEnd(completed);</b>
+<b class="fc"><i class="no-highlight">276</i>&nbsp;        }</b>
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;        /*
+<i class="no-highlight">279</i>&nbsp;         * Finish filling out the highestFlushLevels map. For each entry in
+<i class="no-highlight">280</i>&nbsp;         * highestFlushLevels that has a null level Integer value (set by
+<i class="no-highlight">281</i>&nbsp;         * selectForCheckpoint), we call DbTree.getHighestLevel and replace the
+<i class="no-highlight">282</i>&nbsp;         * null level. We must call DbTree.getHighestLevel, which latches the
+<i class="no-highlight">283</i>&nbsp;         * root, only when not synchronized, to avoid breaking the
+<i class="no-highlight">284</i>&nbsp;         * synchronization rules described in the class comment.  This must be
+<i class="no-highlight">285</i>&nbsp;         * done in several steps to follow the sychronization rules, yet
+<i class="no-highlight">286</i>&nbsp;         * protect the highestFlushLevels using synchronization.
+<i class="no-highlight">287</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">288</i>&nbsp;        final Map&lt;DatabaseImpl, Integer&gt; maxFlushDbs = new HashMap&lt;&gt;();</b>
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;        /* Copy entries with a null level. */
+<b class="fc"><i class="no-highlight">291</i>&nbsp;        synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">292</i>&nbsp;            for (DatabaseImpl db : highestFlushLevels.keySet()) {</b>
+<i class="no-highlight">293</i>&nbsp;
+<b class="fc"><i class="no-highlight">294</i>&nbsp;                if (highestFlushLevels.get(db) == null) {</b>
+<b class="fc"><i class="no-highlight">295</i>&nbsp;                    maxFlushDbs.put(db, null);</b>
+<i class="no-highlight">296</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">297</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">298</i>&nbsp;        }</b>
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;        /* Call getHighestLevel without synchronization. */
+<b class="fc"><i class="no-highlight">301</i>&nbsp;        final DbTree dbTree = envImpl.getDbTree();</b>
+<i class="no-highlight">302</i>&nbsp;
+<b class="fc"><i class="no-highlight">303</i>&nbsp;        for (Map.Entry&lt;DatabaseImpl, Integer&gt; entry : maxFlushDbs.entrySet()) {</b>
+<i class="no-highlight">304</i>&nbsp;
+<b class="fc"><i class="no-highlight">305</i>&nbsp;            entry.setValue(dbTree.getHighestLevel(entry.getKey()));</b>
+<b class="fc"><i class="no-highlight">306</i>&nbsp;        }</b>
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;        /* Fill in levels in highestFlushLevels. */
+<b class="fc"><i class="no-highlight">309</i>&nbsp;        synchronized (this) {</b>
+<i class="no-highlight">310</i>&nbsp;
+<i class="no-highlight">311</i>&nbsp;            for (Map.Entry&lt;DatabaseImpl, Integer&gt; entry :
+<b class="fc"><i class="no-highlight">312</i>&nbsp;                 maxFlushDbs.entrySet()) {</b>
+<i class="no-highlight">313</i>&nbsp;
+<b class="fc"><i class="no-highlight">314</i>&nbsp;                highestFlushLevels.put(entry.getKey(), entry.getValue());</b>
+<b class="fc"><i class="no-highlight">315</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">316</i>&nbsp;        }</b>
+<i class="no-highlight">317</i>&nbsp;
+<i class="no-highlight">318</i>&nbsp;        /* Complete this phase of the checkpoint. */
+<b class="fc"><i class="no-highlight">319</i>&nbsp;        synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">320</i>&nbsp;            addCostToMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">321</i>&nbsp;            ckptState = CkptState.DIRTY_MAP_COMPLETE;</b>
+<b class="fc"><i class="no-highlight">322</i>&nbsp;        }</b>
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;        if (DIRTY_SET_DEBUG_TRACE) {
+<i class="no-highlight">325</i>&nbsp;            traceDirtySet();
+<i class="no-highlight">326</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">327</i>&nbsp;    }</b>
+<i class="no-highlight">328</i>&nbsp;
+<i class="no-highlight">329</i>&nbsp;    /**
+<i class="no-highlight">330</i>&nbsp;     * Add the IN to the dirty map if dirty map construction is in progress and
+<i class="no-highlight">331</i>&nbsp;     * the IN is not in a temp DB. If added, the highest flush level map is
+<i class="no-highlight">332</i>&nbsp;     * also updated.
+<i class="no-highlight">333</i>&nbsp;     */
+<i class="no-highlight">334</i>&nbsp;    synchronized void selectForCheckpoint(final IN in, final int index) {
+<i class="no-highlight">335</i>&nbsp;
+<i class="no-highlight">336</i>&nbsp;        /*
+<i class="no-highlight">337</i>&nbsp;         * Must check state while synchronized. The state may not be
+<i class="no-highlight">338</i>&nbsp;         * DIRTY_MAP_INCOMPLETE when called from eviction or a split.
+<i class="no-highlight">339</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">340</i>&nbsp;        if (ckptState != CkptState.DIRTY_MAP_INCOMPLETE) {</b>
+<b class="fc"><i class="no-highlight">341</i>&nbsp;            return;</b>
+<i class="no-highlight">342</i>&nbsp;        }
+<i class="no-highlight">343</i>&nbsp;
+<b class="fc"><i class="no-highlight">344</i>&nbsp;        final DatabaseImpl db = in.getDatabase();</b>
+<i class="no-highlight">345</i>&nbsp;
+<b class="fc"><i class="no-highlight">346</i>&nbsp;        if (db.isTemporary()) {</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;            return;</b>
+<i class="no-highlight">348</i>&nbsp;        }
+<i class="no-highlight">349</i>&nbsp;
+<b class="fc"><i class="no-highlight">350</i>&nbsp;        addIN(in, index,</b>
+<i class="no-highlight">351</i>&nbsp;            true /*updateFlushLevels*/,
+<i class="no-highlight">352</i>&nbsp;            false /*updateMemoryBudget*/);
+<b class="fc"><i class="no-highlight">353</i>&nbsp;    }</b>
+<i class="no-highlight">354</i>&nbsp;
+<i class="no-highlight">355</i>&nbsp;    /**
+<i class="no-highlight">356</i>&nbsp;     * Adds the the dirty child BINs of the &#39;in&#39; if dirty map construction is
+<i class="no-highlight">357</i>&nbsp;     * in progress and the IN is not in a temp DB.
+<i class="no-highlight">358</i>&nbsp;     *
+<i class="no-highlight">359</i>&nbsp;     * Main cache resident BINs are added when their parent is encountered in
+<i class="no-highlight">360</i>&nbsp;     * the INList iteration, rather than when the BIN is encountered in the
+<i class="no-highlight">361</i>&nbsp;     * iteration. This is because a BIN can transition between main and
+<i class="no-highlight">362</i>&nbsp;     * off-heap caches during the construction of the dirty map. When a BIN is
+<i class="no-highlight">363</i>&nbsp;     * loaded from off-heap and added to the main cache, it is added to the
+<i class="no-highlight">364</i>&nbsp;     * INList at that time, and such a BIN may not be encountered in the
+<i class="no-highlight">365</i>&nbsp;     * iteration. (ConcurrentHashMap iteration only guarantees that nodes will
+<i class="no-highlight">366</i>&nbsp;     * be encountered if they are present when the iterator is created). So if
+<i class="no-highlight">367</i>&nbsp;     * we relied on encountering BINs in the iteration, some might be missed.
+<i class="no-highlight">368</i>&nbsp;     *
+<i class="no-highlight">369</i>&nbsp;     * Note that this method is not synchronized because it latches the BIN
+<i class="no-highlight">370</i>&nbsp;     * children. IN latching must come before synchronizing on &#39;this&#39;. The
+<i class="no-highlight">371</i>&nbsp;     * selectForCheckpoint method, which is called after latching the BIN, is
+<i class="no-highlight">372</i>&nbsp;     * synchronized.
+<i class="no-highlight">373</i>&nbsp;     */
+<i class="no-highlight">374</i>&nbsp;    private void selectDirtyBINChildrenForCheckpoint(final IN in) {
+<i class="no-highlight">375</i>&nbsp;
+<b class="fc"><i class="no-highlight">376</i>&nbsp;        if (in.getNormalizedLevel() != 2) {</b>
+<b class="fc"><i class="no-highlight">377</i>&nbsp;            return;</b>
+<i class="no-highlight">378</i>&nbsp;        }
+<i class="no-highlight">379</i>&nbsp;
+<b class="fc"><i class="no-highlight">380</i>&nbsp;        for (int i = 0; i &lt; in.getNEntries(); i += 1) {</b>
+<i class="no-highlight">381</i>&nbsp;
+<b class="fc"><i class="no-highlight">382</i>&nbsp;            final IN bin = (IN) in.getTarget(i);</b>
+<i class="no-highlight">383</i>&nbsp;
+<b class="fc"><i class="no-highlight">384</i>&nbsp;            if (bin != null) {</b>
+<i class="no-highlight">385</i>&nbsp;
+<i class="no-highlight">386</i>&nbsp;                /* When called via split a child may already be latched. */
+<b class="fc"><i class="no-highlight">387</i>&nbsp;                final boolean latchBinHere = !bin.isLatchOwner();</b>
+<i class="no-highlight">388</i>&nbsp;
+<b class="fc"><i class="no-highlight">389</i>&nbsp;                if (latchBinHere) {</b>
+<b class="fc"><i class="no-highlight">390</i>&nbsp;                    bin.latchShared(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">391</i>&nbsp;                }
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;                try {
+<b class="fc"><i class="no-highlight">394</i>&nbsp;                    if (bin.getDirty()) {</b>
+<b class="fc"><i class="no-highlight">395</i>&nbsp;                        selectForCheckpoint(bin, -1);</b>
+<i class="no-highlight">396</i>&nbsp;                    }
+<i class="no-highlight">397</i>&nbsp;                } finally {
+<b class="fc"><i class="no-highlight">398</i>&nbsp;                    if (latchBinHere) {</b>
+<b class="fc"><i class="no-highlight">399</i>&nbsp;                        bin.releaseLatch();</b>
+<i class="no-highlight">400</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">401</i>&nbsp;                }</b>
+<b class="fc"><i class="no-highlight">402</i>&nbsp;            } else {</b>
+<b class="fc"><i class="no-highlight">403</i>&nbsp;                if (in.isOffHeapBINDirty(i)) {</b>
+<b class="nc"><i class="no-highlight">404</i>&nbsp;                    selectForCheckpoint(in, i);</b>
+<i class="no-highlight">405</i>&nbsp;                }
+<i class="no-highlight">406</i>&nbsp;            }
+<i class="no-highlight">407</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">408</i>&nbsp;    }</b>
+<i class="no-highlight">409</i>&nbsp;
+<i class="no-highlight">410</i>&nbsp;    private void updateFlushLevels(Integer level,
+<i class="no-highlight">411</i>&nbsp;                                   final DatabaseImpl db,
+<i class="no-highlight">412</i>&nbsp;                                   final boolean isBIN,
+<i class="no-highlight">413</i>&nbsp;                                   final boolean isRoot) {
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;        /*
+<i class="no-highlight">416</i>&nbsp;         * IN was added to the dirty map.  Update the highest level seen
+<i class="no-highlight">417</i>&nbsp;         * for the database.  Use one level higher when ckptFlushExtraLevel
+<i class="no-highlight">418</i>&nbsp;         * is set.  When ckptFlushAll is set, use the maximum level for the
+<i class="no-highlight">419</i>&nbsp;         * database.  Durable deferred-write databases must be synced, so
+<i class="no-highlight">420</i>&nbsp;         * also use the maximum level.
+<i class="no-highlight">421</i>&nbsp;         *
+<i class="no-highlight">422</i>&nbsp;         * Always flush at least one level above the bottom-most BIN level so
+<i class="no-highlight">423</i>&nbsp;         * that the BIN level is logged provisionally and the expense of
+<i class="no-highlight">424</i>&nbsp;         * processing BINs during recovery is avoided.
+<i class="no-highlight">425</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">426</i>&nbsp;        if (ckptFlushAll || db.isDurableDeferredWrite()) {</b>
+<b class="fc"><i class="no-highlight">427</i>&nbsp;            if (!highestFlushLevels.containsKey(db)) {</b>
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;                /*
+<i class="no-highlight">430</i>&nbsp;                 * Null is used as an indicator that getHighestLevel should be
+<i class="no-highlight">431</i>&nbsp;                 * called in selectDirtyINsForCheckpoint, when not
+<i class="no-highlight">432</i>&nbsp;                 * synchronized.
+<i class="no-highlight">433</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">434</i>&nbsp;                highestFlushLevels.put(db, null);</b>
+<i class="no-highlight">435</i>&nbsp;            }
+<i class="no-highlight">436</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">437</i>&nbsp;            if ((ckptFlushExtraLevel || isBIN) &amp;&amp; !isRoot) {</b>
+<i class="no-highlight">438</i>&nbsp;                /* Next level up in the same tree. */
+<b class="nc"><i class="no-highlight">439</i>&nbsp;                level += 1;</b>
+<i class="no-highlight">440</i>&nbsp;            }
+<i class="no-highlight">441</i>&nbsp;
+<b class="nc"><i class="no-highlight">442</i>&nbsp;            final Integer highestLevelSeen = highestFlushLevels.get(db);</b>
+<i class="no-highlight">443</i>&nbsp;
+<b class="nc"><i class="no-highlight">444</i>&nbsp;            if (highestLevelSeen == null || level &gt; highestLevelSeen) {</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;                highestFlushLevels.put(db, level);</b>
+<i class="no-highlight">446</i>&nbsp;            }
+<i class="no-highlight">447</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">448</i>&nbsp;    }</b>
+<i class="no-highlight">449</i>&nbsp;
+<i class="no-highlight">450</i>&nbsp;    /**
+<i class="no-highlight">451</i>&nbsp;     * Scan the INList for all dirty INs for a given database.  Arrange them in
+<i class="no-highlight">452</i>&nbsp;     * level sorted map for level ordered flushing.
+<i class="no-highlight">453</i>&nbsp;     *
+<i class="no-highlight">454</i>&nbsp;     * This method is not synchronized to allow concurrent eviction.
+<i class="no-highlight">455</i>&nbsp;     * Coordination between eviction and Database.sync is not required.
+<i class="no-highlight">456</i>&nbsp;     */
+<i class="no-highlight">457</i>&nbsp;    void selectDirtyINsForDbSync(DatabaseImpl dbImpl) {
+<i class="no-highlight">458</i>&nbsp;
+<b class="nc"><i class="no-highlight">459</i>&nbsp;        assert ckptState == CkptState.NONE;</b>
+<i class="no-highlight">460</i>&nbsp;
+<b class="nc"><i class="no-highlight">461</i>&nbsp;        final DatabaseId dbId = dbImpl.getId();</b>
+<i class="no-highlight">462</i>&nbsp;
+<b class="nc"><i class="no-highlight">463</i>&nbsp;        for (IN in : envImpl.getInMemoryINs()) {</b>
+<b class="nc"><i class="no-highlight">464</i>&nbsp;            if (in.getDatabaseId().equals(dbId)) {</b>
+<b class="nc"><i class="no-highlight">465</i>&nbsp;                in.latch(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">466</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">467</i>&nbsp;                    if (in.getInListResident() &amp;&amp; in.getDirty()) {</b>
+<b class="nc"><i class="no-highlight">468</i>&nbsp;                        addIN(</b>
+<i class="no-highlight">469</i>&nbsp;                            in, -1 /*index*/,
+<i class="no-highlight">470</i>&nbsp;                            false /*updateFlushLevels*/,
+<i class="no-highlight">471</i>&nbsp;                            false /*updateMemoryBudget*/);
+<i class="no-highlight">472</i>&nbsp;                    }
+<i class="no-highlight">473</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">474</i>&nbsp;                    in.releaseLatch();</b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;                }</b>
+<i class="no-highlight">476</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">477</i>&nbsp;        }</b>
+<i class="no-highlight">478</i>&nbsp;
+<i class="no-highlight">479</i>&nbsp;        /*
+<i class="no-highlight">480</i>&nbsp;         * Create a single entry map that forces all levels of this DB to
+<i class="no-highlight">481</i>&nbsp;         * be flushed.
+<i class="no-highlight">482</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">483</i>&nbsp;        highestFlushLevels.put(</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;            dbImpl, envImpl.getDbTree().getHighestLevel(dbImpl));</b>
+<i class="no-highlight">485</i>&nbsp;
+<i class="no-highlight">486</i>&nbsp;        /* Add the dirty map to the memory budget.  */
+<b class="nc"><i class="no-highlight">487</i>&nbsp;        addCostToMemoryBudget();</b>
+<b class="nc"><i class="no-highlight">488</i>&nbsp;    }</b>
+<i class="no-highlight">489</i>&nbsp;
+<i class="no-highlight">490</i>&nbsp;    synchronized int getHighestFlushLevel(DatabaseImpl db) {
+<i class="no-highlight">491</i>&nbsp;
+<b class="fc"><i class="no-highlight">492</i>&nbsp;        assert ckptState != CkptState.DIRTY_MAP_INCOMPLETE;</b>
+<i class="no-highlight">493</i>&nbsp;
+<i class="no-highlight">494</i>&nbsp;        /*
+<i class="no-highlight">495</i>&nbsp;         * This method is only called while flushing dirty nodes for a
+<i class="no-highlight">496</i>&nbsp;         * checkpoint or Database.sync, not for an eviction, so an entry for
+<i class="no-highlight">497</i>&nbsp;         * this database should normally exist.  However, if the DB root (and
+<i class="no-highlight">498</i>&nbsp;         * DatabaseImpl) have been evicted since the highestFlushLevels was
+<i class="no-highlight">499</i>&nbsp;         * constructed, the new DatabaseImpl instance will not be present in
+<i class="no-highlight">500</i>&nbsp;         * the map.  In this case, we do not need to checkpoint the IN and
+<i class="no-highlight">501</i>&nbsp;         * eviction should be non-provisional.
+<i class="no-highlight">502</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">503</i>&nbsp;        Integer val = highestFlushLevels.get(db);</b>
+<b class="fc"><i class="no-highlight">504</i>&nbsp;        return (val != null) ? val : IN.MIN_LEVEL;</b>
+<i class="no-highlight">505</i>&nbsp;    }
+<i class="no-highlight">506</i>&nbsp;
+<i class="no-highlight">507</i>&nbsp;    synchronized int getNumLevels() {
+<b class="fc"><i class="no-highlight">508</i>&nbsp;        return levelMap.size();</b>
+<i class="no-highlight">509</i>&nbsp;    }
+<i class="no-highlight">510</i>&nbsp;
+<i class="no-highlight">511</i>&nbsp;    private synchronized void addCostToMemoryBudget() {
+<b class="fc"><i class="no-highlight">512</i>&nbsp;        final MemoryBudget mb = envImpl.getMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">513</i>&nbsp;        final long cost =</b>
+<i class="no-highlight">514</i>&nbsp;            ((long) numEntries) * MemoryBudget.CHECKPOINT_REFERENCE_SIZE;
+<b class="fc"><i class="no-highlight">515</i>&nbsp;        mb.updateAdminMemoryUsage(cost);</b>
+<b class="fc"><i class="no-highlight">516</i>&nbsp;    }</b>
+<i class="no-highlight">517</i>&nbsp;
+<i class="no-highlight">518</i>&nbsp;    private synchronized void removeCostFromMemoryBudget() {
+<b class="fc"><i class="no-highlight">519</i>&nbsp;        final MemoryBudget mb = envImpl.getMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">520</i>&nbsp;        final long cost =</b>
+<i class="no-highlight">521</i>&nbsp;            ((long) numEntries) * MemoryBudget.CHECKPOINT_REFERENCE_SIZE;
+<b class="fc"><i class="no-highlight">522</i>&nbsp;        mb.updateAdminMemoryUsage(0 - cost);</b>
+<b class="fc"><i class="no-highlight">523</i>&nbsp;    }</b>
+<i class="no-highlight">524</i>&nbsp;
+<i class="no-highlight">525</i>&nbsp;    /**
+<i class="no-highlight">526</i>&nbsp;     * Add a node unconditionally to the dirty map.
+<i class="no-highlight">527</i>&nbsp;     *
+<i class="no-highlight">528</i>&nbsp;     * @param in is the IN to add, or the parent of an off-heap IN to add when
+<i class="no-highlight">529</i>&nbsp;     * index &gt;= 0.
+<i class="no-highlight">530</i>&nbsp;     *
+<i class="no-highlight">531</i>&nbsp;     * @param index is the index of the off-heap child to add, or -1 to add the
+<i class="no-highlight">532</i>&nbsp;     * &#39;in&#39; itself.
+<i class="no-highlight">533</i>&nbsp;     *
+<i class="no-highlight">534</i>&nbsp;     * @param updateMemoryBudget if true then update the memory budget as the
+<i class="no-highlight">535</i>&nbsp;     * map is changed; if false then addCostToMemoryBudget must be called
+<i class="no-highlight">536</i>&nbsp;     * later.
+<i class="no-highlight">537</i>&nbsp;     */
+<i class="no-highlight">538</i>&nbsp;    synchronized void addIN(final IN in,
+<i class="no-highlight">539</i>&nbsp;                            final int index,
+<i class="no-highlight">540</i>&nbsp;                            final boolean updateFlushLevels,
+<i class="no-highlight">541</i>&nbsp;                            final boolean updateMemoryBudget) {
+<i class="no-highlight">542</i>&nbsp;        final Integer level;
+<i class="no-highlight">543</i>&nbsp;        final long lsn;
+<i class="no-highlight">544</i>&nbsp;        final long nodeId;
+<i class="no-highlight">545</i>&nbsp;        final boolean isRoot;
+<i class="no-highlight">546</i>&nbsp;        final byte[] idKey;
+<i class="no-highlight">547</i>&nbsp;        final boolean isBin;
+<i class="no-highlight">548</i>&nbsp;
+<b class="fc"><i class="no-highlight">549</i>&nbsp;        if (index &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">550</i>&nbsp;            level = in.getLevel() - 1;</b>
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            lsn = in.getLsn(index);</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;            nodeId = -1;</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            isRoot = false;</b>
+<b class="nc"><i class="no-highlight">554</i>&nbsp;            idKey = in.getKey(index);</b>
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            isBin = true;</b>
+<i class="no-highlight">556</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">557</i>&nbsp;            level = in.getLevel();</b>
+<b class="fc"><i class="no-highlight">558</i>&nbsp;            lsn = in.getLastLoggedLsn();</b>
+<b class="fc"><i class="no-highlight">559</i>&nbsp;            nodeId = in.getNodeId();</b>
+<b class="fc"><i class="no-highlight">560</i>&nbsp;            isRoot = in.isRoot();</b>
+<b class="fc"><i class="no-highlight">561</i>&nbsp;            idKey = in.getIdentifierKey();</b>
+<b class="fc"><i class="no-highlight">562</i>&nbsp;            isBin = in.isBIN();</b>
+<i class="no-highlight">563</i>&nbsp;        }
+<i class="no-highlight">564</i>&nbsp;
+<i class="no-highlight">565</i>&nbsp;        final Map&lt;Long, CheckpointReference&gt; lsnMap;
+<i class="no-highlight">566</i>&nbsp;        final Map&lt;Long, CheckpointReference&gt; nodeMap;
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;        Pair&lt;Map&lt;Long, CheckpointReference&gt;,
+<b class="fc"><i class="no-highlight">569</i>&nbsp;             Map&lt;Long, CheckpointReference&gt;&gt; pairOfMaps = levelMap.get(level);</b>
+<i class="no-highlight">570</i>&nbsp;
+<b class="fc"><i class="no-highlight">571</i>&nbsp;        if (pairOfMaps != null) {</b>
+<b class="fc"><i class="no-highlight">572</i>&nbsp;            lsnMap = pairOfMaps.first();</b>
+<b class="fc"><i class="no-highlight">573</i>&nbsp;            nodeMap = pairOfMaps.second();</b>
+<i class="no-highlight">574</i>&nbsp;        } else {
+<i class="no-highlight">575</i>&nbsp;            /*
+<i class="no-highlight">576</i>&nbsp;             * We use TreeMap rather than HashMap because HashMap.iterator() is
+<i class="no-highlight">577</i>&nbsp;             * a slow way of getting the first element (see removeNextNode).
+<i class="no-highlight">578</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">579</i>&nbsp;            lsnMap = new TreeMap&lt;&gt;();</b>
+<b class="fc"><i class="no-highlight">580</i>&nbsp;            nodeMap = new TreeMap&lt;&gt;();</b>
+<b class="fc"><i class="no-highlight">581</i>&nbsp;            pairOfMaps = new Pair&lt;&gt;(lsnMap, nodeMap);</b>
+<b class="fc"><i class="no-highlight">582</i>&nbsp;            levelMap.put(level, pairOfMaps);</b>
+<i class="no-highlight">583</i>&nbsp;        }
+<i class="no-highlight">584</i>&nbsp;
+<b class="fc"><i class="no-highlight">585</i>&nbsp;        final DatabaseImpl db = in.getDatabase();</b>
+<i class="no-highlight">586</i>&nbsp;
+<b class="fc"><i class="no-highlight">587</i>&nbsp;        final CheckpointReference ref = new CheckpointReference(</b>
+<b class="fc"><i class="no-highlight">588</i>&nbsp;            db.getId(), nodeId, level, isRoot, idKey, lsn);</b>
+<i class="no-highlight">589</i>&nbsp;
+<i class="no-highlight">590</i>&nbsp;        final boolean added;
+<i class="no-highlight">591</i>&nbsp;
+<b class="fc"><i class="no-highlight">592</i>&nbsp;        if (lsn != DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">593</i>&nbsp;            added = lsnMap.put(lsn, ref) == null;</b>
+<i class="no-highlight">594</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">595</i>&nbsp;            assert nodeId &gt;= 0;</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;            assert db.isDeferredWriteMode();</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            added = nodeMap.put(nodeId, ref) == null;</b>
+<i class="no-highlight">598</i>&nbsp;        }
+<i class="no-highlight">599</i>&nbsp;
+<b class="fc"><i class="no-highlight">600</i>&nbsp;        if (!added) {</b>
+<b class="fc"><i class="no-highlight">601</i>&nbsp;            return;</b>
+<i class="no-highlight">602</i>&nbsp;        }
+<i class="no-highlight">603</i>&nbsp;
+<b class="fc"><i class="no-highlight">604</i>&nbsp;        numEntries++;</b>
+<i class="no-highlight">605</i>&nbsp;
+<b class="fc"><i class="no-highlight">606</i>&nbsp;        if (updateFlushLevels) {</b>
+<b class="fc"><i class="no-highlight">607</i>&nbsp;            updateFlushLevels(level, db, isBin, isRoot);</b>
+<i class="no-highlight">608</i>&nbsp;        }
+<i class="no-highlight">609</i>&nbsp;
+<b class="fc"><i class="no-highlight">610</i>&nbsp;        if (updateMemoryBudget) {</b>
+<b class="fc"><i class="no-highlight">611</i>&nbsp;            final MemoryBudget mb = envImpl.getMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">612</i>&nbsp;            mb.updateAdminMemoryUsage(MemoryBudget.CHECKPOINT_REFERENCE_SIZE);</b>
+<i class="no-highlight">613</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">614</i>&nbsp;    }</b>
+<i class="no-highlight">615</i>&nbsp;
+<i class="no-highlight">616</i>&nbsp;    /**
+<i class="no-highlight">617</i>&nbsp;     * Get the lowest level currently stored in the map.
+<i class="no-highlight">618</i>&nbsp;     */
+<i class="no-highlight">619</i>&nbsp;    synchronized Integer getLowestLevelSet() {
+<b class="fc"><i class="no-highlight">620</i>&nbsp;        return levelMap.firstKey();</b>
+<i class="no-highlight">621</i>&nbsp;    }
+<i class="no-highlight">622</i>&nbsp;
+<i class="no-highlight">623</i>&nbsp;    /**
+<i class="no-highlight">624</i>&nbsp;     * Removes the set corresponding to the given level.
+<i class="no-highlight">625</i>&nbsp;     */
+<i class="no-highlight">626</i>&nbsp;    synchronized void removeLevel(Integer level) {
+<b class="fc"><i class="no-highlight">627</i>&nbsp;        levelMap.remove(level);</b>
+<b class="fc"><i class="no-highlight">628</i>&nbsp;    }</b>
+<i class="no-highlight">629</i>&nbsp;
+<i class="no-highlight">630</i>&nbsp;    synchronized CheckpointReference removeNode(final int level,
+<i class="no-highlight">631</i>&nbsp;                                                final long lsn,
+<i class="no-highlight">632</i>&nbsp;                                                final long nodeId) {
+<i class="no-highlight">633</i>&nbsp;
+<i class="no-highlight">634</i>&nbsp;        final Pair&lt;Map&lt;Long, CheckpointReference&gt;,
+<b class="fc"><i class="no-highlight">635</i>&nbsp;                   Map&lt;Long, CheckpointReference&gt;&gt; pairOfMaps =</b>
+<b class="fc"><i class="no-highlight">636</i>&nbsp;            levelMap.get(level);</b>
+<i class="no-highlight">637</i>&nbsp;
+<b class="fc"><i class="no-highlight">638</i>&nbsp;        if (pairOfMaps == null) {</b>
+<b class="nc"><i class="no-highlight">639</i>&nbsp;            return null;</b>
+<i class="no-highlight">640</i>&nbsp;        }
+<i class="no-highlight">641</i>&nbsp;
+<b class="fc"><i class="no-highlight">642</i>&nbsp;        final Map&lt;Long, CheckpointReference&gt; lsnMap = pairOfMaps.first();</b>
+<b class="fc"><i class="no-highlight">643</i>&nbsp;        final Map&lt;Long, CheckpointReference&gt; nodeMap = pairOfMaps.second();</b>
+<i class="no-highlight">644</i>&nbsp;
+<b class="fc"><i class="no-highlight">645</i>&nbsp;        if (lsn != DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">646</i>&nbsp;            final CheckpointReference ref = lsnMap.remove(lsn);</b>
+<b class="fc"><i class="no-highlight">647</i>&nbsp;            if (ref != null) {</b>
+<b class="fc"><i class="no-highlight">648</i>&nbsp;                return ref;</b>
+<i class="no-highlight">649</i>&nbsp;            }
+<i class="no-highlight">650</i>&nbsp;        }
+<i class="no-highlight">651</i>&nbsp;
+<b class="fc"><i class="no-highlight">652</i>&nbsp;        if (nodeId &gt;= 0) {</b>
+<b class="fc"><i class="no-highlight">653</i>&nbsp;            final CheckpointReference ref = nodeMap.remove(nodeId);</b>
+<b class="fc"><i class="no-highlight">654</i>&nbsp;            if (ref != null) {</b>
+<b class="nc"><i class="no-highlight">655</i>&nbsp;                return ref;</b>
+<i class="no-highlight">656</i>&nbsp;            }
+<i class="no-highlight">657</i>&nbsp;        }
+<i class="no-highlight">658</i>&nbsp;
+<b class="fc"><i class="no-highlight">659</i>&nbsp;        return null;</b>
+<i class="no-highlight">660</i>&nbsp;    }
+<i class="no-highlight">661</i>&nbsp;
+<i class="no-highlight">662</i>&nbsp;    synchronized CheckpointReference removeNextNode(Integer level) {
+<i class="no-highlight">663</i>&nbsp;
+<i class="no-highlight">664</i>&nbsp;        final Pair&lt;Map&lt;Long, CheckpointReference&gt;,
+<b class="fc"><i class="no-highlight">665</i>&nbsp;                   Map&lt;Long, CheckpointReference&gt;&gt; pairOfMaps =</b>
+<b class="fc"><i class="no-highlight">666</i>&nbsp;            levelMap.get(level);</b>
+<i class="no-highlight">667</i>&nbsp;
+<b class="fc"><i class="no-highlight">668</i>&nbsp;        if (pairOfMaps == null) {</b>
+<b class="nc"><i class="no-highlight">669</i>&nbsp;            return null;</b>
+<i class="no-highlight">670</i>&nbsp;        }
+<i class="no-highlight">671</i>&nbsp;
+<i class="no-highlight">672</i>&nbsp;        final Map&lt;Long, CheckpointReference&gt; map;
+<i class="no-highlight">673</i>&nbsp;
+<b class="fc"><i class="no-highlight">674</i>&nbsp;        if (!pairOfMaps.first().isEmpty()) {</b>
+<b class="fc"><i class="no-highlight">675</i>&nbsp;            map = pairOfMaps.first();</b>
+<b class="fc"><i class="no-highlight">676</i>&nbsp;        } else if (!pairOfMaps.second().isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">677</i>&nbsp;            map = pairOfMaps.second();</b>
+<i class="no-highlight">678</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">679</i>&nbsp;            return null;</b>
+<i class="no-highlight">680</i>&nbsp;        }
+<i class="no-highlight">681</i>&nbsp;
+<b class="fc"><i class="no-highlight">682</i>&nbsp;        final Iterator&lt;Map.Entry&lt;Long, CheckpointReference&gt;&gt; iter =</b>
+<b class="fc"><i class="no-highlight">683</i>&nbsp;            map.entrySet().iterator();</b>
+<i class="no-highlight">684</i>&nbsp;
+<b class="fc"><i class="no-highlight">685</i>&nbsp;        assert iter.hasNext();</b>
+<b class="fc"><i class="no-highlight">686</i>&nbsp;        final CheckpointReference ref = iter.next().getValue();</b>
+<b class="fc"><i class="no-highlight">687</i>&nbsp;        iter.remove();</b>
+<b class="fc"><i class="no-highlight">688</i>&nbsp;        return ref;</b>
+<i class="no-highlight">689</i>&nbsp;    }
+<i class="no-highlight">690</i>&nbsp;
+<i class="no-highlight">691</i>&nbsp;    /**
+<i class="no-highlight">692</i>&nbsp;     * If the given IN is a BIN for the ID mapping database, saves all
+<i class="no-highlight">693</i>&nbsp;     * dirty/temp MapLNs contained in it.
+<i class="no-highlight">694</i>&nbsp;     */
+<i class="no-highlight">695</i>&nbsp;    private synchronized void saveMapLNsToFlush(IN in) {
+<i class="no-highlight">696</i>&nbsp;
+<b class="fc"><i class="no-highlight">697</i>&nbsp;        if (in.isBIN() &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">698</i>&nbsp;            in.getDatabase().getId().equals(DbTree.ID_DB_ID)) {</b>
+<i class="no-highlight">699</i>&nbsp;
+<b class="fc"><i class="no-highlight">700</i>&nbsp;            for (int i = 0; i &lt; in.getNEntries(); i += 1) {</b>
+<b class="fc"><i class="no-highlight">701</i>&nbsp;                final MapLN ln = (MapLN) in.getTarget(i);</b>
+<i class="no-highlight">702</i>&nbsp;
+<b class="fc"><i class="no-highlight">703</i>&nbsp;                if (ln != null &amp;&amp; ln.getDatabase().isCheckpointNeeded()) {</b>
+<b class="fc"><i class="no-highlight">704</i>&nbsp;                    mapLNsToFlush.add(ln.getDatabase().getId());</b>
+<i class="no-highlight">705</i>&nbsp;                }
+<i class="no-highlight">706</i>&nbsp;            }
+<i class="no-highlight">707</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">708</i>&nbsp;    }</b>
+<i class="no-highlight">709</i>&nbsp;
+<i class="no-highlight">710</i>&nbsp;    /**
+<i class="no-highlight">711</i>&nbsp;     * Flushes all saved dirty/temp MapLNs and clears the saved set.
+<i class="no-highlight">712</i>&nbsp;     *
+<i class="no-highlight">713</i>&nbsp;     * &lt;p&gt;If dirty, a MapLN must be flushed at each checkpoint to record
+<i class="no-highlight">714</i>&nbsp;     * updated utilization info in the checkpoint interval.  If it is a
+<i class="no-highlight">715</i>&nbsp;     * temporary DB, the MapLN must be flushed because all temp DBs must be
+<i class="no-highlight">716</i>&nbsp;     * encountered by recovery so they can be removed if they were not closed
+<i class="no-highlight">717</i>&nbsp;     * (and removed) by the user.&lt;/p&gt;
+<i class="no-highlight">718</i>&nbsp;     *
+<i class="no-highlight">719</i>&nbsp;     * This method is not synchronized because it takes the Btree root latch,
+<i class="no-highlight">720</i>&nbsp;     * and we must never latch something in the Btree after synchronizing on
+<i class="no-highlight">721</i>&nbsp;     * DirtyINMap; see class comments.  Special synchronization is performed
+<i class="no-highlight">722</i>&nbsp;     * for accessing internal state; see below.
+<i class="no-highlight">723</i>&nbsp;     *
+<i class="no-highlight">724</i>&nbsp;     * @param checkpointStart start LSN of the checkpoint in progress.  To
+<i class="no-highlight">725</i>&nbsp;     * reduce unnecessary logging, the MapLN is only flushed if it has not been
+<i class="no-highlight">726</i>&nbsp;     * written since that LSN.
+<i class="no-highlight">727</i>&nbsp;     */
+<i class="no-highlight">728</i>&nbsp;    void flushMapLNs(long checkpointStart) {
+<i class="no-highlight">729</i>&nbsp;
+<i class="no-highlight">730</i>&nbsp;        /*
+<i class="no-highlight">731</i>&nbsp;         * This method is called only while flushing dirty nodes for a
+<i class="no-highlight">732</i>&nbsp;         * checkpoint or Database.sync, not for an eviction, and mapLNsToFlush
+<i class="no-highlight">733</i>&nbsp;         * is not changed during the flushing phase.  So we don&#39;t strictly need
+<i class="no-highlight">734</i>&nbsp;         * to synchronize while accessing mapLNsToFlush.  However, for
+<i class="no-highlight">735</i>&nbsp;         * consistency and extra safety we always synchronize while accessing
+<i class="no-highlight">736</i>&nbsp;         * internal state.
+<i class="no-highlight">737</i>&nbsp;         */
+<i class="no-highlight">738</i>&nbsp;        final Set&lt;DatabaseId&gt; mapLNsCopy;
+<i class="no-highlight">739</i>&nbsp;
+<b class="fc"><i class="no-highlight">740</i>&nbsp;        synchronized (this) {</b>
+<b class="fc"><i class="no-highlight">741</i>&nbsp;            assert ckptState != CkptState.DIRTY_MAP_INCOMPLETE;</b>
+<i class="no-highlight">742</i>&nbsp;
+<b class="fc"><i class="no-highlight">743</i>&nbsp;            if (mapLNsToFlush.isEmpty()) {</b>
+<b class="fc"><i class="no-highlight">744</i>&nbsp;                mapLNsCopy = null;</b>
+<i class="no-highlight">745</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">746</i>&nbsp;                mapLNsCopy = new HashSet&lt;&gt;(mapLNsToFlush);</b>
+<b class="fc"><i class="no-highlight">747</i>&nbsp;                mapLNsToFlush.clear();</b>
+<i class="no-highlight">748</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">749</i>&nbsp;        }</b>
+<i class="no-highlight">750</i>&nbsp;
+<b class="fc"><i class="no-highlight">751</i>&nbsp;        if (mapLNsCopy != null) {</b>
+<b class="fc"><i class="no-highlight">752</i>&nbsp;            final DbTree dbTree = envImpl.getDbTree();</b>
+<i class="no-highlight">753</i>&nbsp;
+<b class="fc"><i class="no-highlight">754</i>&nbsp;            for (DatabaseId dbId : mapLNsCopy) {</b>
+<b class="fc"><i class="no-highlight">755</i>&nbsp;                envImpl.checkDiskLimitViolation();</b>
+<b class="fc"><i class="no-highlight">756</i>&nbsp;                final DatabaseImpl db = dbTree.getDb(dbId);</b>
+<i class="no-highlight">757</i>&nbsp;                try {
+<b class="fc"><i class="no-highlight">758</i>&nbsp;                    if (db != null &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">759</i>&nbsp;                        !db.isDeleted() &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">760</i>&nbsp;                        db.isCheckpointNeeded()) {</b>
+<i class="no-highlight">761</i>&nbsp;
+<b class="nc"><i class="no-highlight">762</i>&nbsp;                        dbTree.modifyDbRoot(</b>
+<i class="no-highlight">763</i>&nbsp;                            db, checkpointStart /*ifBeforeLsn*/,
+<i class="no-highlight">764</i>&nbsp;                            true /*mustExist*/);
+<i class="no-highlight">765</i>&nbsp;                    }
+<i class="no-highlight">766</i>&nbsp;                } finally {
+<b class="fc"><i class="no-highlight">767</i>&nbsp;                    dbTree.releaseDb(db);</b>
+<b class="fc"><i class="no-highlight">768</i>&nbsp;                }</b>
+<b class="fc"><i class="no-highlight">769</i>&nbsp;            }</b>
+<i class="no-highlight">770</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">771</i>&nbsp;    }</b>
+<i class="no-highlight">772</i>&nbsp;
+<i class="no-highlight">773</i>&nbsp;    /**
+<i class="no-highlight">774</i>&nbsp;     * Flushes the DB mapping tree root at the end of the checkpoint, if either
+<i class="no-highlight">775</i>&nbsp;     * mapping DB is dirty and the root was not flushed previously during the
+<i class="no-highlight">776</i>&nbsp;     * checkpoint.
+<i class="no-highlight">777</i>&nbsp;     *
+<i class="no-highlight">778</i>&nbsp;     * This method is not synchronized because it does not access internal
+<i class="no-highlight">779</i>&nbsp;     * state.  Also, it takes the DbTree root latch and although this latch
+<i class="no-highlight">780</i>&nbsp;     * should never be held by eviction, for consistency we should not latch
+<i class="no-highlight">781</i>&nbsp;     * something related to the Btree after synchronizing on DirtyINMap; see
+<i class="no-highlight">782</i>&nbsp;     * class comments.
+<i class="no-highlight">783</i>&nbsp;     *
+<i class="no-highlight">784</i>&nbsp;     * @param checkpointStart start LSN of the checkpoint in progress.  To
+<i class="no-highlight">785</i>&nbsp;     * reduce unnecessary logging, the Root is only flushed if it has not been
+<i class="no-highlight">786</i>&nbsp;     * written since that LSN.
+<i class="no-highlight">787</i>&nbsp;     */
+<i class="no-highlight">788</i>&nbsp;    void flushRoot(long checkpointStart) {
+<i class="no-highlight">789</i>&nbsp;
+<b class="fc"><i class="no-highlight">790</i>&nbsp;        final DbTree dbTree = envImpl.getDbTree();</b>
+<i class="no-highlight">791</i>&nbsp;
+<b class="fc"><i class="no-highlight">792</i>&nbsp;        if (dbTree.getDb(DbTree.ID_DB_ID).isCheckpointNeeded() ||</b>
+<b class="fc"><i class="no-highlight">793</i>&nbsp;            dbTree.getDb(DbTree.NAME_DB_ID).isCheckpointNeeded()) {</b>
+<i class="no-highlight">794</i>&nbsp;
+<b class="nc"><i class="no-highlight">795</i>&nbsp;            envImpl.logMapTreeRoot(checkpointStart);</b>
+<i class="no-highlight">796</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">797</i>&nbsp;    }</b>
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;    synchronized int getNumEntries() {
+<b class="nc"><i class="no-highlight">800</i>&nbsp;        return numEntries;</b>
+<i class="no-highlight">801</i>&nbsp;    }
+<i class="no-highlight">802</i>&nbsp;
+<i class="no-highlight">803</i>&nbsp;    private void traceDirtySet() {
+<b class="nc"><i class="no-highlight">804</i>&nbsp;        assert DIRTY_SET_DEBUG_TRACE;</b>
+<i class="no-highlight">805</i>&nbsp;
+<b class="nc"><i class="no-highlight">806</i>&nbsp;        final StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">807</i>&nbsp;        sb.append(&quot;Ckpt dirty set&quot;);</b>
+<i class="no-highlight">808</i>&nbsp;
+<b class="nc"><i class="no-highlight">809</i>&nbsp;        for (final Integer level : levelMap.keySet()) {</b>
+<i class="no-highlight">810</i>&nbsp;
+<i class="no-highlight">811</i>&nbsp;            final Pair&lt;Map&lt;Long, CheckpointReference&gt;,
+<b class="nc"><i class="no-highlight">812</i>&nbsp;                       Map&lt;Long, CheckpointReference&gt;&gt; pairOfMaps =</b>
+<b class="nc"><i class="no-highlight">813</i>&nbsp;                levelMap.get(level);</b>
+<i class="no-highlight">814</i>&nbsp;
+<b class="nc"><i class="no-highlight">815</i>&nbsp;            final Map&lt;Long, CheckpointReference&gt; lsnMap =</b>
+<b class="nc"><i class="no-highlight">816</i>&nbsp;                pairOfMaps.first();</b>
+<i class="no-highlight">817</i>&nbsp;
+<b class="nc"><i class="no-highlight">818</i>&nbsp;            final Map&lt;Long, CheckpointReference&gt; nodeMap =</b>
+<b class="nc"><i class="no-highlight">819</i>&nbsp;                pairOfMaps.second();</b>
+<i class="no-highlight">820</i>&nbsp;
+<b class="nc"><i class="no-highlight">821</i>&nbsp;            sb.append(&quot;\nlevel = 0x&quot;).append(Integer.toHexString(level));</b>
+<b class="nc"><i class="no-highlight">822</i>&nbsp;            sb.append(&quot; lsnMap = &quot;).append(lsnMap.size());</b>
+<b class="nc"><i class="no-highlight">823</i>&nbsp;            sb.append(&quot; nodeMap = &quot;).append(nodeMap.size());</b>
+<b class="nc"><i class="no-highlight">824</i>&nbsp;        }</b>
+<i class="no-highlight">825</i>&nbsp;
+<b class="nc"><i class="no-highlight">826</i>&nbsp;        sb.append(&quot;\ndbId:highestFlushLevel&quot;);</b>
+<i class="no-highlight">827</i>&nbsp;
+<b class="nc"><i class="no-highlight">828</i>&nbsp;        for (final DatabaseImpl db : highestFlushLevels.keySet()) {</b>
+<b class="nc"><i class="no-highlight">829</i>&nbsp;            sb.append(&#39; &#39;).append(db.getId()).append(&#39;:&#39;);</b>
+<b class="nc"><i class="no-highlight">830</i>&nbsp;            sb.append(highestFlushLevels.get(db) &amp; IN.LEVEL_MASK);</b>
+<b class="nc"><i class="no-highlight">831</i>&nbsp;        }</b>
+<i class="no-highlight">832</i>&nbsp;
+<b class="nc"><i class="no-highlight">833</i>&nbsp;        LoggerUtils.logMsg(</b>
+<b class="nc"><i class="no-highlight">834</i>&nbsp;            envImpl.getLogger(), envImpl, Level.INFO, sb.toString());</b>
+<b class="nc"><i class="no-highlight">835</i>&nbsp;    }</b>
+<i class="no-highlight">836</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

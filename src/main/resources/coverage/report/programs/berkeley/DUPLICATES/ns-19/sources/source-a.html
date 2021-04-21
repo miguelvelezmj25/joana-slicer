@@ -1,0 +1,418 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > TimebasedProposalGenerator</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.elections</a>
+</div>
+
+<h1>Coverage Summary for Class: TimebasedProposalGenerator (com.sleepycat.je.rep.elections)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">TimebasedProposalGenerator</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/45)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">TimebasedProposalGenerator$StringProposal</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/27)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">TimebasedProposalGenerator$StringProposal$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/15)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/74)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.elections;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.math.BigInteger;
+<i class="no-highlight">17</i>&nbsp;import java.net.InetAddress;
+<i class="no-highlight">18</i>&nbsp;import java.net.NetworkInterface;
+<i class="no-highlight">19</i>&nbsp;import java.net.SocketException;
+<i class="no-highlight">20</i>&nbsp;import java.net.UnknownHostException;
+<i class="no-highlight">21</i>&nbsp;import java.security.SecureRandom;
+<i class="no-highlight">22</i>&nbsp;import java.util.Enumeration;
+<i class="no-highlight">23</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.rep.elections.Proposer.Proposal;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.elections.Proposer.ProposalParser;
+<i class="no-highlight">27</i>&nbsp;
+<i class="no-highlight">28</i>&nbsp;/**
+<i class="no-highlight">29</i>&nbsp; * Generates a unique sequence of ascending proposal numbers that is unique
+<i class="no-highlight">30</i>&nbsp; * across all machines.
+<i class="no-highlight">31</i>&nbsp; *
+<i class="no-highlight">32</i>&nbsp; * Each proposal number is built as the catenation of the following components:
+<i class="no-highlight">33</i>&nbsp; *
+<i class="no-highlight">34</i>&nbsp; * ms time (8 bytes) | machineId (16 bytes) | locally unique Id (4 bytes)
+<i class="no-highlight">35</i>&nbsp; *
+<i class="no-highlight">36</i>&nbsp; * The ms time supplies the increasing number and the IP address is a number
+<i class="no-highlight">37</i>&nbsp; * unique across machines.
+<i class="no-highlight">38</i>&nbsp; *
+<i class="no-highlight">39</i>&nbsp; * The machineId is generated as described below.
+<i class="no-highlight">40</i>&nbsp; *
+<i class="no-highlight">41</i>&nbsp; * The locally unique Id is used to allow for multiple unique proposal
+<i class="no-highlight">42</i>&nbsp; * generators in a single process.
+<i class="no-highlight">43</i>&nbsp; */
+<i class="no-highlight">44</i>&nbsp;public class TimebasedProposalGenerator {
+<i class="no-highlight">45</i>&nbsp;
+<i class="no-highlight">46</i>&nbsp;    /*
+<i class="no-highlight">47</i>&nbsp;     * A number that is unique for all instances of the TimeBasedGenerator on
+<i class="no-highlight">48</i>&nbsp;     * this machine.
+<i class="no-highlight">49</i>&nbsp;     */
+<i class="no-highlight">50</i>&nbsp;    private final int locallyUniqueId;
+<b class="nc"><i class="no-highlight">51</i>&nbsp;    private static final AtomicInteger uniqueIdGenerator = new AtomicInteger(1);</b>
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /*
+<i class="no-highlight">54</i>&nbsp;     * Tracks the time (in ms) used to generate the previous proposal
+<i class="no-highlight">55</i>&nbsp;     * preventing the creation of duplicate proposals.  Synchronize on this
+<i class="no-highlight">56</i>&nbsp;     * instance when accessing this field.
+<i class="no-highlight">57</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">58</i>&nbsp;    private long prevProposalTime = System.currentTimeMillis();</b>
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;    /*
+<i class="no-highlight">61</i>&nbsp;     * A unique ID for this JVM, using a hex representation of the IP address
+<i class="no-highlight">62</i>&nbsp;     * XOR&#39;ed with a random value. If the IP address cannot be determined,
+<i class="no-highlight">63</i>&nbsp;     * a secure random number is generated and used instead. The risk of
+<i class="no-highlight">64</i>&nbsp;     * collision is very low since the number of machines in a replication
+<i class="no-highlight">65</i>&nbsp;     * group is typically small, in the 10s at most.
+<i class="no-highlight">66</i>&nbsp;     */
+<i class="no-highlight">67</i>&nbsp;    private static final String machineId;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /* Width of each field in the Proposal number in hex characters. */
+<i class="no-highlight">70</i>&nbsp;    final static int TIME_WIDTH = 16;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    /* Allow for 16 byte ipv6 addresses. */
+<i class="no-highlight">73</i>&nbsp;    final static int ADDRESS_WIDTH =32;
+<i class="no-highlight">74</i>&nbsp;    final static int UID_WIDTH = 8;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /*
+<i class="no-highlight">77</i>&nbsp;     * Initialize machineId, do it just once to minimize latencies in the face
+<i class="no-highlight">78</i>&nbsp;     * of misbehaving networks that slow down calls to getLocalHost()
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;    static  {
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;        InetAddress localHost;
+<i class="no-highlight">83</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">84</i>&nbsp;            localHost = InetAddress.getLocalHost();</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;        } catch (UnknownHostException e) {</b>
+<i class="no-highlight">86</i>&nbsp;            /*
+<i class="no-highlight">87</i>&nbsp;             * Likely a misconfigured machine if it could not determine
+<i class="no-highlight">88</i>&nbsp;             * localhost.
+<i class="no-highlight">89</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">90</i>&nbsp;            localHost = null;</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        byte[] localAddress = null;</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        if (localHost != null) {</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;            localAddress = localHost.getAddress();</b>
+<i class="no-highlight">95</i>&nbsp;
+<b class="nc"><i class="no-highlight">96</i>&nbsp;            if (localHost.isLoopbackAddress()) {</b>
+<i class="no-highlight">97</i>&nbsp;                /* Linux platforms return a loopback address, examine the
+<i class="no-highlight">98</i>&nbsp;                 * interfaces individually for a suitable address.
+<i class="no-highlight">99</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">100</i>&nbsp;                localAddress = null;</b>
+<i class="no-highlight">101</i>&nbsp;                try {
+<i class="no-highlight">102</i>&nbsp;                    for (Enumeration&lt;NetworkInterface&gt; interfaces =
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                        NetworkInterface.getNetworkInterfaces();</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                        interfaces.hasMoreElements();) {</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;                        for (Enumeration&lt;InetAddress&gt; addresses =</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;                            interfaces.nextElement().getInetAddresses();</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;                            addresses.hasMoreElements();) {</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                            InetAddress ia = addresses.nextElement();</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                            if (! (ia.isLoopbackAddress() ||</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                                   ia.isAnyLocalAddress() ||</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                                   ia.isMulticastAddress())) {</b>
+<i class="no-highlight">112</i>&nbsp;                                /* Found one, any one of these will do. */
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                                localAddress = ia.getAddress();</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                                break;</b>
+<i class="no-highlight">115</i>&nbsp;                            }
+<b class="nc"><i class="no-highlight">116</i>&nbsp;                        }</b>
+<i class="no-highlight">117</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">118</i>&nbsp;                } catch (SocketException e) {</b>
+<i class="no-highlight">119</i>&nbsp;                    /* Could not get the network interfaces, give up */
+<b class="nc"><i class="no-highlight">120</i>&nbsp;                }</b>
+<i class="no-highlight">121</i>&nbsp;            }
+<i class="no-highlight">122</i>&nbsp;        }
+<i class="no-highlight">123</i>&nbsp;
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        if (localAddress != null) {</b>
+<i class="no-highlight">125</i>&nbsp;            /*
+<i class="no-highlight">126</i>&nbsp;             * Convert the address to a positive integer, XOR it with a
+<i class="no-highlight">127</i>&nbsp;             * random value of the right size, and format in hex
+<i class="no-highlight">128</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">129</i>&nbsp;            final BigInteger addrVal = new BigInteger(1, localAddress);</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            final BigInteger randVal =</b>
+<i class="no-highlight">131</i>&nbsp;                new BigInteger(ADDRESS_WIDTH * 4, new SecureRandom());
+<b class="nc"><i class="no-highlight">132</i>&nbsp;            machineId = String.format(&quot;%0&quot; + ADDRESS_WIDTH + &quot;x&quot;,</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;                                      addrVal.xor(randVal));</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        } else {</b>
+<i class="no-highlight">135</i>&nbsp;            /*
+<i class="no-highlight">136</i>&nbsp;             * If the localAddress is null, this host is likely disconnected,
+<i class="no-highlight">137</i>&nbsp;             * or localHost is misconfigured, fall back to using just a secure
+<i class="no-highlight">138</i>&nbsp;             * random number.
+<i class="no-highlight">139</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">140</i>&nbsp;            final BigInteger randVal =</b>
+<i class="no-highlight">141</i>&nbsp;                new BigInteger(ADDRESS_WIDTH * 4, new SecureRandom());
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            machineId = String.format(&quot;%0&quot; + ADDRESS_WIDTH + &quot;x&quot;, randVal);</b>
+<i class="no-highlight">143</i>&nbsp;        }
+<i class="no-highlight">144</i>&nbsp;    }
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    /**
+<i class="no-highlight">147</i>&nbsp;     * Creates an instance with an application-specified locally (machine wide)
+<i class="no-highlight">148</i>&nbsp;     * unique id, e.g. a port number, or a combination of a pid and some other
+<i class="no-highlight">149</i>&nbsp;     * number.
+<i class="no-highlight">150</i>&nbsp;     *
+<i class="no-highlight">151</i>&nbsp;     * @param locallyUniqueId the machine wide unique id
+<i class="no-highlight">152</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">153</i>&nbsp;    TimebasedProposalGenerator(int locallyUniqueId) {</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        this.locallyUniqueId = locallyUniqueId;</b>
+<i class="no-highlight">155</i>&nbsp;    }
+<i class="no-highlight">156</i>&nbsp;
+<i class="no-highlight">157</i>&nbsp;    /**
+<i class="no-highlight">158</i>&nbsp;     * Constructor defaulting the unique id so it&#39;s merely unique within the
+<i class="no-highlight">159</i>&nbsp;     * process.
+<i class="no-highlight">160</i>&nbsp;     */
+<i class="no-highlight">161</i>&nbsp;    public TimebasedProposalGenerator() {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        this(uniqueIdGenerator.getAndIncrement());</b>
+<i class="no-highlight">163</i>&nbsp;    }
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    /**
+<i class="no-highlight">166</i>&nbsp;     * Returns the next Proposal greater than all previous proposals returned
+<i class="no-highlight">167</i>&nbsp;     * on this machine.
+<i class="no-highlight">168</i>&nbsp;     *
+<i class="no-highlight">169</i>&nbsp;     * @return the next unique proposal
+<i class="no-highlight">170</i>&nbsp;     */
+<i class="no-highlight">171</i>&nbsp;    public Proposal nextProposal() {
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        long proposalTime = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            if (proposalTime &lt;= prevProposalTime) {</b>
+<i class="no-highlight">175</i>&nbsp;                /* Proposals are moving faster than the clock. */
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                proposalTime = ++prevProposalTime;</b>
+<i class="no-highlight">177</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">178</i>&nbsp;            prevProposalTime = proposalTime;</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        return new StringProposal(String.format(&quot;%016x%s%08x&quot;, proposalTime,</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;                                                machineId, locallyUniqueId));</b>
+<i class="no-highlight">182</i>&nbsp;    }
+<i class="no-highlight">183</i>&nbsp;
+<i class="no-highlight">184</i>&nbsp;    /**
+<i class="no-highlight">185</i>&nbsp;     * Returns the parser used to convert wire representations into Proposal
+<i class="no-highlight">186</i>&nbsp;     * instances.
+<i class="no-highlight">187</i>&nbsp;     *
+<i class="no-highlight">188</i>&nbsp;     * @return a ProposalParser
+<i class="no-highlight">189</i>&nbsp;     */
+<i class="no-highlight">190</i>&nbsp;    public static ProposalParser getParser() {
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        return StringProposal.getParser();</b>
+<i class="no-highlight">192</i>&nbsp;    }
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;    /**
+<i class="no-highlight">195</i>&nbsp;     * Implements the Proposal interface for a string based proposal. The
+<i class="no-highlight">196</i>&nbsp;     * string is a hex representation of the Proposal.
+<i class="no-highlight">197</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">198</i>&nbsp;    private static class StringProposal implements Proposal {</b>
+<i class="no-highlight">199</i>&nbsp;        private final String proposal;
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;        /* The canonical proposal parser. */
+<b class="nc"><i class="no-highlight">202</i>&nbsp;        private static ProposalParser theParser = new ProposalParser() {</b>
+<i class="no-highlight">203</i>&nbsp;                @Override
+<i class="no-highlight">204</i>&nbsp;                public Proposal parse(String wireFormat) {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                    return ((wireFormat == null) || (&quot;&quot;.equals(wireFormat))) ?</b>
+<i class="no-highlight">206</i>&nbsp;                        null :
+<i class="no-highlight">207</i>&nbsp;                        new StringProposal(wireFormat);
+<i class="no-highlight">208</i>&nbsp;                }
+<i class="no-highlight">209</i>&nbsp;            };
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        StringProposal(String proposal) {</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;            assert (proposal != null);</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            this.proposal = proposal;</b>
+<i class="no-highlight">214</i>&nbsp;        }
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;        @Override
+<i class="no-highlight">217</i>&nbsp;        public String wireFormat() {
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            return proposal;</b>
+<i class="no-highlight">219</i>&nbsp;        }
+<i class="no-highlight">220</i>&nbsp;
+<i class="no-highlight">221</i>&nbsp;        @Override
+<i class="no-highlight">222</i>&nbsp;        public int compareTo(Proposal otherProposal) {
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            return this.proposal.compareTo</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;                (((StringProposal) otherProposal).proposal);</b>
+<i class="no-highlight">225</i>&nbsp;        }
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;        @Override
+<i class="no-highlight">228</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">229</i>&nbsp;            return &quot;Proposal(&quot; +</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                proposal.substring(0, TIME_WIDTH) +</b>
+<i class="no-highlight">231</i>&nbsp;                &quot;:&quot; +
+<b class="nc"><i class="no-highlight">232</i>&nbsp;                proposal.substring(TIME_WIDTH, TIME_WIDTH + ADDRESS_WIDTH) +</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                &quot;:&quot; + proposal.substring(TIME_WIDTH + ADDRESS_WIDTH) +</b>
+<i class="no-highlight">234</i>&nbsp;                &quot;)&quot;;
+<i class="no-highlight">235</i>&nbsp;        }
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;        private static ProposalParser getParser() {
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            return theParser;</b>
+<i class="no-highlight">239</i>&nbsp;        }
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;        @Override
+<i class="no-highlight">242</i>&nbsp;        public int hashCode() {
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            return ((proposal == null) ? 0 : proposal.hashCode());</b>
+<i class="no-highlight">244</i>&nbsp;        }
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;        @Override
+<i class="no-highlight">247</i>&nbsp;        public boolean equals(Object obj) {
+<b class="nc"><i class="no-highlight">248</i>&nbsp;            if (this == obj) {</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;                return true;</b>
+<i class="no-highlight">250</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">251</i>&nbsp;            if (obj == null) {</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;                return false;</b>
+<i class="no-highlight">253</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            if (!(obj instanceof StringProposal)) {</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;                return false;</b>
+<i class="no-highlight">256</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            final StringProposal other = (StringProposal) obj;</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            if (proposal == null) {</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;                if (other.proposal != null) {</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;                    return false;</b>
+<i class="no-highlight">261</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">262</i>&nbsp;            } else if (!proposal.equals(other.proposal)) {</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;                return false;</b>
+<i class="no-highlight">264</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">265</i>&nbsp;            return true;</b>
+<i class="no-highlight">266</i>&nbsp;        }
+<i class="no-highlight">267</i>&nbsp;    }
+<i class="no-highlight">268</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

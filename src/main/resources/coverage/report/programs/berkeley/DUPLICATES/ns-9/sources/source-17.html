@@ -1,0 +1,600 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > UtilizationCalculator</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: UtilizationCalculator (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">UtilizationCalculator</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    14.3%
+  </span>
+  <span class="absValue">
+    (1/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    8.2%
+  </span>
+  <span class="absValue">
+    (11/134)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Map;
+<i class="no-highlight">17</i>&nbsp;import java.util.Set;
+<i class="no-highlight">18</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">20</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.EnvConfigObserver;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentMutableConfig;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.utilint.Pair;
+<i class="no-highlight">31</i>&nbsp;
+<i class="no-highlight">32</i>&nbsp;/**
+<i class="no-highlight">33</i>&nbsp; * Contains methods for calculating utilization and for selecting files to
+<i class="no-highlight">34</i>&nbsp; * clean.
+<i class="no-highlight">35</i>&nbsp; *
+<i class="no-highlight">36</i>&nbsp; * Note that we do clean files that are protected from deletion by HA/DataSync.
+<i class="no-highlight">37</i>&nbsp; * If we did not clean them and a large number of files were to become
+<i class="no-highlight">38</i>&nbsp; * unprotected at once, a large amount of log cleaning may suddenly be
+<i class="no-highlight">39</i>&nbsp; * necessary.  Cleaning the files avoids this.  Better still would be to delete
+<i class="no-highlight">40</i>&nbsp; * the metadata, but that would require writing a log entry to indicate the
+<i class="no-highlight">41</i>&nbsp; * file is ready to be deleted, to avoid cleaning from scratch after a crash.
+<i class="no-highlight">42</i>&nbsp; * [#16643] [#19221]
+<i class="no-highlight">43</i>&nbsp; *
+<i class="no-highlight">44</i>&nbsp; * Historical note: Prior to JE 6.0, LN utilization adjustments were needed
+<i class="no-highlight">45</i>&nbsp; * because the LN last logged size was not stored in the BIN [#18633].
+<i class="no-highlight">46</i>&nbsp; * Originally in JE 5, the corrected average LN size was used to adjust
+<i class="no-highlight">47</i>&nbsp; * utilization. This was changed later in JE 5 to a correction factor since
+<i class="no-highlight">48</i>&nbsp; * different log files may have different average LN sizes [#21106]. Then in
+<i class="no-highlight">49</i>&nbsp; * JE 6.0 the last logged size was added to the BIN, the default for
+<i class="no-highlight">50</i>&nbsp; * {@link com.sleepycat.je.EnvironmentConfig#CLEANER_ADJUST_UTILIZATION} was
+<i class="no-highlight">51</i>&nbsp; * changed to false and a warning was added that the feature will be removed in
+<i class="no-highlight">52</i>&nbsp; * the future [#22275]. Finally in JE 6.3 the LN adjustment code and data in
+<i class="no-highlight">53</i>&nbsp; * CheckpointEnd were removed and the parameter was deprecated [#24090].
+<i class="no-highlight">54</i>&nbsp; *
+<i class="no-highlight">55</i>&nbsp; * Unlike with LNs, we do not store the last logged size of INs, so their
+<i class="no-highlight">56</i>&nbsp; * obsolete size is computed as an average and this has the potential to cause
+<i class="no-highlight">57</i>&nbsp; * over/under-cleaning. This problem is not known to occur, but if there are
+<i class="no-highlight">58</i>&nbsp; * over/under-cleaning problems we should examine the recalculated info that is
+<i class="no-highlight">59</i>&nbsp; * output as part of the CleanerRun INFO message.
+<i class="no-highlight">60</i>&nbsp; *
+<i class="no-highlight">61</i>&nbsp; * === Expired Data and Utilization ===
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; * Per-file histograms are calculated by the {@link ExpirationTracker} and
+<i class="no-highlight">64</i>&nbsp; * stored in an internal database and cache by the {@link ExpirationProfile}.
+<i class="no-highlight">65</i>&nbsp; * The histograms are used to calculate the expired bytes for a file at a
+<i class="no-highlight">66</i>&nbsp; * particular time. Since obsolete (not expired) data can overlap with expired
+<i class="no-highlight">67</i>&nbsp; * data, upper and lower bounds for overall utilization are determined. When
+<i class="no-highlight">68</i>&nbsp; * the lower bound is below minUtilization, cleaning occurs.
+<i class="no-highlight">69</i>&nbsp; *
+<i class="no-highlight">70</i>&nbsp; * The file that has the lowest average utilization (midway between its upper
+<i class="no-highlight">71</i>&nbsp; * and lower bounds) is selected for cleaning. If the file&#39;s upper and lower
+<i class="no-highlight">72</i>&nbsp; * bounds are not close together (or the same), and the upper bound is above a
+<i class="no-highlight">73</i>&nbsp; * threshold, then two-pass cleaning is performed. See
+<i class="no-highlight">74</i>&nbsp; * {@link EnvironmentParams#CLEANER_TWO_PASS_GAP} and
+<i class="no-highlight">75</i>&nbsp; * {@link EnvironmentParams#CLEANER_TWO_PASS_THRESHOLD}.
+<i class="no-highlight">76</i>&nbsp; *
+<i class="no-highlight">77</i>&nbsp; * The first pass of two-pass cleaning reads the file but doesn&#39;t do any real
+<i class="no-highlight">78</i>&nbsp; * cleaning (no side effects). If this pass finds that the true utilization of
+<i class="no-highlight">79</i>&nbsp; * the file is above the threshold (the same threshold as above), then cleaning
+<i class="no-highlight">80</i>&nbsp; * does not take place and instead the histogram is updated. In this case the
+<i class="no-highlight">81</i>&nbsp; * obsolete and expired data (in the old histogram) overlap, and it is the
+<i class="no-highlight">82</i>&nbsp; * overlap that caused utilization to be estimated incorrectly. The new/updated
+<i class="no-highlight">83</i>&nbsp; * histogram is calculated such that there is no overlap, improving utilization
+<i class="no-highlight">84</i>&nbsp; * accuracy. If the first pass finds that true utilization is below the
+<i class="no-highlight">85</i>&nbsp; * threshold, then normal cleaning (pass two) occurs. Two-pass cleaning
+<i class="no-highlight">86</i>&nbsp; * protects against &quot;over cleaning&quot;.
+<i class="no-highlight">87</i>&nbsp; *
+<i class="no-highlight">88</i>&nbsp; * The use of the overall utilization lower bound to drive cleaning is
+<i class="no-highlight">89</i>&nbsp; * considered sufficient to protect against &quot;under cleaning&quot;. Therefore, a disk
+<i class="no-highlight">90</i>&nbsp; * space threshold is unnecessary.
+<i class="no-highlight">91</i>&nbsp; *
+<i class="no-highlight">92</i>&nbsp; * Gradual expiration is used to prevent cleaning spikes on day or hour
+<i class="no-highlight">93</i>&nbsp; * boundaries. For purposes of driving cleaning, the utilization lower bound is
+<i class="no-highlight">94</i>&nbsp; * calculated by distributing the bytes that expired in the current day/hour
+<i class="no-highlight">95</i>&nbsp; * period evenly over that day/hour.
+<i class="no-highlight">96</i>&nbsp; */
+<i class="no-highlight">97</i>&nbsp;public class UtilizationCalculator implements EnvConfigObserver {
+<i class="no-highlight">98</i>&nbsp;
+<i class="no-highlight">99</i>&nbsp;    private final EnvironmentImpl env;
+<i class="no-highlight">100</i>&nbsp;    private final Cleaner cleaner;
+<i class="no-highlight">101</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">102</i>&nbsp;    private FilesToMigrate filesToMigrate;
+<b class="fc"><i class="no-highlight">103</i>&nbsp;    private volatile int currentMinUtilization = -1;</b>
+<b class="fc"><i class="no-highlight">104</i>&nbsp;    private volatile int currentMaxUtilization = -1;</b>
+<b class="fc"><i class="no-highlight">105</i>&nbsp;    private volatile int predictedMinUtilization = -1;</b>
+<b class="fc"><i class="no-highlight">106</i>&nbsp;    private volatile int predictedMaxUtilization = -1;</b>
+<i class="no-highlight">107</i>&nbsp;
+<b class="fc"><i class="no-highlight">108</i>&nbsp;    UtilizationCalculator(EnvironmentImpl env, Cleaner cleaner) {</b>
+<b class="fc"><i class="no-highlight">109</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">110</i>&nbsp;        this.cleaner = cleaner;</b>
+<b class="fc"><i class="no-highlight">111</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<b class="fc"><i class="no-highlight">112</i>&nbsp;        filesToMigrate = new FilesToMigrate(env);</b>
+<b class="fc"><i class="no-highlight">113</i>&nbsp;        env.addConfigObserver(this);</b>
+<b class="fc"><i class="no-highlight">114</i>&nbsp;    }</b>
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;    int getCurrentMinUtilization() {
+<b class="nc"><i class="no-highlight">117</i>&nbsp;        return currentMinUtilization;</b>
+<i class="no-highlight">118</i>&nbsp;    }
+<i class="no-highlight">119</i>&nbsp;
+<i class="no-highlight">120</i>&nbsp;    int getCurrentMaxUtilization() {
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        return currentMaxUtilization;</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    int getPredictedMinUtilization() {
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        return predictedMinUtilization;</b>
+<i class="no-highlight">126</i>&nbsp;    }
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    int getPredictedMaxUtilization() {
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        return predictedMaxUtilization;</b>
+<i class="no-highlight">130</i>&nbsp;    }
+<i class="no-highlight">131</i>&nbsp;
+<i class="no-highlight">132</i>&nbsp;    /**
+<i class="no-highlight">133</i>&nbsp;     * Returns the best file that qualifies for cleaning or probing, or null
+<i class="no-highlight">134</i>&nbsp;     * if no file qualifies.
+<i class="no-highlight">135</i>&nbsp;     *
+<i class="no-highlight">136</i>&nbsp;     * This method is called by FileSelector and synchronization order is:
+<i class="no-highlight">137</i>&nbsp;     * 1-FileSelector, 2-UtilizationCalculator, 3-ExpirationProfile.
+<i class="no-highlight">138</i>&nbsp;     *
+<i class="no-highlight">139</i>&nbsp;     * @param fileSummaryMap the map containing file summary info.
+<i class="no-highlight">140</i>&nbsp;     *
+<i class="no-highlight">141</i>&nbsp;     * @param forceCleaning is true to always select a file, even if its
+<i class="no-highlight">142</i>&nbsp;     * utilization is above the minimum utilization threshold.
+<i class="no-highlight">143</i>&nbsp;     *
+<i class="no-highlight">144</i>&nbsp;     * @return {file number, required utilization for 2-pass cleaning},
+<i class="no-highlight">145</i>&nbsp;     * or null if no file qualifies for cleaning.
+<i class="no-highlight">146</i>&nbsp;     */
+<i class="no-highlight">147</i>&nbsp;    synchronized Pair&lt;Long, Integer&gt; getBestFile(
+<i class="no-highlight">148</i>&nbsp;        final SortedMap&lt;Long, FileSummary&gt; fileSummaryMap,
+<i class="no-highlight">149</i>&nbsp;        final boolean forceCleaning) {
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;        /* Paranoia.  There should always be 1 file. */
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        if (fileSummaryMap.size() == 0) {</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;            LoggerUtils.logMsg(logger, env, Level.SEVERE,</b>
+<i class="no-highlight">154</i>&nbsp;                               &quot;Can&#39;t clean, map is empty.&quot;);
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            return null;</b>
+<i class="no-highlight">156</i>&nbsp;        }
+<i class="no-highlight">157</i>&nbsp;
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        final FileSelector fileSelector = cleaner.getFileSelector();</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        final Set&lt;Long&gt; inProgressFiles = fileSelector.getInProgressFiles();</b>
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;        /* Refresh expiration info so it reflects the current time. */
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        final ExpirationProfile expProfile = cleaner.getExpirationProfile();</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;        final long currentTime = TTL.currentSystemTime();</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        expProfile.refresh(currentTime);</b>
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;        /*
+<i class="no-highlight">167</i>&nbsp;         * Use local variables for mutable properties.  Using values that are
+<i class="no-highlight">168</i>&nbsp;         * changing during a single file selection pass would not produce a
+<i class="no-highlight">169</i>&nbsp;         * well defined result.
+<i class="no-highlight">170</i>&nbsp;         *
+<i class="no-highlight">171</i>&nbsp;         * Note that age is a distance between files not a number of files,
+<i class="no-highlight">172</i>&nbsp;         * that is, deleted files are counted in the age.
+<i class="no-highlight">173</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        final int totalThreshold = cleaner.minUtilization;</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;        final int fileThreshold = cleaner.minFileUtilization;</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        final int twoPassThreshold = cleaner.twoPassThreshold;</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        final int twoPassGap = cleaner.twoPassGap;</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;        final int minAge = cleaner.minAge;</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        final boolean gradualExpiration = cleaner.gradualExpiration;</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        final boolean expirationEnabled = env.isExpirationEnabled();</b>
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;        /*
+<i class="no-highlight">183</i>&nbsp;         * Cleaning must refrain from rearranging the portion of log processed
+<i class="no-highlight">184</i>&nbsp;         * as recovery time. Do not clean a file greater or equal to the first
+<i class="no-highlight">185</i>&nbsp;         * active file used in recovery, which is either the last log file or
+<i class="no-highlight">186</i>&nbsp;         * the file of the first active LSN in an active transaction, whichever
+<i class="no-highlight">187</i>&nbsp;         * is earlier.
+<i class="no-highlight">188</i>&nbsp;         *
+<i class="no-highlight">189</i>&nbsp;         * TxnManager.getFirstActiveLsn() (firstActiveTxnLsn below) is
+<i class="no-highlight">190</i>&nbsp;         * guaranteed to be earlier or equal to the first active LSN of the
+<i class="no-highlight">191</i>&nbsp;         * checkpoint that will be performed before deleting the selected log
+<i class="no-highlight">192</i>&nbsp;         * file. By selecting a file prior to this point we ensure that will
+<i class="no-highlight">193</i>&nbsp;         * not clean any entry that may be replayed by recovery.
+<i class="no-highlight">194</i>&nbsp;         *
+<i class="no-highlight">195</i>&nbsp;         * For example:
+<i class="no-highlight">196</i>&nbsp;         * 200 ckptA start, determines that ckpt&#39;s firstActiveLsn = 100
+<i class="no-highlight">197</i>&nbsp;         * 400 ckptA end
+<i class="no-highlight">198</i>&nbsp;         * 600 ckptB start, determines that ckpt&#39;s firstActiveLsn = 300
+<i class="no-highlight">199</i>&nbsp;         * 800 ckptB end
+<i class="no-highlight">200</i>&nbsp;         *
+<i class="no-highlight">201</i>&nbsp;         * Any cleaning that executes before ckpt A start will be constrained
+<i class="no-highlight">202</i>&nbsp;         * to files &lt;= lsn 100, because it will have checked the TxnManager.
+<i class="no-highlight">203</i>&nbsp;         * If cleaning executes after ckptA start, it may indeed clean after
+<i class="no-highlight">204</i>&nbsp;         * ckptA&#39;s firstActiveLsn, but the cleaning run will wait to ckptB end
+<i class="no-highlight">205</i>&nbsp;         * to delete files.
+<i class="no-highlight">206</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        long firstActiveFile = fileSummaryMap.lastKey();</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        final long firstActiveTxnLsn = env.getTxnManager().getFirstActiveLsn();</b>
+<i class="no-highlight">209</i>&nbsp;
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        if (firstActiveTxnLsn != DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">211</i>&nbsp;
+<b class="nc"><i class="no-highlight">212</i>&nbsp;            long firstActiveTxnFile =</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                DbLsn.getFileNumber(firstActiveTxnLsn);</b>
+<i class="no-highlight">214</i>&nbsp;
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            if (firstActiveFile &gt; firstActiveTxnFile) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                firstActiveFile = firstActiveTxnFile;</b>
+<i class="no-highlight">217</i>&nbsp;            }
+<i class="no-highlight">218</i>&nbsp;        }
+<i class="no-highlight">219</i>&nbsp;
+<i class="no-highlight">220</i>&nbsp;        /*
+<i class="no-highlight">221</i>&nbsp;         * Note that minAge is at least one and may be configured to a higher
+<i class="no-highlight">222</i>&nbsp;         * value to prevent cleaning recently active files.
+<i class="no-highlight">223</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        final long lastFileToClean = firstActiveFile - minAge;</b>
+<i class="no-highlight">225</i>&nbsp;
+<i class="no-highlight">226</i>&nbsp;        /*
+<i class="no-highlight">227</i>&nbsp;         * Given the total, obsolete and expired bytes:
+<i class="no-highlight">228</i>&nbsp;         *
+<i class="no-highlight">229</i>&nbsp;         * min utilization: 100 * ((obsolete + expired) / total)
+<i class="no-highlight">230</i>&nbsp;         * max utilization: 100 * (max(obsolete, expired) / total)
+<i class="no-highlight">231</i>&nbsp;         * avg utilization: (max - min) / 2
+<i class="no-highlight">232</i>&nbsp;         *
+<i class="no-highlight">233</i>&nbsp;         * Calculate min/max utilization in several categories:
+<i class="no-highlight">234</i>&nbsp;         *
+<i class="no-highlight">235</i>&nbsp;         * + Current total utilization, not counting the results of cleaning
+<i class="no-highlight">236</i>&nbsp;         *   that has not yet occurred, and using the current expired sizes.
+<i class="no-highlight">237</i>&nbsp;         *
+<i class="no-highlight">238</i>&nbsp;         * + Predicted total utilization, estimating the results of cleaning
+<i class="no-highlight">239</i>&nbsp;         *   yet to occur, and using a gradual expired size to prevent cleaning
+<i class="no-highlight">240</i>&nbsp;         *   spikes after hour/day boundaries.
+<i class="no-highlight">241</i>&nbsp;         *
+<i class="no-highlight">242</i>&nbsp;         * + Utilization for the &quot;best&quot; file to use when cleaning normally. The
+<i class="no-highlight">243</i>&nbsp;          *  file with the lowest avg utilization is selected.
+<i class="no-highlight">244</i>&nbsp;         *
+<i class="no-highlight">245</i>&nbsp;         * + Also determine the &quot;best gradual&quot; file with the lowest gradual
+<i class="no-highlight">246</i>&nbsp;         *   max utilization. Note that when a file is selected due to the
+<i class="no-highlight">247</i>&nbsp;         *   minFileUtilization threshold, gradual utilization must be used.
+<i class="no-highlight">248</i>&nbsp;         *   Otherwise, cleaning due to this threshold would defeat gradual
+<i class="no-highlight">249</i>&nbsp;         *   expiration in general.
+<i class="no-highlight">250</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">251</i>&nbsp;        Long bestFile = null;</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        int bestFileAvgUtil = 101;</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        int bestFileMinUtil = 0;</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        int bestFileMaxUtil = 0;</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        Long bestGradualFile = null;</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        int bestGradualFileMaxUtil = 101;</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;        long currentTotalSize = 0;</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        long currentMinObsoleteSize = 0;</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        long currentMaxObsoleteSize = 0;</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        long predictedTotalSize = 0;</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;        long predictedMinObsoleteSize = 0;</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;        long predictedMaxObsoleteSize = 0;</b>
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;        for (final Map.Entry&lt;Long, FileSummary&gt; entry :
+<b class="nc"><i class="no-highlight">265</i>&nbsp;             fileSummaryMap.entrySet()) {</b>
+<i class="no-highlight">266</i>&nbsp;
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            final Long file = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;            final long fileNum = file;</b>
+<i class="no-highlight">269</i>&nbsp;
+<b class="nc"><i class="no-highlight">270</i>&nbsp;            if (!env.getFileProtector().isActiveOrNewFile(file)) {</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;                continue;</b>
+<i class="no-highlight">272</i>&nbsp;            }
+<i class="no-highlight">273</i>&nbsp;
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            final FileSummary summary = entry.getValue();</b>
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;            final int expiredSize;
+<i class="no-highlight">277</i>&nbsp;            final int expiredGradualSize;
+<i class="no-highlight">278</i>&nbsp;
+<b class="nc"><i class="no-highlight">279</i>&nbsp;            if (expirationEnabled) {</b>
+<i class="no-highlight">280</i>&nbsp;
+<b class="nc"><i class="no-highlight">281</i>&nbsp;                final Pair&lt;Integer, Integer&gt; expiredSizes =</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                    expProfile.getExpiredBytes(fileNum, currentTime);</b>
+<i class="no-highlight">283</i>&nbsp;
+<b class="nc"><i class="no-highlight">284</i>&nbsp;                expiredSize = Math.min(</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;                    expiredSizes.first(), summary.totalSize);</b>
+<i class="no-highlight">286</i>&nbsp;
+<b class="nc"><i class="no-highlight">287</i>&nbsp;                expiredGradualSize = gradualExpiration ?</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                    Math.min(expiredSizes.second(), summary.totalSize) :</b>
+<i class="no-highlight">289</i>&nbsp;                    expiredSize;
+<i class="no-highlight">290</i>&nbsp;
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            } else {</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                expiredSize = 0;</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;                expiredGradualSize = 0;</b>
+<i class="no-highlight">294</i>&nbsp;            }
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;            /*
+<i class="no-highlight">297</i>&nbsp;             * If the file is safe-to-delete, it is entirely obsolete by
+<i class="no-highlight">298</i>&nbsp;             * definition. This is more accurate than using getObsoleteSize.
+<i class="no-highlight">299</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">300</i>&nbsp;            final int obsoleteSize = summary.getObsoleteSize();</b>
+<i class="no-highlight">301</i>&nbsp;
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            final int minObsoleteSize = Math.max(</b>
+<i class="no-highlight">303</i>&nbsp;                obsoleteSize, expiredSize);
+<i class="no-highlight">304</i>&nbsp;
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            final int maxObsoleteSize = Math.min(</b>
+<i class="no-highlight">306</i>&nbsp;                obsoleteSize + expiredSize,
+<i class="no-highlight">307</i>&nbsp;                summary.totalSize);
+<i class="no-highlight">308</i>&nbsp;
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            final int minGradualObsoleteSize = Math.max(</b>
+<i class="no-highlight">310</i>&nbsp;                obsoleteSize, expiredGradualSize);
+<i class="no-highlight">311</i>&nbsp;
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            final int maxGradualObsoleteSize = Math.min(</b>
+<i class="no-highlight">313</i>&nbsp;                obsoleteSize + expiredGradualSize,
+<i class="no-highlight">314</i>&nbsp;                summary.totalSize);
+<i class="no-highlight">315</i>&nbsp;
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            currentTotalSize += summary.totalSize;</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            currentMinObsoleteSize += minObsoleteSize;</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            currentMaxObsoleteSize += maxObsoleteSize;</b>
+<i class="no-highlight">319</i>&nbsp;
+<i class="no-highlight">320</i>&nbsp;            /*
+<i class="no-highlight">321</i>&nbsp;             * If the file has been clean or is being cleaned, assume the
+<i class="no-highlight">322</i>&nbsp;             * file&#39;s data will occupy only its currently utilized bytes, after
+<i class="no-highlight">323</i>&nbsp;             * cleaning and deletion, based on the min obsolete size. This is
+<i class="no-highlight">324</i>&nbsp;             * an intentionally overly optimistic prediction of the results of
+<i class="no-highlight">325</i>&nbsp;             * cleaning, and is used to prevent over-cleaning, especially one
+<i class="no-highlight">326</i>&nbsp;             * due to a backlog created using inaccurate predictions.
+<i class="no-highlight">327</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">328</i>&nbsp;            if (inProgressFiles.contains(file)) {</b>
+<b class="nc"><i class="no-highlight">329</i>&nbsp;                final int utilizedSize = summary.totalSize - minObsoleteSize;</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;                predictedTotalSize += utilizedSize;</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;                continue;</b>
+<i class="no-highlight">332</i>&nbsp;            }
+<i class="no-highlight">333</i>&nbsp;
+<b class="nc"><i class="no-highlight">334</i>&nbsp;            predictedTotalSize += summary.totalSize;</b>
+<b class="nc"><i class="no-highlight">335</i>&nbsp;            predictedMinObsoleteSize += minGradualObsoleteSize;</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;            predictedMaxObsoleteSize += maxGradualObsoleteSize;</b>
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;            /* Skip files that are too young to be cleaned. */
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            if (fileNum &gt; lastFileToClean) {</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;                continue;</b>
+<i class="no-highlight">341</i>&nbsp;            }
+<i class="no-highlight">342</i>&nbsp;
+<i class="no-highlight">343</i>&nbsp;            /*
+<i class="no-highlight">344</i>&nbsp;             * Pick the &quot;best&quot; file -- the one having the lowest avg
+<i class="no-highlight">345</i>&nbsp;             * utilization so far.
+<i class="no-highlight">346</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">347</i>&nbsp;            final int thisMinUtil = FileSummary.utilization(</b>
+<i class="no-highlight">348</i>&nbsp;                maxObsoleteSize, summary.totalSize);
+<i class="no-highlight">349</i>&nbsp;
+<b class="nc"><i class="no-highlight">350</i>&nbsp;            final int thisMaxUtil = FileSummary.utilization(</b>
+<i class="no-highlight">351</i>&nbsp;                minObsoleteSize, summary.totalSize);
+<i class="no-highlight">352</i>&nbsp;
+<b class="nc"><i class="no-highlight">353</i>&nbsp;            final int thisAvgUtil = (thisMinUtil + thisMaxUtil) / 2;</b>
+<i class="no-highlight">354</i>&nbsp;
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            if (bestFile == null || thisAvgUtil &lt; bestFileAvgUtil) {</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;                bestFile = file;</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;                bestFileAvgUtil = thisAvgUtil;</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;                bestFileMinUtil = thisMinUtil;</b>
+<b class="nc"><i class="no-highlight">359</i>&nbsp;                bestFileMaxUtil = thisMaxUtil;</b>
+<i class="no-highlight">360</i>&nbsp;            }
+<i class="no-highlight">361</i>&nbsp;
+<i class="no-highlight">362</i>&nbsp;            /*
+<i class="no-highlight">363</i>&nbsp;             * Pick the &quot;best gradual&quot; file -- the one having the lowest max
+<i class="no-highlight">364</i>&nbsp;             * gradual utilization so far.
+<i class="no-highlight">365</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">366</i>&nbsp;            final int thisGradualMaxUtil = FileSummary.utilization(</b>
+<i class="no-highlight">367</i>&nbsp;                minGradualObsoleteSize, summary.totalSize);
+<i class="no-highlight">368</i>&nbsp;
+<b class="nc"><i class="no-highlight">369</i>&nbsp;            if (bestGradualFile == null ||</b>
+<i class="no-highlight">370</i>&nbsp;                thisGradualMaxUtil &lt; bestGradualFileMaxUtil) {
+<i class="no-highlight">371</i>&nbsp;
+<b class="nc"><i class="no-highlight">372</i>&nbsp;                bestGradualFile = file;</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;                bestGradualFileMaxUtil = thisGradualMaxUtil;</b>
+<i class="no-highlight">374</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">375</i>&nbsp;        }</b>
+<i class="no-highlight">376</i>&nbsp;
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        final int currentMinUtil = FileSummary.utilization(</b>
+<i class="no-highlight">378</i>&nbsp;            currentMaxObsoleteSize, currentTotalSize);
+<i class="no-highlight">379</i>&nbsp;
+<b class="nc"><i class="no-highlight">380</i>&nbsp;        final int currentMaxUtil = FileSummary.utilization(</b>
+<i class="no-highlight">381</i>&nbsp;            currentMinObsoleteSize, currentTotalSize);
+<i class="no-highlight">382</i>&nbsp;
+<b class="nc"><i class="no-highlight">383</i>&nbsp;        final int predictedMinUtil = FileSummary.utilization(</b>
+<i class="no-highlight">384</i>&nbsp;            predictedMaxObsoleteSize, predictedTotalSize);
+<i class="no-highlight">385</i>&nbsp;
+<b class="nc"><i class="no-highlight">386</i>&nbsp;        final int predictedMaxUtil = FileSummary.utilization(</b>
+<i class="no-highlight">387</i>&nbsp;            predictedMinObsoleteSize, predictedTotalSize);
+<i class="no-highlight">388</i>&nbsp;
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        currentMinUtilization = currentMinUtil;</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        currentMaxUtilization = currentMaxUtil;</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;        predictedMinUtilization = predictedMinUtil;</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        predictedMaxUtilization = predictedMaxUtil;</b>
+<i class="no-highlight">393</i>&nbsp;
+<i class="no-highlight">394</i>&nbsp;        /*
+<i class="no-highlight">395</i>&nbsp;         * 1. If total min utilization is below the threshold, clean the
+<i class="no-highlight">396</i>&nbsp;         *    &quot;best&quot; file, which is the one with the lowest avg utilization.
+<i class="no-highlight">397</i>&nbsp;         *
+<i class="no-highlight">398</i>&nbsp;         * 2. Else if the &quot;best gradual&quot; file has a max gradual utilization
+<i class="no-highlight">399</i>&nbsp;         *    that is below the threshold for a single file, clean it.
+<i class="no-highlight">400</i>&nbsp;         *
+<i class="no-highlight">401</i>&nbsp;         * 3. Else if there are more files to migrate, clean the next file to
+<i class="no-highlight">402</i>&nbsp;         *    be migrated.
+<i class="no-highlight">403</i>&nbsp;         *
+<i class="no-highlight">404</i>&nbsp;         * 4. Else if cleaning is forced for unit testing, clean the best file.
+<i class="no-highlight">405</i>&nbsp;         */
+<i class="no-highlight">406</i>&nbsp;        final Long fileChosen;
+<i class="no-highlight">407</i>&nbsp;        final String reason;
+<i class="no-highlight">408</i>&nbsp;
+<b class="nc"><i class="no-highlight">409</i>&nbsp;        if (predictedMinUtil &lt; totalThreshold) {</b>
+<i class="no-highlight">410</i>&nbsp;
+<b class="nc"><i class="no-highlight">411</i>&nbsp;            fileChosen = bestFile;</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            reason = &quot;predicted min util is below minUtilization&quot;;</b>
+<i class="no-highlight">413</i>&nbsp;
+<b class="nc"><i class="no-highlight">414</i>&nbsp;        } else if (bestGradualFileMaxUtil &lt; fileThreshold) {</b>
+<i class="no-highlight">415</i>&nbsp;
+<b class="nc"><i class="no-highlight">416</i>&nbsp;            fileChosen = bestGradualFile;</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            reason = &quot;file has avg util below minFileUtilization&quot;;</b>
+<i class="no-highlight">418</i>&nbsp;
+<b class="nc"><i class="no-highlight">419</i>&nbsp;        } else if (filesToMigrate.hasNext(fileSummaryMap, inProgressFiles)) {</b>
+<i class="no-highlight">420</i>&nbsp;
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            fileChosen = filesToMigrate.next(fileSummaryMap, inProgressFiles);</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            reason = &quot;there are more forceCleanFiles&quot;;</b>
+<i class="no-highlight">423</i>&nbsp;
+<b class="nc"><i class="no-highlight">424</i>&nbsp;        } else if (forceCleaning) {</b>
+<i class="no-highlight">425</i>&nbsp;
+<b class="nc"><i class="no-highlight">426</i>&nbsp;            fileChosen = bestFile;</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;            reason = &quot;forced for testing&quot;;</b>
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">430</i>&nbsp;            fileChosen = null;</b>
+<b class="nc"><i class="no-highlight">431</i>&nbsp;            reason = &quot;no file selected&quot;;</b>
+<i class="no-highlight">432</i>&nbsp;        }
+<i class="no-highlight">433</i>&nbsp;
+<b class="nc"><i class="no-highlight">434</i>&nbsp;        String bestFileMsg = &quot;&quot;;</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        String twoPassMsg = &quot;&quot;;</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        int pass1RequiredUtil = -1;</b>
+<i class="no-highlight">437</i>&nbsp;
+<b class="nc"><i class="no-highlight">438</i>&nbsp;        if (fileChosen != null &amp;&amp; fileChosen.equals(bestFile)) {</b>
+<i class="no-highlight">439</i>&nbsp;
+<b class="nc"><i class="no-highlight">440</i>&nbsp;            bestFileMsg =</b>
+<i class="no-highlight">441</i>&nbsp;                &quot;, chose file with util min: &quot; + bestFileMinUtil +
+<i class="no-highlight">442</i>&nbsp;                &quot; max: &quot; + bestFileMaxUtil +
+<i class="no-highlight">443</i>&nbsp;                &quot; avg: &quot; + bestFileAvgUtil;
+<i class="no-highlight">444</i>&nbsp;
+<i class="no-highlight">445</i>&nbsp;            /*
+<i class="no-highlight">446</i>&nbsp;             * If the difference between the file&#39;s min and max utilization is
+<i class="no-highlight">447</i>&nbsp;             * more than twoPassGap, and its max utilization is more then
+<i class="no-highlight">448</i>&nbsp;             * twoPassThreshold, use two pass cleaning. When using two-pass
+<i class="no-highlight">449</i>&nbsp;             * cleaning, skip the second pass if its recalculated utilization
+<i class="no-highlight">450</i>&nbsp;             * is higher than twoPassThreshold. In other words, if the benefit
+<i class="no-highlight">451</i>&nbsp;             * of cleaning is low, don&#39;t actually clean it.
+<i class="no-highlight">452</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">453</i>&nbsp;            if (bestFileMaxUtil &gt; twoPassThreshold &amp;&amp;</b>
+<i class="no-highlight">454</i>&nbsp;                bestFileMaxUtil - bestFileMinUtil &gt;= twoPassGap) {
+<i class="no-highlight">455</i>&nbsp;
+<b class="nc"><i class="no-highlight">456</i>&nbsp;                pass1RequiredUtil = twoPassThreshold;</b>
+<b class="nc"><i class="no-highlight">457</i>&nbsp;                twoPassMsg = &quot;, 2-pass cleaning&quot;;</b>
+<i class="no-highlight">458</i>&nbsp;            }
+<i class="no-highlight">459</i>&nbsp;        }
+<i class="no-highlight">460</i>&nbsp;
+<b class="nc"><i class="no-highlight">461</i>&nbsp;        final Level logLevel = (fileChosen != null) ? Level.INFO : Level.FINE;</b>
+<i class="no-highlight">462</i>&nbsp;
+<b class="nc"><i class="no-highlight">463</i>&nbsp;        if (logger.isLoggable(logLevel)) {</b>
+<i class="no-highlight">464</i>&nbsp;
+<b class="nc"><i class="no-highlight">465</i>&nbsp;            LoggerUtils.logMsg(</b>
+<i class="no-highlight">466</i>&nbsp;                logger, env, logLevel,
+<i class="no-highlight">467</i>&nbsp;                &quot;Clean file &quot; +
+<i class="no-highlight">468</i>&nbsp;                ((fileChosen != null) ?
+<b class="nc"><i class="no-highlight">469</i>&nbsp;                    (&quot;0x&quot; + Long.toHexString(fileChosen)) : &quot;none&quot;) +</b>
+<i class="no-highlight">470</i>&nbsp;                &quot;: &quot; + reason + twoPassMsg +
+<i class="no-highlight">471</i>&nbsp;                &quot;, current util min: &quot; + currentMinUtil +
+<i class="no-highlight">472</i>&nbsp;                &quot; max: &quot; + currentMaxUtil +
+<i class="no-highlight">473</i>&nbsp;                &quot;, predicted util min: &quot; + predictedMinUtil +
+<i class="no-highlight">474</i>&nbsp;                &quot; max: &quot; + predictedMaxUtil +
+<i class="no-highlight">475</i>&nbsp;                bestFileMsg);
+<i class="no-highlight">476</i>&nbsp;        }
+<i class="no-highlight">477</i>&nbsp;
+<b class="nc"><i class="no-highlight">478</i>&nbsp;        return (fileChosen != null) ?</b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;            new Pair&lt;&gt;(fileChosen, pass1RequiredUtil) :</b>
+<i class="no-highlight">480</i>&nbsp;            null;
+<i class="no-highlight">481</i>&nbsp;    }
+<i class="no-highlight">482</i>&nbsp;
+<i class="no-highlight">483</i>&nbsp;    /**
+<i class="no-highlight">484</i>&nbsp;     * Process notifications of mutable property changes.
+<i class="no-highlight">485</i>&nbsp;     *
+<i class="no-highlight">486</i>&nbsp;     * @throws IllegalArgumentException via FilesToMigrate ctor and
+<i class="no-highlight">487</i>&nbsp;     * parseForceCleanFiles.
+<i class="no-highlight">488</i>&nbsp;     */
+<i class="no-highlight">489</i>&nbsp;
+<i class="no-highlight">490</i>&nbsp;    public synchronized void envConfigUpdate(DbConfigManager cm,
+<i class="no-highlight">491</i>&nbsp;                                EnvironmentMutableConfig ignore) {
+<i class="no-highlight">492</i>&nbsp;
+<b class="nc"><i class="no-highlight">493</i>&nbsp;        filesToMigrate = new FilesToMigrate(env);</b>
+<b class="nc"><i class="no-highlight">494</i>&nbsp;    }</b>
+<i class="no-highlight">495</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

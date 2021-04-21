@@ -1,0 +1,384 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > StoredSortedKeySet</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.collections</a>
+</div>
+
+<h1>Coverage Summary for Class: StoredSortedKeySet (com.sleepycat.collections)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">StoredSortedKeySet</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.collections;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Comparator;
+<i class="no-highlight">17</i>&nbsp;import java.util.SortedSet;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.bind.EntryBinding;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">21</i>&nbsp;/* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException; // for javadoc
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.OperationFailureException; // for javadoc
+<i class="no-highlight">24</i>&nbsp;/* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.util.RuntimeExceptionWrapper;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;/**
+<i class="no-highlight">28</i>&nbsp; * The SortedSet returned by Map.keySet() and which can also be constructed
+<i class="no-highlight">29</i>&nbsp; * directly if a Map is not needed.
+<i class="no-highlight">30</i>&nbsp; * Since this collection is a set it only contains one element for each key,
+<i class="no-highlight">31</i>&nbsp; * even when duplicates are allowed.  Key set iterators are therefore
+<i class="no-highlight">32</i>&nbsp; * particularly useful for enumerating the unique keys of a store or index that
+<i class="no-highlight">33</i>&nbsp; * allows duplicates.
+<i class="no-highlight">34</i>&nbsp; *
+<i class="no-highlight">35</i>&nbsp; * &lt;p&gt;In addition to the standard SortedSet methods, this class provides the
+<i class="no-highlight">36</i>&nbsp; * following methods for stored sorted sets only.  Note that the use of these
+<i class="no-highlight">37</i>&nbsp; * methods is not compatible with the standard Java collections interface.&lt;/p&gt;
+<i class="no-highlight">38</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">39</i>&nbsp; * &lt;li&gt;{@link #headSet(Object, boolean)}&lt;/li&gt;
+<i class="no-highlight">40</i>&nbsp; * &lt;li&gt;{@link #tailSet(Object, boolean)}&lt;/li&gt;
+<i class="no-highlight">41</i>&nbsp; * &lt;li&gt;{@link #subSet(Object, boolean, Object, boolean)}&lt;/li&gt;
+<i class="no-highlight">42</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">43</i>&nbsp; *
+<i class="no-highlight">44</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">45</i>&nbsp; */
+<i class="no-highlight">46</i>&nbsp;public class StoredSortedKeySet&lt;K&gt;
+<i class="no-highlight">47</i>&nbsp;    extends StoredKeySet&lt;K&gt;
+<i class="no-highlight">48</i>&nbsp;    implements SortedSet&lt;K&gt; {
+<i class="no-highlight">49</i>&nbsp;
+<i class="no-highlight">50</i>&nbsp;    /**
+<i class="no-highlight">51</i>&nbsp;     * Creates a sorted key set view of a {@link Database}.
+<i class="no-highlight">52</i>&nbsp;     *
+<i class="no-highlight">53</i>&nbsp;     * @param database is the Database underlying the new collection.
+<i class="no-highlight">54</i>&nbsp;     *
+<i class="no-highlight">55</i>&nbsp;     * @param keyBinding is the binding used to translate between key buffers
+<i class="no-highlight">56</i>&nbsp;     * and key objects.
+<i class="no-highlight">57</i>&nbsp;     *
+<i class="no-highlight">58</i>&nbsp;     * @param writeAllowed is true to create a read-write collection or false
+<i class="no-highlight">59</i>&nbsp;     * to create a read-only collection.
+<i class="no-highlight">60</i>&nbsp;     *
+<i class="no-highlight">61</i>&nbsp;     * @throws IllegalArgumentException if formats are not consistently
+<i class="no-highlight">62</i>&nbsp;     * defined or a parameter is invalid.
+<i class="no-highlight">63</i>&nbsp;     *
+<i class="no-highlight">64</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">65</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">66</i>&nbsp;     */
+<i class="no-highlight">67</i>&nbsp;    public StoredSortedKeySet(Database database,
+<i class="no-highlight">68</i>&nbsp;                              EntryBinding&lt;K&gt; keyBinding,
+<i class="no-highlight">69</i>&nbsp;                              boolean writeAllowed) {
+<i class="no-highlight">70</i>&nbsp;
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        super(new DataView(database, keyBinding, null, null,</b>
+<i class="no-highlight">72</i>&nbsp;                           writeAllowed, null));
+<i class="no-highlight">73</i>&nbsp;    }
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    StoredSortedKeySet(DataView keySetView) {
+<i class="no-highlight">76</i>&nbsp;
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        super(keySetView);</b>
+<i class="no-highlight">78</i>&nbsp;    }
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /**
+<i class="no-highlight">81</i>&nbsp;     * Returns null since comparators are not supported.  The natural ordering
+<i class="no-highlight">82</i>&nbsp;     * of a stored collection is data byte order, whether the data classes
+<i class="no-highlight">83</i>&nbsp;     * implement the {@link Comparable} interface or not.
+<i class="no-highlight">84</i>&nbsp;     * This method does not conform to the {@link SortedSet#comparator}
+<i class="no-highlight">85</i>&nbsp;     * interface.
+<i class="no-highlight">86</i>&nbsp;     *
+<i class="no-highlight">87</i>&nbsp;     * @return null.
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    public Comparator&lt;? super K&gt; comparator() {
+<i class="no-highlight">90</i>&nbsp;
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        return null;</b>
+<i class="no-highlight">92</i>&nbsp;    }
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /**
+<i class="no-highlight">95</i>&nbsp;     * Returns the first (lowest) element currently in this sorted set.
+<i class="no-highlight">96</i>&nbsp;     * This method conforms to the {@link SortedSet#first} interface.
+<i class="no-highlight">97</i>&nbsp;     *
+<i class="no-highlight">98</i>&nbsp;     * @return the first element.
+<i class="no-highlight">99</i>&nbsp;     *
+<i class="no-highlight">100</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">101</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">102</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">103</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">104</i>&nbsp;     *
+<i class="no-highlight">105</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">106</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">107</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">108</i>&nbsp;     *
+<i class="no-highlight">109</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">110</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">111</i>&nbsp;     */
+<i class="no-highlight">112</i>&nbsp;    public K first() {
+<i class="no-highlight">113</i>&nbsp;
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        return getFirstOrLast(true);</b>
+<i class="no-highlight">115</i>&nbsp;    }
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    /**
+<i class="no-highlight">118</i>&nbsp;     * Returns the last (highest) element currently in this sorted set.
+<i class="no-highlight">119</i>&nbsp;     * This method conforms to the {@link SortedSet#last} interface.
+<i class="no-highlight">120</i>&nbsp;     *
+<i class="no-highlight">121</i>&nbsp;     * @return the last element.
+<i class="no-highlight">122</i>&nbsp;     *
+<i class="no-highlight">123</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">124</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">125</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">126</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">127</i>&nbsp;     *
+<i class="no-highlight">128</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">129</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">130</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">131</i>&nbsp;     *
+<i class="no-highlight">132</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">133</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">134</i>&nbsp;     */
+<i class="no-highlight">135</i>&nbsp;    public K last() {
+<i class="no-highlight">136</i>&nbsp;
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        return getFirstOrLast(false);</b>
+<i class="no-highlight">138</i>&nbsp;    }
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    /**
+<i class="no-highlight">141</i>&nbsp;     * Returns a view of the portion of this sorted set whose elements are
+<i class="no-highlight">142</i>&nbsp;     * strictly less than toKey.
+<i class="no-highlight">143</i>&nbsp;     * This method conforms to the {@link SortedSet#headSet} interface.
+<i class="no-highlight">144</i>&nbsp;     *
+<i class="no-highlight">145</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">146</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">147</i>&nbsp;     *
+<i class="no-highlight">148</i>&nbsp;     * @param toKey is the upper bound.
+<i class="no-highlight">149</i>&nbsp;     *
+<i class="no-highlight">150</i>&nbsp;     * @return the subset.
+<i class="no-highlight">151</i>&nbsp;     *
+<i class="no-highlight">152</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">153</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">154</i>&nbsp;     */
+<i class="no-highlight">155</i>&nbsp;    public SortedSet&lt;K&gt; headSet(K toKey) {
+<i class="no-highlight">156</i>&nbsp;
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        return subSet(null, false, toKey, false);</b>
+<i class="no-highlight">158</i>&nbsp;    }
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;    /**
+<i class="no-highlight">161</i>&nbsp;     * Returns a view of the portion of this sorted set whose elements are
+<i class="no-highlight">162</i>&nbsp;     * strictly less than toKey, optionally including toKey.
+<i class="no-highlight">163</i>&nbsp;     * This method does not exist in the standard {@link SortedSet} interface.
+<i class="no-highlight">164</i>&nbsp;     *
+<i class="no-highlight">165</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">166</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">167</i>&nbsp;     *
+<i class="no-highlight">168</i>&nbsp;     * @param toKey is the upper bound.
+<i class="no-highlight">169</i>&nbsp;     *
+<i class="no-highlight">170</i>&nbsp;     * @param toInclusive is true to include toKey.
+<i class="no-highlight">171</i>&nbsp;     *
+<i class="no-highlight">172</i>&nbsp;     * @return the subset.
+<i class="no-highlight">173</i>&nbsp;     *
+<i class="no-highlight">174</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">175</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">176</i>&nbsp;     */
+<i class="no-highlight">177</i>&nbsp;    public SortedSet&lt;K&gt; headSet(K toKey, boolean toInclusive) {
+<i class="no-highlight">178</i>&nbsp;
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        return subSet(null, false, toKey, toInclusive);</b>
+<i class="no-highlight">180</i>&nbsp;    }
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;    /**
+<i class="no-highlight">183</i>&nbsp;     * Returns a view of the portion of this sorted set whose elements are
+<i class="no-highlight">184</i>&nbsp;     * greater than or equal to fromKey.
+<i class="no-highlight">185</i>&nbsp;     * This method conforms to the {@link SortedSet#tailSet} interface.
+<i class="no-highlight">186</i>&nbsp;     *
+<i class="no-highlight">187</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">188</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">189</i>&nbsp;     *
+<i class="no-highlight">190</i>&nbsp;     * @param fromKey is the lower bound.
+<i class="no-highlight">191</i>&nbsp;     *
+<i class="no-highlight">192</i>&nbsp;     * @return the subset.
+<i class="no-highlight">193</i>&nbsp;     *
+<i class="no-highlight">194</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">195</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">196</i>&nbsp;     */
+<i class="no-highlight">197</i>&nbsp;    public SortedSet&lt;K&gt; tailSet(K fromKey) {
+<i class="no-highlight">198</i>&nbsp;
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        return subSet(fromKey, true, null, false);</b>
+<i class="no-highlight">200</i>&nbsp;    }
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /**
+<i class="no-highlight">203</i>&nbsp;     * Returns a view of the portion of this sorted set whose elements are
+<i class="no-highlight">204</i>&nbsp;     * strictly greater than fromKey, optionally including fromKey.
+<i class="no-highlight">205</i>&nbsp;     * This method does not exist in the standard {@link SortedSet} interface.
+<i class="no-highlight">206</i>&nbsp;     *
+<i class="no-highlight">207</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">208</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">209</i>&nbsp;     *
+<i class="no-highlight">210</i>&nbsp;     * @param fromKey is the lower bound.
+<i class="no-highlight">211</i>&nbsp;     *
+<i class="no-highlight">212</i>&nbsp;     * @param fromInclusive is true to include fromKey.
+<i class="no-highlight">213</i>&nbsp;     *
+<i class="no-highlight">214</i>&nbsp;     * @return the subset.
+<i class="no-highlight">215</i>&nbsp;     *
+<i class="no-highlight">216</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">217</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">218</i>&nbsp;     */
+<i class="no-highlight">219</i>&nbsp;    public SortedSet&lt;K&gt; tailSet(K fromKey, boolean fromInclusive) {
+<i class="no-highlight">220</i>&nbsp;
+<b class="nc"><i class="no-highlight">221</i>&nbsp;        return subSet(fromKey, fromInclusive, null, false);</b>
+<i class="no-highlight">222</i>&nbsp;    }
+<i class="no-highlight">223</i>&nbsp;
+<i class="no-highlight">224</i>&nbsp;    /**
+<i class="no-highlight">225</i>&nbsp;     * Returns a view of the portion of this sorted set whose elements range
+<i class="no-highlight">226</i>&nbsp;     * from fromKey, inclusive, to toKey, exclusive.
+<i class="no-highlight">227</i>&nbsp;     * This method conforms to the {@link SortedSet#subSet} interface.
+<i class="no-highlight">228</i>&nbsp;     *
+<i class="no-highlight">229</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">230</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">231</i>&nbsp;     *
+<i class="no-highlight">232</i>&nbsp;     * @param fromKey is the lower bound.
+<i class="no-highlight">233</i>&nbsp;     *
+<i class="no-highlight">234</i>&nbsp;     * @param toKey is the upper bound.
+<i class="no-highlight">235</i>&nbsp;     *
+<i class="no-highlight">236</i>&nbsp;     * @return the subset.
+<i class="no-highlight">237</i>&nbsp;     *
+<i class="no-highlight">238</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">239</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">240</i>&nbsp;     */
+<i class="no-highlight">241</i>&nbsp;    public SortedSet&lt;K&gt; subSet(K fromKey, K toKey) {
+<i class="no-highlight">242</i>&nbsp;
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        return subSet(fromKey, true, toKey, false);</b>
+<i class="no-highlight">244</i>&nbsp;    }
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;    /**
+<i class="no-highlight">247</i>&nbsp;     * Returns a view of the portion of this sorted set whose elements are
+<i class="no-highlight">248</i>&nbsp;     * strictly greater than fromKey and strictly less than toKey,
+<i class="no-highlight">249</i>&nbsp;     * optionally including fromKey and toKey.
+<i class="no-highlight">250</i>&nbsp;     * This method does not exist in the standard {@link SortedSet} interface.
+<i class="no-highlight">251</i>&nbsp;     *
+<i class="no-highlight">252</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">253</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">254</i>&nbsp;     *
+<i class="no-highlight">255</i>&nbsp;     * @param fromKey is the lower bound.
+<i class="no-highlight">256</i>&nbsp;     *
+<i class="no-highlight">257</i>&nbsp;     * @param fromInclusive is true to include fromKey.
+<i class="no-highlight">258</i>&nbsp;     *
+<i class="no-highlight">259</i>&nbsp;     * @param toKey is the upper bound.
+<i class="no-highlight">260</i>&nbsp;     *
+<i class="no-highlight">261</i>&nbsp;     * @param toInclusive is true to include toKey.
+<i class="no-highlight">262</i>&nbsp;     *
+<i class="no-highlight">263</i>&nbsp;     * @return the subset.
+<i class="no-highlight">264</i>&nbsp;     *
+<i class="no-highlight">265</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">266</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">267</i>&nbsp;     */
+<i class="no-highlight">268</i>&nbsp;    public SortedSet&lt;K&gt; subSet(K fromKey,
+<i class="no-highlight">269</i>&nbsp;                               boolean fromInclusive,
+<i class="no-highlight">270</i>&nbsp;                               K toKey,
+<i class="no-highlight">271</i>&nbsp;                               boolean toInclusive) {
+<i class="no-highlight">272</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            return new StoredSortedKeySet(</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;               view.subView(fromKey, fromInclusive, toKey, toInclusive, null));</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">277</i>&nbsp;        }
+<i class="no-highlight">278</i>&nbsp;    }
+<i class="no-highlight">279</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,737 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FeederReplicaHandshake</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.stream</a>
+</div>
+
+<h1>Coverage Summary for Class: FeederReplicaHandshake (com.sleepycat.je.rep.stream)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FeederReplicaHandshake</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/19)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/196)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.rep.stream;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">16</i>&nbsp;import java.net.SocketAddress;
+<i class="no-highlight">17</i>&nbsp;import java.util.Set;
+<i class="no-highlight">18</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.JEVersion;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.LockTimeoutException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.rep.InsufficientAcksException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.InsufficientReplicasException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.NodeType;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupImpl.NodeConflictException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.rep.impl.RepNodeImpl;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.impl.node.Feeder;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.rep.impl.node.Feeder.ExitException;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.impl.node.RepNode;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol.JEVersions;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol.JEVersionsReject;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol.NodeGroupInfo;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol.ReplicaJEVersions;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol.ReplicaProtocolVersion;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol.SNTPRequest;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.Message;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.ProtocolException;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.utilint.NamedChannel;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;/**
+<i class="no-highlight">49</i>&nbsp; * Implements the Feeder side of the handshake between the Feeder and the
+<i class="no-highlight">50</i>&nbsp; * Replica. The ReplicaFeederHandshake class takes care of the other side.
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * @see &lt;a href=&quot;https://sleepycat.oracle.com/pmwiki/pmwiki.php?n=JEHomePage.ReplicaFeederHandshake&quot;&gt;FeederReplicaHandshake&lt;/a&gt;
+<i class="no-highlight">53</i>&nbsp; */
+<b class="nc"><i class="no-highlight">54</i>&nbsp;public class FeederReplicaHandshake {</b>
+<b class="nc"><i class="no-highlight">55</i>&nbsp;    private final int GROUP_RETRY = 60;</b>
+<b class="nc"><i class="no-highlight">56</i>&nbsp;    private final long GROUP_RETRY_SLEEP_MS = 1000;</b>
+<i class="no-highlight">57</i>&nbsp;    /* The rep node (server or replica) */
+<i class="no-highlight">58</i>&nbsp;    private final RepNode repNode;
+<i class="no-highlight">59</i>&nbsp;    private final NamedChannel namedChannel;
+<i class="no-highlight">60</i>&nbsp;
+<i class="no-highlight">61</i>&nbsp;    private final NameIdPair feederNameIdPair;
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /* Established during the first message. */
+<b class="nc"><i class="no-highlight">64</i>&nbsp;    private NameIdPair replicaNameIdPair = null;</b>
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    private ReplicaJEVersions replicaJEVersions;
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    /**
+<i class="no-highlight">69</i>&nbsp;     * The negotiated highest version associated with log records to be sent
+<i class="no-highlight">70</i>&nbsp;     * by this feeder in the HA stream.
+<i class="no-highlight">71</i>&nbsp;     */
+<i class="no-highlight">72</i>&nbsp;    private int streamLogVersion;
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /** The node associated with the replica, or null if not known. */
+<i class="no-highlight">75</i>&nbsp;    private volatile RepNodeImpl replicaNode;
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    /**
+<i class="no-highlight">80</i>&nbsp;     * A test hook that is called before a message is written.  Note that the
+<i class="no-highlight">81</i>&nbsp;     * hook is inherited by the ReplicaFeederHandshake, and will be kept in
+<i class="no-highlight">82</i>&nbsp;     * place for the entire handshake.
+<i class="no-highlight">83</i>&nbsp;     */
+<i class="no-highlight">84</i>&nbsp;    private final TestHook&lt;Message&gt; writeMessageHook;
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /*
+<i class="no-highlight">87</i>&nbsp;     * Used during testing: A non-zero value overrides the actual log
+<i class="no-highlight">88</i>&nbsp;     * version.
+<i class="no-highlight">89</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">90</i>&nbsp;    private static int testCurrentLogVersion = 0;</b>
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;    /**
+<i class="no-highlight">93</i>&nbsp;     * An instance of this class is created with each new handshake preceding
+<i class="no-highlight">94</i>&nbsp;     * the setting up of a connection.
+<i class="no-highlight">95</i>&nbsp;     *
+<i class="no-highlight">96</i>&nbsp;     * @param repNode the replication node
+<i class="no-highlight">97</i>&nbsp;     * @param feeder the feeder instance
+<i class="no-highlight">98</i>&nbsp;     * @param namedChannel the channel to be used for the handshake
+<i class="no-highlight">99</i>&nbsp;     */
+<i class="no-highlight">100</i>&nbsp;    public FeederReplicaHandshake(RepNode repNode,
+<i class="no-highlight">101</i>&nbsp;                                  Feeder feeder,
+<b class="nc"><i class="no-highlight">102</i>&nbsp;                                  NamedChannel namedChannel) {</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        this.repNode = repNode;</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        this.namedChannel = namedChannel;</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        feederNameIdPair = repNode.getNameIdPair();</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        writeMessageHook = feeder.getWriteMessageHook();</b>
+<i class="no-highlight">108</i>&nbsp;    }
+<i class="no-highlight">109</i>&nbsp;
+<i class="no-highlight">110</i>&nbsp;    /**
+<i class="no-highlight">111</i>&nbsp;     * Returns the replica node ID. The returned value is only valid after
+<i class="no-highlight">112</i>&nbsp;     * the handshake has been executed.
+<i class="no-highlight">113</i>&nbsp;     *
+<i class="no-highlight">114</i>&nbsp;     * @return the replica node name id pair
+<i class="no-highlight">115</i>&nbsp;     */
+<i class="no-highlight">116</i>&nbsp;    public NameIdPair getReplicaNameIdPair() {
+<b class="nc"><i class="no-highlight">117</i>&nbsp;        return replicaNameIdPair;</b>
+<i class="no-highlight">118</i>&nbsp;    }
+<i class="no-highlight">119</i>&nbsp;
+<i class="no-highlight">120</i>&nbsp;    /**
+<i class="no-highlight">121</i>&nbsp;     * Returns the current log version for the feeder, which is the highest log
+<i class="no-highlight">122</i>&nbsp;     * version of any replicable log entry supplied by this feeder.  Uses
+<i class="no-highlight">123</i>&nbsp;     * LogEntryType.LOG_VERSION_HIGHEST_REPLICABLE, not LOG_VERSION, since some
+<i class="no-highlight">124</i>&nbsp;     * log versions may have only applied to non-replicable log entries, as was
+<i class="no-highlight">125</i>&nbsp;     * the case for log version 10.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    private int getCurrentLogVersion() {
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        return (testCurrentLogVersion != 0) ?</b>
+<i class="no-highlight">129</i>&nbsp;            testCurrentLogVersion :
+<i class="no-highlight">130</i>&nbsp;            LogEntryType.LOG_VERSION_HIGHEST_REPLICABLE;
+<i class="no-highlight">131</i>&nbsp;    }
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;    /**
+<i class="no-highlight">134</i>&nbsp;     * Return the negotiated log version that will be used for the HA stream
+<i class="no-highlight">135</i>&nbsp;     * between the feeder and the replica.
+<i class="no-highlight">136</i>&nbsp;     */
+<i class="no-highlight">137</i>&nbsp;    public int getStreamLogVersion() {
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        if (streamLogVersion &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            throw new IllegalStateException(&quot;execute() method was not invoked&quot;);</b>
+<i class="no-highlight">140</i>&nbsp;        }
+<i class="no-highlight">141</i>&nbsp;
+<b class="nc"><i class="no-highlight">142</i>&nbsp;        return streamLogVersion;</b>
+<i class="no-highlight">143</i>&nbsp;    }
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;    public static void setTestLogVersion(int testLogVersion) {
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        testCurrentLogVersion = testLogVersion;</b>
+<i class="no-highlight">147</i>&nbsp;    }
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /** Get the current JE version, supporting a test override. */
+<i class="no-highlight">150</i>&nbsp;    private JEVersion getCurrentJEVersion() {
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        return repNode.getRepImpl().getCurrentJEVersion();</b>
+<i class="no-highlight">152</i>&nbsp;    }
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    /** Get the current protocol version, supporting a test override. */
+<i class="no-highlight">155</i>&nbsp;    private int getCurrentProtocolVersion() {
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        return Protocol.getJEVersionProtocolVersion(getCurrentJEVersion());</b>
+<i class="no-highlight">157</i>&nbsp;    }
+<i class="no-highlight">158</i>&nbsp;
+<i class="no-highlight">159</i>&nbsp;    /**
+<i class="no-highlight">160</i>&nbsp;     * Determines log compatibility. Returns null if they are compatible or the
+<i class="no-highlight">161</i>&nbsp;     * server would like to defer the rejection to the replica. Return a
+<i class="no-highlight">162</i>&nbsp;     * JEVersionsReject message if the server does not wish to communicate with
+<i class="no-highlight">163</i>&nbsp;     * the replica.
+<i class="no-highlight">164</i>&nbsp;     *
+<i class="no-highlight">165</i>&nbsp;     * This check requires the log version of the replicas to be greater than
+<i class="no-highlight">166</i>&nbsp;     * or equal to {@value LogEntryType#LOG_VERSION_REPLICATE_OLDER} . Allowing
+<i class="no-highlight">167</i>&nbsp;     * the replica version to be behind the feeder version supports replication
+<i class="no-highlight">168</i>&nbsp;     * during upgrades where the feeder is upgraded before the replica.
+<i class="no-highlight">169</i>&nbsp;     * [#22336]
+<i class="no-highlight">170</i>&nbsp;     *
+<i class="no-highlight">171</i>&nbsp;     * This check also requires that the JE version of the replica is at least
+<i class="no-highlight">172</i>&nbsp;     * the minJEVersion specified by the RepGroupImpl, if any.  This check
+<i class="no-highlight">173</i>&nbsp;     * makes sure that nodes running an older software version cannot join the
+<i class="no-highlight">174</i>&nbsp;     * group after a new and incompatible feature has been used.
+<i class="no-highlight">175</i>&nbsp;     */
+<i class="no-highlight">176</i>&nbsp;    private JEVersionsReject checkJECompatibility(final Protocol protocol,
+<i class="no-highlight">177</i>&nbsp;                                                  final JEVersions jeVersions) {
+<i class="no-highlight">178</i>&nbsp;
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        final int replicaLogVersion = jeVersions.getLogVersion();</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        if (replicaLogVersion &lt; LogEntryType.LOG_VERSION_REPLICATE_OLDER - 1) {</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;            return protocol.new JEVersionsReject(</b>
+<i class="no-highlight">182</i>&nbsp;                &quot;Incompatible log versions. &quot; +
+<b class="nc"><i class="no-highlight">183</i>&nbsp;                &quot;Feeder log version: &quot; + getCurrentLogVersion() +</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                &quot;, Feeder JE version: &quot; + getCurrentJEVersion() +</b>
+<i class="no-highlight">185</i>&nbsp;                &quot;, Replica log version: &quot; + replicaLogVersion +
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                &quot;, Replica JE version: &quot; + jeVersions.getVersion());</b>
+<i class="no-highlight">187</i>&nbsp;        }
+<i class="no-highlight">188</i>&nbsp;
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        final JEVersion minJEVersion = repNode.getGroup().getMinJEVersion();</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        if (minJEVersion.compareTo(jeVersions.getVersion()) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;            return protocol.new JEVersionsReject(</b>
+<i class="no-highlight">192</i>&nbsp;                &quot;Unsupported JE version. &quot; +
+<b class="nc"><i class="no-highlight">193</i>&nbsp;                &quot;Feeder JE version: &quot; + getCurrentJEVersion() +</b>
+<i class="no-highlight">194</i>&nbsp;                &quot;, Feeder min JE version: &quot; + minJEVersion +
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                &quot;, Replica JE version: &quot; + jeVersions.getVersion());</b>
+<i class="no-highlight">196</i>&nbsp;        }
+<i class="no-highlight">197</i>&nbsp;
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        return null;</b>
+<i class="no-highlight">199</i>&nbsp;    }
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    /**
+<i class="no-highlight">202</i>&nbsp;     * Returns the JE version supported by the replica, or {@code null} if the
+<i class="no-highlight">203</i>&nbsp;     * value is not yet known.  This method should only be called after the
+<i class="no-highlight">204</i>&nbsp;     * {@link #execute} method has returned successfully.
+<i class="no-highlight">205</i>&nbsp;     *
+<i class="no-highlight">206</i>&nbsp;     * @return the replica&#39;s JE version or {@code null}
+<i class="no-highlight">207</i>&nbsp;     */
+<i class="no-highlight">208</i>&nbsp;    public JEVersion getReplicaJEVersion() {
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        return (replicaJEVersions != null) ?</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            replicaJEVersions.getVersion() :</b>
+<i class="no-highlight">211</i>&nbsp;            null;
+<i class="no-highlight">212</i>&nbsp;    }
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;    /**
+<i class="no-highlight">215</i>&nbsp;     * Returns a RepNodeImpl that represents the replica for a successful
+<i class="no-highlight">216</i>&nbsp;     * handshake.  This method should only be called after the {@link #execute}
+<i class="no-highlight">217</i>&nbsp;     * method has returned successfully, and will throw IllegalStateException
+<i class="no-highlight">218</i>&nbsp;     * otherwise.
+<i class="no-highlight">219</i>&nbsp;     *
+<i class="no-highlight">220</i>&nbsp;     * @return the replica node
+<i class="no-highlight">221</i>&nbsp;     * @throws IllegalStateException if the handshake did not complete
+<i class="no-highlight">222</i>&nbsp;     */
+<i class="no-highlight">223</i>&nbsp;    public RepNodeImpl getReplicaNode() {
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        if (replicaNode == null) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            throw new IllegalStateException(&quot;Handshake did not complete&quot;);</b>
+<i class="no-highlight">226</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        return replicaNode;</b>
+<i class="no-highlight">228</i>&nbsp;    }
+<i class="no-highlight">229</i>&nbsp;
+<i class="no-highlight">230</i>&nbsp;    /**
+<i class="no-highlight">231</i>&nbsp;     * Executes the feeder side of the handshake.
+<i class="no-highlight">232</i>&nbsp;     * @throws ProtocolException
+<i class="no-highlight">233</i>&nbsp;     * @throws ExitException
+<i class="no-highlight">234</i>&nbsp;     */
+<i class="no-highlight">235</i>&nbsp;    public Protocol execute()
+<i class="no-highlight">236</i>&nbsp;        throws DatabaseException,
+<i class="no-highlight">237</i>&nbsp;               IOException,
+<i class="no-highlight">238</i>&nbsp;               ProtocolException,
+<i class="no-highlight">239</i>&nbsp;               ExitException {
+<i class="no-highlight">240</i>&nbsp;
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">242</i>&nbsp;                         &quot;Feeder-replica handshake start&quot;);
+<i class="no-highlight">243</i>&nbsp;
+<i class="no-highlight">244</i>&nbsp;        /* First negotiate a compatible protocol */
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        Protocol protocol = negotiateProtocol();</b>
+<i class="no-highlight">246</i>&nbsp;
+<i class="no-highlight">247</i>&nbsp;        /* Now exchange JE version information using the negotiated protocol */
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        replicaJEVersions = (ReplicaJEVersions) protocol.read(namedChannel);</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        final String versionMsg =</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            &quot; Replica &quot; + replicaNameIdPair.getName() +</b>
+<i class="no-highlight">251</i>&nbsp;            &quot; Versions&quot; +
+<b class="nc"><i class="no-highlight">252</i>&nbsp;            &quot; JE: &quot; + replicaJEVersions.getVersion().getVersionString() +</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;            &quot; Log: &quot; + replicaJEVersions.getLogVersion() +</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            &quot; Protocol: &quot; + protocol.getVersion();</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        LoggerUtils.fine(logger, repNode.getRepImpl(), versionMsg);</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        JEVersionsReject reject =</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            checkJECompatibility(protocol, replicaJEVersions);</b>
+<i class="no-highlight">258</i>&nbsp;
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        if (reject != null) {</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            final String msg = &quot;Version incompatibility: &quot; +</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                reject.getErrorMessage() +</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;                &quot; with replica &quot; + replicaNameIdPair.getName();</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;            LoggerUtils.warning(logger, repNode.getRepImpl(), msg);</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;            writeMessage(protocol, reject);</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;            throw new ExitException(msg);</b>
+<i class="no-highlight">266</i>&nbsp;        }
+<i class="no-highlight">267</i>&nbsp;
+<i class="no-highlight">268</i>&nbsp;        /*
+<i class="no-highlight">269</i>&nbsp;         * Use the minimum common log version. This ensures that the feeder
+<i class="no-highlight">270</i>&nbsp;         * can generate it and that the replica can understand it.
+<i class="no-highlight">271</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">272</i>&nbsp;        streamLogVersion =</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            Math.min(getCurrentLogVersion(), replicaJEVersions.getLogVersion());</b>
+<i class="no-highlight">274</i>&nbsp;
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        writeMessage(protocol,</b>
+<i class="no-highlight">276</i>&nbsp;                     protocol.new FeederJEVersions(
+<b class="nc"><i class="no-highlight">277</i>&nbsp;                         getCurrentJEVersion(),</b>
+<i class="no-highlight">278</i>&nbsp;                         streamLogVersion,
+<b class="nc"><i class="no-highlight">279</i>&nbsp;                         repNode.getMinJEVersion()));</b>
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;        /* Ensure that the feeder sends the agreed upon version. */
+<b class="nc"><i class="no-highlight">282</i>&nbsp;        protocol.setStreamLogVersion(streamLogVersion);</b>
+<i class="no-highlight">283</i>&nbsp;
+<i class="no-highlight">284</i>&nbsp;        /* Verify replica membership info */
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        verifyMembershipInfo(protocol);</b>
+<i class="no-highlight">286</i>&nbsp;
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        checkClockSkew(protocol);</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        LoggerUtils.info</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            (logger, repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;             &quot;Feeder-replica &quot; + replicaNameIdPair.getName() +</b>
+<i class="no-highlight">291</i>&nbsp;             &quot; handshake completed.&quot; +
+<i class="no-highlight">292</i>&nbsp;             versionMsg +
+<b class="nc"><i class="no-highlight">293</i>&nbsp;             &quot; Stream Log: &quot; + protocol.getStreamLogVersion());</b>
+<i class="no-highlight">294</i>&nbsp;
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        return protocol;</b>
+<i class="no-highlight">296</i>&nbsp;    }
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    /** Write a protocol message to the channel. */
+<i class="no-highlight">299</i>&nbsp;    private void writeMessage(final Protocol protocol,
+<i class="no-highlight">300</i>&nbsp;                              final Message message)
+<i class="no-highlight">301</i>&nbsp;        throws IOException {
+<i class="no-highlight">302</i>&nbsp;
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        assert TestHookExecute.doHookIfSet(writeMessageHook, message);</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;        protocol.write(message, namedChannel);</b>
+<i class="no-highlight">305</i>&nbsp;    }
+<i class="no-highlight">306</i>&nbsp;
+<i class="no-highlight">307</i>&nbsp;    /**
+<i class="no-highlight">308</i>&nbsp;     * Responds to message exchanges used to establish clock skew.
+<i class="no-highlight">309</i>&nbsp;     * @throws ProtocolException
+<i class="no-highlight">310</i>&nbsp;     */
+<i class="no-highlight">311</i>&nbsp;    private void checkClockSkew(Protocol protocol)
+<i class="no-highlight">312</i>&nbsp;        throws IOException,
+<i class="no-highlight">313</i>&nbsp;               ProtocolException {
+<i class="no-highlight">314</i>&nbsp;        SNTPRequest request;
+<i class="no-highlight">315</i>&nbsp;        do {
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            request = protocol.read(namedChannel.getChannel(),</b>
+<i class="no-highlight">317</i>&nbsp;                                    SNTPRequest.class);
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            writeMessage(protocol, protocol.new SNTPResponse(request));</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        } while (!request.isLast());</b>
+<i class="no-highlight">320</i>&nbsp;    }
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;    /**
+<i class="no-highlight">323</i>&nbsp;     * Verifies that the group as configured here at the Feeder matches the
+<i class="no-highlight">324</i>&nbsp;     * configuration of the replica.
+<i class="no-highlight">325</i>&nbsp;     *
+<i class="no-highlight">326</i>&nbsp;     * @param protocol the protocol to use for this verification
+<i class="no-highlight">327</i>&nbsp;     *
+<i class="no-highlight">328</i>&nbsp;     * @throws IOException
+<i class="no-highlight">329</i>&nbsp;     * @throws DatabaseException
+<i class="no-highlight">330</i>&nbsp;     */
+<i class="no-highlight">331</i>&nbsp;    private void verifyMembershipInfo(Protocol protocol)
+<i class="no-highlight">332</i>&nbsp;        throws IOException,
+<i class="no-highlight">333</i>&nbsp;               DatabaseException,
+<i class="no-highlight">334</i>&nbsp;               ExitException {
+<i class="no-highlight">335</i>&nbsp;
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        NodeGroupInfo nodeGroup =</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            (NodeGroupInfo)(protocol.read(namedChannel));</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        final RepGroupImpl group = repNode.getGroup();</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        RepNodeImpl node = group.getNode(nodeGroup.getNodeName());</b>
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;        try {
+<i class="no-highlight">342</i>&nbsp;
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            if (nodeGroup.getNodeId() != replicaNameIdPair.getId()) {</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;                throw new ExitException</b>
+<i class="no-highlight">345</i>&nbsp;                    (&quot;The replica node ID sent during protocol negotiation: &quot; +
+<i class="no-highlight">346</i>&nbsp;                     replicaNameIdPair +
+<i class="no-highlight">347</i>&nbsp;                     &quot; differs from the one sent in the MembershipInfo &quot; +
+<b class="nc"><i class="no-highlight">348</i>&nbsp;                     &quot;request: &quot; + nodeGroup.getNodeId());</b>
+<i class="no-highlight">349</i>&nbsp;            }
+<i class="no-highlight">350</i>&nbsp;
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            if (nodeGroup.getNodeType().hasTransientId()) {</b>
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;                /*
+<i class="no-highlight">354</i>&nbsp;                 * Note the secondary or external node if this is a new node.
+<i class="no-highlight">355</i>&nbsp;                 * Otherwise, fall through, and the subsequent code will
+<i class="no-highlight">356</i>&nbsp;                 * notice the incompatible node type.
+<i class="no-highlight">357</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">358</i>&nbsp;                if (node == null) {</b>
+<i class="no-highlight">359</i>&nbsp;
+<i class="no-highlight">360</i>&nbsp;                    /* A new node with transient id */
+<b class="nc"><i class="no-highlight">361</i>&nbsp;                    node = new RepNodeImpl(nodeGroup);</b>
+<i class="no-highlight">362</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">363</i>&nbsp;                        repNode.addTransientIdNode(node);</b>
+<b class="nc"><i class="no-highlight">364</i>&nbsp;                    } catch (IllegalStateException | NodeConflictException e) {</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;                        throw new ExitException(e, true);</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                    }</b>
+<i class="no-highlight">367</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">368</i>&nbsp;            } else if (node == null || !node.isQuorumAck()) {</b>
+<i class="no-highlight">369</i>&nbsp;                /* Not currently a confirmed member. */
+<b class="nc"><i class="no-highlight">370</i>&nbsp;                if (nodeGroup.getNodeType().isArbiter()) {</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;                    Set&lt;RepNodeImpl&gt; arbMembers = group.getArbiterMembers();</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;                    if (arbMembers.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;                        throw new ExitException(</b>
+<i class="no-highlight">374</i>&nbsp;                            &quot;An Arbiter node already exists in the &quot;+
+<i class="no-highlight">375</i>&nbsp;                            &quot;replication group.&quot;);
+<i class="no-highlight">376</i>&nbsp;                    }
+<i class="no-highlight">377</i>&nbsp;                }
+<i class="no-highlight">378</i>&nbsp;                try {
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;                    /*
+<i class="no-highlight">381</i>&nbsp;                     * It is possible that the thread that added the
+<i class="no-highlight">382</i>&nbsp;                     * node to the group database has not added the
+<i class="no-highlight">383</i>&nbsp;                     * member to the in memory representation. We retry
+<i class="no-highlight">384</i>&nbsp;                     * several times to give the other thread a chance to
+<i class="no-highlight">385</i>&nbsp;                     * update the in memory structure.
+<i class="no-highlight">386</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">387</i>&nbsp;                    repNode.getRepGroupDB().ensureMember(nodeGroup);</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;                    for (int i=0; i &lt; GROUP_RETRY; i++) {</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;                        node =</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;                            repNode.getGroup().getMember(</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;                                nodeGroup.getNodeName());</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;                        if (node != null) {</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;                            break;</b>
+<i class="no-highlight">394</i>&nbsp;                        }
+<i class="no-highlight">395</i>&nbsp;                        try {
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                            Thread.sleep(GROUP_RETRY_SLEEP_MS);</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;                        } catch (Exception e) {</b>
+<i class="no-highlight">398</i>&nbsp;
+<b class="nc"><i class="no-highlight">399</i>&nbsp;                        }</b>
+<i class="no-highlight">400</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">401</i>&nbsp;                    if (node == null) {</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;                        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">403</i>&nbsp;                            (&quot;Node: &quot; + nodeGroup.getNameIdPair() +</b>
+<i class="no-highlight">404</i>&nbsp;                             &quot; not found&quot;);
+<i class="no-highlight">405</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">406</i>&nbsp;                } catch (InsufficientReplicasException |</b>
+<i class="no-highlight">407</i>&nbsp;                         InsufficientAcksException |
+<i class="no-highlight">408</i>&nbsp;                         LockTimeoutException e) {
+<b class="nc"><i class="no-highlight">409</i>&nbsp;                    throw new ExitException(e, false);</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;                } catch (NodeConflictException e) {</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;                    throw new ExitException(e, true);</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;            } else if (node.isRemoved()) {</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;                throw new ExitException</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;                    (&quot;Node: &quot; + nodeGroup.getNameIdPair() +</b>
+<i class="no-highlight">416</i>&nbsp;                     &quot; is no longer a member of the group.&quot; +
+<i class="no-highlight">417</i>&nbsp;                     &quot; It was explicitly removed.&quot;);
+<i class="no-highlight">418</i>&nbsp;            }
+<i class="no-highlight">419</i>&nbsp;
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            doGroupChecks(nodeGroup, group);</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            doNodeChecks(nodeGroup, node);</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            maybeUpdateJEVersion(nodeGroup, group, node);</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;        } catch (ExitException exception) {</b>
+<b class="nc"><i class="no-highlight">424</i>&nbsp;            LoggerUtils.info</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;                (logger, repNode.getRepImpl(), exception.getMessage());</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;            if (exception.failReplica()) {</b>
+<i class="no-highlight">427</i>&nbsp;                /*
+<i class="no-highlight">428</i>&nbsp;                 * Explicit message to force replica to invalidate the
+<i class="no-highlight">429</i>&nbsp;                 * environment.
+<i class="no-highlight">430</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">431</i>&nbsp;                writeMessage(protocol,</b>
+<i class="no-highlight">432</i>&nbsp;                             protocol.new NodeGroupInfoReject(
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                             exception.getMessage()));</b>
+<i class="no-highlight">434</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">435</i>&nbsp;            throw exception;</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        }</b>
+<i class="no-highlight">437</i>&nbsp;
+<i class="no-highlight">438</i>&nbsp;        /* Id is now established for sure, update the pair. */
+<b class="nc"><i class="no-highlight">439</i>&nbsp;        replicaNameIdPair.update(node.getNameIdPair());</b>
+<b class="nc"><i class="no-highlight">440</i>&nbsp;        namedChannel.setNameIdPair(replicaNameIdPair);</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        LoggerUtils.fine(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">442</i>&nbsp;                         &quot;Channel Mapping: &quot; + replicaNameIdPair + &quot; is at &quot; +
+<b class="nc"><i class="no-highlight">443</i>&nbsp;                         namedChannel.getChannel());</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        writeMessage(protocol,</b>
+<i class="no-highlight">445</i>&nbsp;                     protocol.new NodeGroupInfoOK(
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                         group.getUUID(), replicaNameIdPair));</b>
+<i class="no-highlight">447</i>&nbsp;    }
+<i class="no-highlight">448</i>&nbsp;
+<i class="no-highlight">449</i>&nbsp;    /**
+<i class="no-highlight">450</i>&nbsp;     * Verifies that the group related information is consistent.
+<i class="no-highlight">451</i>&nbsp;     *
+<i class="no-highlight">452</i>&nbsp;     * @throws ExitException if the configuration in the group db differs
+<i class="no-highlight">453</i>&nbsp;     * from the supplied config
+<i class="no-highlight">454</i>&nbsp;     */
+<i class="no-highlight">455</i>&nbsp;    private void doGroupChecks(NodeGroupInfo nodeGroup,
+<i class="no-highlight">456</i>&nbsp;                               final RepGroupImpl group)
+<i class="no-highlight">457</i>&nbsp;        throws ExitException {
+<i class="no-highlight">458</i>&nbsp;
+<b class="nc"><i class="no-highlight">459</i>&nbsp;        if (nodeGroup.isDesignatedPrimary() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">460</i>&nbsp;                repNode.getRepImpl().isDesignatedPrimary()) {</b>
+<b class="nc"><i class="no-highlight">461</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">462</i>&nbsp;            (&quot;Conflicting Primary designations. Feeder node: &quot; +
+<b class="nc"><i class="no-highlight">463</i>&nbsp;             repNode.getNodeName() +</b>
+<b class="nc"><i class="no-highlight">464</i>&nbsp;             &quot; and replica node: &quot; + nodeGroup.getNodeName() +</b>
+<i class="no-highlight">465</i>&nbsp;            &quot; cannot simultaneously be designated primaries&quot;);
+<i class="no-highlight">466</i>&nbsp;        }
+<i class="no-highlight">467</i>&nbsp;
+<b class="nc"><i class="no-highlight">468</i>&nbsp;        if (!nodeGroup.getGroupName().equals(group.getName())) {</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">470</i>&nbsp;                (&quot;The feeder belongs to the group: &quot; +
+<b class="nc"><i class="no-highlight">471</i>&nbsp;                 group.getName() + &quot; but replica id&quot; + replicaNameIdPair +</b>
+<b class="nc"><i class="no-highlight">472</i>&nbsp;                 &quot; belongs to the group: &quot; + nodeGroup.getGroupName());</b>
+<i class="no-highlight">473</i>&nbsp;        }
+<i class="no-highlight">474</i>&nbsp;
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        if (!RepGroupImpl.isUnknownUUID(nodeGroup.getUUID()) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;            !nodeGroup.getUUID().equals(group.getUUID())) {</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">478</i>&nbsp;                (&quot;The environments have the same name: &quot; +
+<b class="nc"><i class="no-highlight">479</i>&nbsp;                 group.getName() +</b>
+<i class="no-highlight">480</i>&nbsp;                 &quot; but represent different environment instances.&quot; +
+<i class="no-highlight">481</i>&nbsp;                 &quot; The environment at the master has UUID &quot; +
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                 group.getUUID() +</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                 &quot;, while the replica &quot; + replicaNameIdPair.getName() +</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;                 &quot; has UUID: &quot; + nodeGroup.getUUID());</b>
+<i class="no-highlight">485</i>&nbsp;        }
+<i class="no-highlight">486</i>&nbsp;    }
+<i class="no-highlight">487</i>&nbsp;
+<i class="no-highlight">488</i>&nbsp;    /**
+<i class="no-highlight">489</i>&nbsp;     * Verifies that the old and new node configurations are the same.
+<i class="no-highlight">490</i>&nbsp;     *
+<i class="no-highlight">491</i>&nbsp;     * @throws ExitException if the configuration in the group db differs
+<i class="no-highlight">492</i>&nbsp;     * from the supplied config
+<i class="no-highlight">493</i>&nbsp;     */
+<i class="no-highlight">494</i>&nbsp;    private void doNodeChecks(NodeGroupInfo nodeGroup,
+<i class="no-highlight">495</i>&nbsp;                              RepNodeImpl node)
+<i class="no-highlight">496</i>&nbsp;        throws ExitException {
+<i class="no-highlight">497</i>&nbsp;
+<b class="nc"><i class="no-highlight">498</i>&nbsp;        if (!nodeGroup.getHostName().equals(node.getHostName())) {</b>
+<b class="nc"><i class="no-highlight">499</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">500</i>&nbsp;                (&quot;Conflicting hostnames for replica id: &quot; +
+<i class="no-highlight">501</i>&nbsp;                 replicaNameIdPair +
+<b class="nc"><i class="no-highlight">502</i>&nbsp;                 &quot; Feeder thinks it is: &quot; + node.getHostName() +</b>
+<i class="no-highlight">503</i>&nbsp;                 &quot; Replica is configured to use: &quot; +
+<b class="nc"><i class="no-highlight">504</i>&nbsp;                 nodeGroup.getHostName());</b>
+<i class="no-highlight">505</i>&nbsp;        }
+<i class="no-highlight">506</i>&nbsp;
+<b class="nc"><i class="no-highlight">507</i>&nbsp;        if (nodeGroup.port() != node.getPort()) {</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">509</i>&nbsp;                (&quot;Conflicting ports for replica id: &quot; + replicaNameIdPair +
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                 &quot; Feeder thinks it uses: &quot; + node.getPort() +</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                 &quot; Replica is configured to use: &quot; + nodeGroup.port());</b>
+<i class="no-highlight">512</i>&nbsp;        }
+<i class="no-highlight">513</i>&nbsp;
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        if (!((NodeType.ELECTABLE == node.getType()) ||</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;              (NodeType.SECONDARY == node.getType()) ||</b>
+<b class="nc"><i class="no-highlight">516</i>&nbsp;              (NodeType.EXTERNAL == node.getType()) ||</b>
+<b class="nc"><i class="no-highlight">517</i>&nbsp;              (NodeType.ARBITER == node.getType()) ||</b>
+<b class="nc"><i class="no-highlight">518</i>&nbsp;              (NodeType.MONITOR == node.getType()))) {</b>
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">520</i>&nbsp;                (&quot;The replica node: &quot; + replicaNameIdPair +
+<b class="nc"><i class="no-highlight">521</i>&nbsp;                 &quot; is of type: &quot; + node.getType());</b>
+<i class="no-highlight">522</i>&nbsp;        }
+<i class="no-highlight">523</i>&nbsp;
+<b class="nc"><i class="no-highlight">524</i>&nbsp;        if (!nodeGroup.getNodeType().equals(node.getType())) {</b>
+<b class="nc"><i class="no-highlight">525</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">526</i>&nbsp;                (&quot;Conflicting node types for: &quot; + replicaNameIdPair +
+<b class="nc"><i class="no-highlight">527</i>&nbsp;                 &quot; Feeder thinks it uses: &quot; + node.getType() +</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;                 &quot; Replica is configured as type: &quot; + nodeGroup.getNodeType());</b>
+<i class="no-highlight">529</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">530</i>&nbsp;        replicaNode = node;</b>
+<i class="no-highlight">531</i>&nbsp;    }
+<i class="no-highlight">532</i>&nbsp;
+<i class="no-highlight">533</i>&nbsp;    /**
+<i class="no-highlight">534</i>&nbsp;     * Update the node&#39;s JE version from the provided group info if storing the
+<i class="no-highlight">535</i>&nbsp;     * JE version is supported and the current version differs from the stored
+<i class="no-highlight">536</i>&nbsp;     * one.  It&#39;s OK if the attempt does not fully succeed due to a lack of
+<i class="no-highlight">537</i>&nbsp;     * replicas or acknowledgments: we can try again the next time.
+<i class="no-highlight">538</i>&nbsp;     *
+<i class="no-highlight">539</i>&nbsp;     * @throws ExitException if the attempt fails because the updated node&#39;s
+<i class="no-highlight">540</i>&nbsp;     * socket address conflicts with another node
+<i class="no-highlight">541</i>&nbsp;     */
+<i class="no-highlight">542</i>&nbsp;    private void maybeUpdateJEVersion(final NodeGroupInfo nodeGroup,
+<i class="no-highlight">543</i>&nbsp;                                      final RepGroupImpl group,
+<i class="no-highlight">544</i>&nbsp;                                      final RepNodeImpl node)
+<i class="no-highlight">545</i>&nbsp;        throws ExitException {
+<i class="no-highlight">546</i>&nbsp;
+<b class="nc"><i class="no-highlight">547</i>&nbsp;        if ((group.getFormatVersion() &gt;= RepGroupImpl.FORMAT_VERSION_3) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">548</i>&nbsp;            (nodeGroup.getJEVersion() != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;            !nodeGroup.getJEVersion().equals(node.getJEVersion())) {</b>
+<i class="no-highlight">550</i>&nbsp;
+<i class="no-highlight">551</i>&nbsp;            /*
+<i class="no-highlight">552</i>&nbsp;             * Try updating the JE version information, given that the group
+<i class="no-highlight">553</i>&nbsp;             * format supports this.  Don&#39;t require a quorum of acknowledgments
+<i class="no-highlight">554</i>&nbsp;             * since the fact that the handshake for this replica is underway
+<i class="no-highlight">555</i>&nbsp;             * may mean that a quorum is not available.  Saving the JE version
+<i class="no-highlight">556</i>&nbsp;             * is only an optimization, so it is OK if this attempt fails to be
+<i class="no-highlight">557</i>&nbsp;             * persistent.
+<i class="no-highlight">558</i>&nbsp;             */
+<i class="no-highlight">559</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                repNode.getRepGroupDB().updateMember(</b>
+<i class="no-highlight">561</i>&nbsp;                    new RepNodeImpl(nodeGroup), false);
+<b class="nc"><i class="no-highlight">562</i>&nbsp;            } catch (InsufficientReplicasException |</b>
+<i class="no-highlight">563</i>&nbsp;                     InsufficientAcksException |
+<i class="no-highlight">564</i>&nbsp;                     LockTimeoutException e) {
+<i class="no-highlight">565</i>&nbsp;                /* Ignored */
+<b class="nc"><i class="no-highlight">566</i>&nbsp;            } catch (NodeConflictException e) {</b>
+<b class="nc"><i class="no-highlight">567</i>&nbsp;                throw new ExitException(e, true);</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;            }</b>
+<i class="no-highlight">569</i>&nbsp;        }
+<i class="no-highlight">570</i>&nbsp;    }
+<i class="no-highlight">571</i>&nbsp;
+<i class="no-highlight">572</i>&nbsp;    /**
+<i class="no-highlight">573</i>&nbsp;     * Negotiates and returns the protocol that will be used in all subsequent
+<i class="no-highlight">574</i>&nbsp;     * interactions with the Replica, if the replica accepts to it.
+<i class="no-highlight">575</i>&nbsp;     *
+<i class="no-highlight">576</i>&nbsp;     * @return the protocol instance to be used for subsequent interactions
+<i class="no-highlight">577</i>&nbsp;     *
+<i class="no-highlight">578</i>&nbsp;     * @throws IOException
+<i class="no-highlight">579</i>&nbsp;     * @throws ExitException
+<i class="no-highlight">580</i>&nbsp;     */
+<i class="no-highlight">581</i>&nbsp;    private Protocol negotiateProtocol()
+<i class="no-highlight">582</i>&nbsp;        throws IOException, ExitException {
+<i class="no-highlight">583</i>&nbsp;
+<b class="nc"><i class="no-highlight">584</i>&nbsp;        Protocol defaultProtocol =</b>
+<b class="nc"><i class="no-highlight">585</i>&nbsp;            Protocol.getProtocol(repNode, getCurrentProtocolVersion());</b>
+<i class="no-highlight">586</i>&nbsp;
+<i class="no-highlight">587</i>&nbsp;        /*
+<i class="no-highlight">588</i>&nbsp;         * Wait to receive the replica&#39;s version, decide which protocol version
+<i class="no-highlight">589</i>&nbsp;         * to use ourselves, and then reply with our version.
+<i class="no-highlight">590</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">591</i>&nbsp;        ReplicaProtocolVersion message =</b>
+<b class="nc"><i class="no-highlight">592</i>&nbsp;            (ReplicaProtocolVersion) defaultProtocol.read(namedChannel);</b>
+<i class="no-highlight">593</i>&nbsp;
+<b class="nc"><i class="no-highlight">594</i>&nbsp;        replicaNameIdPair = message.getNameIdPair();</b>
+<i class="no-highlight">595</i>&nbsp;
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        Feeder dup =</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            repNode.feederManager().getFeeder(replicaNameIdPair.getName());</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;        if ((dup != null) ||</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;            (message.getNameIdPair().getName().</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                    equals(feederNameIdPair.getName()))) {</b>
+<i class="no-highlight">601</i>&nbsp;            /* Reject the connection. */
+<b class="nc"><i class="no-highlight">602</i>&nbsp;            writeMessage(defaultProtocol,</b>
+<i class="no-highlight">603</i>&nbsp;                         defaultProtocol.new DuplicateNodeReject(
+<i class="no-highlight">604</i>&nbsp;                             &quot;This node: &quot; + replicaNameIdPair +
+<i class="no-highlight">605</i>&nbsp;                             &quot; is already in active use at the feeder &quot;));
+<b class="nc"><i class="no-highlight">606</i>&nbsp;            SocketAddress dupAddress =</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;                namedChannel.getChannel().getSocketChannel().socket().</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;                getRemoteSocketAddress();</b>
+<i class="no-highlight">609</i>&nbsp;
+<b class="nc"><i class="no-highlight">610</i>&nbsp;            throw new ExitException</b>
+<i class="no-highlight">611</i>&nbsp;                (&quot;A replica with the id: &quot; + replicaNameIdPair +
+<i class="no-highlight">612</i>&nbsp;                 &quot; is already active with this feeder. &quot; +
+<i class="no-highlight">613</i>&nbsp;                 &quot; The duplicate replica resides at: &quot; +
+<i class="no-highlight">614</i>&nbsp;                 dupAddress);
+<i class="no-highlight">615</i>&nbsp;        }
+<i class="no-highlight">616</i>&nbsp;
+<i class="no-highlight">617</i>&nbsp;        /*
+<i class="no-highlight">618</i>&nbsp;         * If the Replica&#39;s version is acceptable, use it, otherwise return the
+<i class="no-highlight">619</i>&nbsp;         * default protocol at this node, in case the Replica can support it.
+<i class="no-highlight">620</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">621</i>&nbsp;        final int replicaVersion = message.getVersion();</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;        Protocol protocol =</b>
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            Protocol.get(repNode, replicaVersion, getCurrentProtocolVersion());</b>
+<b class="nc"><i class="no-highlight">624</i>&nbsp;        if (protocol == null) {</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;            protocol = defaultProtocol;</b>
+<i class="no-highlight">626</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">627</i>&nbsp;        defaultProtocol.write</b>
+<b class="nc"><i class="no-highlight">628</i>&nbsp;             (defaultProtocol.new FeederProtocolVersion(protocol.getVersion()),</b>
+<i class="no-highlight">629</i>&nbsp;              namedChannel);
+<b class="nc"><i class="no-highlight">630</i>&nbsp;        return protocol;</b>
+<i class="no-highlight">631</i>&nbsp;    }
+<i class="no-highlight">632</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

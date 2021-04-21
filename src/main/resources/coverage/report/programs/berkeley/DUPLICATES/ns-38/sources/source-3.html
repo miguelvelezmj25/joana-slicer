@@ -1,0 +1,455 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LatencyStat</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: LatencyStat (com.sleepycat.utilint)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LatencyStat</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/72)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">LatencyStat$Values</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/80)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">17</i>&nbsp;import java.util.concurrent.atomic.AtomicIntegerArray;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.atomic.AtomicLong;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;/**
+<i class="no-highlight">21</i>&nbsp; * A stat that keeps track of latency in milliseconds and presents average,
+<i class="no-highlight">22</i>&nbsp; * min, max, 95th and 99th percentile values.
+<i class="no-highlight">23</i>&nbsp; */
+<i class="no-highlight">24</i>&nbsp;public class LatencyStat implements Cloneable {
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;    private static final long serialVersionUID = 1L;
+<i class="no-highlight">27</i>&nbsp;
+<i class="no-highlight">28</i>&nbsp;    /*
+<i class="no-highlight">29</i>&nbsp;     * The maximum tracked latency, in milliseconds, it&#39;s also the size of the
+<i class="no-highlight">30</i>&nbsp;     * configurable array which is used to save latencies.
+<i class="no-highlight">31</i>&nbsp;     */
+<i class="no-highlight">32</i>&nbsp;    private final int maxTrackedLatencyMillis;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;    private static class Values {
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;        /* The number of total operations that have been tracked. */
+<i class="no-highlight">37</i>&nbsp;        final AtomicInteger numOps;
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;        /* The number of total requests that have been tracked. */
+<i class="no-highlight">40</i>&nbsp;        final AtomicInteger numRequests;
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;        /* The number of total nanoseconds that have been tracked. */
+<i class="no-highlight">43</i>&nbsp;        final AtomicLong totalNanos;
+<i class="no-highlight">44</i>&nbsp;
+<i class="no-highlight">45</i>&nbsp;        /*
+<i class="no-highlight">46</i>&nbsp;         * Array is indexed by latency in millis and elements contain the
+<i class="no-highlight">47</i>&nbsp;         * number of ops for that latency.
+<i class="no-highlight">48</i>&nbsp;         */
+<i class="no-highlight">49</i>&nbsp;        final AtomicIntegerArray histogram;
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;        /*
+<i class="no-highlight">52</i>&nbsp;         * Min and max latency. They may both exceed maxTrackedLatencyMillis.
+<i class="no-highlight">53</i>&nbsp;         * A volatile int rather than an AtomicInteger is used because
+<i class="no-highlight">54</i>&nbsp;         * AtomicInteger has no min() or max() method, so there is no advantage
+<i class="no-highlight">55</i>&nbsp;         * to using it.
+<i class="no-highlight">56</i>&nbsp;         */
+<i class="no-highlight">57</i>&nbsp;        volatile int minIncludingOverflow;
+<i class="no-highlight">58</i>&nbsp;        volatile int maxIncludingOverflow;
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;        /* Number of requests whose latency exceed maxTrackedLatencyMillis. */
+<i class="no-highlight">61</i>&nbsp;        final AtomicInteger requestsOverflow;
+<i class="no-highlight">62</i>&nbsp;
+<b class="nc"><i class="no-highlight">63</i>&nbsp;        Values(final int maxTrackedLatencyMillis) {</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;            histogram = new AtomicIntegerArray(maxTrackedLatencyMillis);</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;            numOps = new AtomicInteger();</b>
+<b class="nc"><i class="no-highlight">66</i>&nbsp;            numRequests = new AtomicInteger();</b>
+<b class="nc"><i class="no-highlight">67</i>&nbsp;            requestsOverflow = new AtomicInteger();</b>
+<b class="nc"><i class="no-highlight">68</i>&nbsp;            totalNanos = new AtomicLong();</b>
+<b class="nc"><i class="no-highlight">69</i>&nbsp;            minIncludingOverflow = Integer.MAX_VALUE;</b>
+<b class="nc"><i class="no-highlight">70</i>&nbsp;            maxIncludingOverflow = 0;</b>
+<i class="no-highlight">71</i>&nbsp;        }
+<i class="no-highlight">72</i>&nbsp;    }
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /*
+<i class="no-highlight">75</i>&nbsp;     * Contains the values tracked by set() and reported by calculate().
+<i class="no-highlight">76</i>&nbsp;     *
+<i class="no-highlight">77</i>&nbsp;     * To clear the values, this field is assigned a new instance.  This
+<i class="no-highlight">78</i>&nbsp;     * prevents uninitialized values when set() and clear() run concurrently.
+<i class="no-highlight">79</i>&nbsp;     * Methods that access the values (set and calculate) should assign
+<i class="no-highlight">80</i>&nbsp;     * trackedValues to a local var and perform all access using the local var,
+<i class="no-highlight">81</i>&nbsp;     * so that clear() will not impact the computation.
+<i class="no-highlight">82</i>&nbsp;     *
+<i class="no-highlight">83</i>&nbsp;     * Concurrent access by set() and calculate() is handled differently.  The
+<i class="no-highlight">84</i>&nbsp;     * numOps and numRequests fields are incremented by set() last, and are
+<i class="no-highlight">85</i>&nbsp;     * checked first by calculate().  If numOps or numRequests is zero,
+<i class="no-highlight">86</i>&nbsp;     * calculate() will return an empty Latency object.  If numOps and
+<i class="no-highlight">87</i>&nbsp;     * numRequests are non-zero, calculate() may still return latency values
+<i class="no-highlight">88</i>&nbsp;     * that are inconsistent, when set() runs concurrently.  But at least
+<i class="no-highlight">89</i>&nbsp;     * calculate() won&#39;t return uninitialized latency values.  Without
+<i class="no-highlight">90</i>&nbsp;     * synchronizing set(), this is the best we can do.  Synchronizing set()
+<i class="no-highlight">91</i>&nbsp;     * might introduce contention during CRUD operations.
+<i class="no-highlight">92</i>&nbsp;     */
+<i class="no-highlight">93</i>&nbsp;    private volatile Values trackedValues;
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;    private int saveMin;
+<i class="no-highlight">96</i>&nbsp;    private int saveMax;
+<i class="no-highlight">97</i>&nbsp;    private float saveAvg;
+<i class="no-highlight">98</i>&nbsp;    private int saveNumOps;
+<i class="no-highlight">99</i>&nbsp;    private int saveNumRequests;
+<i class="no-highlight">100</i>&nbsp;    private int save95;
+<i class="no-highlight">101</i>&nbsp;    private int save99;
+<i class="no-highlight">102</i>&nbsp;    private int saveRequestsOverflow;
+<i class="no-highlight">103</i>&nbsp;
+<b class="nc"><i class="no-highlight">104</i>&nbsp;    public LatencyStat(long maxTrackedLatencyMillis) {</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        this.maxTrackedLatencyMillis = (int) maxTrackedLatencyMillis;</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        clear();</b>
+<i class="no-highlight">107</i>&nbsp;    }
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    public void clear() {
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        clearInternal();</b>
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    /**
+<i class="no-highlight">114</i>&nbsp;     * Returns and clears the current stats.
+<i class="no-highlight">115</i>&nbsp;     */
+<i class="no-highlight">116</i>&nbsp;    private synchronized Values clearInternal() {
+<b class="nc"><i class="no-highlight">117</i>&nbsp;        final Values values = trackedValues;</b>
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;        /*
+<i class="no-highlight">120</i>&nbsp;         * Create a new instance to support concurrent access.  See {@link
+<i class="no-highlight">121</i>&nbsp;         * #trackedValues}.
+<i class="no-highlight">122</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        trackedValues = new Values(maxTrackedLatencyMillis);</b>
+<i class="no-highlight">124</i>&nbsp;
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        return values;</b>
+<i class="no-highlight">126</i>&nbsp;    }
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    /**
+<i class="no-highlight">129</i>&nbsp;     * Generate the min, max, avg, 95th and 99th percentile for the collected
+<i class="no-highlight">130</i>&nbsp;     * measurements. Do not clear the measurement collection.
+<i class="no-highlight">131</i>&nbsp;     */
+<i class="no-highlight">132</i>&nbsp;    public Latency calculate() {
+<b class="nc"><i class="no-highlight">133</i>&nbsp;        return calculate(false);</b>
+<i class="no-highlight">134</i>&nbsp;    }
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    /**
+<i class="no-highlight">137</i>&nbsp;     * Generate the min, max, avg, 95th and 99th percentile for the collected
+<i class="no-highlight">138</i>&nbsp;     * measurements, then clear the measurement collection.
+<i class="no-highlight">139</i>&nbsp;     */
+<i class="no-highlight">140</i>&nbsp;    public Latency calculateAndClear() {
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        return calculate(true);</b>
+<i class="no-highlight">142</i>&nbsp;    }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    /**
+<i class="no-highlight">145</i>&nbsp;     * Calculate may be called on a stat that is concurrently updating, so
+<i class="no-highlight">146</i>&nbsp;     * while it has to be thread safe, it&#39;s a bit inaccurate when there&#39;s
+<i class="no-highlight">147</i>&nbsp;     * concurrent activity. That tradeoff is made in order to avoid the cost of
+<i class="no-highlight">148</i>&nbsp;     * synchronization during the set() method.  See {@link #trackedValues}.
+<i class="no-highlight">149</i>&nbsp;     */
+<i class="no-highlight">150</i>&nbsp;    private synchronized Latency calculate(boolean clear) {
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;        /*
+<i class="no-highlight">153</i>&nbsp;         * Use a local var to support concurrent access.  See {@link
+<i class="no-highlight">154</i>&nbsp;         * #trackedValues}.
+<i class="no-highlight">155</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        final Values values = clear ? clearInternal() : trackedValues;</b>
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;        /*
+<i class="no-highlight">159</i>&nbsp;         * Check numOps and numReqests first and return an empty Latency if
+<i class="no-highlight">160</i>&nbsp;         * either one is zero.  This ensures that we don&#39;t report partially
+<i class="no-highlight">161</i>&nbsp;         * computed values when they are zero.  This works because the other
+<i class="no-highlight">162</i>&nbsp;         * values are calculated first by set(), and numOps and numRequests are
+<i class="no-highlight">163</i>&nbsp;         * incremented last.
+<i class="no-highlight">164</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        final int totalOps = values.numOps.get();</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;        final int totalRequests = values.numRequests.get();</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        if (totalOps == 0 || totalRequests == 0) {</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;            return new Latency(maxTrackedLatencyMillis);</b>
+<i class="no-highlight">169</i>&nbsp;        }
+<i class="no-highlight">170</i>&nbsp;
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        final long totalNanos = values.totalNanos.get();</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        final int nOverflow = values.requestsOverflow.get();</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        final int maxIncludingOverflow = values.maxIncludingOverflow;</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        final int minIncludingOverflow = values.minIncludingOverflow;</b>
+<i class="no-highlight">175</i>&nbsp;
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        final float avgMs = (float) ((totalNanos * 1e-6) / totalRequests);</b>
+<i class="no-highlight">177</i>&nbsp;
+<i class="no-highlight">178</i>&nbsp;        /*
+<i class="no-highlight">179</i>&nbsp;         * The 95% and 99% values will be -1 if there are no recorded latencies
+<i class="no-highlight">180</i>&nbsp;         * in the histogram.
+<i class="no-highlight">181</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        int percent95 = -1;</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        int percent99 = -1;</b>
+<i class="no-highlight">184</i>&nbsp;
+<i class="no-highlight">185</i>&nbsp;        /*
+<i class="no-highlight">186</i>&nbsp;         * Min/max can be inaccurate because of concurrent set() calls, i.e.,
+<i class="no-highlight">187</i>&nbsp;         * values may be from a mixture of different set() calls.  Bound the
+<i class="no-highlight">188</i>&nbsp;         * min/max to the average, so they are sensible.
+<i class="no-highlight">189</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        final int avgMsInt = Math.round(avgMs);</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        int max = Math.max(avgMsInt, maxIncludingOverflow);</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        int min = Math.min(avgMsInt, minIncludingOverflow);</b>
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;        final int percent95Count;
+<i class="no-highlight">195</i>&nbsp;        final int percent99Count;
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        final int nTrackedRequests = totalRequests - nOverflow;</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        if (nTrackedRequests == 1) {</b>
+<i class="no-highlight">198</i>&nbsp;            /* For one request, always include it in the 95% and 99%. */
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            percent95Count = 1;</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            percent99Count = 1;</b>
+<i class="no-highlight">201</i>&nbsp;        } else {
+<i class="no-highlight">202</i>&nbsp;            /* Otherwise truncate: never include the last/highest request. */
+<b class="nc"><i class="no-highlight">203</i>&nbsp;            percent95Count = (int) (nTrackedRequests * .95);</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            percent99Count = (int) (nTrackedRequests * .99);</b>
+<i class="no-highlight">205</i>&nbsp;        }
+<i class="no-highlight">206</i>&nbsp;
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        final int histogramLength = values.histogram.length();</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        int numRequestsSeen = 0;</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        for (int latency = 0; latency &lt; histogramLength; latency++) {</b>
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;            final int count = values.histogram.get(latency);</b>
+<i class="no-highlight">212</i>&nbsp;
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            if (count == 0) {</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                continue;</b>
+<i class="no-highlight">215</i>&nbsp;            }
+<i class="no-highlight">216</i>&nbsp;
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            if (min &gt; latency) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                min = latency;</b>
+<i class="no-highlight">219</i>&nbsp;            }
+<i class="no-highlight">220</i>&nbsp;
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            if (max &lt; latency) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;                max = latency;</b>
+<i class="no-highlight">223</i>&nbsp;            }
+<i class="no-highlight">224</i>&nbsp;
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            if (numRequestsSeen &lt; percent95Count) {</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;                percent95 = latency;</b>
+<i class="no-highlight">227</i>&nbsp;            }
+<i class="no-highlight">228</i>&nbsp;
+<b class="nc"><i class="no-highlight">229</i>&nbsp;            if (numRequestsSeen &lt; percent99Count) {</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                percent99 = latency;</b>
+<i class="no-highlight">231</i>&nbsp;            }
+<i class="no-highlight">232</i>&nbsp;
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            numRequestsSeen += count;</b>
+<i class="no-highlight">234</i>&nbsp;        }
+<i class="no-highlight">235</i>&nbsp;
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        saveMax = max;</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        saveMin = min;</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        saveAvg = avgMs;</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;        saveNumOps = totalOps;</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        saveNumRequests = totalRequests;</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        save95 = percent95;</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        save99 = percent99;</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        saveRequestsOverflow = nOverflow;</b>
+<i class="no-highlight">244</i>&nbsp;
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        return new Latency(maxTrackedLatencyMillis, saveMin, saveMax, saveAvg,</b>
+<i class="no-highlight">246</i>&nbsp;                           saveNumOps, saveNumRequests, save95, save99,
+<i class="no-highlight">247</i>&nbsp;                           saveRequestsOverflow);
+<i class="no-highlight">248</i>&nbsp;    }
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /**
+<i class="no-highlight">251</i>&nbsp;     * Record a single operation that took place in a request of &quot;nanolatency&quot;
+<i class="no-highlight">252</i>&nbsp;     * nanos.
+<i class="no-highlight">253</i>&nbsp;     */
+<i class="no-highlight">254</i>&nbsp;    public void set(long nanoLatency) {
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        set(1, nanoLatency);</b>
+<i class="no-highlight">256</i>&nbsp;    }
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;    /**
+<i class="no-highlight">259</i>&nbsp;     * Record &quot;numRecordedOps&quot; (one or more) operations that took place in a
+<i class="no-highlight">260</i>&nbsp;     * single request of &quot;nanoLatency&quot; nanos.
+<i class="no-highlight">261</i>&nbsp;     */
+<i class="no-highlight">262</i>&nbsp;    public void set(int numRecordedOps, long nanoLatency) {
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;        /* ignore negative values [#22466] */
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        if (nanoLatency &lt; 0) {</b>
+<i class="no-highlight">266</i>&nbsp;            return;
+<i class="no-highlight">267</i>&nbsp;        }
+<i class="no-highlight">268</i>&nbsp;
+<i class="no-highlight">269</i>&nbsp;        /*
+<i class="no-highlight">270</i>&nbsp;         * Use a local var to support concurrent access.  See {@link
+<i class="no-highlight">271</i>&nbsp;         * #trackedValues}.
+<i class="no-highlight">272</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        final Values values = trackedValues;</b>
+<i class="no-highlight">274</i>&nbsp;
+<i class="no-highlight">275</i>&nbsp;        /* Round the latency to determine where to mark the histogram. */
+<b class="nc"><i class="no-highlight">276</i>&nbsp;        final int millisRounded =</b>
+<i class="no-highlight">277</i>&nbsp;            (int) ((nanoLatency + (1000000l / 2)) / 1000000l);
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;        /* Record this latency. */
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        if (millisRounded &gt;= maxTrackedLatencyMillis) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;            values.requestsOverflow.incrementAndGet();</b>
+<i class="no-highlight">282</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">283</i>&nbsp;            values.histogram.incrementAndGet(millisRounded);</b>
+<i class="no-highlight">284</i>&nbsp;        }
+<i class="no-highlight">285</i>&nbsp;
+<i class="no-highlight">286</i>&nbsp;        /*
+<i class="no-highlight">287</i>&nbsp;         * Update the min/max latency if necessary.  This is not atomic, so we
+<i class="no-highlight">288</i>&nbsp;         * loop to account for lost updates.
+<i class="no-highlight">289</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        while (values.maxIncludingOverflow &lt; millisRounded) {</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            values.maxIncludingOverflow = millisRounded;</b>
+<i class="no-highlight">292</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        while (values.minIncludingOverflow &gt; millisRounded) {</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;            values.minIncludingOverflow = millisRounded;</b>
+<i class="no-highlight">295</i>&nbsp;        }
+<i class="no-highlight">296</i>&nbsp;
+<i class="no-highlight">297</i>&nbsp;        /*
+<i class="no-highlight">298</i>&nbsp;         * Keep a count of latency that is precise enough to record sub
+<i class="no-highlight">299</i>&nbsp;         * millisecond values.
+<i class="no-highlight">300</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        values.totalNanos.addAndGet(nanoLatency);</b>
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;        /*
+<i class="no-highlight">304</i>&nbsp;         * Increment numOps and numRequests last so that calculate() won&#39;t use
+<i class="no-highlight">305</i>&nbsp;         * other uninitialized values when numOps or numRequests is zero.
+<i class="no-highlight">306</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        values.numOps.addAndGet(numRecordedOps);</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;        values.numRequests.incrementAndGet();</b>
+<i class="no-highlight">309</i>&nbsp;    }
+<i class="no-highlight">310</i>&nbsp;
+<i class="no-highlight">311</i>&nbsp;    public boolean isEmpty() {
+<b class="nc"><i class="no-highlight">312</i>&nbsp;        return (trackedValues.numOps.get() == 0) ||</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;               (trackedValues.numRequests.get() == 0);</b>
+<i class="no-highlight">314</i>&nbsp;    }
+<i class="no-highlight">315</i>&nbsp;
+<i class="no-highlight">316</i>&nbsp;    @Override
+<i class="no-highlight">317</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        final Latency results =</b>
+<i class="no-highlight">319</i>&nbsp;            new Latency(maxTrackedLatencyMillis, saveMin, saveMax, saveAvg,
+<i class="no-highlight">320</i>&nbsp;                        saveNumRequests, saveNumOps, save95, save99,
+<i class="no-highlight">321</i>&nbsp;                        saveRequestsOverflow);
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        return results.toString();</b>
+<i class="no-highlight">323</i>&nbsp;    }
+<i class="no-highlight">324</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

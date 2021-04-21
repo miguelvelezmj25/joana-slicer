@@ -1,0 +1,316 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LockConflictException</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: LockConflictException (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LockConflictException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/17)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;/**
+<i class="no-highlight">19</i>&nbsp; * The common base class for all exceptions that result from record lock
+<i class="no-highlight">20</i>&nbsp; * conflicts during read and write operations.
+<i class="no-highlight">21</i>&nbsp; *
+<i class="no-highlight">22</i>&nbsp; * &lt;p&gt;This exception normally indicates that a transaction may be retried.
+<i class="no-highlight">23</i>&nbsp; * Catching this exception, rather than its subclasses, is convenient and
+<i class="no-highlight">24</i>&nbsp; * recommended for handling lock conflicts and performing transaction retries
+<i class="no-highlight">25</i>&nbsp; * in a general purpose manner.  See below for information on performing
+<i class="no-highlight">26</i>&nbsp; * transaction retries.&lt;/p&gt;
+<i class="no-highlight">27</i>&nbsp; *
+<i class="no-highlight">28</i>&nbsp; * &lt;p&gt;The exception carries two arrays of transaction ids, one of the owners and
+<i class="no-highlight">29</i>&nbsp; * the other of the waiters, at the time of the lock conflict.  This
+<i class="no-highlight">30</i>&nbsp; * information may be used along with the {@link Transaction#getId Transaction
+<i class="no-highlight">31</i>&nbsp; * ID} for diagnosing locking problems. See {@link #getOwnerTxnIds} and {@link
+<i class="no-highlight">32</i>&nbsp; * #getWaiterTxnIds}.&lt;/p&gt;
+<i class="no-highlight">33</i>&nbsp; *
+<i class="no-highlight">34</i>&nbsp; * &lt;p&gt;The {@link Transaction} handle is invalidated as a result of this
+<i class="no-highlight">35</i>&nbsp; * exception.&lt;/p&gt;
+<i class="no-highlight">36</i>&nbsp; *
+<i class="no-highlight">37</i>&nbsp; * &lt;a name=&quot;retries&quot;&gt;&lt;h3&gt;Performing Transaction Retries&lt;/h3&gt;&lt;/a&gt;
+<i class="no-highlight">38</i>&nbsp; *
+<i class="no-highlight">39</i>&nbsp; * &lt;p&gt;If a lock conflict occurs during a transaction, the transaction may be
+<i class="no-highlight">40</i>&nbsp; * retried by performing the following steps.  Some applications may also wish
+<i class="no-highlight">41</i>&nbsp; * to sleep for a short interval before retrying, to give other concurrent
+<i class="no-highlight">42</i>&nbsp; * transactions a chance to finish and release their locks.&lt;/p&gt;
+<i class="no-highlight">43</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">44</i>&nbsp; * &lt;li&gt;Close all cursors opened under the transaction.&lt;/li&gt;
+<i class="no-highlight">45</i>&nbsp; * &lt;li&gt;Abort the transaction.&lt;/li&gt;
+<i class="no-highlight">46</i>&nbsp; * &lt;li&gt;Begin a new transaction and repeat the operations.&lt;/li&gt;
+<i class="no-highlight">47</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">48</i>&nbsp; *
+<i class="no-highlight">49</i>&nbsp; * &lt;p&gt;To handle {@link LockConflictException} reliably for all types of JE
+<i class="no-highlight">50</i>&nbsp; * applications including JE-HA applications, it is important to handle it when
+<i class="no-highlight">51</i>&nbsp; * it is thrown by all {@link Database} and {@link Cursor} read and write
+<i class="no-highlight">52</i>&nbsp; * operations.&lt;/p&gt;
+<i class="no-highlight">53</i>&nbsp; *
+<i class="no-highlight">54</i>&nbsp; * &lt;p&gt;The following example code illustrates the recommended approach.  Note
+<i class="no-highlight">55</i>&nbsp; * that the {@code Environment.beginTransaction} and {@code Transaction.commit}
+<i class="no-highlight">56</i>&nbsp; * calls are intentially inside the {@code try} block.  When using JE-HA, this
+<i class="no-highlight">57</i>&nbsp; * will make it easy to add a {@code catch} for other exceptions that can be
+<i class="no-highlight">58</i>&nbsp; * resolved by retrying the transaction, such as consistency exceptions.&lt;/p&gt;
+<i class="no-highlight">59</i>&nbsp; *
+<i class="no-highlight">60</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">61</i>&nbsp; *  void doTransaction(final Environment env,
+<i class="no-highlight">62</i>&nbsp; *                     final Database db1,
+<i class="no-highlight">63</i>&nbsp; *                     final Database db2,
+<i class="no-highlight">64</i>&nbsp; *                     final int maxTries)
+<i class="no-highlight">65</i>&nbsp; *      throws DatabaseException {
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; *      boolean success = false;
+<i class="no-highlight">68</i>&nbsp; *      long sleepMillis = 0;
+<i class="no-highlight">69</i>&nbsp; *      for (int i = 0; i &amp;lt; maxTries; i++) {
+<i class="no-highlight">70</i>&nbsp; *          // Sleep before retrying.
+<i class="no-highlight">71</i>&nbsp; *          if (sleepMillis != 0) {
+<i class="no-highlight">72</i>&nbsp; *              Thread.sleep(sleepMillis);
+<i class="no-highlight">73</i>&nbsp; *              sleepMillis = 0;
+<i class="no-highlight">74</i>&nbsp; *          }
+<i class="no-highlight">75</i>&nbsp; *          Transaction txn = null;
+<i class="no-highlight">76</i>&nbsp; *          try {
+<i class="no-highlight">77</i>&nbsp; *              txn = env.beginTransaction(null, null);
+<i class="no-highlight">78</i>&nbsp; *              final Cursor cursor1 = db1.openCursor(txn, null);
+<i class="no-highlight">79</i>&nbsp; *              try {
+<i class="no-highlight">80</i>&nbsp; *                  final Cursor cursor2 = db2.openCursor(txn, null);
+<i class="no-highlight">81</i>&nbsp; *                  try {
+<i class="no-highlight">82</i>&nbsp; *                      // INSERT APP-SPECIFIC CODE HERE:
+<i class="no-highlight">83</i>&nbsp; *                      // Perform read and write operations.
+<i class="no-highlight">84</i>&nbsp; *                  } finally {
+<i class="no-highlight">85</i>&nbsp; *                      cursor2.close();
+<i class="no-highlight">86</i>&nbsp; *                  }
+<i class="no-highlight">87</i>&nbsp; *              } finally {
+<i class="no-highlight">88</i>&nbsp; *                  cursor1.close();
+<i class="no-highlight">89</i>&nbsp; *              }
+<i class="no-highlight">90</i>&nbsp; *              txn.commit();
+<i class="no-highlight">91</i>&nbsp; *              success = true;
+<i class="no-highlight">92</i>&nbsp; *              return;
+<i class="no-highlight">93</i>&nbsp; *          } catch (LockConflictException e) {
+<i class="no-highlight">94</i>&nbsp; *              sleepMillis = LOCK_CONFLICT_RETRY_SEC * 1000;
+<i class="no-highlight">95</i>&nbsp; *              continue;
+<i class="no-highlight">96</i>&nbsp; *          } finally {
+<i class="no-highlight">97</i>&nbsp; *              if (!success) {
+<i class="no-highlight">98</i>&nbsp; *                  if (txn != null) {
+<i class="no-highlight">99</i>&nbsp; *                      txn.abort();
+<i class="no-highlight">100</i>&nbsp; *                  }
+<i class="no-highlight">101</i>&nbsp; *              }
+<i class="no-highlight">102</i>&nbsp; *          }
+<i class="no-highlight">103</i>&nbsp; *      }
+<i class="no-highlight">104</i>&nbsp; *      // INSERT APP-SPECIFIC CODE HERE:
+<i class="no-highlight">105</i>&nbsp; *      // Transaction failed, despite retries.
+<i class="no-highlight">106</i>&nbsp; *      // Take some app-specific course of action.
+<i class="no-highlight">107</i>&nbsp; *  }&lt;/pre&gt;
+<i class="no-highlight">108</i>&nbsp; *
+<i class="no-highlight">109</i>&nbsp; * &lt;p&gt;For more information on transactions and lock conflicts, see &lt;a
+<i class="no-highlight">110</i>&nbsp; * href=&quot;{@docRoot}/../TransactionGettingStarted/index.html&quot;
+<i class="no-highlight">111</i>&nbsp; * target=&quot;_top&quot;&gt;Writing Transactional Applications&lt;/a&gt;.&lt;/p&gt;
+<i class="no-highlight">112</i>&nbsp; *
+<i class="no-highlight">113</i>&nbsp; * @since 4.0
+<i class="no-highlight">114</i>&nbsp; */
+<i class="no-highlight">115</i>&nbsp;public abstract class LockConflictException extends OperationFailureException {
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    private static final long serialVersionUID = 1;
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    private long[] ownerTxnIds;
+<i class="no-highlight">120</i>&nbsp;    private long[] waiterTxnIds;
+<i class="no-highlight">121</i>&nbsp;    private long timeoutMillis;
+<i class="no-highlight">122</i>&nbsp;
+<i class="no-highlight">123</i>&nbsp;    /** 
+<i class="no-highlight">124</i>&nbsp;     * For internal use only.
+<i class="no-highlight">125</i>&nbsp;     * @hidden 
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    LockConflictException(String message) {
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        super(null /*locker*/, false /*abortOnly*/, message, null /*cause*/);</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;    }</b>
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    /** 
+<i class="no-highlight">132</i>&nbsp;     * For internal use only.
+<i class="no-highlight">133</i>&nbsp;     * @hidden 
+<i class="no-highlight">134</i>&nbsp;     */
+<i class="no-highlight">135</i>&nbsp;    protected LockConflictException(Locker locker, String message) {
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        super(locker, true /*abortOnly*/, message, null /*cause*/);</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;    }</b>
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    /** 
+<i class="no-highlight">140</i>&nbsp;     * For internal use only.
+<i class="no-highlight">141</i>&nbsp;     * @hidden 
+<i class="no-highlight">142</i>&nbsp;     */
+<i class="no-highlight">143</i>&nbsp;    protected LockConflictException(Locker locker,
+<i class="no-highlight">144</i>&nbsp;                                    String message,
+<i class="no-highlight">145</i>&nbsp;                                    Throwable cause) {
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        super(locker, true /*abortOnly*/, message, cause);</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;    }</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /** 
+<i class="no-highlight">150</i>&nbsp;     * For internal use only.
+<i class="no-highlight">151</i>&nbsp;     * @hidden 
+<i class="no-highlight">152</i>&nbsp;     */
+<i class="no-highlight">153</i>&nbsp;    protected LockConflictException(String message,
+<i class="no-highlight">154</i>&nbsp;                                    OperationFailureException cause) {
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        super(message, cause);</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;    }</b>
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * @hidden
+<i class="no-highlight">160</i>&nbsp;     * Internal use only.
+<i class="no-highlight">161</i>&nbsp;     */
+<i class="no-highlight">162</i>&nbsp;    public void setOwnerTxnIds(long[] ownerTxnIds) {
+<b class="nc"><i class="no-highlight">163</i>&nbsp;        this.ownerTxnIds = ownerTxnIds;</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;    }</b>
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;    /**
+<i class="no-highlight">167</i>&nbsp;     * Returns an array of longs containing transaction ids of owners at the
+<i class="no-highlight">168</i>&nbsp;     * the time of the timeout.
+<i class="no-highlight">169</i>&nbsp;     *
+<i class="no-highlight">170</i>&nbsp;     * @return an array of longs containing transaction ids of owners at the
+<i class="no-highlight">171</i>&nbsp;     * the time of the timeout.
+<i class="no-highlight">172</i>&nbsp;     */
+<i class="no-highlight">173</i>&nbsp;    public long[] getOwnerTxnIds() {
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        return ownerTxnIds;</b>
+<i class="no-highlight">175</i>&nbsp;    }
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    /**
+<i class="no-highlight">178</i>&nbsp;     * @hidden
+<i class="no-highlight">179</i>&nbsp;     * Internal use only.
+<i class="no-highlight">180</i>&nbsp;     */
+<i class="no-highlight">181</i>&nbsp;    public void setWaiterTxnIds(long[] waiterTxnIds) {
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        this.waiterTxnIds = waiterTxnIds;</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;    }</b>
+<i class="no-highlight">184</i>&nbsp;
+<i class="no-highlight">185</i>&nbsp;    /**
+<i class="no-highlight">186</i>&nbsp;     * Returns an array of longs containing transaction ids of waiters at the
+<i class="no-highlight">187</i>&nbsp;     * the time of the timeout.
+<i class="no-highlight">188</i>&nbsp;     *
+<i class="no-highlight">189</i>&nbsp;     * @return an array of longs containing transaction ids of waiters at the
+<i class="no-highlight">190</i>&nbsp;     * the time of the timeout.
+<i class="no-highlight">191</i>&nbsp;     */
+<i class="no-highlight">192</i>&nbsp;    public long[] getWaiterTxnIds() {
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        return waiterTxnIds;</b>
+<i class="no-highlight">194</i>&nbsp;    }
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;    /**
+<i class="no-highlight">197</i>&nbsp;     * @hidden
+<i class="no-highlight">198</i>&nbsp;     * Internal use only.
+<i class="no-highlight">199</i>&nbsp;     */
+<i class="no-highlight">200</i>&nbsp;    public void setTimeoutMillis(long timeoutMillis) {
+<b class="nc"><i class="no-highlight">201</i>&nbsp;        this.timeoutMillis = timeoutMillis;</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;    }</b>
+<i class="no-highlight">203</i>&nbsp;
+<i class="no-highlight">204</i>&nbsp;    /**
+<i class="no-highlight">205</i>&nbsp;     * @hidden
+<i class="no-highlight">206</i>&nbsp;     * Internal use only.
+<i class="no-highlight">207</i>&nbsp;     */
+<i class="no-highlight">208</i>&nbsp;    public long getTimeoutMillis() {
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        return timeoutMillis;</b>
+<i class="no-highlight">210</i>&nbsp;    }
+<i class="no-highlight">211</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

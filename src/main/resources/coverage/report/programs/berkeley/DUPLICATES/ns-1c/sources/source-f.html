@@ -1,0 +1,1683 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Replay</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl.node</a>
+</div>
+
+<h1>Coverage Summary for Class: Replay (com.sleepycat.je.rep.impl.node)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Replay</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/31)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/386)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Replay$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Replay$2</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Replay$GroupCommit</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/46)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Replay$TxnInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/46)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/442)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.impl.node;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.log.LogEntryType.LOG_NAMELN_TRANSACTIONAL;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.log.LogEntryType.LOG_TXN_ABORT;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.log.LogEntryType.LOG_TXN_COMMIT;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.LATEST_COMMIT_LAG_MS;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.MAX_COMMIT_PROCESSING_NANOS;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.MIN_COMMIT_PROCESSING_NANOS;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_ABORTS;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMITS;
+<i class="no-highlight">24</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_ACKS;
+<i class="no-highlight">25</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_NO_SYNCS;
+<i class="no-highlight">26</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_SYNCS;
+<i class="no-highlight">27</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_COMMIT_WRITE_NO_SYNCS;
+<i class="no-highlight">28</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_ELAPSED_TXN_TIME;
+<i class="no-highlight">29</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMITS;
+<i class="no-highlight">30</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMIT_MAX_EXCEEDED;
+<i class="no-highlight">31</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMIT_TIMEOUTS;
+<i class="no-highlight">32</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_GROUP_COMMIT_TXNS;
+<i class="no-highlight">33</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_LNS;
+<i class="no-highlight">34</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_MESSAGE_QUEUE_OVERFLOWS;
+<i class="no-highlight">35</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.N_NAME_LNS;
+<i class="no-highlight">36</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.TOTAL_COMMIT_LAG_MS;
+<i class="no-highlight">37</i>&nbsp;import static com.sleepycat.je.rep.impl.node.ReplayStatDefinition.TOTAL_COMMIT_PROCESSING_NANOS;
+<i class="no-highlight">38</i>&nbsp;import static java.util.concurrent.TimeUnit.MILLISECONDS;
+<i class="no-highlight">39</i>&nbsp;import static java.util.concurrent.TimeUnit.NANOSECONDS;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;import java.io.File;
+<i class="no-highlight">42</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">43</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">44</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">45</i>&nbsp;import java.util.Date;
+<i class="no-highlight">46</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">47</i>&nbsp;import java.util.List;
+<i class="no-highlight">48</i>&nbsp;import java.util.Map;
+<i class="no-highlight">49</i>&nbsp;import java.util.Set;
+<i class="no-highlight">50</i>&nbsp;import java.util.concurrent.ArrayBlockingQueue;
+<i class="no-highlight">51</i>&nbsp;import java.util.concurrent.BlockingQueue;
+<i class="no-highlight">52</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">53</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.DatabaseConfig;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.DatabaseNotFoundException;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.Durability.SyncPolicy;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">63</i>&nbsp;import com.sleepycat.je.LockMode;
+<i class="no-highlight">64</i>&nbsp;import com.sleepycat.je.OperationResult;
+<i class="no-highlight">65</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">66</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">67</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">68</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">70</i>&nbsp;import com.sleepycat.je.dbi.DbTree.TruncateDbResult;
+<i class="no-highlight">71</i>&nbsp;import com.sleepycat.je.dbi.DbType;
+<i class="no-highlight">72</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">73</i>&nbsp;import com.sleepycat.je.dbi.PutMode;
+<i class="no-highlight">74</i>&nbsp;import com.sleepycat.je.dbi.SearchMode;
+<i class="no-highlight">75</i>&nbsp;import com.sleepycat.je.dbi.TriggerManager;
+<i class="no-highlight">76</i>&nbsp;import com.sleepycat.je.log.DbOpReplicationContext;
+<i class="no-highlight">77</i>&nbsp;import com.sleepycat.je.log.FileManager;
+<i class="no-highlight">78</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">79</i>&nbsp;import com.sleepycat.je.log.LogManager;
+<i class="no-highlight">80</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">81</i>&nbsp;import com.sleepycat.je.log.entry.DbOperationType;
+<i class="no-highlight">82</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">83</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">84</i>&nbsp;import com.sleepycat.je.log.entry.NameLNLogEntry;
+<i class="no-highlight">85</i>&nbsp;import com.sleepycat.je.log.entry.SingleItemEntry;
+<i class="no-highlight">86</i>&nbsp;import com.sleepycat.je.recovery.RecoveryInfo;
+<i class="no-highlight">87</i>&nbsp;import com.sleepycat.je.recovery.RollbackTracker;
+<i class="no-highlight">88</i>&nbsp;import com.sleepycat.je.rep.LogFileRewriteListener;
+<i class="no-highlight">89</i>&nbsp;import com.sleepycat.je.rep.SyncupProgress;
+<i class="no-highlight">90</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupDB;
+<i class="no-highlight">91</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">92</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">93</i>&nbsp;import com.sleepycat.je.rep.stream.InputWireRecord;
+<i class="no-highlight">94</i>&nbsp;import com.sleepycat.je.rep.stream.MasterStatus.MasterSyncException;
+<i class="no-highlight">95</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol;
+<i class="no-highlight">96</i>&nbsp;import com.sleepycat.je.rep.txn.ReplayTxn;
+<i class="no-highlight">97</i>&nbsp;import com.sleepycat.je.rep.utilint.LongMinZeroStat;
+<i class="no-highlight">98</i>&nbsp;import com.sleepycat.je.rep.utilint.SimpleTxnMap;
+<i class="no-highlight">99</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRange;
+<i class="no-highlight">100</i>&nbsp;import com.sleepycat.je.tree.Key;
+<i class="no-highlight">101</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">102</i>&nbsp;import com.sleepycat.je.tree.NameLN;
+<i class="no-highlight">103</i>&nbsp;import com.sleepycat.je.txn.RollbackEnd;
+<i class="no-highlight">104</i>&nbsp;import com.sleepycat.je.txn.RollbackStart;
+<i class="no-highlight">105</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">106</i>&nbsp;import com.sleepycat.je.txn.TxnAbort;
+<i class="no-highlight">107</i>&nbsp;import com.sleepycat.je.txn.TxnCommit;
+<i class="no-highlight">108</i>&nbsp;import com.sleepycat.je.txn.TxnEnd;
+<i class="no-highlight">109</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">110</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">111</i>&nbsp;import com.sleepycat.je.utilint.LongMaxStat;
+<i class="no-highlight">112</i>&nbsp;import com.sleepycat.je.utilint.LongMaxZeroStat;
+<i class="no-highlight">113</i>&nbsp;import com.sleepycat.je.utilint.LongMinStat;
+<i class="no-highlight">114</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">115</i>&nbsp;import com.sleepycat.je.utilint.NanoTimeUtil;
+<i class="no-highlight">116</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">117</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">118</i>&nbsp;import com.sleepycat.utilint.StringUtils;
+<i class="no-highlight">119</i>&nbsp;
+<i class="no-highlight">120</i>&nbsp;/**
+<i class="no-highlight">121</i>&nbsp; * Replays log records from the replication stream, and manages the
+<i class="no-highlight">122</i>&nbsp; * transactions for those records.
+<i class="no-highlight">123</i>&nbsp; *
+<i class="no-highlight">124</i>&nbsp; * The Replay module has a lifetime equivalent to the environment owned by
+<i class="no-highlight">125</i>&nbsp; * this replicator. Its lifetime is longer than the feeder/replica stream.
+<i class="no-highlight">126</i>&nbsp; * For example, suppose this is nodeX:
+<i class="no-highlight">127</i>&nbsp; *
+<i class="no-highlight">128</i>&nbsp; * t1 - Node X is a replica, node A is master. Replay X is alive
+<i class="no-highlight">129</i>&nbsp; * t2 - Node X is a replica, node B takes over as master. X&#39;s Replay module
+<i class="no-highlight">130</i>&nbsp; *      is still alive and has the same set of active txns. It doesn&#39;t matter
+<i class="no-highlight">131</i>&nbsp; *      to X that the master has changed.
+<i class="no-highlight">132</i>&nbsp; * t3 - Node X becomes the master. Now its Replay unit is cleared, because
+<i class="no-highlight">133</i>&nbsp; *      anything managed by the Replay is defunct.
+<i class="no-highlight">134</i>&nbsp; */
+<b class="nc"><i class="no-highlight">135</i>&nbsp;public class Replay {</b>
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;    /* These are strings for the rollback logging. */
+<i class="no-highlight">138</i>&nbsp;    private static final String RBSTATUS_START =
+<i class="no-highlight">139</i>&nbsp;        &quot;Started Rollback&quot;;
+<i class="no-highlight">140</i>&nbsp;    private static final String RBSTATUS_NO_ACTIVE =
+<i class="no-highlight">141</i>&nbsp;        &quot;No active txns, nothing to rollback&quot;;
+<i class="no-highlight">142</i>&nbsp;    private static final String RBSTATUS_RANGE_EQUALS =
+<i class="no-highlight">143</i>&nbsp;        &quot;End of range equals matchpoint, nothing to rollback&quot;;
+<i class="no-highlight">144</i>&nbsp;    private static final String RBSTATUS_LOG_RBSTART =
+<i class="no-highlight">145</i>&nbsp;        &quot;Logged RollbackStart entry&quot;;
+<i class="no-highlight">146</i>&nbsp;    private static final String RBSTATUS_MEM_ROLLBACK =
+<i class="no-highlight">147</i>&nbsp;        &quot;Finished in-memory rollback&quot;;
+<i class="no-highlight">148</i>&nbsp;    private static final String RBSTATUS_INVISIBLE =
+<i class="no-highlight">149</i>&nbsp;        &quot;Finished invisible setting&quot;;
+<i class="no-highlight">150</i>&nbsp;    private static final String RBSTATUS_FINISH =
+<i class="no-highlight">151</i>&nbsp;        &quot;Finished rollback&quot;;
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;    /*
+<i class="no-highlight">154</i>&nbsp;     * DatabaseEntry objects reused during replay, to minimize allocation in
+<i class="no-highlight">155</i>&nbsp;     * high performance replay path.
+<i class="no-highlight">156</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">157</i>&nbsp;    final DatabaseEntry replayKeyEntry = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;    final DatabaseEntry replayDataEntry = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;    final DatabaseEntry delDataEntry = new DatabaseEntry();</b>
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;    private final RepImpl repImpl;
+<i class="no-highlight">162</i>&nbsp;
+<i class="no-highlight">163</i>&nbsp;    /**
+<i class="no-highlight">164</i>&nbsp;     *  If a commit replay operation takes more than this threshold, it&#39;s
+<i class="no-highlight">165</i>&nbsp;     *  logged. This information helps determine whether ack timeouts on the
+<i class="no-highlight">166</i>&nbsp;     *  master are due to a slow replica, or the network.
+<i class="no-highlight">167</i>&nbsp;     */
+<i class="no-highlight">168</i>&nbsp;    private final long ackTimeoutLogThresholdNs;
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    /**
+<i class="no-highlight">171</i>&nbsp;     * ActiveTxns is a collection of txn objects used for applying replicated
+<i class="no-highlight">172</i>&nbsp;     * transactions. This collection should be empty if the node is a master.
+<i class="no-highlight">173</i>&nbsp;     *
+<i class="no-highlight">174</i>&nbsp;     * Note that there is an interesting relationship between ActiveTxns and
+<i class="no-highlight">175</i>&nbsp;     * the txn collection managed by the environment TxnManager. ActiveTxns is
+<i class="no-highlight">176</i>&nbsp;     * effectively a subset of the set of txns held by the
+<i class="no-highlight">177</i>&nbsp;     * TxnManager. ReplayTxns must be sure to register and unregister
+<i class="no-highlight">178</i>&nbsp;     * themselves from ActiveTxns, just as all Txns must register and
+<i class="no-highlight">179</i>&nbsp;     * unregister with the TxnManager&#39;s set. One implementation alternative to
+<i class="no-highlight">180</i>&nbsp;     * having an ActiveTxns map here is to search the TxnManager set (which is
+<i class="no-highlight">181</i>&nbsp;     * a set, not a map) for a given ReplayTxn. Another is to subclass
+<i class="no-highlight">182</i>&nbsp;     * TxnManager so that replicated nodes have their own replayTxn map, just
+<i class="no-highlight">183</i>&nbsp;     * as XATxns have a XID-&gt;Txn map.
+<i class="no-highlight">184</i>&nbsp;     *
+<i class="no-highlight">185</i>&nbsp;     * Both alternatives seemed too costly in terms of performance or elaborate
+<i class="no-highlight">186</i>&nbsp;     * in terms of code to do for the current function. It seems clearer to
+<i class="no-highlight">187</i>&nbsp;     * make the ActiveTxns a map in the one place that it is currently
+<i class="no-highlight">188</i>&nbsp;     * used. This choice may change over time, and should be reevaluated if the
+<i class="no-highlight">189</i>&nbsp;     * implementation changes.
+<i class="no-highlight">190</i>&nbsp;     *
+<i class="no-highlight">191</i>&nbsp;     * The ActiveTxns key is the transaction id. These transactions are closed
+<i class="no-highlight">192</i>&nbsp;     * when:
+<i class="no-highlight">193</i>&nbsp;     * - the replay unit executes a commit received over the replication stream
+<i class="no-highlight">194</i>&nbsp;     * - the replay unit executes an abort received over the replication stream
+<i class="no-highlight">195</i>&nbsp;     * - the replication node realizes that it has just become the new master,
+<i class="no-highlight">196</i>&nbsp;     *   and was not previously the master.
+<i class="no-highlight">197</i>&nbsp;     *
+<i class="no-highlight">198</i>&nbsp;     * Note that the Replay class has a lifetime that is longer than that of a
+<i class="no-highlight">199</i>&nbsp;     * RepNode. This means in particular, that transactions may be left open,
+<i class="no-highlight">200</i>&nbsp;     * and will be resumed when a replica switches from one master to another,
+<i class="no-highlight">201</i>&nbsp;     * creating a new RepNode in the process. Because of that, part of the
+<i class="no-highlight">202</i>&nbsp;     * transaction may be implemented by the rep stream from one master and
+<i class="no-highlight">203</i>&nbsp;     * another part by another.
+<i class="no-highlight">204</i>&nbsp;     *
+<i class="no-highlight">205</i>&nbsp;     * The map is synchronized, so simple get/put operations do not require
+<i class="no-highlight">206</i>&nbsp;     * additional synchronization.  However, iteration requires synchronization
+<i class="no-highlight">207</i>&nbsp;     * and copyActiveTxns can be used in most cases.
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    private final SimpleTxnMap&lt;ReplayTxn&gt; activeTxns;
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;    /*
+<i class="no-highlight">212</i>&nbsp;     * The entry representing the last replayed txn commit. Supports the
+<i class="no-highlight">213</i>&nbsp;     * replica&#39;s notion of consistency.
+<i class="no-highlight">214</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">215</i>&nbsp;    private volatile TxnInfo lastReplayedTxn = null;</b>
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    /*
+<i class="no-highlight">218</i>&nbsp;     * The last replayed entry of any kind. Supports PointConsistencyPolicy.
+<i class="no-highlight">219</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">220</i>&nbsp;    private volatile VLSN lastReplayedVLSN = null;</b>
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;    /*
+<i class="no-highlight">223</i>&nbsp;     * The last replayed DTVLSN in the stream. It&#39;s used to ensure that the
+<i class="no-highlight">224</i>&nbsp;     * DTVLSNs in the stream are correctly sequenced.
+<i class="no-highlight">225</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">226</i>&nbsp;    private long lastReplayedDTVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">227</i>&nbsp;
+<i class="no-highlight">228</i>&nbsp;    /*
+<i class="no-highlight">229</i>&nbsp;     * The sync policy to be used in the absence of an ACK request. The replica
+<i class="no-highlight">230</i>&nbsp;     * in this case has some latitude about how it syncs the commit.
+<i class="no-highlight">231</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">232</i>&nbsp;    private final SyncPolicy noAckSyncPolicy = SyncPolicy.NO_SYNC;</b>
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /**
+<i class="no-highlight">235</i>&nbsp;     *  The RepParams.REPLAY_LOGGING_THRESHOLD configured logging threshold.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    private final long replayLoggingThresholdNs;
+<i class="no-highlight">238</i>&nbsp;
+<i class="no-highlight">239</i>&nbsp;    /**
+<i class="no-highlight">240</i>&nbsp;     * State that is reinitialized by the reinit() method each time a replay
+<i class="no-highlight">241</i>&nbsp;     * loop is started with a new feeder.
+<i class="no-highlight">242</i>&nbsp;     */
+<i class="no-highlight">243</i>&nbsp;
+<i class="no-highlight">244</i>&nbsp;    /**
+<i class="no-highlight">245</i>&nbsp;     *  All writes (predominantly acks) are queued here, so they do not block
+<i class="no-highlight">246</i>&nbsp;     *  the replay thread.
+<i class="no-highlight">247</i>&nbsp;     */
+<i class="no-highlight">248</i>&nbsp;    private final BlockingQueue&lt;Long&gt; outputQueue;
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /**
+<i class="no-highlight">251</i>&nbsp;     * Holds the state associated with group commits.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    private final GroupCommit groupCommit;
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /* Maintains the statistics associated with stream replay. */
+<i class="no-highlight">256</i>&nbsp;    private final StatGroup statistics;
+<i class="no-highlight">257</i>&nbsp;    private final LongStat nCommits;
+<i class="no-highlight">258</i>&nbsp;    private final LongStat nCommitAcks;
+<i class="no-highlight">259</i>&nbsp;    private final LongStat nCommitSyncs;
+<i class="no-highlight">260</i>&nbsp;    private final LongStat nCommitNoSyncs;
+<i class="no-highlight">261</i>&nbsp;    private final LongStat nCommitWriteNoSyncs;
+<i class="no-highlight">262</i>&nbsp;    private final LongStat nAborts;
+<i class="no-highlight">263</i>&nbsp;    private final LongStat nNameLNs;
+<i class="no-highlight">264</i>&nbsp;    private final LongStat nLNs;
+<i class="no-highlight">265</i>&nbsp;    private final LongStat nElapsedTxnTime;
+<i class="no-highlight">266</i>&nbsp;    private final LongStat nMessageQueueOverflows;
+<i class="no-highlight">267</i>&nbsp;    private final LongMinStat minCommitProcessingNanos;
+<i class="no-highlight">268</i>&nbsp;    private final LongMaxStat maxCommitProcessingNanos;
+<i class="no-highlight">269</i>&nbsp;    private final LongStat totalCommitProcessingNanos;
+<i class="no-highlight">270</i>&nbsp;    private final LongStat totalCommitLagMs;
+<i class="no-highlight">271</i>&nbsp;    private final LongStat latestCommitLagMs;
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">274</i>&nbsp;    public Replay(RepImpl repImpl,
+<b class="nc"><i class="no-highlight">275</i>&nbsp;                  @SuppressWarnings(&quot;unused&quot;) NameIdPair nameIdPair) {</b>
+<i class="no-highlight">276</i>&nbsp;
+<i class="no-highlight">277</i>&nbsp;        /*
+<i class="no-highlight">278</i>&nbsp;         * This should have already been caught in
+<i class="no-highlight">279</i>&nbsp;         * ReplicatedEnvironment.setupRepConfig, but it is checked here anyway
+<i class="no-highlight">280</i>&nbsp;         * as an added sanity check. [#17643]
+<i class="no-highlight">281</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">282</i>&nbsp;        if (repImpl.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;                (&quot;Replay created with readonly ReplicatedEnvironment&quot;);</b>
+<i class="no-highlight">285</i>&nbsp;        }
+<i class="no-highlight">286</i>&nbsp;
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        this.repImpl = repImpl;</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        final DbConfigManager configManager = repImpl.getConfigManager();</b>
+<i class="no-highlight">289</i>&nbsp;
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        ackTimeoutLogThresholdNs = MILLISECONDS.toNanos(configManager.</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            getDuration(RepParams.REPLICA_ACK_TIMEOUT));</b>
+<i class="no-highlight">292</i>&nbsp;
+<i class="no-highlight">293</i>&nbsp;        /**
+<i class="no-highlight">294</i>&nbsp;         * The factor of 2 below is somewhat arbitrary. It should be &gt; 1 X so
+<i class="no-highlight">295</i>&nbsp;         * that the ReplicaOutputThread can completely process the buffered
+<i class="no-highlight">296</i>&nbsp;         * messages in the face of a network drop and 2X to allow for
+<i class="no-highlight">297</i>&nbsp;         * additional headroom and minimize the chances that the replay might
+<i class="no-highlight">298</i>&nbsp;         * be blocked due to the limited queue length.
+<i class="no-highlight">299</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        final int outputQueueSize = 2 *</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;            configManager.getInt(RepParams.REPLICA_MESSAGE_QUEUE_SIZE);</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;        outputQueue = new ArrayBlockingQueue&lt;Long&gt;(outputQueueSize);</b>
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;        /*
+<i class="no-highlight">305</i>&nbsp;         * The Replay module manages all write transactions and mimics a
+<i class="no-highlight">306</i>&nbsp;         * writing application thread. When the node comes up, it populates
+<i class="no-highlight">307</i>&nbsp;         * the activeTxn collection with ReplayTxns that were resurrected
+<i class="no-highlight">308</i>&nbsp;         * at recovery time.
+<i class="no-highlight">309</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        activeTxns = new SimpleTxnMap&lt;&gt;(1024);</b>
+<i class="no-highlight">311</i>&nbsp;
+<i class="no-highlight">312</i>&nbsp;        /*
+<i class="no-highlight">313</i>&nbsp;         * Configure the data entry used for deletion to avoid fetching the
+<i class="no-highlight">314</i>&nbsp;         * old data during deletion replay.
+<i class="no-highlight">315</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        delDataEntry.setPartial(0, 0, true);</b>
+<i class="no-highlight">317</i>&nbsp;
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        statistics = new StatGroup(ReplayStatDefinition.GROUP_NAME,</b>
+<i class="no-highlight">320</i>&nbsp;                                   ReplayStatDefinition.GROUP_DESC);
+<i class="no-highlight">321</i>&nbsp;
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        groupCommit = new GroupCommit(configManager);</b>
+<i class="no-highlight">323</i>&nbsp;
+<b class="nc"><i class="no-highlight">324</i>&nbsp;        nCommits = new LongStat(statistics, N_COMMITS);</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        nCommitAcks = new LongStat(statistics, N_COMMIT_ACKS);</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;        nCommitSyncs = new LongStat(statistics, N_COMMIT_SYNCS);</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;        nCommitNoSyncs = new LongStat(statistics, N_COMMIT_NO_SYNCS);</b>
+<b class="nc"><i class="no-highlight">328</i>&nbsp;        nCommitWriteNoSyncs =</b>
+<i class="no-highlight">329</i>&nbsp;            new LongStat(statistics, N_COMMIT_WRITE_NO_SYNCS);
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        nAborts = new LongStat(statistics, N_ABORTS);</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        nNameLNs = new LongStat(statistics, N_NAME_LNS);</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        nLNs = new LongStat(statistics, N_LNS);</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;        nElapsedTxnTime = new LongStat(statistics, N_ELAPSED_TXN_TIME);</b>
+<b class="nc"><i class="no-highlight">334</i>&nbsp;        nMessageQueueOverflows =</b>
+<i class="no-highlight">335</i>&nbsp;            new LongStat(statistics, N_MESSAGE_QUEUE_OVERFLOWS);
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        minCommitProcessingNanos =</b>
+<i class="no-highlight">337</i>&nbsp;            new LongMinZeroStat(statistics, MIN_COMMIT_PROCESSING_NANOS);
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        maxCommitProcessingNanos =</b>
+<i class="no-highlight">339</i>&nbsp;            new LongMaxZeroStat(statistics, MAX_COMMIT_PROCESSING_NANOS);
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        totalCommitProcessingNanos =</b>
+<i class="no-highlight">341</i>&nbsp;            new LongStat(statistics, TOTAL_COMMIT_PROCESSING_NANOS);
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        totalCommitLagMs = new LongStat(statistics, TOTAL_COMMIT_LAG_MS);</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;        latestCommitLagMs = new LongStat(statistics, LATEST_COMMIT_LAG_MS);</b>
+<i class="no-highlight">344</i>&nbsp;
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        replayLoggingThresholdNs = MILLISECONDS.toNanos(configManager.</b>
+<b class="nc"><i class="no-highlight">346</i>&nbsp;           getDuration(RepParams.REPLAY_LOGGING_THRESHOLD));</b>
+<i class="no-highlight">347</i>&nbsp;    }
+<i class="no-highlight">348</i>&nbsp;
+<i class="no-highlight">349</i>&nbsp;    public BlockingQueue&lt;Long&gt; getOutputQueue() {
+<b class="nc"><i class="no-highlight">350</i>&nbsp;        return outputQueue;</b>
+<i class="no-highlight">351</i>&nbsp;    }
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;    /**
+<i class="no-highlight">354</i>&nbsp;     * Reinitialize for replay from a new feeder
+<i class="no-highlight">355</i>&nbsp;     */
+<i class="no-highlight">356</i>&nbsp;    public void reset() {
+<b class="nc"><i class="no-highlight">357</i>&nbsp;        outputQueue.clear();</b>
+<i class="no-highlight">358</i>&nbsp;    }
+<i class="no-highlight">359</i>&nbsp;
+<i class="no-highlight">360</i>&nbsp;    LongStat getMessageQueueOverflows() {
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        return nMessageQueueOverflows;</b>
+<i class="no-highlight">362</i>&nbsp;    }
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;    /**
+<i class="no-highlight">365</i>&nbsp;     * Actions that must be taken before the recovery checkpoint, whether
+<i class="no-highlight">366</i>&nbsp;     * the environment is read/write or read/only.
+<i class="no-highlight">367</i>&nbsp;     */
+<i class="no-highlight">368</i>&nbsp;    public void preRecoveryCheckpointInit(RecoveryInfo recoveryInfo) {
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        for (Txn txn : recoveryInfo.replayTxns.values()) {</b>
+<i class="no-highlight">370</i>&nbsp;
+<i class="no-highlight">371</i>&nbsp;            /*
+<i class="no-highlight">372</i>&nbsp;             * ReplayTxns need to know about their owning activeTxn map,
+<i class="no-highlight">373</i>&nbsp;             * so they can remove themselves at close. We are casting upwards,
+<i class="no-highlight">374</i>&nbsp;             * because the non-HA code is prohibited from referencing
+<i class="no-highlight">375</i>&nbsp;             * Replication classes, and the RecoveryInfo.replayTxns collection
+<i class="no-highlight">376</i>&nbsp;             * doesn&#39;t know that it&#39;s got ReplayTxns.
+<i class="no-highlight">377</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">378</i>&nbsp;            ((ReplayTxn) txn).registerWithActiveTxns(activeTxns);</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;        lastReplayedVLSN = repImpl.getVLSNIndex().getRange().getLast();</b>
+<i class="no-highlight">381</i>&nbsp;    }
+<i class="no-highlight">382</i>&nbsp;
+<i class="no-highlight">383</i>&nbsp;    public TxnInfo getLastReplayedTxn() {
+<b class="nc"><i class="no-highlight">384</i>&nbsp;        return lastReplayedTxn;</b>
+<i class="no-highlight">385</i>&nbsp;    }
+<i class="no-highlight">386</i>&nbsp;
+<i class="no-highlight">387</i>&nbsp;    public VLSN getLastReplayedVLSN() {
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        return lastReplayedVLSN;</b>
+<i class="no-highlight">389</i>&nbsp;    }
+<i class="no-highlight">390</i>&nbsp;
+<i class="no-highlight">391</i>&nbsp;    /**
+<i class="no-highlight">392</i>&nbsp;     * When mastership changes, all inflight replay transactions are aborted.
+<i class="no-highlight">393</i>&nbsp;     * Replay transactions need only be aborted by the node that has become
+<i class="no-highlight">394</i>&nbsp;     * the new master (who was previously a Replica). The replay transactions
+<i class="no-highlight">395</i>&nbsp;     * on the other replicas who have not changed roles are
+<i class="no-highlight">396</i>&nbsp;     * resolved by the abort record issued by said new master.
+<i class="no-highlight">397</i>&nbsp;     */
+<i class="no-highlight">398</i>&nbsp;    public void abortOldTxns()
+<i class="no-highlight">399</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">400</i>&nbsp;
+<b class="nc"><i class="no-highlight">401</i>&nbsp;        final int masterNodeId = repImpl.getNodeId();</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;        for (ReplayTxn replayTxn : copyActiveTxns().values()) {</b>
+<i class="no-highlight">403</i>&nbsp;            /*
+<i class="no-highlight">404</i>&nbsp;             * Use NULL for the DTVLSN since it&#39;s being written as the MASTER
+<i class="no-highlight">405</i>&nbsp;             * despite being a ReplayTxn; it will be corrected when it&#39;s
+<i class="no-highlight">406</i>&nbsp;             * written to the log.
+<i class="no-highlight">407</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">408</i>&nbsp;            replayTxn.abort(ReplicationContext.MASTER, masterNodeId,</b>
+<i class="no-highlight">409</i>&nbsp;                            VLSN.NULL_VLSN_SEQUENCE);
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        assert activeTxns.isEmpty() : &quot;Unexpected txns in activeTxns = &quot; +</b>
+<i class="no-highlight">412</i>&nbsp;            activeTxns;
+<i class="no-highlight">413</i>&nbsp;    }
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;    private void updateCommitStats(final boolean needsAck,
+<i class="no-highlight">416</i>&nbsp;                                   final SyncPolicy syncPolicy,
+<i class="no-highlight">417</i>&nbsp;                                   final long startTimeNanos,
+<i class="no-highlight">418</i>&nbsp;                                   final long masterCommitTimeMs,
+<i class="no-highlight">419</i>&nbsp;                                   final long replicaCommitTimeMs) {
+<i class="no-highlight">420</i>&nbsp;
+<b class="nc"><i class="no-highlight">421</i>&nbsp;        final long now = System.nanoTime();</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;        final long commitNanos = now - startTimeNanos;</b>
+<i class="no-highlight">423</i>&nbsp;
+<b class="nc"><i class="no-highlight">424</i>&nbsp;        if (commitNanos &gt; ackTimeoutLogThresholdNs &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;            logger.isLoggable(Level.INFO)) {</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;            LoggerUtils.info</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;                (logger, repImpl,</b>
+<i class="no-highlight">428</i>&nbsp;                 &quot;Replay commit time: &quot; + (commitNanos / 1000000) +
+<i class="no-highlight">429</i>&nbsp;                 &quot; ms exceeded log threshold: &quot; +
+<i class="no-highlight">430</i>&nbsp;                 (ackTimeoutLogThresholdNs / 1000000));
+<i class="no-highlight">431</i>&nbsp;        }
+<i class="no-highlight">432</i>&nbsp;
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        nCommits.increment();</b>
+<i class="no-highlight">434</i>&nbsp;
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        if (needsAck) {</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;            nCommitAcks.increment();</b>
+<i class="no-highlight">437</i>&nbsp;        }
+<i class="no-highlight">438</i>&nbsp;
+<b class="nc"><i class="no-highlight">439</i>&nbsp;        if (syncPolicy == SyncPolicy.SYNC) {</b>
+<b class="nc"><i class="no-highlight">440</i>&nbsp;            nCommitSyncs.increment();</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        } else if (syncPolicy == SyncPolicy.NO_SYNC) {</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;            nCommitNoSyncs.increment();</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;        } else if (syncPolicy == SyncPolicy.WRITE_NO_SYNC) {</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;            nCommitWriteNoSyncs.increment();</b>
+<i class="no-highlight">445</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">446</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;                (&quot;Unknown sync policy: &quot; + syncPolicy);</b>
+<i class="no-highlight">448</i>&nbsp;        }
+<i class="no-highlight">449</i>&nbsp;
+<b class="nc"><i class="no-highlight">450</i>&nbsp;        totalCommitProcessingNanos.add(commitNanos);</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        minCommitProcessingNanos.setMin(commitNanos);</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;        maxCommitProcessingNanos.setMax(commitNanos);</b>
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;        /*
+<i class="no-highlight">455</i>&nbsp;         * Tally the lag between master and replica commits, even if clock skew
+<i class="no-highlight">456</i>&nbsp;         * makes the lag appear negative.  The documentation already warns that
+<i class="no-highlight">457</i>&nbsp;         * the value will be affected by clock skew, so users can adjust for
+<i class="no-highlight">458</i>&nbsp;         * that, but only if we don&#39;t throw the information way.
+<i class="no-highlight">459</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">460</i>&nbsp;        final long replicaLagMs = replicaCommitTimeMs - masterCommitTimeMs;</b>
+<b class="nc"><i class="no-highlight">461</i>&nbsp;        totalCommitLagMs.add(replicaLagMs);</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;        latestCommitLagMs.set(replicaLagMs);</b>
+<i class="no-highlight">463</i>&nbsp;    }
+<i class="no-highlight">464</i>&nbsp;
+<i class="no-highlight">465</i>&nbsp;    /**
+<i class="no-highlight">466</i>&nbsp;     * Apply the operation represented by this log entry on this replica node.
+<i class="no-highlight">467</i>&nbsp;     */
+<i class="no-highlight">468</i>&nbsp;    public void replayEntry(long startNs,
+<i class="no-highlight">469</i>&nbsp;                            Protocol.Entry entry)
+<i class="no-highlight">470</i>&nbsp;        throws DatabaseException,
+<i class="no-highlight">471</i>&nbsp;               IOException,
+<i class="no-highlight">472</i>&nbsp;               InterruptedException,
+<i class="no-highlight">473</i>&nbsp;               MasterSyncException {
+<i class="no-highlight">474</i>&nbsp;
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        final InputWireRecord wireRecord = entry.getWireRecord();</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        final LogEntry logEntry = wireRecord.getLogEntry();</b>
+<i class="no-highlight">477</i>&nbsp;
+<i class="no-highlight">478</i>&nbsp;        /*
+<i class="no-highlight">479</i>&nbsp;         * Sanity check that the replication stream is in sequence. We want to
+<i class="no-highlight">480</i>&nbsp;         * forestall any possible corruption from replaying invalid entries.
+<i class="no-highlight">481</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">482</i>&nbsp;        if (!wireRecord.getVLSN().follows(lastReplayedVLSN)) {</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;                (repImpl,</b>
+<i class="no-highlight">485</i>&nbsp;                 &quot;Rep stream not sequential. Current VLSN: &quot; +
+<i class="no-highlight">486</i>&nbsp;                 lastReplayedVLSN +
+<b class="nc"><i class="no-highlight">487</i>&nbsp;                 &quot; next log entry VLSN: &quot; + wireRecord.getVLSN());</b>
+<i class="no-highlight">488</i>&nbsp;        }
+<i class="no-highlight">489</i>&nbsp;
+<b class="nc"><i class="no-highlight">490</i>&nbsp;        if (logger.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">491</i>&nbsp;            LoggerUtils.finest(logger, repImpl, &quot;Replaying &quot; + wireRecord);</b>
+<i class="no-highlight">492</i>&nbsp;        }
+<i class="no-highlight">493</i>&nbsp;
+<b class="nc"><i class="no-highlight">494</i>&nbsp;        final ReplayTxn repTxn = getReplayTxn(logEntry.getTransactionId(), true);</b>
+<b class="nc"><i class="no-highlight">495</i>&nbsp;        updateReplicaSequences(logEntry);</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;        final byte entryType = wireRecord.getEntryType();</b>
+<i class="no-highlight">497</i>&nbsp;
+<b class="nc"><i class="no-highlight">498</i>&nbsp;        lastReplayedVLSN = wireRecord.getVLSN();</b>
+<i class="no-highlight">499</i>&nbsp;
+<i class="no-highlight">500</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">501</i>&nbsp;            final long txnId = repTxn.getId();</b>
+<i class="no-highlight">502</i>&nbsp;
+<b class="nc"><i class="no-highlight">503</i>&nbsp;            if (LOG_TXN_COMMIT.equalsType(entryType)) {</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;                Protocol.Commit commitEntry = (Protocol.Commit) entry;</b>
+<i class="no-highlight">505</i>&nbsp;
+<b class="nc"><i class="no-highlight">506</i>&nbsp;                final boolean needsAck = commitEntry.getNeedsAck();</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;                final SyncPolicy txnSyncPolicy =</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;                    commitEntry.getReplicaSyncPolicy();</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                final SyncPolicy implSyncPolicy =</b>
+<i class="no-highlight">510</i>&nbsp;                    needsAck ?
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                    groupCommit.getImplSyncPolicy(txnSyncPolicy) :</b>
+<i class="no-highlight">512</i>&nbsp;                    noAckSyncPolicy;
+<i class="no-highlight">513</i>&nbsp;
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                logReplay(repTxn, needsAck, implSyncPolicy);</b>
+<i class="no-highlight">515</i>&nbsp;
+<b class="nc"><i class="no-highlight">516</i>&nbsp;                final TxnCommit commit = (TxnCommit) logEntry.getMainItem();</b>
+<b class="nc"><i class="no-highlight">517</i>&nbsp;                final long dtvlsn = updateDTVLSN(commit);</b>
+<i class="no-highlight">518</i>&nbsp;
+<b class="nc"><i class="no-highlight">519</i>&nbsp;                if (needsAck) {</b>
+<i class="no-highlight">520</i>&nbsp;
+<i class="no-highlight">521</i>&nbsp;                    /*
+<i class="no-highlight">522</i>&nbsp;                     * Only wait if the replica is not lagging and the
+<i class="no-highlight">523</i>&nbsp;                     * durability requires it.
+<i class="no-highlight">524</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">525</i>&nbsp;                    repImpl.getRepNode().getVLSNFreezeLatch().awaitThaw();</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;                    repImpl.getRepNode().getMasterStatus().assertSync();</b>
+<i class="no-highlight">527</i>&nbsp;                }
+<i class="no-highlight">528</i>&nbsp;
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                repTxn.commit(implSyncPolicy,</b>
+<i class="no-highlight">530</i>&nbsp;                              new ReplicationContext(lastReplayedVLSN),
+<b class="nc"><i class="no-highlight">531</i>&nbsp;                              commit.getMasterNodeId(),</b>
+<i class="no-highlight">532</i>&nbsp;                              dtvlsn);
+<i class="no-highlight">533</i>&nbsp;
+<b class="nc"><i class="no-highlight">534</i>&nbsp;                final long masterCommitTimeMs = commit.getTime().getTime();</b>
+<b class="nc"><i class="no-highlight">535</i>&nbsp;                lastReplayedTxn = new TxnInfo(lastReplayedVLSN,</b>
+<i class="no-highlight">536</i>&nbsp;                                              masterCommitTimeMs);
+<i class="no-highlight">537</i>&nbsp;
+<b class="nc"><i class="no-highlight">538</i>&nbsp;                updateCommitStats(needsAck, implSyncPolicy, startNs,</b>
+<b class="nc"><i class="no-highlight">539</i>&nbsp;                                  masterCommitTimeMs, repTxn.getEndTime());</b>
+<i class="no-highlight">540</i>&nbsp;
+<i class="no-highlight">541</i>&nbsp;                /* Respond to the feeder. */
+<b class="nc"><i class="no-highlight">542</i>&nbsp;                if (needsAck) {</b>
+<i class="no-highlight">543</i>&nbsp;                    /*
+<i class="no-highlight">544</i>&nbsp;                     * Need an ack, either buffer it, for sync group commit, or
+<i class="no-highlight">545</i>&nbsp;                     * queue it.
+<i class="no-highlight">546</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">547</i>&nbsp;                    if (!groupCommit.bufferAck(startNs, repTxn,</b>
+<i class="no-highlight">548</i>&nbsp;                                               txnSyncPolicy)) {
+<b class="nc"><i class="no-highlight">549</i>&nbsp;                        queueAck(txnId);</b>
+<i class="no-highlight">550</i>&nbsp;                    }
+<i class="no-highlight">551</i>&nbsp;                }
+<i class="no-highlight">552</i>&nbsp;
+<i class="no-highlight">553</i>&nbsp;                /*
+<i class="no-highlight">554</i>&nbsp;                 * The group refresh and recalculation can be expensive, since
+<i class="no-highlight">555</i>&nbsp;                 * it may require a database read. Do it after the ack.
+<i class="no-highlight">556</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">557</i>&nbsp;                if (repTxn.getRepGroupDbChange() &amp;&amp; canRefreshGroup(repTxn)) {</b>
+<b class="nc"><i class="no-highlight">558</i>&nbsp;                    repImpl.getRepNode().refreshCachedGroup();</b>
+<b class="nc"><i class="no-highlight">559</i>&nbsp;                    repImpl.getRepNode().recalculateGlobalCBVLSN();</b>
+<i class="no-highlight">560</i>&nbsp;                }
+<i class="no-highlight">561</i>&nbsp;
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                nElapsedTxnTime.add(repTxn.elapsedTime());</b>
+<i class="no-highlight">563</i>&nbsp;
+<b class="nc"><i class="no-highlight">564</i>&nbsp;            } else if (LOG_TXN_ABORT.equalsType(entryType)) {</b>
+<i class="no-highlight">565</i>&nbsp;
+<b class="nc"><i class="no-highlight">566</i>&nbsp;                nAborts.increment();</b>
+<b class="nc"><i class="no-highlight">567</i>&nbsp;                final TxnAbort abort = (TxnAbort) logEntry.getMainItem();</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;                final ReplicationContext abortContext =</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                    new ReplicationContext(wireRecord.getVLSN());</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;                if (logger.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                    LoggerUtils.finest(logger, repImpl,</b>
+<i class="no-highlight">572</i>&nbsp;                                       &quot;abort called for &quot; + txnId +
+<i class="no-highlight">573</i>&nbsp;                                       &quot; masterId=&quot; +
+<b class="nc"><i class="no-highlight">574</i>&nbsp;                                       abort.getMasterNodeId() +</b>
+<i class="no-highlight">575</i>&nbsp;                                       &quot; repContext=&quot; + abortContext);
+<i class="no-highlight">576</i>&nbsp;                }
+<i class="no-highlight">577</i>&nbsp;
+<b class="nc"><i class="no-highlight">578</i>&nbsp;                long dtvlsn = updateDTVLSN(abort);</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;                repTxn.abort(abortContext, abort.getMasterNodeId(), dtvlsn);</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;                lastReplayedTxn = new TxnInfo(lastReplayedVLSN,</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;                                              abort.getTime().getTime());</b>
+<b class="nc"><i class="no-highlight">582</i>&nbsp;                if (repTxn.getRepGroupDbChange() &amp;&amp; canRefreshGroup(repTxn)) {</b>
+<i class="no-highlight">583</i>&nbsp;
+<i class="no-highlight">584</i>&nbsp;                    /*
+<i class="no-highlight">585</i>&nbsp;                     * Refresh is the safe thing to do on an abort, since a
+<i class="no-highlight">586</i>&nbsp;                     * refresh may have been held back from an earlier commit
+<i class="no-highlight">587</i>&nbsp;                     * due to this active transaction.
+<i class="no-highlight">588</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">589</i>&nbsp;                    repImpl.getRepNode().refreshCachedGroup();</b>
+<i class="no-highlight">590</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">591</i>&nbsp;                nElapsedTxnTime.add(repTxn.elapsedTime());</b>
+<i class="no-highlight">592</i>&nbsp;
+<b class="nc"><i class="no-highlight">593</i>&nbsp;            } else if (LOG_NAMELN_TRANSACTIONAL.equalsType(entryType)) {</b>
+<i class="no-highlight">594</i>&nbsp;
+<b class="nc"><i class="no-highlight">595</i>&nbsp;                repImpl.getRepNode().getReplica().clearDbTreeCache();</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                nNameLNs.increment();</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;                applyNameLN(repTxn, wireRecord);</b>
+<i class="no-highlight">598</i>&nbsp;
+<i class="no-highlight">599</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                nLNs.increment();</b>
+<i class="no-highlight">601</i>&nbsp;                /* A data operation. */
+<b class="nc"><i class="no-highlight">602</i>&nbsp;                assert wireRecord.getLogEntry() instanceof LNLogEntry;</b>
+<b class="nc"><i class="no-highlight">603</i>&nbsp;                applyLN(repTxn, wireRecord);</b>
+<i class="no-highlight">604</i>&nbsp;            }
+<i class="no-highlight">605</i>&nbsp;
+<i class="no-highlight">606</i>&nbsp;            /* Remember the last VLSN applied by this txn. */
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            repTxn.setLastAppliedVLSN(lastReplayedVLSN);</b>
+<i class="no-highlight">608</i>&nbsp;
+<b class="nc"><i class="no-highlight">609</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;            e.addErrorMessage(&quot;Problem seen replaying entry &quot; + wireRecord);</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;            throw e;</b>
+<i class="no-highlight">612</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">613</i>&nbsp;            final long elapsedNs = System.nanoTime() - startNs;</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;            if (elapsedNs &gt; replayLoggingThresholdNs) {</b>
+<b class="nc"><i class="no-highlight">615</i>&nbsp;                LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">616</i>&nbsp;                                 &quot;Replay time for entry type:&quot; +
+<b class="nc"><i class="no-highlight">617</i>&nbsp;                                 LogEntryType.findType(entryType) + &quot; &quot; +</b>
+<b class="nc"><i class="no-highlight">618</i>&nbsp;                                 NANOSECONDS.toMillis(elapsedNs) + &quot;ms &quot; +</b>
+<i class="no-highlight">619</i>&nbsp;                                 &quot;exceeded threshold:&quot; +
+<i class="no-highlight">620</i>&nbsp;                                 NANOSECONDS.
+<b class="nc"><i class="no-highlight">621</i>&nbsp;                                     toMillis(replayLoggingThresholdNs) +</b>
+<i class="no-highlight">622</i>&nbsp;                                 &quot;ms&quot;);
+<i class="no-highlight">623</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">624</i>&nbsp;        }</b>
+<i class="no-highlight">625</i>&nbsp;    }
+<i class="no-highlight">626</i>&nbsp;
+<i class="no-highlight">627</i>&nbsp;    /**
+<i class="no-highlight">628</i>&nbsp;     * Update the replica&#39;s in-memory DTVLSN using the value in the
+<i class="no-highlight">629</i>&nbsp;     * commit/abort entry.
+<i class="no-highlight">630</i>&nbsp;     *
+<i class="no-highlight">631</i>&nbsp;     * In the normal course of events, DTVLSNs should not decrease. However,
+<i class="no-highlight">632</i>&nbsp;     * there is just one exception: if the rep stream transitions from a post
+<i class="no-highlight">633</i>&nbsp;     * to a pre-dtvlsn stream, it will transition from a positive to the
+<i class="no-highlight">634</i>&nbsp;     * UNINITIALIZED_VLSN_SEQUENCE.
+<i class="no-highlight">635</i>&nbsp;     *
+<i class="no-highlight">636</i>&nbsp;     * A transition from a pre to a post-dtvlsn transition (from zero to some
+<i class="no-highlight">637</i>&nbsp;     * positive value), observes the &quot;DTVLSNs should not decrease&quot; rule
+<i class="no-highlight">638</i>&nbsp;     * automatically.
+<i class="no-highlight">639</i>&nbsp;     *
+<i class="no-highlight">640</i>&nbsp;     * @return the DTVLSN entry in the log txnEnd record so it can be used in
+<i class="no-highlight">641</i>&nbsp;     * the commit/abort operation for replay
+<i class="no-highlight">642</i>&nbsp;     */
+<i class="no-highlight">643</i>&nbsp;    private long updateDTVLSN(final TxnEnd txnEnd) {
+<b class="nc"><i class="no-highlight">644</i>&nbsp;        final long txnDTVLSN = txnEnd.getDTVLSN();</b>
+<i class="no-highlight">645</i>&nbsp;
+<b class="nc"><i class="no-highlight">646</i>&nbsp;        if (txnDTVLSN == VLSN.UNINITIALIZED_VLSN_SEQUENCE) {</b>
+<i class="no-highlight">647</i>&nbsp;            /*
+<i class="no-highlight">648</i>&nbsp;             * A pre DTVLSN format entry, simply set it as the in-memory DTVLSN
+<i class="no-highlight">649</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">650</i>&nbsp;            final long prevDTVLSN = repImpl.getRepNode().setDTVLSN(txnDTVLSN);</b>
+<b class="nc"><i class="no-highlight">651</i>&nbsp;            if (prevDTVLSN != VLSN.UNINITIALIZED_VLSN_SEQUENCE) {</b>
+<b class="nc"><i class="no-highlight">652</i>&nbsp;                LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">653</i>&nbsp;                                 &quot;Transitioned to pre DTVLSN stream.&quot; +
+<i class="no-highlight">654</i>&nbsp;                                 &quot; DTVLSN:&quot; + prevDTVLSN +
+<i class="no-highlight">655</i>&nbsp;                                 &quot; at VLSN:&quot; + lastReplayedVLSN);
+<i class="no-highlight">656</i>&nbsp;
+<i class="no-highlight">657</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">658</i>&nbsp;            lastReplayedDTVLSN = txnDTVLSN;</b>
+<b class="nc"><i class="no-highlight">659</i>&nbsp;            return txnDTVLSN;</b>
+<i class="no-highlight">660</i>&nbsp;        }
+<i class="no-highlight">661</i>&nbsp;
+<i class="no-highlight">662</i>&nbsp;        /* Sanity check. */
+<b class="nc"><i class="no-highlight">663</i>&nbsp;        if (txnDTVLSN &lt; lastReplayedDTVLSN) {</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;            String msg = &quot;DTVLSNs must be in ascending order in the stream. &quot; +</b>
+<i class="no-highlight">665</i>&nbsp;                &quot; prev DTVLSN:&quot; + lastReplayedDTVLSN +
+<i class="no-highlight">666</i>&nbsp;                &quot; next DTVLSN:&quot; + txnDTVLSN + &quot; at VLSN: &quot; +
+<b class="nc"><i class="no-highlight">667</i>&nbsp;                lastReplayedVLSN.getSequence();</b>
+<b class="nc"><i class="no-highlight">668</i>&nbsp;          throw EnvironmentFailureException.unexpectedState(repImpl, msg);</b>
+<i class="no-highlight">669</i>&nbsp;        }
+<i class="no-highlight">670</i>&nbsp;
+<b class="nc"><i class="no-highlight">671</i>&nbsp;        if ((lastReplayedDTVLSN == VLSN.UNINITIALIZED_VLSN_SEQUENCE) &amp;&amp;</b>
+<i class="no-highlight">672</i>&nbsp;            (txnDTVLSN &gt; 0)) {
+<b class="nc"><i class="no-highlight">673</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">674</i>&nbsp;                             &quot;Transitioned to post DTVLSN stream.&quot; +
+<i class="no-highlight">675</i>&nbsp;                             &quot; DTVLSN:&quot; + txnDTVLSN +
+<i class="no-highlight">676</i>&nbsp;                             &quot; at VLSN:&quot; + lastReplayedVLSN);
+<i class="no-highlight">677</i>&nbsp;        }
+<i class="no-highlight">678</i>&nbsp;
+<b class="nc"><i class="no-highlight">679</i>&nbsp;        lastReplayedDTVLSN = txnDTVLSN;</b>
+<b class="nc"><i class="no-highlight">680</i>&nbsp;        repImpl.getRepNode().setDTVLSN(txnDTVLSN);</b>
+<i class="no-highlight">681</i>&nbsp;
+<b class="nc"><i class="no-highlight">682</i>&nbsp;        return txnDTVLSN;</b>
+<i class="no-highlight">683</i>&nbsp;    }
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;    /**
+<i class="no-highlight">686</i>&nbsp;     * Queue the request ack for an async ack write to the network.
+<i class="no-highlight">687</i>&nbsp;     */
+<i class="no-highlight">688</i>&nbsp;    void queueAck(final long txnId) throws IOException {
+<i class="no-highlight">689</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">690</i>&nbsp;            outputQueue.put(txnId);</b>
+<b class="nc"><i class="no-highlight">691</i>&nbsp;        } catch (InterruptedException ie) {</b>
+<i class="no-highlight">692</i>&nbsp;            /*
+<i class="no-highlight">693</i>&nbsp;             * Have the higher levels treat it like an IOE and
+<i class="no-highlight">694</i>&nbsp;             * exit the thread.
+<i class="no-highlight">695</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">696</i>&nbsp;            throw new IOException(&quot;Ack I/O interrupted&quot;, ie);</b>
+<b class="nc"><i class="no-highlight">697</i>&nbsp;        }</b>
+<i class="no-highlight">698</i>&nbsp;    }
+<i class="no-highlight">699</i>&nbsp;
+<i class="no-highlight">700</i>&nbsp;    /**
+<i class="no-highlight">701</i>&nbsp;     * Logs information associated with the replay of the txn commit
+<i class="no-highlight">702</i>&nbsp;     */
+<i class="no-highlight">703</i>&nbsp;    private void logReplay(ReplayTxn repTxn,
+<i class="no-highlight">704</i>&nbsp;                           boolean needsAck,
+<i class="no-highlight">705</i>&nbsp;                           SyncPolicy syncPolicy) {
+<i class="no-highlight">706</i>&nbsp;
+<b class="nc"><i class="no-highlight">707</i>&nbsp;        if (!logger.isLoggable(Level.FINE)) {</b>
+<i class="no-highlight">708</i>&nbsp;            return;
+<i class="no-highlight">709</i>&nbsp;        }
+<i class="no-highlight">710</i>&nbsp;
+<b class="nc"><i class="no-highlight">711</i>&nbsp;        if (needsAck) {</b>
+<b class="nc"><i class="no-highlight">712</i>&nbsp;            LoggerUtils.fine(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">713</i>&nbsp;                             &quot;Replay: got commit for txn=&quot; + repTxn.getId() +</b>
+<i class="no-highlight">714</i>&nbsp;                             &quot;, ack needed, replica sync policy=&quot; +
+<i class="no-highlight">715</i>&nbsp;                             syncPolicy +
+<i class="no-highlight">716</i>&nbsp;                             &quot; vlsn=&quot; + lastReplayedVLSN);
+<i class="no-highlight">717</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">718</i>&nbsp;            LoggerUtils.fine(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">719</i>&nbsp;                             &quot;Replay: got commit for txn=&quot; + repTxn.getId() +</b>
+<i class="no-highlight">720</i>&nbsp;                             &quot; ack not needed&quot; +
+<i class="no-highlight">721</i>&nbsp;                             &quot; vlsn=&quot; + lastReplayedVLSN);
+<i class="no-highlight">722</i>&nbsp;        }
+<i class="no-highlight">723</i>&nbsp;    }
+<i class="no-highlight">724</i>&nbsp;
+<i class="no-highlight">725</i>&nbsp;    /**
+<i class="no-highlight">726</i>&nbsp;     * Returns true if there are no other activeTxns that have also modified
+<i class="no-highlight">727</i>&nbsp;     * the membership database and are still open, since they could potentially
+<i class="no-highlight">728</i>&nbsp;     * hold write locks that would block the read locks acquired during the
+<i class="no-highlight">729</i>&nbsp;     * refresh operation.
+<i class="no-highlight">730</i>&nbsp;     *
+<i class="no-highlight">731</i>&nbsp;     * @param txn the current txn being committed or aborted
+<i class="no-highlight">732</i>&nbsp;     *
+<i class="no-highlight">733</i>&nbsp;     * @return true if there are no open transactions that hold locks on the
+<i class="no-highlight">734</i>&nbsp;     * membership database.
+<i class="no-highlight">735</i>&nbsp;     */
+<i class="no-highlight">736</i>&nbsp;    private boolean canRefreshGroup(ReplayTxn txn) {
+<i class="no-highlight">737</i>&nbsp;
+<i class="no-highlight">738</i>&nbsp;        /*
+<i class="no-highlight">739</i>&nbsp;         * Use synchronized rather than copyActiveTxns, since this is called
+<i class="no-highlight">740</i>&nbsp;         * during replay and there is no nested locking to worry about.
+<i class="no-highlight">741</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">742</i>&nbsp;        synchronized (activeTxns) {</b>
+<i class="no-highlight">743</i>&nbsp;            // TODO: very inefficient
+<b class="nc"><i class="no-highlight">744</i>&nbsp;            for (ReplayTxn atxn : activeTxns.getMap().values()) {</b>
+<b class="nc"><i class="no-highlight">745</i>&nbsp;                if (atxn == txn) {</b>
+<b class="nc"><i class="no-highlight">746</i>&nbsp;                    continue;</b>
+<i class="no-highlight">747</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">748</i>&nbsp;                if (atxn.getRepGroupDbChange()) {</b>
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                    return false;</b>
+<i class="no-highlight">750</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">751</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">752</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;        return true;</b>
+<i class="no-highlight">754</i>&nbsp;    }
+<i class="no-highlight">755</i>&nbsp;
+<i class="no-highlight">756</i>&nbsp;    /**
+<i class="no-highlight">757</i>&nbsp;     * Update this replica&#39;s node, txn and database sequences with any ids in
+<i class="no-highlight">758</i>&nbsp;     * this log entry. We can call update, even if the replay id doesn&#39;t
+<i class="no-highlight">759</i>&nbsp;     * represent a new lowest-id point, or if the apply is not successful,
+<i class="no-highlight">760</i>&nbsp;     * because the apply checks that the replay id is &lt; the sequence on the
+<i class="no-highlight">761</i>&nbsp;     * replica. We just want to ensure that if this node becomes the master,
+<i class="no-highlight">762</i>&nbsp;     * its sequences are in sync with what came before in the replication
+<i class="no-highlight">763</i>&nbsp;     * stream, and ids are not incorrectly reused.
+<i class="no-highlight">764</i>&nbsp;     */
+<i class="no-highlight">765</i>&nbsp;    private void updateReplicaSequences(LogEntry logEntry) {
+<i class="no-highlight">766</i>&nbsp;
+<i class="no-highlight">767</i>&nbsp;        /* For now, we assume all replay entries have a txn id. */
+<b class="nc"><i class="no-highlight">768</i>&nbsp;        repImpl.getTxnManager().updateFromReplay(logEntry.getTransactionId());</b>
+<i class="no-highlight">769</i>&nbsp;
+<i class="no-highlight">770</i>&nbsp;        /* If it&#39;s a database operation, update the database id. */
+<b class="nc"><i class="no-highlight">771</i>&nbsp;        if (logEntry instanceof NameLNLogEntry) {</b>
+<b class="nc"><i class="no-highlight">772</i>&nbsp;            NameLNLogEntry nameLogEntry = (NameLNLogEntry) logEntry;</b>
+<b class="nc"><i class="no-highlight">773</i>&nbsp;            nameLogEntry.postFetchInit(false /*isDupDb*/);</b>
+<b class="nc"><i class="no-highlight">774</i>&nbsp;            NameLN nameLN = (NameLN) nameLogEntry.getLN();</b>
+<b class="nc"><i class="no-highlight">775</i>&nbsp;            repImpl.getDbTree().updateFromReplay(nameLN.getId());</b>
+<i class="no-highlight">776</i>&nbsp;        }
+<i class="no-highlight">777</i>&nbsp;    }
+<i class="no-highlight">778</i>&nbsp;
+<i class="no-highlight">779</i>&nbsp;    /**
+<i class="no-highlight">780</i>&nbsp;     * Obtain a ReplayTxn to represent the incoming operation.
+<i class="no-highlight">781</i>&nbsp;     */
+<i class="no-highlight">782</i>&nbsp;    public ReplayTxn getReplayTxn(long txnId, boolean registerTxnImmediately)
+<i class="no-highlight">783</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">784</i>&nbsp;
+<b class="nc"><i class="no-highlight">785</i>&nbsp;        ReplayTxn useTxn = null;</b>
+<b class="nc"><i class="no-highlight">786</i>&nbsp;        synchronized (activeTxns) {</b>
+<b class="nc"><i class="no-highlight">787</i>&nbsp;            useTxn = activeTxns.get(txnId);</b>
+<b class="nc"><i class="no-highlight">788</i>&nbsp;            if (useTxn == null) {</b>
+<i class="no-highlight">789</i>&nbsp;
+<i class="no-highlight">790</i>&nbsp;                /*
+<i class="no-highlight">791</i>&nbsp;                 * Durability will be explicitly specified when
+<i class="no-highlight">792</i>&nbsp;                 * ReplayTxn.commit is called, so TransactionConfig.DEFAULT is
+<i class="no-highlight">793</i>&nbsp;                 * fine.
+<i class="no-highlight">794</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">795</i>&nbsp;                if (registerTxnImmediately) {</b>
+<b class="nc"><i class="no-highlight">796</i>&nbsp;                    useTxn = new ReplayTxn(repImpl, TransactionConfig.DEFAULT,</b>
+<i class="no-highlight">797</i>&nbsp;                                           txnId, activeTxns, logger);
+<i class="no-highlight">798</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">799</i>&nbsp;                    useTxn = new ReplayTxn(repImpl, TransactionConfig.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">800</i>&nbsp;                                           txnId, activeTxns, logger) {</b>
+<i class="no-highlight">801</i>&nbsp;                            @Override
+<i class="no-highlight">802</i>&nbsp;                            protected
+<i class="no-highlight">803</i>&nbsp;                            boolean registerImmediately() {
+<b class="nc"><i class="no-highlight">804</i>&nbsp;                                return false;</b>
+<i class="no-highlight">805</i>&nbsp;                            }
+<i class="no-highlight">806</i>&nbsp;                    };
+<i class="no-highlight">807</i>&nbsp;                }
+<i class="no-highlight">808</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">809</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">810</i>&nbsp;        return useTxn;</b>
+<i class="no-highlight">811</i>&nbsp;    }
+<i class="no-highlight">812</i>&nbsp;
+<i class="no-highlight">813</i>&nbsp;    /**
+<i class="no-highlight">814</i>&nbsp;     * Replays the NameLN.
+<i class="no-highlight">815</i>&nbsp;     *
+<i class="no-highlight">816</i>&nbsp;     * Note that the operations: remove, rename and truncate need to establish
+<i class="no-highlight">817</i>&nbsp;     * write locks on the database. Any open handles are closed by this
+<i class="no-highlight">818</i>&nbsp;     * operation by virtue of the ReplayTxn&#39;s importunate property.  The
+<i class="no-highlight">819</i>&nbsp;     * application will receive a LockPreemptedException if it subsequently
+<i class="no-highlight">820</i>&nbsp;     * accesses the database handle.
+<i class="no-highlight">821</i>&nbsp;     */
+<i class="no-highlight">822</i>&nbsp;    private void applyNameLN(ReplayTxn repTxn,
+<i class="no-highlight">823</i>&nbsp;                             InputWireRecord wireRecord)
+<i class="no-highlight">824</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">825</i>&nbsp;
+<b class="nc"><i class="no-highlight">826</i>&nbsp;        NameLNLogEntry nameLNEntry = (NameLNLogEntry) wireRecord.getLogEntry();</b>
+<b class="nc"><i class="no-highlight">827</i>&nbsp;        final NameLN nameLN = (NameLN) nameLNEntry.getLN();</b>
+<i class="no-highlight">828</i>&nbsp;
+<b class="nc"><i class="no-highlight">829</i>&nbsp;        String databaseName = StringUtils.fromUTF8(nameLNEntry.getKey());</b>
+<i class="no-highlight">830</i>&nbsp;
+<b class="nc"><i class="no-highlight">831</i>&nbsp;        final DbOpReplicationContext repContext =</b>
+<b class="nc"><i class="no-highlight">832</i>&nbsp;            new DbOpReplicationContext(wireRecord.getVLSN(), nameLNEntry);</b>
+<i class="no-highlight">833</i>&nbsp;
+<b class="nc"><i class="no-highlight">834</i>&nbsp;        DbOperationType opType = repContext.getDbOperationType();</b>
+<b class="nc"><i class="no-highlight">835</i>&nbsp;        DatabaseImpl dbImpl = null;</b>
+<i class="no-highlight">836</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">837</i>&nbsp;            switch (opType) {</b>
+<i class="no-highlight">838</i>&nbsp;                case CREATE:
+<i class="no-highlight">839</i>&nbsp;                {
+<b class="nc"><i class="no-highlight">840</i>&nbsp;                    DatabaseConfig dbConfig =</b>
+<b class="nc"><i class="no-highlight">841</i>&nbsp;                        repContext.getCreateConfig().getReplicaConfig(repImpl);</b>
+<i class="no-highlight">842</i>&nbsp;
+<b class="nc"><i class="no-highlight">843</i>&nbsp;                    dbImpl = repImpl.getDbTree().createReplicaDb</b>
+<b class="nc"><i class="no-highlight">844</i>&nbsp;                      (repTxn, databaseName, dbConfig, nameLN, repContext);</b>
+<i class="no-highlight">845</i>&nbsp;
+<i class="no-highlight">846</i>&nbsp;                    /*
+<i class="no-highlight">847</i>&nbsp;                     * We rely on the RepGroupDB.DB_ID value, so make sure
+<i class="no-highlight">848</i>&nbsp;                     * it&#39;s what we expect for this internal replicated
+<i class="no-highlight">849</i>&nbsp;                     * database.
+<i class="no-highlight">850</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">851</i>&nbsp;                    if ((dbImpl.getId().getId() == RepGroupDB.DB_ID) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;                        !DbType.REP_GROUP.getInternalName().equals</b>
+<b class="nc"><i class="no-highlight">853</i>&nbsp;                        (databaseName)) {</b>
+<b class="nc"><i class="no-highlight">854</i>&nbsp;                        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">855</i>&nbsp;                            (&quot;Database: &quot; +</b>
+<b class="nc"><i class="no-highlight">856</i>&nbsp;                             DbType.REP_GROUP.getInternalName() +</b>
+<i class="no-highlight">857</i>&nbsp;                             &quot; is associated with id: &quot; +
+<b class="nc"><i class="no-highlight">858</i>&nbsp;                             dbImpl.getId().getId() +</b>
+<i class="no-highlight">859</i>&nbsp;                             &quot; and not the reserved database id: &quot; +
+<i class="no-highlight">860</i>&nbsp;                             RepGroupDB.DB_ID);
+<i class="no-highlight">861</i>&nbsp;                    }
+<i class="no-highlight">862</i>&nbsp;
+<b class="nc"><i class="no-highlight">863</i>&nbsp;                    TriggerManager.runOpenTriggers(repTxn, dbImpl, true);</b>
+<b class="nc"><i class="no-highlight">864</i>&nbsp;                    break;</b>
+<i class="no-highlight">865</i>&nbsp;                }
+<i class="no-highlight">866</i>&nbsp;
+<i class="no-highlight">867</i>&nbsp;                case REMOVE: {
+<b class="nc"><i class="no-highlight">868</i>&nbsp;                    dbImpl = repImpl.getDbTree().getDb(nameLN.getId());</b>
+<i class="no-highlight">869</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">870</i>&nbsp;                        repImpl.getDbTree().removeReplicaDb</b>
+<b class="nc"><i class="no-highlight">871</i>&nbsp;                            (repTxn, databaseName, nameLN.getId(), repContext);</b>
+<b class="nc"><i class="no-highlight">872</i>&nbsp;                        TriggerManager.runRemoveTriggers(repTxn, dbImpl);</b>
+<b class="nc"><i class="no-highlight">873</i>&nbsp;                    } catch (DatabaseNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">874</i>&nbsp;                        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">875</i>&nbsp;                            (&quot;Database: &quot; + dbImpl.getName() +</b>
+<b class="nc"><i class="no-highlight">876</i>&nbsp;                             &quot; Id: &quot; + nameLN.getId() +</b>
+<i class="no-highlight">877</i>&nbsp;                             &quot; not found on the Replica.&quot;);
+<b class="nc"><i class="no-highlight">878</i>&nbsp;                    }</b>
+<i class="no-highlight">879</i>&nbsp;                    break;
+<i class="no-highlight">880</i>&nbsp;                }
+<i class="no-highlight">881</i>&nbsp;
+<i class="no-highlight">882</i>&nbsp;                case TRUNCATE: {
+<b class="nc"><i class="no-highlight">883</i>&nbsp;                    dbImpl = repImpl.getDbTree().getDb</b>
+<b class="nc"><i class="no-highlight">884</i>&nbsp;                        (repContext.getTruncateOldDbId());</b>
+<i class="no-highlight">885</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">886</i>&nbsp;                        TruncateDbResult result =</b>
+<b class="nc"><i class="no-highlight">887</i>&nbsp;                        repImpl.getDbTree().truncateReplicaDb</b>
+<b class="nc"><i class="no-highlight">888</i>&nbsp;                            (repTxn, databaseName, false, nameLN, repContext);</b>
+<b class="nc"><i class="no-highlight">889</i>&nbsp;                        TriggerManager.runTruncateTriggers(repTxn, result.newDb);</b>
+<b class="nc"><i class="no-highlight">890</i>&nbsp;                    } catch (DatabaseNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">891</i>&nbsp;                        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">892</i>&nbsp;                            (&quot;Database: &quot; + dbImpl.getName() +</b>
+<b class="nc"><i class="no-highlight">893</i>&nbsp;                             &quot; Id: &quot; + nameLN.getId() +</b>
+<i class="no-highlight">894</i>&nbsp;                             &quot; not found on the Replica.&quot;);
+<b class="nc"><i class="no-highlight">895</i>&nbsp;                    }</b>
+<i class="no-highlight">896</i>&nbsp;
+<i class="no-highlight">897</i>&nbsp;                    break;
+<i class="no-highlight">898</i>&nbsp;                }
+<i class="no-highlight">899</i>&nbsp;
+<i class="no-highlight">900</i>&nbsp;                case RENAME: {
+<b class="nc"><i class="no-highlight">901</i>&nbsp;                    dbImpl = repImpl.getDbTree().getDb(nameLN.getId());</b>
+<i class="no-highlight">902</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">903</i>&nbsp;                        dbImpl =</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;                        repImpl.getDbTree().renameReplicaDb</b>
+<b class="nc"><i class="no-highlight">905</i>&nbsp;                            (repTxn, dbImpl.getName(), databaseName, nameLN,</b>
+<i class="no-highlight">906</i>&nbsp;                             repContext);
+<b class="nc"><i class="no-highlight">907</i>&nbsp;                        TriggerManager.runRenameTriggers(repTxn, dbImpl,</b>
+<i class="no-highlight">908</i>&nbsp;                                                         databaseName);
+<b class="nc"><i class="no-highlight">909</i>&nbsp;                    } catch (DatabaseNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">910</i>&nbsp;                        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">911</i>&nbsp;                            (&quot;Database rename from: &quot; + dbImpl.getName() +</b>
+<i class="no-highlight">912</i>&nbsp;                             &quot; to &quot; + databaseName +
+<i class="no-highlight">913</i>&nbsp;                             &quot; failed, name not found on the Replica.&quot;);
+<b class="nc"><i class="no-highlight">914</i>&nbsp;                    }</b>
+<i class="no-highlight">915</i>&nbsp;                    break;
+<i class="no-highlight">916</i>&nbsp;                }
+<i class="no-highlight">917</i>&nbsp;
+<i class="no-highlight">918</i>&nbsp;                case UPDATE_CONFIG: {
+<i class="no-highlight">919</i>&nbsp;                    /* Get the replicated database configurations. */
+<b class="nc"><i class="no-highlight">920</i>&nbsp;                    DatabaseConfig dbConfig =</b>
+<b class="nc"><i class="no-highlight">921</i>&nbsp;                        repContext.getCreateConfig().getReplicaConfig(repImpl);</b>
+<i class="no-highlight">922</i>&nbsp;
+<i class="no-highlight">923</i>&nbsp;                    /* Update the NameLN and write it to the log. */
+<b class="nc"><i class="no-highlight">924</i>&nbsp;                    dbImpl = repImpl.getDbTree().getDb(nameLN.getId());</b>
+<b class="nc"><i class="no-highlight">925</i>&nbsp;                    final String dbName = dbImpl.getName();</b>
+<b class="nc"><i class="no-highlight">926</i>&nbsp;                    repImpl.getDbTree().updateNameLN</b>
+<b class="nc"><i class="no-highlight">927</i>&nbsp;                        (repTxn, dbName, repContext);</b>
+<i class="no-highlight">928</i>&nbsp;
+<i class="no-highlight">929</i>&nbsp;                    /* Set the new configurations to DatabaseImpl. */
+<b class="nc"><i class="no-highlight">930</i>&nbsp;                    dbImpl.setConfigProperties</b>
+<b class="nc"><i class="no-highlight">931</i>&nbsp;                        (repTxn, dbName, dbConfig, repImpl);</b>
+<i class="no-highlight">932</i>&nbsp;
+<b class="nc"><i class="no-highlight">933</i>&nbsp;                    repImpl.getDbTree().modifyDbRoot(dbImpl);</b>
+<i class="no-highlight">934</i>&nbsp;
+<b class="nc"><i class="no-highlight">935</i>&nbsp;                    break;</b>
+<i class="no-highlight">936</i>&nbsp;                }
+<i class="no-highlight">937</i>&nbsp;
+<i class="no-highlight">938</i>&nbsp;                default:
+<b class="nc"><i class="no-highlight">939</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">940</i>&nbsp;                        (&quot;Illegal database op type of &quot; + opType.toString() +</b>
+<i class="no-highlight">941</i>&nbsp;                         &quot; from &quot; + wireRecord + &quot; database=&quot; + databaseName);
+<i class="no-highlight">942</i>&nbsp;            }
+<i class="no-highlight">943</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">944</i>&nbsp;            if (dbImpl != null) {</b>
+<b class="nc"><i class="no-highlight">945</i>&nbsp;                repImpl.getDbTree().releaseDb(dbImpl);</b>
+<i class="no-highlight">946</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">947</i>&nbsp;        }</b>
+<i class="no-highlight">948</i>&nbsp;    }
+<i class="no-highlight">949</i>&nbsp;
+<i class="no-highlight">950</i>&nbsp;    private void applyLN(
+<i class="no-highlight">951</i>&nbsp;        final ReplayTxn repTxn,
+<i class="no-highlight">952</i>&nbsp;        final InputWireRecord wireRecord)
+<i class="no-highlight">953</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">954</i>&nbsp;
+<b class="nc"><i class="no-highlight">955</i>&nbsp;        final LNLogEntry&lt;?&gt; lnEntry = (LNLogEntry&lt;?&gt;) wireRecord.getLogEntry();</b>
+<b class="nc"><i class="no-highlight">956</i>&nbsp;        final DatabaseId dbId = lnEntry.getDbId();</b>
+<i class="no-highlight">957</i>&nbsp;
+<i class="no-highlight">958</i>&nbsp;        /*
+<i class="no-highlight">959</i>&nbsp;         * If this is a change to the rep group db, remember at commit time,
+<i class="no-highlight">960</i>&nbsp;         * and refresh this node&#39;s group metadata.
+<i class="no-highlight">961</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">962</i>&nbsp;        if (dbId.getId() == RepGroupDB.DB_ID) {</b>
+<b class="nc"><i class="no-highlight">963</i>&nbsp;            repTxn.noteRepGroupDbChange();</b>
+<i class="no-highlight">964</i>&nbsp;        }
+<i class="no-highlight">965</i>&nbsp;
+<i class="no-highlight">966</i>&nbsp;        /*
+<i class="no-highlight">967</i>&nbsp;         * Note that we don&#39;t have to worry about serializable isolation when
+<i class="no-highlight">968</i>&nbsp;         * applying a replicated txn; serializable isolation in only an issue
+<i class="no-highlight">969</i>&nbsp;         * for txns that take read locks, and a replicated txn consists only of
+<i class="no-highlight">970</i>&nbsp;         * write operations.
+<i class="no-highlight">971</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">972</i>&nbsp;        final DatabaseImpl dbImpl =</b>
+<b class="nc"><i class="no-highlight">973</i>&nbsp;            repImpl.getRepNode().getReplica().getDbCache().get(dbId, repTxn);</b>
+<i class="no-highlight">974</i>&nbsp;
+<b class="nc"><i class="no-highlight">975</i>&nbsp;        lnEntry.postFetchInit(dbImpl);</b>
+<i class="no-highlight">976</i>&nbsp;
+<b class="nc"><i class="no-highlight">977</i>&nbsp;        final ReplicationContext repContext =</b>
+<b class="nc"><i class="no-highlight">978</i>&nbsp;            new ReplicationContext(wireRecord.getVLSN());</b>
+<i class="no-highlight">979</i>&nbsp;
+<b class="nc"><i class="no-highlight">980</i>&nbsp;        try (final Cursor cursor = DbInternal.makeCursor(</b>
+<i class="no-highlight">981</i>&nbsp;                dbImpl, repTxn, null /*cursorConfig*/)) {
+<i class="no-highlight">982</i>&nbsp;
+<i class="no-highlight">983</i>&nbsp;            OperationResult result;
+<b class="nc"><i class="no-highlight">984</i>&nbsp;            final LN ln = lnEntry.getLN();</b>
+<i class="no-highlight">985</i>&nbsp;
+<i class="no-highlight">986</i>&nbsp;            /* In a dup DB, do not expect embedded LNs or non-empty data. */
+<b class="nc"><i class="no-highlight">987</i>&nbsp;            if (dbImpl.getSortedDuplicates() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">988</i>&nbsp;                (lnEntry.isEmbeddedLN() ||</b>
+<b class="nc"><i class="no-highlight">989</i>&nbsp;                 (ln.getData() != null &amp;&amp; ln.getData().length &gt; 0))) {</b>
+<i class="no-highlight">990</i>&nbsp;
+<b class="nc"><i class="no-highlight">991</i>&nbsp;                throw EnvironmentFailureException.unexpectedState(</b>
+<b class="nc"><i class="no-highlight">992</i>&nbsp;                    dbImpl.getEnv(),</b>
+<b class="nc"><i class="no-highlight">993</i>&nbsp;                    &quot;[#25288] emb=&quot; + lnEntry.isEmbeddedLN() +</b>
+<b class="nc"><i class="no-highlight">994</i>&nbsp;                    &quot; key=&quot; + Key.getNoFormatString(lnEntry.getKey()) +</b>
+<b class="nc"><i class="no-highlight">995</i>&nbsp;                    &quot; data=&quot; + Key.getNoFormatString(ln.getData()) +</b>
+<b class="nc"><i class="no-highlight">996</i>&nbsp;                    &quot; vlsn=&quot; + ln.getVLSNSequence());</b>
+<i class="no-highlight">997</i>&nbsp;            }
+<i class="no-highlight">998</i>&nbsp;
+<b class="nc"><i class="no-highlight">999</i>&nbsp;            if (ln.isDeleted()) {</b>
+<i class="no-highlight">1000</i>&nbsp;
+<i class="no-highlight">1001</i>&nbsp;                /*
+<i class="no-highlight">1002</i>&nbsp;                 * Perform an exact search by key. Use a partial data entry
+<i class="no-highlight">1003</i>&nbsp;                 * (delDataEntry) to avoid reading old data.
+<i class="no-highlight">1004</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;                replayKeyEntry.setData(lnEntry.getKey());</b>
+<i class="no-highlight">1006</i>&nbsp;
+<b class="nc"><i class="no-highlight">1007</i>&nbsp;                result = DbInternal.searchForReplay(</b>
+<i class="no-highlight">1008</i>&nbsp;                    cursor, replayKeyEntry, delDataEntry,
+<i class="no-highlight">1009</i>&nbsp;                    LockMode.RMW, SearchMode.SET);
+<i class="no-highlight">1010</i>&nbsp;
+<b class="nc"><i class="no-highlight">1011</i>&nbsp;                if (result != null) {</b>
+<b class="nc"><i class="no-highlight">1012</i>&nbsp;                    result = DbInternal.deleteForReplay(cursor, repContext);</b>
+<i class="no-highlight">1013</i>&nbsp;                }
+<i class="no-highlight">1014</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1015</i>&nbsp;                replayKeyEntry.setData(lnEntry.getKey());</b>
+<b class="nc"><i class="no-highlight">1016</i>&nbsp;                replayDataEntry.setData(ln.getData());</b>
+<i class="no-highlight">1017</i>&nbsp;
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;                result = DbInternal.putForReplay(</b>
+<i class="no-highlight">1019</i>&nbsp;                    cursor, replayKeyEntry, replayDataEntry, ln,
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;                    lnEntry.getExpiration(), lnEntry.isExpirationInHours(),</b>
+<i class="no-highlight">1021</i>&nbsp;                    PutMode.OVERWRITE, repContext);
+<i class="no-highlight">1022</i>&nbsp;            }
+<i class="no-highlight">1023</i>&nbsp;
+<b class="nc"><i class="no-highlight">1024</i>&nbsp;            if (result == null) {</b>
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;                throw new EnvironmentFailureException(</b>
+<i class="no-highlight">1026</i>&nbsp;                    repImpl,
+<i class="no-highlight">1027</i>&nbsp;                    EnvironmentFailureReason.LOG_INCOMPLETE,
+<i class="no-highlight">1028</i>&nbsp;                    &quot;Replicated operation could  not be applied. &quot; +
+<i class="no-highlight">1029</i>&nbsp;                    wireRecord);
+<i class="no-highlight">1030</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1031</i>&nbsp;        }</b>
+<i class="no-highlight">1032</i>&nbsp;    }
+<i class="no-highlight">1033</i>&nbsp;
+<i class="no-highlight">1034</i>&nbsp;    /**
+<i class="no-highlight">1035</i>&nbsp;     * Go through all active txns and rollback up to but not including the log
+<i class="no-highlight">1036</i>&nbsp;     * entry represented by the matchpoint VLSN.
+<i class="no-highlight">1037</i>&nbsp;     *
+<i class="no-highlight">1038</i>&nbsp;     * Effectively truncate these rolled back log entries by making them
+<i class="no-highlight">1039</i>&nbsp;     * invisible. Flush the log first, to make sure these log entries are out
+<i class="no-highlight">1040</i>&nbsp;     * of the log buffers and are on disk, so we can reliably find them through
+<i class="no-highlight">1041</i>&nbsp;     * the FileManager.
+<i class="no-highlight">1042</i>&nbsp;     *
+<i class="no-highlight">1043</i>&nbsp;     * Rollback steps are described in
+<i class="no-highlight">1044</i>&nbsp;     * https://sleepycat.oracle.com/trac/wiki/Logging#Recoverysteps. In
+<i class="no-highlight">1045</i>&nbsp;     * summary,
+<i class="no-highlight">1046</i>&nbsp;     *
+<i class="no-highlight">1047</i>&nbsp;     * 1. Log and fsync a new RollbackStart record
+<i class="no-highlight">1048</i>&nbsp;     * 2. Do the rollback in memory. There is no need to explicitly
+<i class="no-highlight">1049</i>&nbsp;     *    log INs made dirty by the rollback operation.
+<i class="no-highlight">1050</i>&nbsp;     * 3. Do invisibility masking by overwriting LNs.
+<i class="no-highlight">1051</i>&nbsp;     * 4. Fsync all overwritten log files at this point.
+<i class="no-highlight">1052</i>&nbsp;     * 5. Write a RollbackEnd record, for ease of debugging
+<i class="no-highlight">1053</i>&nbsp;     *
+<i class="no-highlight">1054</i>&nbsp;     * Note that application read txns  can continue to run during syncup.
+<i class="no-highlight">1055</i>&nbsp;     * Reader txns cannot access records that are being rolled back, because
+<i class="no-highlight">1056</i>&nbsp;     * they are in txns that are not committed, i.e, they are write locked.
+<i class="no-highlight">1057</i>&nbsp;     * The rollback interval never includes committed txns, and we do a hard
+<i class="no-highlight">1058</i>&nbsp;     * recovery if it would include them.
+<i class="no-highlight">1059</i>&nbsp;     */
+<i class="no-highlight">1060</i>&nbsp;    public void rollback(VLSN matchpointVLSN, long matchpointLsn) {
+<i class="no-highlight">1061</i>&nbsp;
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;        String rollbackStatus = RBSTATUS_START;</b>
+<i class="no-highlight">1063</i>&nbsp;
+<b class="nc"><i class="no-highlight">1064</i>&nbsp;        final Map&lt;Long, ReplayTxn&gt; localActiveTxns = copyActiveTxns();</b>
+<i class="no-highlight">1065</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;            if (localActiveTxns.size() == 0) {</b>
+<i class="no-highlight">1067</i>&nbsp;                /* no live read/write txns, nothing to do. */
+<b class="nc"><i class="no-highlight">1068</i>&nbsp;                rollbackStatus = RBSTATUS_NO_ACTIVE;</b>
+<i class="no-highlight">1069</i>&nbsp;                return;
+<i class="no-highlight">1070</i>&nbsp;            }
+<i class="no-highlight">1071</i>&nbsp;
+<b class="nc"><i class="no-highlight">1072</i>&nbsp;            VLSNRange range = repImpl.getVLSNIndex().getRange();</b>
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;            if (range.getLast().equals(matchpointVLSN)) {</b>
+<i class="no-highlight">1074</i>&nbsp;                /* nothing to roll back. */
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;                rollbackStatus = RBSTATUS_RANGE_EQUALS;</b>
+<i class="no-highlight">1076</i>&nbsp;                return;
+<i class="no-highlight">1077</i>&nbsp;            }
+<i class="no-highlight">1078</i>&nbsp;
+<b class="nc"><i class="no-highlight">1079</i>&nbsp;            repImpl.setSyncupProgress(SyncupProgress.DO_ROLLBACK);</b>
+<i class="no-highlight">1080</i>&nbsp;
+<i class="no-highlight">1081</i>&nbsp;            /*
+<i class="no-highlight">1082</i>&nbsp;             * Stop the log file backup service, since the files will be in an
+<i class="no-highlight">1083</i>&nbsp;             * inconsistent state while the rollback is in progress.
+<i class="no-highlight">1084</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1085</i>&nbsp;            repImpl.getRepNode().shutdownNetworkBackup();</b>
+<i class="no-highlight">1086</i>&nbsp;
+<i class="no-highlight">1087</i>&nbsp;            /*
+<i class="no-highlight">1088</i>&nbsp;             * Set repImpl&#39;s isRollingBack to true, and invalidate all the in
+<i class="no-highlight">1089</i>&nbsp;             * progress DbBackup.
+<i class="no-highlight">1090</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1091</i>&nbsp;            repImpl.setBackupProhibited(true);</b>
+<b class="nc"><i class="no-highlight">1092</i>&nbsp;            repImpl.invalidateBackups(DbLsn.getFileNumber(matchpointLsn));</b>
+<i class="no-highlight">1093</i>&nbsp;
+<i class="no-highlight">1094</i>&nbsp;            /*
+<i class="no-highlight">1095</i>&nbsp;             * 1. Log RollbackStart. The fsync guarantees that this marker will
+<i class="no-highlight">1096</i>&nbsp;             * be present in the log for recovery. It also ensures that all log
+<i class="no-highlight">1097</i>&nbsp;             * entries will be flushed to disk and the TxnChain will not have
+<i class="no-highlight">1098</i>&nbsp;             * to worry about entries that are in log buffers when constructing
+<i class="no-highlight">1099</i>&nbsp;             * the rollback information.
+<i class="no-highlight">1100</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1101</i>&nbsp;            LogManager logManager = repImpl.getLogManager();</b>
+<b class="nc"><i class="no-highlight">1102</i>&nbsp;            LogEntry rollbackStart = SingleItemEntry.create(</b>
+<i class="no-highlight">1103</i>&nbsp;                LogEntryType.LOG_ROLLBACK_START,
+<i class="no-highlight">1104</i>&nbsp;                new RollbackStart(
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;                    matchpointVLSN, matchpointLsn, localActiveTxns.keySet()));</b>
+<b class="nc"><i class="no-highlight">1106</i>&nbsp;            long rollbackStartLsn =</b>
+<b class="nc"><i class="no-highlight">1107</i>&nbsp;                logManager.logForceFlush(rollbackStart,</b>
+<i class="no-highlight">1108</i>&nbsp;                                         true, // fsyncRequired,
+<i class="no-highlight">1109</i>&nbsp;                                         ReplicationContext.NO_REPLICATE);
+<b class="nc"><i class="no-highlight">1110</i>&nbsp;            rollbackStatus = RBSTATUS_LOG_RBSTART;</b>
+<i class="no-highlight">1111</i>&nbsp;
+<i class="no-highlight">1112</i>&nbsp;            /*
+<i class="no-highlight">1113</i>&nbsp;             * 2. Do rollback in memory. Undo any operations that were logged
+<i class="no-highlight">1114</i>&nbsp;             * after the matchpointLsn, and save the LSNs for those log
+<i class="no-highlight">1115</i>&nbsp;             * entries.. There should be something to undo, because we checked
+<i class="no-highlight">1116</i>&nbsp;             * earlier that there were log entries after the matchpoint.
+<i class="no-highlight">1117</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1118</i>&nbsp;            List&lt;Long&gt; rollbackLsns = new ArrayList&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">1119</i>&nbsp;            for (ReplayTxn replayTxn : localActiveTxns.values()) {</b>
+<b class="nc"><i class="no-highlight">1120</i>&nbsp;                Collection&lt;Long&gt; txnRollbackLsns =</b>
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;                    replayTxn.rollback(matchpointLsn);</b>
+<i class="no-highlight">1122</i>&nbsp;
+<i class="no-highlight">1123</i>&nbsp;                /*
+<i class="no-highlight">1124</i>&nbsp;                 * Txns that were entirely rolled back should have been removed
+<i class="no-highlight">1125</i>&nbsp;                 * from the activeTxns map.
+<i class="no-highlight">1126</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1127</i>&nbsp;                assert checkRemoved(replayTxn) :</b>
+<i class="no-highlight">1128</i>&nbsp;                    &quot;Should have removed &quot; + replayTxn;
+<i class="no-highlight">1129</i>&nbsp;
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;                rollbackLsns.addAll(txnRollbackLsns);</b>
+<b class="nc"><i class="no-highlight">1131</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1132</i>&nbsp;            rollbackStatus = RBSTATUS_MEM_ROLLBACK;</b>
+<b class="nc"><i class="no-highlight">1133</i>&nbsp;            assert rollbackLsns.size() != 0 : dumpActiveTxns(matchpointLsn);</b>
+<i class="no-highlight">1134</i>&nbsp;
+<i class="no-highlight">1135</i>&nbsp;            /*
+<i class="no-highlight">1136</i>&nbsp;             * 3 &amp; 4 - Mark the rolled back log entries as invisible.  But
+<i class="no-highlight">1137</i>&nbsp;             * before doing so, invoke any registered rewrite listeners, so the
+<i class="no-highlight">1138</i>&nbsp;             * application knows that existing log files will be modified.
+<i class="no-highlight">1139</i>&nbsp;             *
+<i class="no-highlight">1140</i>&nbsp;             * After all are done, fsync the set of files. By waiting, some may
+<i class="no-highlight">1141</i>&nbsp;             * have made it out on their own.
+<i class="no-highlight">1142</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1143</i>&nbsp;            LogFileRewriteListener listener = repImpl.getLogRewriteListener();</b>
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;            if (listener != null) {</b>
+<b class="nc"><i class="no-highlight">1145</i>&nbsp;                listener.rewriteLogFiles(getFileNames(rollbackLsns));</b>
+<i class="no-highlight">1146</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1147</i>&nbsp;            RollbackTracker.makeInvisible(repImpl, rollbackLsns);</b>
+<b class="nc"><i class="no-highlight">1148</i>&nbsp;            rollbackStatus = RBSTATUS_INVISIBLE;</b>
+<i class="no-highlight">1149</i>&nbsp;
+<i class="no-highlight">1150</i>&nbsp;            /*
+<i class="no-highlight">1151</i>&nbsp;             * 5. Log RollbackEnd. Flush it so that we can use it to optimize
+<i class="no-highlight">1152</i>&nbsp;             * recoveries later on. If the RollbackEnd exists, we can skip the
+<i class="no-highlight">1153</i>&nbsp;             * step of re-making LNs invisible.
+<i class="no-highlight">1154</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1155</i>&nbsp;            logManager.logForceFlush(</b>
+<b class="nc"><i class="no-highlight">1156</i>&nbsp;                SingleItemEntry.create(LogEntryType.LOG_ROLLBACK_END,</b>
+<i class="no-highlight">1157</i>&nbsp;                                       new RollbackEnd(matchpointLsn,
+<i class="no-highlight">1158</i>&nbsp;                                                       rollbackStartLsn)),
+<i class="no-highlight">1159</i>&nbsp;                 true, // fsyncRequired
+<i class="no-highlight">1160</i>&nbsp;                 ReplicationContext.NO_REPLICATE);
+<i class="no-highlight">1161</i>&nbsp;
+<i class="no-highlight">1162</i>&nbsp;            /*
+<i class="no-highlight">1163</i>&nbsp;             * Restart the backup service only if all the steps of the
+<i class="no-highlight">1164</i>&nbsp;             * rollback were successful.
+<i class="no-highlight">1165</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1166</i>&nbsp;            repImpl.getRepNode().restartNetworkBackup();</b>
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;            repImpl.setBackupProhibited(false);</b>
+<b class="nc"><i class="no-highlight">1168</i>&nbsp;            rollbackStatus = RBSTATUS_FINISH;</b>
+<i class="no-highlight">1169</i>&nbsp;        } finally {
+<i class="no-highlight">1170</i>&nbsp;
+<i class="no-highlight">1171</i>&nbsp;            /* Reset the lastReplayedVLSN so it&#39;s correct when we resume. */
+<b class="nc"><i class="no-highlight">1172</i>&nbsp;            lastReplayedVLSN = matchpointVLSN;</b>
+<b class="nc"><i class="no-highlight">1173</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">1174</i>&nbsp;                             &quot;Rollback to matchpoint &quot; + matchpointVLSN +
+<b class="nc"><i class="no-highlight">1175</i>&nbsp;                             &quot; at &quot; + DbLsn.getNoFormatString(matchpointLsn) +</b>
+<i class="no-highlight">1176</i>&nbsp;                             &quot; status=&quot; + rollbackStatus);
+<b class="nc"><i class="no-highlight">1177</i>&nbsp;        }</b>
+<i class="no-highlight">1178</i>&nbsp;    }
+<i class="no-highlight">1179</i>&nbsp;
+<i class="no-highlight">1180</i>&nbsp;    /* For debugging support */
+<i class="no-highlight">1181</i>&nbsp;    private String dumpActiveTxns(long matchpointLsn) {
+<b class="nc"><i class="no-highlight">1182</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1183</i>&nbsp;        sb.append(&quot;matchpointLsn=&quot;);</b>
+<b class="nc"><i class="no-highlight">1184</i>&nbsp;        sb.append(DbLsn.getNoFormatString(matchpointLsn));</b>
+<b class="nc"><i class="no-highlight">1185</i>&nbsp;        for (ReplayTxn replayTxn : copyActiveTxns().values()) {</b>
+<b class="nc"><i class="no-highlight">1186</i>&nbsp;            sb.append(&quot;txn id=&quot;).append(replayTxn.getId());</b>
+<b class="nc"><i class="no-highlight">1187</i>&nbsp;            sb.append(&quot; locks=&quot;).append(replayTxn.getWriteLockIds());</b>
+<b class="nc"><i class="no-highlight">1188</i>&nbsp;            sb.append(&quot;lastLogged=&quot;);</b>
+<b class="nc"><i class="no-highlight">1189</i>&nbsp;            sb.append(DbLsn.getNoFormatString(replayTxn.getLastLsn()));</b>
+<b class="nc"><i class="no-highlight">1190</i>&nbsp;            sb.append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1191</i>&nbsp;        }</b>
+<i class="no-highlight">1192</i>&nbsp;
+<b class="nc"><i class="no-highlight">1193</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">1194</i>&nbsp;    }
+<i class="no-highlight">1195</i>&nbsp;
+<i class="no-highlight">1196</i>&nbsp;    private Set&lt;File&gt; getFileNames(List&lt;Long&gt; lsns) {
+<b class="nc"><i class="no-highlight">1197</i>&nbsp;        Set&lt;Long&gt; fileNums = new HashSet&lt;Long&gt;();</b>
+<b class="nc"><i class="no-highlight">1198</i>&nbsp;        Set&lt;File&gt; files = new HashSet&lt;File&gt;();</b>
+<i class="no-highlight">1199</i>&nbsp;
+<b class="nc"><i class="no-highlight">1200</i>&nbsp;        for (long lsn : lsns) {</b>
+<b class="nc"><i class="no-highlight">1201</i>&nbsp;            fileNums.add(DbLsn.getFileNumber(lsn));</b>
+<b class="nc"><i class="no-highlight">1202</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1203</i>&nbsp;        for (long fileNum : fileNums) {</b>
+<b class="nc"><i class="no-highlight">1204</i>&nbsp;            files.add(new File(FileManager.getFileName(fileNum)));</b>
+<b class="nc"><i class="no-highlight">1205</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1206</i>&nbsp;        return files;</b>
+<i class="no-highlight">1207</i>&nbsp;    }
+<i class="no-highlight">1208</i>&nbsp;
+<i class="no-highlight">1209</i>&nbsp;    private boolean checkRemoved(ReplayTxn txn) {
+<b class="nc"><i class="no-highlight">1210</i>&nbsp;        if (txn.isClosed()) {</b>
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;            if (activeTxns.get(txn.getId()) != null) {</b>
+<b class="nc"><i class="no-highlight">1212</i>&nbsp;                return false;</b>
+<i class="no-highlight">1213</i>&nbsp;            }
+<i class="no-highlight">1214</i>&nbsp;        }
+<i class="no-highlight">1215</i>&nbsp;
+<b class="nc"><i class="no-highlight">1216</i>&nbsp;        return true;</b>
+<i class="no-highlight">1217</i>&nbsp;    }
+<i class="no-highlight">1218</i>&nbsp;
+<i class="no-highlight">1219</i>&nbsp;    /**
+<i class="no-highlight">1220</i>&nbsp;     * Make a copy of activeTxns to avoid holding its mutex while iterating.
+<i class="no-highlight">1221</i>&nbsp;     * Can be used whenever the cost of the HashMap copy is not significant.
+<i class="no-highlight">1222</i>&nbsp;     */
+<i class="no-highlight">1223</i>&nbsp;    private Map&lt;Long, ReplayTxn&gt; copyActiveTxns() {
+<b class="nc"><i class="no-highlight">1224</i>&nbsp;        return activeTxns.getMap();</b>
+<i class="no-highlight">1225</i>&nbsp;    }
+<i class="no-highlight">1226</i>&nbsp;
+<i class="no-highlight">1227</i>&nbsp;    /**
+<i class="no-highlight">1228</i>&nbsp;     * Release all transactions, database handles, etc held by the replay
+<i class="no-highlight">1229</i>&nbsp;     * unit. The Replicator is closing down and Replay will not be invoked
+<i class="no-highlight">1230</i>&nbsp;     * again.
+<i class="no-highlight">1231</i>&nbsp;     */
+<i class="no-highlight">1232</i>&nbsp;    public void close() {
+<i class="no-highlight">1233</i>&nbsp;
+<b class="nc"><i class="no-highlight">1234</i>&nbsp;        for (ReplayTxn replayTxn : copyActiveTxns().values()) {</b>
+<i class="no-highlight">1235</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">1236</i>&nbsp;                if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">1237</i>&nbsp;                    LoggerUtils.fine(logger, repImpl,</b>
+<i class="no-highlight">1238</i>&nbsp;                                     &quot;Unregistering open replay txn: &quot; +
+<b class="nc"><i class="no-highlight">1239</i>&nbsp;                                     replayTxn.getId());</b>
+<i class="no-highlight">1240</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1241</i>&nbsp;                replayTxn.cleanup();</b>
+<b class="nc"><i class="no-highlight">1242</i>&nbsp;            } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">1243</i>&nbsp;                LoggerUtils.fine(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">1244</i>&nbsp;                                 &quot;Replay txn: &quot; + replayTxn.getId() +</b>
+<b class="nc"><i class="no-highlight">1245</i>&nbsp;                                 &quot; unregistration failed: &quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">1246</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1247</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1248</i>&nbsp;        assert activeTxns.isEmpty();</b>
+<i class="no-highlight">1249</i>&nbsp;    }
+<i class="no-highlight">1250</i>&nbsp;
+<i class="no-highlight">1251</i>&nbsp;    /**
+<i class="no-highlight">1252</i>&nbsp;     * Returns a copy of the statistics associated with Replay
+<i class="no-highlight">1253</i>&nbsp;     */
+<i class="no-highlight">1254</i>&nbsp;    public StatGroup getStats(StatsConfig config) {
+<b class="nc"><i class="no-highlight">1255</i>&nbsp;        StatGroup ret = statistics.cloneGroup(config.getClear());</b>
+<i class="no-highlight">1256</i>&nbsp;
+<b class="nc"><i class="no-highlight">1257</i>&nbsp;        return ret;</b>
+<i class="no-highlight">1258</i>&nbsp;    }
+<i class="no-highlight">1259</i>&nbsp;
+<i class="no-highlight">1260</i>&nbsp;    public void resetStats() {
+<b class="nc"><i class="no-highlight">1261</i>&nbsp;        statistics.clear();</b>
+<i class="no-highlight">1262</i>&nbsp;    }
+<i class="no-highlight">1263</i>&nbsp;
+<i class="no-highlight">1264</i>&nbsp;    /* For unit tests */
+<i class="no-highlight">1265</i>&nbsp;    public SimpleTxnMap&lt;ReplayTxn&gt; getActiveTxns() {
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;        return activeTxns;</b>
+<i class="no-highlight">1267</i>&nbsp;    }
+<i class="no-highlight">1268</i>&nbsp;
+<i class="no-highlight">1269</i>&nbsp;    public String dumpState() {
+<b class="nc"><i class="no-highlight">1270</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1271</i>&nbsp;        sb.append(&quot;lastReplayedTxn=&quot;).append(lastReplayedTxn);</b>
+<b class="nc"><i class="no-highlight">1272</i>&nbsp;        sb.append(&quot; lastReplayedVLSN=&quot;).append(lastReplayedVLSN);</b>
+<b class="nc"><i class="no-highlight">1273</i>&nbsp;        sb.append(&quot; numActiveReplayTxns=&quot;).append(activeTxns.size());</b>
+<b class="nc"><i class="no-highlight">1274</i>&nbsp;        sb.append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1275</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">1276</i>&nbsp;    }
+<i class="no-highlight">1277</i>&nbsp;
+<i class="no-highlight">1278</i>&nbsp;    /**
+<i class="no-highlight">1279</i>&nbsp;     * Write out any pending acknowledgments. See GroupCommit.flushPendingAcks
+<i class="no-highlight">1280</i>&nbsp;     * for details. This method is invoked after each log entry is read from
+<i class="no-highlight">1281</i>&nbsp;     * the replication stream.
+<i class="no-highlight">1282</i>&nbsp;     *
+<i class="no-highlight">1283</i>&nbsp;     * @param nowNs the time at the reading of the log entry
+<i class="no-highlight">1284</i>&nbsp;     */
+<i class="no-highlight">1285</i>&nbsp;    void flushPendingAcks(long nowNs)
+<i class="no-highlight">1286</i>&nbsp;        throws IOException {
+<i class="no-highlight">1287</i>&nbsp;
+<b class="nc"><i class="no-highlight">1288</i>&nbsp;        groupCommit.flushPendingAcks(nowNs);</b>
+<i class="no-highlight">1289</i>&nbsp;    }
+<i class="no-highlight">1290</i>&nbsp;
+<i class="no-highlight">1291</i>&nbsp;    /**
+<i class="no-highlight">1292</i>&nbsp;     * See GroupCommit.getPollIntervalNs(long)
+<i class="no-highlight">1293</i>&nbsp;     */
+<i class="no-highlight">1294</i>&nbsp;    long getPollIntervalNs(long defaultNs) {
+<b class="nc"><i class="no-highlight">1295</i>&nbsp;        return groupCommit.getPollIntervalNs(defaultNs);</b>
+<i class="no-highlight">1296</i>&nbsp;    }
+<i class="no-highlight">1297</i>&nbsp;
+<i class="no-highlight">1298</i>&nbsp;    /**
+<i class="no-highlight">1299</i>&nbsp;     * Implements group commit. It&#39;s really a substructure of Replay and exists
+<i class="no-highlight">1300</i>&nbsp;     * mainly for modularity reasons.
+<i class="no-highlight">1301</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1302</i>&nbsp;     * Since replay is single threaded, the group commit mechanism works
+<i class="no-highlight">1303</i>&nbsp;     * differently in the replica than in the master. In the replica, SYNC
+<i class="no-highlight">1304</i>&nbsp;     * transactions are converted into NO_SYNC transactions and executed
+<i class="no-highlight">1305</i>&nbsp;     * immediately, but their acknowledgments are delayed until after either
+<i class="no-highlight">1306</i>&nbsp;     * the REPLICA_GROUP_COMMIT_INTERVAL (the max amount the first transaction
+<i class="no-highlight">1307</i>&nbsp;     * in the group is delayed) has expired, or the size of the group (as
+<i class="no-highlight">1308</i>&nbsp;     * specified by REPLICA_MAX_GROUP_COMMIT) has been exceeded.
+<i class="no-highlight">1309</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1310</i>&nbsp;    private class GroupCommit {</b>
+<i class="no-highlight">1311</i>&nbsp;
+<i class="no-highlight">1312</i>&nbsp;        /* Size determines max fsync commits that can be grouped. */
+<i class="no-highlight">1313</i>&nbsp;        private final long pendingCommitAcks[];
+<i class="no-highlight">1314</i>&nbsp;
+<i class="no-highlight">1315</i>&nbsp;        /* Number of entries currently in pendingCommitAcks */
+<i class="no-highlight">1316</i>&nbsp;        private int nPendingAcks;
+<i class="no-highlight">1317</i>&nbsp;
+<i class="no-highlight">1318</i>&nbsp;        /*
+<i class="no-highlight">1319</i>&nbsp;         * If this time limit is reached, the group will be forced to commit.
+<i class="no-highlight">1320</i>&nbsp;         * Invariant: nPendingAcks &gt; 0 ==&gt; limitGroupCommitNs &gt; 0
+<i class="no-highlight">1321</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1322</i>&nbsp;        private long limitGroupCommitNs = 0;</b>
+<i class="no-highlight">1323</i>&nbsp;
+<i class="no-highlight">1324</i>&nbsp;        /* The time interval that an open group is held back. */
+<i class="no-highlight">1325</i>&nbsp;        private final long groupCommitIntervalNs;
+<i class="no-highlight">1326</i>&nbsp;
+<i class="no-highlight">1327</i>&nbsp;        private final LongStat nGroupCommitTimeouts;
+<i class="no-highlight">1328</i>&nbsp;        private final LongStat nGroupCommitMaxExceeded;
+<i class="no-highlight">1329</i>&nbsp;        private final LongStat nGroupCommits;
+<i class="no-highlight">1330</i>&nbsp;        private final LongStat nGroupCommitTxns;
+<i class="no-highlight">1331</i>&nbsp;
+<b class="nc"><i class="no-highlight">1332</i>&nbsp;        private GroupCommit(DbConfigManager configManager) {</b>
+<b class="nc"><i class="no-highlight">1333</i>&nbsp;            pendingCommitAcks = new long[configManager.</b>
+<b class="nc"><i class="no-highlight">1334</i>&nbsp;                getInt(RepParams.REPLICA_MAX_GROUP_COMMIT)];</b>
+<i class="no-highlight">1335</i>&nbsp;
+<b class="nc"><i class="no-highlight">1336</i>&nbsp;            nPendingAcks = 0;</b>
+<i class="no-highlight">1337</i>&nbsp;
+<b class="nc"><i class="no-highlight">1338</i>&nbsp;            final long groupCommitIntervalMs = configManager.</b>
+<b class="nc"><i class="no-highlight">1339</i>&nbsp;                getDuration(RepParams.REPLICA_GROUP_COMMIT_INTERVAL);</b>
+<i class="no-highlight">1340</i>&nbsp;
+<b class="nc"><i class="no-highlight">1341</i>&nbsp;            groupCommitIntervalNs =</b>
+<b class="nc"><i class="no-highlight">1342</i>&nbsp;                NANOSECONDS.convert(groupCommitIntervalMs, MILLISECONDS);</b>
+<b class="nc"><i class="no-highlight">1343</i>&nbsp;            nGroupCommitTimeouts =</b>
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;                new LongStat(statistics, N_GROUP_COMMIT_TIMEOUTS);</b>
+<i class="no-highlight">1345</i>&nbsp;
+<b class="nc"><i class="no-highlight">1346</i>&nbsp;            nGroupCommitMaxExceeded =</b>
+<b class="nc"><i class="no-highlight">1347</i>&nbsp;                new LongStat(statistics, N_GROUP_COMMIT_MAX_EXCEEDED);</b>
+<i class="no-highlight">1348</i>&nbsp;
+<b class="nc"><i class="no-highlight">1349</i>&nbsp;            nGroupCommitTxns =</b>
+<b class="nc"><i class="no-highlight">1350</i>&nbsp;                new LongStat(statistics, N_GROUP_COMMIT_TXNS);</b>
+<i class="no-highlight">1351</i>&nbsp;
+<b class="nc"><i class="no-highlight">1352</i>&nbsp;            nGroupCommits =</b>
+<b class="nc"><i class="no-highlight">1353</i>&nbsp;                new LongStat(statistics, N_GROUP_COMMITS);</b>
+<i class="no-highlight">1354</i>&nbsp;        }
+<i class="no-highlight">1355</i>&nbsp;
+<i class="no-highlight">1356</i>&nbsp;        /**
+<i class="no-highlight">1357</i>&nbsp;         * Returns true if group commits are enabled at the replica.
+<i class="no-highlight">1358</i>&nbsp;         */
+<i class="no-highlight">1359</i>&nbsp;        private boolean isEnabled() {
+<b class="nc"><i class="no-highlight">1360</i>&nbsp;            return pendingCommitAcks.length &gt; 0;</b>
+<i class="no-highlight">1361</i>&nbsp;        }
+<i class="no-highlight">1362</i>&nbsp;
+<i class="no-highlight">1363</i>&nbsp;        /**
+<i class="no-highlight">1364</i>&nbsp;         * The interval used to poll for incoming log entries. The time is
+<i class="no-highlight">1365</i>&nbsp;         * lowered from the defaultNs time, if there are pending
+<i class="no-highlight">1366</i>&nbsp;         * acknowledgments.
+<i class="no-highlight">1367</i>&nbsp;         *
+<i class="no-highlight">1368</i>&nbsp;         * @param defaultNs the default poll interval
+<i class="no-highlight">1369</i>&nbsp;         *
+<i class="no-highlight">1370</i>&nbsp;         * @return the actual poll interval
+<i class="no-highlight">1371</i>&nbsp;         */
+<i class="no-highlight">1372</i>&nbsp;        private long getPollIntervalNs(long defaultNs) {
+<b class="nc"><i class="no-highlight">1373</i>&nbsp;            if (nPendingAcks == 0) {</b>
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;                return defaultNs;</b>
+<i class="no-highlight">1375</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1376</i>&nbsp;            final long now = System.nanoTime();</b>
+<i class="no-highlight">1377</i>&nbsp;
+<b class="nc"><i class="no-highlight">1378</i>&nbsp;            final long interval = limitGroupCommitNs - now;</b>
+<b class="nc"><i class="no-highlight">1379</i>&nbsp;            return Math.min(interval, defaultNs);</b>
+<i class="no-highlight">1380</i>&nbsp;        }
+<i class="no-highlight">1381</i>&nbsp;
+<i class="no-highlight">1382</i>&nbsp;        /**
+<i class="no-highlight">1383</i>&nbsp;         * Returns the sync policy to be implemented at the replica. If
+<i class="no-highlight">1384</i>&nbsp;         * group commit is active, and SYNC is requested it will return
+<i class="no-highlight">1385</i>&nbsp;         * NO_SYNC instead to delay the fsync.
+<i class="no-highlight">1386</i>&nbsp;         *
+<i class="no-highlight">1387</i>&nbsp;         * @param txnSyncPolicy the sync policy as stated in the txn
+<i class="no-highlight">1388</i>&nbsp;         *
+<i class="no-highlight">1389</i>&nbsp;         * @return the sync policy to be implemented by the replica
+<i class="no-highlight">1390</i>&nbsp;         */
+<i class="no-highlight">1391</i>&nbsp;        private SyncPolicy getImplSyncPolicy(SyncPolicy txnSyncPolicy) {
+<b class="nc"><i class="no-highlight">1392</i>&nbsp;            return ((txnSyncPolicy ==  SyncPolicy.SYNC) &amp;&amp; isEnabled()) ?</b>
+<i class="no-highlight">1393</i>&nbsp;                   SyncPolicy.NO_SYNC : txnSyncPolicy;
+<i class="no-highlight">1394</i>&nbsp;        }
+<i class="no-highlight">1395</i>&nbsp;
+<i class="no-highlight">1396</i>&nbsp;        /**
+<i class="no-highlight">1397</i>&nbsp;         * Buffers the acknowledgment if the commit calls for a sync, or if
+<i class="no-highlight">1398</i>&nbsp;         * there are pending acknowledgments to ensure that acks are sent
+<i class="no-highlight">1399</i>&nbsp;         * in order.
+<i class="no-highlight">1400</i>&nbsp;         *
+<i class="no-highlight">1401</i>&nbsp;         * @param nowNs the current time
+<i class="no-highlight">1402</i>&nbsp;         * @param ackTxn the txn associated with the ack
+<i class="no-highlight">1403</i>&nbsp;         * @param txnSyncPolicy the sync policy as request by the committing
+<i class="no-highlight">1404</i>&nbsp;         * txn
+<i class="no-highlight">1405</i>&nbsp;         *
+<i class="no-highlight">1406</i>&nbsp;         * @return true if the ack has been buffered
+<i class="no-highlight">1407</i>&nbsp;         */
+<i class="no-highlight">1408</i>&nbsp;        private final boolean bufferAck(long nowNs,
+<i class="no-highlight">1409</i>&nbsp;                                        ReplayTxn ackTxn,
+<i class="no-highlight">1410</i>&nbsp;                                        SyncPolicy txnSyncPolicy)
+<i class="no-highlight">1411</i>&nbsp;            throws IOException {
+<i class="no-highlight">1412</i>&nbsp;
+<b class="nc"><i class="no-highlight">1413</i>&nbsp;            if (!isEnabled() ||</b>
+<i class="no-highlight">1414</i>&nbsp;                !((txnSyncPolicy == SyncPolicy.SYNC) || (nPendingAcks &gt; 0))) {
+<b class="nc"><i class="no-highlight">1415</i>&nbsp;                return false;</b>
+<i class="no-highlight">1416</i>&nbsp;            }
+<i class="no-highlight">1417</i>&nbsp;
+<b class="nc"><i class="no-highlight">1418</i>&nbsp;            pendingCommitAcks[nPendingAcks++] = ackTxn.getId();</b>
+<i class="no-highlight">1419</i>&nbsp;
+<b class="nc"><i class="no-highlight">1420</i>&nbsp;            if (nPendingAcks == 1) {</b>
+<i class="no-highlight">1421</i>&nbsp;                /* First txn in group, start the clock. */
+<b class="nc"><i class="no-highlight">1422</i>&nbsp;                limitGroupCommitNs = nowNs + groupCommitIntervalNs;</b>
+<i class="no-highlight">1423</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1424</i>&nbsp;                flushPendingAcks(nowNs);</b>
+<i class="no-highlight">1425</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1426</i>&nbsp;            return true;</b>
+<i class="no-highlight">1427</i>&nbsp;        }
+<i class="no-highlight">1428</i>&nbsp;
+<i class="no-highlight">1429</i>&nbsp;        /**
+<i class="no-highlight">1430</i>&nbsp;         * Flush if there are pending acks and either the buffer limit or the
+<i class="no-highlight">1431</i>&nbsp;         * group interval has been reached.
+<i class="no-highlight">1432</i>&nbsp;         *
+<i class="no-highlight">1433</i>&nbsp;         * @param nowNs the current time (passed in to minimize system calls)
+<i class="no-highlight">1434</i>&nbsp;         */
+<i class="no-highlight">1435</i>&nbsp;        private final void flushPendingAcks(long nowNs)
+<i class="no-highlight">1436</i>&nbsp;            throws IOException {
+<i class="no-highlight">1437</i>&nbsp;
+<b class="nc"><i class="no-highlight">1438</i>&nbsp;            if ((nPendingAcks == 0) ||</b>
+<i class="no-highlight">1439</i>&nbsp;                ((nPendingAcks != pendingCommitAcks.length) &amp;&amp;
+<b class="nc"><i class="no-highlight">1440</i>&nbsp;                 (NanoTimeUtil.compare(nowNs, limitGroupCommitNs) &lt; 0))) {</b>
+<i class="no-highlight">1441</i>&nbsp;
+<i class="no-highlight">1442</i>&nbsp;                return;
+<i class="no-highlight">1443</i>&nbsp;            }
+<i class="no-highlight">1444</i>&nbsp;
+<i class="no-highlight">1445</i>&nbsp;            /* Update statistics. */
+<b class="nc"><i class="no-highlight">1446</i>&nbsp;            nGroupCommits.increment();</b>
+<b class="nc"><i class="no-highlight">1447</i>&nbsp;            nGroupCommitTxns.add(nPendingAcks);</b>
+<b class="nc"><i class="no-highlight">1448</i>&nbsp;            if (NanoTimeUtil.compare(nowNs, limitGroupCommitNs) &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1449</i>&nbsp;                nGroupCommitTimeouts.increment();</b>
+<b class="nc"><i class="no-highlight">1450</i>&nbsp;            } else if (nPendingAcks &gt;= pendingCommitAcks.length) {</b>
+<b class="nc"><i class="no-highlight">1451</i>&nbsp;                nGroupCommitMaxExceeded.increment();</b>
+<i class="no-highlight">1452</i>&nbsp;            }
+<i class="no-highlight">1453</i>&nbsp;
+<i class="no-highlight">1454</i>&nbsp;            /* flush log buffer and fsync to disk */
+<b class="nc"><i class="no-highlight">1455</i>&nbsp;            repImpl.getLogManager().flushSync();</b>
+<i class="no-highlight">1456</i>&nbsp;
+<i class="no-highlight">1457</i>&nbsp;            /* commits are on disk, send out acknowledgments on the network. */
+<b class="nc"><i class="no-highlight">1458</i>&nbsp;            for (int i=0; i &lt; nPendingAcks; i++) {</b>
+<b class="nc"><i class="no-highlight">1459</i>&nbsp;                queueAck(pendingCommitAcks[i]);</b>
+<b class="nc"><i class="no-highlight">1460</i>&nbsp;                pendingCommitAcks[i] = 0;</b>
+<i class="no-highlight">1461</i>&nbsp;            }
+<i class="no-highlight">1462</i>&nbsp;
+<b class="nc"><i class="no-highlight">1463</i>&nbsp;            nPendingAcks = 0;</b>
+<b class="nc"><i class="no-highlight">1464</i>&nbsp;            limitGroupCommitNs = 0;</b>
+<i class="no-highlight">1465</i>&nbsp;        }
+<i class="no-highlight">1466</i>&nbsp;    }
+<i class="no-highlight">1467</i>&nbsp;
+<i class="no-highlight">1468</i>&nbsp;    /**
+<i class="no-highlight">1469</i>&nbsp;     * Simple helper class to package a Txn vlsn and its associated commit
+<i class="no-highlight">1470</i>&nbsp;     * time.
+<i class="no-highlight">1471</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1472</i>&nbsp;    public static class TxnInfo {</b>
+<i class="no-highlight">1473</i>&nbsp;        final VLSN txnVLSN;
+<i class="no-highlight">1474</i>&nbsp;        final long masterTxnEndTime;
+<i class="no-highlight">1475</i>&nbsp;
+<b class="nc"><i class="no-highlight">1476</i>&nbsp;        private TxnInfo(VLSN txnVLSN, long masterTxnEndTime) {</b>
+<b class="nc"><i class="no-highlight">1477</i>&nbsp;            this.txnVLSN = txnVLSN;</b>
+<b class="nc"><i class="no-highlight">1478</i>&nbsp;            this.masterTxnEndTime = masterTxnEndTime;</b>
+<i class="no-highlight">1479</i>&nbsp;        }
+<i class="no-highlight">1480</i>&nbsp;
+<i class="no-highlight">1481</i>&nbsp;        public VLSN getTxnVLSN() {
+<b class="nc"><i class="no-highlight">1482</i>&nbsp;            return txnVLSN;</b>
+<i class="no-highlight">1483</i>&nbsp;        }
+<i class="no-highlight">1484</i>&nbsp;
+<i class="no-highlight">1485</i>&nbsp;        public long getMasterTxnEndTime() {
+<b class="nc"><i class="no-highlight">1486</i>&nbsp;            return masterTxnEndTime;</b>
+<i class="no-highlight">1487</i>&nbsp;        }
+<i class="no-highlight">1488</i>&nbsp;
+<i class="no-highlight">1489</i>&nbsp;        @Override
+<i class="no-highlight">1490</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">1491</i>&nbsp;            return &quot; VLSN: &quot; + txnVLSN +</b>
+<i class="no-highlight">1492</i>&nbsp;                &quot; masterTxnEndTime=&quot; + new Date(masterTxnEndTime);
+<i class="no-highlight">1493</i>&nbsp;        }
+<i class="no-highlight">1494</i>&nbsp;    }
+<i class="no-highlight">1495</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

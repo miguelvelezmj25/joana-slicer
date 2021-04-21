@@ -1,0 +1,323 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FreePortLocator</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: FreePortLocator (com.sleepycat.je.rep.utilint)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FreePortLocator</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/77)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;import java.net.DatagramSocket;
+<i class="no-highlight">18</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">19</i>&nbsp;import java.net.ServerSocket;
+<i class="no-highlight">20</i>&nbsp;import java.net.Socket;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;/**
+<i class="no-highlight">23</i>&nbsp; * An iterator to iterate over the free ports on an interface.
+<i class="no-highlight">24</i>&nbsp; */
+<b class="nc"><i class="no-highlight">25</i>&nbsp;public class FreePortLocator {</b>
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;    /**
+<i class="no-highlight">28</i>&nbsp;     * Whether to print debugging messages -- use this to find tests that are
+<i class="no-highlight">29</i>&nbsp;     * not closing ports.
+<i class="no-highlight">30</i>&nbsp;     */
+<i class="no-highlight">31</i>&nbsp;    private static final boolean debug =
+<b class="nc"><i class="no-highlight">32</i>&nbsp;        Boolean.getBoolean(&quot;test.debugFreePortLocator&quot;);</b>
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;    private final String hostname;
+<i class="no-highlight">35</i>&nbsp;    private final int portStart;
+<i class="no-highlight">36</i>&nbsp;    private final int portEnd;
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;    private int currPort;
+<i class="no-highlight">39</i>&nbsp;
+<i class="no-highlight">40</i>&nbsp;    /**
+<i class="no-highlight">41</i>&nbsp;     * Constructor identifying the interface and the port range within which
+<i class="no-highlight">42</i>&nbsp;     * to look for free ports. The port range specified by the arguments
+<i class="no-highlight">43</i>&nbsp;     * must be &lt; 32768, that is, it should be outside the dynamic port range
+<i class="no-highlight">44</i>&nbsp;     * that is typically configured on most machines.
+<i class="no-highlight">45</i>&nbsp;     *
+<i class="no-highlight">46</i>&nbsp;     * @see &lt;a href=&quot;https://sleepycat.oracle.com/trac/wiki/JEKV/UnitTest#Avoidingproblemswithanonymousports.html&quot;&gt;Anonymous ports&lt;/a&gt;
+<i class="no-highlight">47</i>&nbsp;     * for details regarding port configuration for tests.
+<i class="no-highlight">48</i>&nbsp;     */
+<i class="no-highlight">49</i>&nbsp;    public FreePortLocator(String hostname, int portStart, int portEnd) {
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        super();</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;        assert portStart &lt; portEnd;</b>
+<i class="no-highlight">52</i>&nbsp;
+<b class="nc"><i class="no-highlight">53</i>&nbsp;        if ((portStart &gt; 0x7fff) || (portEnd &gt; 0x7fff)) {</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">55</i>&nbsp;                (&quot;Invalid port range:&quot; + portStart + &quot; - &quot; + portEnd + &quot;. &quot; +
+<i class="no-highlight">56</i>&nbsp;                 &quot;The port range must not extend past:&quot; + 0x7fff +
+<i class="no-highlight">57</i>&nbsp;                 &quot; since the allocated ports could then overlap with &quot; +
+<i class="no-highlight">58</i>&nbsp;                 &quot;dynamically assigned ports used by other services. &quot;);
+<i class="no-highlight">59</i>&nbsp;        }
+<i class="no-highlight">60</i>&nbsp;
+<b class="nc"><i class="no-highlight">61</i>&nbsp;        this.hostname = hostname;</b>
+<b class="nc"><i class="no-highlight">62</i>&nbsp;        this.portStart = portStart;</b>
+<b class="nc"><i class="no-highlight">63</i>&nbsp;        this.portEnd = portEnd;</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;        currPort = portStart;</b>
+<i class="no-highlight">65</i>&nbsp;    }
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    public int getPortStart() {
+<b class="nc"><i class="no-highlight">68</i>&nbsp;        return portStart;</b>
+<i class="no-highlight">69</i>&nbsp;    }
+<i class="no-highlight">70</i>&nbsp;
+<i class="no-highlight">71</i>&nbsp;    public int getPortEnd() {
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        return portEnd;</b>
+<i class="no-highlight">73</i>&nbsp;    }
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    /**
+<i class="no-highlight">76</i>&nbsp;     * Returns the next free port. Note that it&#39;s possible that on a busy
+<i class="no-highlight">77</i>&nbsp;     * machine another process may grab the &quot;free&quot; port before it&#39;s actually
+<i class="no-highlight">78</i>&nbsp;     * used.
+<i class="no-highlight">79</i>&nbsp;     *
+<i class="no-highlight">80</i>&nbsp;     * There is somewhat AIsh aspect to the code below. In general it tries to
+<i class="no-highlight">81</i>&nbsp;     * be very conservative, using different techniques so that it works
+<i class="no-highlight">82</i>&nbsp;     * reasonably well on Linux, Mac OS and Windows.
+<i class="no-highlight">83</i>&nbsp;     *
+<i class="no-highlight">84</i>&nbsp;     * Note: The use of setReuseAddress after a bind operation may look
+<i class="no-highlight">85</i>&nbsp;     * dubious, since it runs counter to the API doc, but it helps based on
+<i class="no-highlight">86</i>&nbsp;     * actual tests. It&#39;s also the idiom used by Apache Camel to find a
+<i class="no-highlight">87</i>&nbsp;     * free port. It, at least, can&#39;t hurt.
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    public int next() {
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        while (++currPort &lt; portEnd) {</b>
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;            /* Try connecting to the port to see if somebody is listening. */
+<b class="nc"><i class="no-highlight">93</i>&nbsp;            Socket s = null;</b>
+<i class="no-highlight">94</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">95</i>&nbsp;                s = new Socket(hostname, currPort);</b>
+<i class="no-highlight">96</i>&nbsp;                /* Somebody is listening on the port. */
+<b class="nc"><i class="no-highlight">97</i>&nbsp;                if (debug) {</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                    System.err.println(</b>
+<i class="no-highlight">99</i>&nbsp;                        &quot;FreePortLocator: &quot; + currPort + &quot; busy - socket&quot;);
+<b class="nc"><i class="no-highlight">100</i>&nbsp;                    Thread.dumpStack();</b>
+<i class="no-highlight">101</i>&nbsp;                }
+<i class="no-highlight">102</i>&nbsp;                continue;
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">104</i>&nbsp;                /* Nobody is listening, continue with other tests. */
+<i class="no-highlight">105</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">106</i>&nbsp;                if (s != null){</b>
+<i class="no-highlight">107</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                        s.close();</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                    } catch (IOException e) {</b>
+<i class="no-highlight">110</i>&nbsp;                        /* Unexpected, something&#39;s wrong, ignore the port. */
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                        if (debug) {</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                            System.err.println(</b>
+<i class="no-highlight">113</i>&nbsp;                                &quot;FreePortLocator: &quot; + currPort +
+<i class="no-highlight">114</i>&nbsp;                                &quot; busy - socket close: &quot; + e);
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                            e.printStackTrace();</b>
+<i class="no-highlight">116</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                       continue;</b>
+<b class="nc"><i class="no-highlight">118</i>&nbsp;                    }</b>
+<i class="no-highlight">119</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">120</i>&nbsp;            }</b>
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;            /* Try without a hostname */
+<b class="nc"><i class="no-highlight">123</i>&nbsp;            ServerSocket ss = null;</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;            DatagramSocket ds = null;</b>
+<i class="no-highlight">125</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">126</i>&nbsp;                ss = new ServerSocket(currPort);</b>
+<b class="nc"><i class="no-highlight">127</i>&nbsp;                ss.setReuseAddress(true);</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;                ds = new DatagramSocket(currPort);</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;                ds.setReuseAddress(true);</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;                if (debug) {</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;                    System.err.println(</b>
+<i class="no-highlight">133</i>&nbsp;                        &quot;FreePortLocator: &quot; + currPort +
+<i class="no-highlight">134</i>&nbsp;                        &quot; busy - server, datagram: &quot; + e);
+<b class="nc"><i class="no-highlight">135</i>&nbsp;                    e.printStackTrace();</b>
+<i class="no-highlight">136</i>&nbsp;                }
+<i class="no-highlight">137</i>&nbsp;                continue;
+<i class="no-highlight">138</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">139</i>&nbsp;                if (ds != null) {</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;                    ds.close();</b>
+<i class="no-highlight">141</i>&nbsp;                }
+<i class="no-highlight">142</i>&nbsp;
+<b class="nc"><i class="no-highlight">143</i>&nbsp;                if (ss != null) {</b>
+<i class="no-highlight">144</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">145</i>&nbsp;                        ss.close();</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;                    } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;                        if (debug) {</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;                            System.err.println(</b>
+<i class="no-highlight">149</i>&nbsp;                                &quot;FreePortLocator: &quot; + currPort +
+<i class="no-highlight">150</i>&nbsp;                                &quot; busy - server close: &quot; + e);
+<b class="nc"><i class="no-highlight">151</i>&nbsp;                            e.printStackTrace();</b>
+<i class="no-highlight">152</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">153</i>&nbsp;                        continue;</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;                    }</b>
+<i class="no-highlight">155</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">156</i>&nbsp;            }</b>
+<i class="no-highlight">157</i>&nbsp;
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            ss = null;</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            ds = null;</b>
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;            /* try with a hostname */
+<b class="nc"><i class="no-highlight">162</i>&nbsp;           final InetSocketAddress sa =</b>
+<i class="no-highlight">163</i>&nbsp;               new InetSocketAddress(hostname, currPort);
+<i class="no-highlight">164</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">165</i>&nbsp;                ss = new ServerSocket();</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                ss.setReuseAddress(true);</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                ss.bind(sa);</b>
+<i class="no-highlight">168</i>&nbsp;
+<b class="nc"><i class="no-highlight">169</i>&nbsp;                ds = new DatagramSocket(sa);</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;                ds.setReuseAddress(true);</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                if (debug) {</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;                    System.err.println(</b>
+<i class="no-highlight">174</i>&nbsp;                        &quot;FreePortLocator: &quot; + currPort +
+<i class="no-highlight">175</i>&nbsp;                        &quot; busy - server, datagram hostname: &quot; + e);
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                    e.printStackTrace();</b>
+<i class="no-highlight">177</i>&nbsp;                }
+<i class="no-highlight">178</i>&nbsp;                continue;
+<i class="no-highlight">179</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">180</i>&nbsp;                if (ds != null) {</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;                    ds.close();</b>
+<i class="no-highlight">182</i>&nbsp;                }
+<i class="no-highlight">183</i>&nbsp;
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                if (ss != null) {</b>
+<i class="no-highlight">185</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                        ss.close();</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                    } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                        if (debug) {</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;                            System.err.println(</b>
+<i class="no-highlight">190</i>&nbsp;                                &quot;FreePortLocator: &quot; + currPort +
+<i class="no-highlight">191</i>&nbsp;                                &quot; busy - server hostname close: &quot; + e);
+<b class="nc"><i class="no-highlight">192</i>&nbsp;                            e.printStackTrace();</b>
+<i class="no-highlight">193</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">194</i>&nbsp;                        continue;</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                    }</b>
+<i class="no-highlight">196</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">197</i>&nbsp;            }</b>
+<i class="no-highlight">198</i>&nbsp;
+<i class="no-highlight">199</i>&nbsp;            /* Survived port test gauntlet, return it. */
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            if (debug) {</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                System.err.println(</b>
+<i class="no-highlight">202</i>&nbsp;                    &quot;FreePortLocator: &quot; + currPort + &quot; free&quot;);
+<i class="no-highlight">203</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            return currPort;</b>
+<i class="no-highlight">205</i>&nbsp;        }
+<i class="no-highlight">206</i>&nbsp;
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        throw new IllegalStateException</b>
+<i class="no-highlight">208</i>&nbsp;            (&quot;No more ports available in the range: &quot; +
+<i class="no-highlight">209</i>&nbsp;             portStart + &quot; - &quot; + portEnd);
+<i class="no-highlight">210</i>&nbsp;    }
+<i class="no-highlight">211</i>&nbsp;
+<i class="no-highlight">212</i>&nbsp;    /**
+<i class="no-highlight">213</i>&nbsp;     * Skip a number of ports.
+<i class="no-highlight">214</i>&nbsp;     */
+<i class="no-highlight">215</i>&nbsp;    public void skip(int num) {
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        currPort += num;</b>
+<i class="no-highlight">217</i>&nbsp;    }
+<i class="no-highlight">218</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

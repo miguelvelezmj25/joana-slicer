@@ -1,0 +1,272 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LDiffUtil</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.util.ldiff</a>
+</div>
+
+<h1>Coverage Summary for Class: LDiffUtil (com.sleepycat.je.rep.util.ldiff)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LDiffUtil</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/71)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.util.ldiff;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.File;
+<i class="no-highlight">17</i>&nbsp;import java.security.MessageDigest;
+<i class="no-highlight">18</i>&nbsp;import java.security.NoSuchAlgorithmException;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DatabaseConfig;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentLockedException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.LockMode;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.utilint.Adler32;
+<i class="no-highlight">31</i>&nbsp;
+<b class="nc"><i class="no-highlight">32</i>&nbsp;public class LDiffUtil {</b>
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;    /* Convenient masking constant. */
+<i class="no-highlight">35</i>&nbsp;    final static long MASK_32BIT = 0xffffffffl;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;    /* To compute a MD5 hash for each block. */
+<b class="nc"><i class="no-highlight">38</i>&nbsp;    static MessageDigest md = null;</b>
+<i class="no-highlight">39</i>&nbsp;    static {
+<i class="no-highlight">40</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">41</i>&nbsp;            md = MessageDigest.getInstance(&quot;MD5&quot;);</b>
+<b class="nc"><i class="no-highlight">42</i>&nbsp;        } catch (NoSuchAlgorithmException e) {</b>
+<b class="nc"><i class="no-highlight">43</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">44</i>&nbsp;        }</b>
+<i class="no-highlight">45</i>&nbsp;    }
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;    /* Concatenate two byte arrays into one. */
+<i class="no-highlight">48</i>&nbsp;    public static byte[] concatByteArray(byte[] a, byte[] b) {
+<b class="nc"><i class="no-highlight">49</i>&nbsp;        if ((a == null) || (b == null)) {</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;            return (a == null) ? b : a;</b>
+<i class="no-highlight">51</i>&nbsp;        }
+<i class="no-highlight">52</i>&nbsp;
+<b class="nc"><i class="no-highlight">53</i>&nbsp;        int len = a.length + b.length;</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;        byte[] dest = new byte[len];</b>
+<i class="no-highlight">55</i>&nbsp;        /* Copy the content of a to dest. */
+<b class="nc"><i class="no-highlight">56</i>&nbsp;        System.arraycopy(a, 0, dest, 0, a.length);</b>
+<i class="no-highlight">57</i>&nbsp;        /* Copy the content from b to the remaining part of dest. */
+<b class="nc"><i class="no-highlight">58</i>&nbsp;        System.arraycopy(b, 0, dest, a.length, b.length);</b>
+<i class="no-highlight">59</i>&nbsp;
+<b class="nc"><i class="no-highlight">60</i>&nbsp;        return dest;</b>
+<i class="no-highlight">61</i>&nbsp;    }
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /**
+<i class="no-highlight">64</i>&nbsp;     * Each byte (Xi in the tech report) is replaced by a 32 bit Adler checksum
+<i class="no-highlight">65</i>&nbsp;     * of the bytes representing the concatenation of the key/value pair.
+<i class="no-highlight">66</i>&nbsp;     * 
+<i class="no-highlight">67</i>&nbsp;     * @return the checksum
+<i class="no-highlight">68</i>&nbsp;     */
+<i class="no-highlight">69</i>&nbsp;    public static int getXi(byte[] keyValue) {
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        Adler32 adler32 = new Adler32();</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        adler32.update(keyValue, 0, keyValue.length);</b>
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        return (int) adler32.getValue();</b>
+<i class="no-highlight">73</i>&nbsp;    }
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    public static Block readBlock(int blockId, Cursor cursor, int numKeys)
+<i class="no-highlight">76</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;        /* DatabaseEntry represents the key and data of each record. */
+<b class="nc"><i class="no-highlight">79</i>&nbsp;        DatabaseEntry key = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;        DatabaseEntry data = new DatabaseEntry();</b>
+<i class="no-highlight">81</i>&nbsp;        /* Adler32 to compute the rolling checksum of key/data pair. */
+<b class="nc"><i class="no-highlight">82</i>&nbsp;        Adler32 adler32 = new Adler32();</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        int i = 0;</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;        int a = 0, b = 0;</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;        md.reset();</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        Block block = new Block(blockId);</b>
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;        /* Please pay attention to the check order in while loop. */
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        while ((i &lt; numKeys) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;               (cursor.getNext(key, data, LockMode.DEFAULT) ==</b>
+<i class="no-highlight">91</i>&nbsp;                OperationStatus.SUCCESS)) {
+<i class="no-highlight">92</i>&nbsp;            /* Indicates having a new block. */
+<b class="nc"><i class="no-highlight">93</i>&nbsp;            if (i == 0) {</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;                block.setBeginKey(key.getData());</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;                block.setBeginData(data.getData());</b>
+<i class="no-highlight">96</i>&nbsp;            }
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;            /* Calculate rollingChksum on &quot;key|data&quot; bytes. */
+<b class="nc"><i class="no-highlight">99</i>&nbsp;            adler32.reset();</b>
+<b class="nc"><i class="no-highlight">100</i>&nbsp;            adler32.update(key.getData(), 0, key.getData().length);</b>
+<b class="nc"><i class="no-highlight">101</i>&nbsp;            adler32.update(data.getData(), 0, data.getData().length);</b>
+<b class="nc"><i class="no-highlight">102</i>&nbsp;            final int xi = (int) adler32.getValue();</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            a += xi;</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;            b += a;</b>
+<i class="no-highlight">105</i>&nbsp;            /* Update MessageDigest with &quot;key|data&quot; bytes. */
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            md.update(key.getData());</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;            md.update(data.getData());</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;            i++;</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        }</b>
+<i class="no-highlight">110</i>&nbsp;
+<i class="no-highlight">111</i>&nbsp;        /* Allocate a block and return. */
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        long cksum = (a &amp; LDiffUtil.MASK_32BIT) | ((long) b &lt;&lt; 32);</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        block.setRollingChksum(cksum);</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        block.setMd5Hash(md.digest());</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        block.setNumRecords(i);</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        return block;</b>
+<i class="no-highlight">117</i>&nbsp;    }
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    public static Environment openEnv(String envDir) {
+<i class="no-highlight">120</i>&nbsp;        /* Open the database environment. */
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        EnvironmentConfig envConfig = new EnvironmentConfig();</b>
+<i class="no-highlight">122</i>&nbsp;        /* envConfig.setTransactional(false); */
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        envConfig.setAllowCreate(false);</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        envConfig.setReadOnly(true);</b>
+<i class="no-highlight">125</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">126</i>&nbsp;            return new Environment(new File(envDir), envConfig);</b>
+<b class="nc"><i class="no-highlight">127</i>&nbsp;        } catch (EnvironmentLockedException e) {</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        return null;</b>
+<i class="no-highlight">133</i>&nbsp;    }
+<i class="no-highlight">134</i>&nbsp;
+<i class="no-highlight">135</i>&nbsp;    public static Database openDb(Environment env, String dbName) {
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;        /* Open the remote database within that environment. */
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        DatabaseConfig dbConfig = new DatabaseConfig();</b>
+<i class="no-highlight">139</i>&nbsp;        /* dbConfig.setTransactional(false); */
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        dbConfig.setAllowCreate(false);</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        dbConfig.setReadOnly(true);</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;        dbConfig.setSortedDuplicates(true);</b>
+<i class="no-highlight">143</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">144</i>&nbsp;            return env.openDatabase(null, dbName, dbConfig);</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;            e.printStackTrace();</b>
+<i class="no-highlight">147</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        return null;</b>
+<i class="no-highlight">149</i>&nbsp;    }
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;    public static void close(Environment env, Database db) {
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        if (db != null) {</b>
+<i class="no-highlight">153</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">154</i>&nbsp;                db.close();</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;                e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            }</b>
+<i class="no-highlight">158</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        if (env != null) {</b>
+<i class="no-highlight">160</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                env.close();</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;            }</b>
+<i class="no-highlight">165</i>&nbsp;        }
+<i class="no-highlight">166</i>&nbsp;    }
+<i class="no-highlight">167</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,627 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > INList</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.dbi</a>
+</div>
+
+<h1>Coverage Summary for Class: INList (com.sleepycat.je.dbi)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">INList</td>
+<td class="coverageStat">
+  <span class="percent">
+    77.3%
+  </span>
+  <span class="absValue">
+    (17/22)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    67.7%
+  </span>
+  <span class="absValue">
+    (90/133)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">INList$Iter</td>
+<td class="coverageStat">
+  <span class="percent">
+    83.3%
+  </span>
+  <span class="absValue">
+    (5/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    64%
+  </span>
+  <span class="absValue">
+    (16/25)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    78.6%
+  </span>
+  <span class="absValue">
+    (22/28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    67.1%
+  </span>
+  <span class="absValue">
+    (106/158)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.dbi;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">17</i>&nbsp;import java.util.NoSuchElementException;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.ConcurrentHashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.ConcurrentMap;
+<i class="no-highlight">20</i>&nbsp;import java.util.concurrent.atomic.AtomicLong;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.CacheMode;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.evictor.Evictor;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.evictor.EvictorStatDefinition;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">30</i>&nbsp;
+<i class="no-highlight">31</i>&nbsp;/**
+<i class="no-highlight">32</i>&nbsp; * The INList is a list of in-memory INs for a given environment.
+<i class="no-highlight">33</i>&nbsp; *
+<i class="no-highlight">34</i>&nbsp; * For an explanation of the &#39;enabled&#39; mode, see RecoveryManager class
+<i class="no-highlight">35</i>&nbsp; * comments.
+<i class="no-highlight">36</i>&nbsp; */
+<b class="fc"><i class="no-highlight">37</i>&nbsp;public class INList implements Iterable&lt;IN&gt; {</b>
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;    private EnvironmentImpl envImpl;
+<i class="no-highlight">40</i>&nbsp;    private boolean enabled;
+<i class="no-highlight">41</i>&nbsp;    private volatile boolean recalcInProgress;
+<i class="no-highlight">42</i>&nbsp;    private volatile boolean recalcToggle;
+<i class="no-highlight">43</i>&nbsp;    private boolean recalcConsistent;
+<i class="no-highlight">44</i>&nbsp;    private AtomicLong recalcTotal;
+<i class="no-highlight">45</i>&nbsp;
+<i class="no-highlight">46</i>&nbsp;    /**
+<i class="no-highlight">47</i>&nbsp;     * We use a Map of INs because there is no ConcurrentHashSet, only a
+<i class="no-highlight">48</i>&nbsp;     * ConcurrentHashMap.  But this map is treated as a set of INs with the
+<i class="no-highlight">49</i>&nbsp;     * same object as the key and the value.
+<i class="no-highlight">50</i>&nbsp;     */
+<i class="no-highlight">51</i>&nbsp;    private final ConcurrentMap&lt;IN, IN&gt; ins;
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /**
+<i class="no-highlight">54</i>&nbsp;     * Stats about the composition of the INList must be kept in this class
+<i class="no-highlight">55</i>&nbsp;     * rather than the evictor because a sharedEnvCache encompasses many
+<i class="no-highlight">56</i>&nbsp;     * INLists. Note that we are keeping a true StatGroup instance/Stat fields.
+<i class="no-highlight">57</i>&nbsp;     * That&#39;s because these values are &quot;instantaneous&quot;, and don&#39;t need to obey
+<i class="no-highlight">58</i>&nbsp;     * the accumulate/clear semantics of stats. When stats are loaded, we&#39;ll
+<i class="no-highlight">59</i>&nbsp;     * just create a new stats group to pass back.
+<i class="no-highlight">60</i>&nbsp;     */
+<i class="no-highlight">61</i>&nbsp;    private AtomicLong nCachedUpperINs;
+<i class="no-highlight">62</i>&nbsp;    private AtomicLong nCachedBINs;
+<i class="no-highlight">63</i>&nbsp;    private AtomicLong nCachedBINDeltas;
+<i class="no-highlight">64</i>&nbsp;
+<b class="fc"><i class="no-highlight">65</i>&nbsp;    INList(EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">66</i>&nbsp;        init(envImpl);</b>
+<b class="fc"><i class="no-highlight">67</i>&nbsp;        ins = new ConcurrentHashMap&lt;IN, IN&gt;();</b>
+<b class="fc"><i class="no-highlight">68</i>&nbsp;        enabled = false;</b>
+<b class="fc"><i class="no-highlight">69</i>&nbsp;    }</b>
+<i class="no-highlight">70</i>&nbsp;
+<i class="no-highlight">71</i>&nbsp;    private void init(EnvironmentImpl environmentImpl) {
+<b class="fc"><i class="no-highlight">72</i>&nbsp;        this.envImpl = environmentImpl;</b>
+<b class="fc"><i class="no-highlight">73</i>&nbsp;        recalcInProgress = false;</b>
+<b class="fc"><i class="no-highlight">74</i>&nbsp;        recalcToggle = false;</b>
+<b class="fc"><i class="no-highlight">75</i>&nbsp;        recalcConsistent = true;</b>
+<b class="fc"><i class="no-highlight">76</i>&nbsp;        recalcTotal = new AtomicLong();</b>
+<i class="no-highlight">77</i>&nbsp;
+<b class="fc"><i class="no-highlight">78</i>&nbsp;        nCachedUpperINs = new AtomicLong();</b>
+<b class="fc"><i class="no-highlight">79</i>&nbsp;        nCachedBINs = new AtomicLong();</b>
+<b class="fc"><i class="no-highlight">80</i>&nbsp;        nCachedBINDeltas = new AtomicLong();</b>
+<b class="fc"><i class="no-highlight">81</i>&nbsp;    }</b>
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;    /**
+<i class="no-highlight">84</i>&nbsp;     * All stats from the INList are instantaneous -- never need to be cleared.
+<i class="no-highlight">85</i>&nbsp;     */
+<i class="no-highlight">86</i>&nbsp;    public StatGroup loadStats() {
+<b class="nc"><i class="no-highlight">87</i>&nbsp;        StatGroup stats = new StatGroup(EvictorStatDefinition.GROUP_NAME,</b>
+<i class="no-highlight">88</i>&nbsp;                              EvictorStatDefinition.GROUP_DESC);
+<i class="no-highlight">89</i>&nbsp;
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        long istat = nCachedUpperINs.get();</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        long bstat = nCachedBINs.get();</b>
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        long bdstat = nCachedBINDeltas.get();</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        new LongStat(stats, EvictorStatDefinition.CACHED_UPPER_INS,</b>
+<i class="no-highlight">94</i>&nbsp;                     istat);
+<b class="nc"><i class="no-highlight">95</i>&nbsp;        new LongStat(stats, EvictorStatDefinition.CACHED_BINS,</b>
+<i class="no-highlight">96</i>&nbsp;                     bstat);
+<b class="nc"><i class="no-highlight">97</i>&nbsp;        new LongStat(stats, EvictorStatDefinition.CACHED_BIN_DELTAS,</b>
+<i class="no-highlight">98</i>&nbsp;                     bdstat);
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;        // verifyPrint(istat, bstat);
+<i class="no-highlight">101</i>&nbsp;
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        return stats;</b>
+<i class="no-highlight">103</i>&nbsp;    }
+<i class="no-highlight">104</i>&nbsp;
+<i class="no-highlight">105</i>&nbsp;    private void verifyPrint(long istat, long bstat) {
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        int numINs = 0;</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        int numBINs = 0;</b>
+<i class="no-highlight">108</i>&nbsp;
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        for (IN theIN : ins.keySet()) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;            if (theIN instanceof BIN) {</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                numBINs++;</b>
+<i class="no-highlight">112</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                numINs++;</b>
+<i class="no-highlight">114</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        System.out.println(&quot;size=&quot; + getSize() + &quot; INcount=&quot; + numINs +</b>
+<i class="no-highlight">117</i>&nbsp;                           &quot; BINCount=&quot; + numBINs + &quot; INstat=&quot; + istat +
+<i class="no-highlight">118</i>&nbsp;                           &quot; bstat=&quot; + bstat);
+<b class="nc"><i class="no-highlight">119</i>&nbsp;    }</b>
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /*
+<i class="no-highlight">122</i>&nbsp;     * Ok to be imprecise.
+<i class="no-highlight">123</i>&nbsp;     */
+<i class="no-highlight">124</i>&nbsp;    public int getSize() {
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        return ins.size();</b>
+<i class="no-highlight">126</i>&nbsp;    }
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    public boolean contains(IN in) {
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        return ins.containsKey(in);</b>
+<i class="no-highlight">130</i>&nbsp;    }
+<i class="no-highlight">131</i>&nbsp;
+<i class="no-highlight">132</i>&nbsp;    /**
+<i class="no-highlight">133</i>&nbsp;     * Enable the INList during recovery.
+<i class="no-highlight">134</i>&nbsp;     */
+<i class="no-highlight">135</i>&nbsp;    public void enable() {
+<b class="fc"><i class="no-highlight">136</i>&nbsp;        assert ins.isEmpty();</b>
+<b class="fc"><i class="no-highlight">137</i>&nbsp;        assert !enabled;</b>
+<b class="fc"><i class="no-highlight">138</i>&nbsp;        enabled = true;</b>
+<b class="fc"><i class="no-highlight">139</i>&nbsp;    }</b>
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;    public boolean isEnabled() {
+<b class="fc"><i class="no-highlight">142</i>&nbsp;        return enabled;</b>
+<i class="no-highlight">143</i>&nbsp;    }
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;    /**
+<i class="no-highlight">146</i>&nbsp;     * An IN has just come into memory, add it to the list.
+<i class="no-highlight">147</i>&nbsp;     */
+<i class="no-highlight">148</i>&nbsp;    public void add(IN in) {
+<i class="no-highlight">149</i>&nbsp;        /* Ignore additions until the INList is enabled. */
+<b class="fc"><i class="no-highlight">150</i>&nbsp;        if (!enabled) {</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;            return;</b>
+<i class="no-highlight">152</i>&nbsp;        }
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;        /* Be sure to check for BIN first, since it&#39;s a subclass of IN! */
+<b class="fc"><i class="no-highlight">155</i>&nbsp;        if (in.isBIN()) {</b>
+<b class="fc"><i class="no-highlight">156</i>&nbsp;            nCachedBINs.incrementAndGet();</b>
+<b class="fc"><i class="no-highlight">157</i>&nbsp;            if (in.isBINDelta(false)) {</b>
+<b class="fc"><i class="no-highlight">158</i>&nbsp;                nCachedBINDeltas.incrementAndGet();</b>
+<i class="no-highlight">159</i>&nbsp;            }
+<i class="no-highlight">160</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">161</i>&nbsp;            nCachedUpperINs.incrementAndGet();</b>
+<i class="no-highlight">162</i>&nbsp;        }
+<i class="no-highlight">163</i>&nbsp;
+<i class="no-highlight">164</i>&nbsp;        /*
+<i class="no-highlight">165</i>&nbsp;         * Use putIfAbsent to ensure that we never overwrite an IN, since this
+<i class="no-highlight">166</i>&nbsp;         * can cause Btree corruption.  Throw a fatal EFE if the IN is already
+<i class="no-highlight">167</i>&nbsp;         * present to detect potential corruption bugs early. [#21686]
+<i class="no-highlight">168</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">169</i>&nbsp;        IN oldValue = ins.putIfAbsent(in, in);</b>
+<b class="fc"><i class="no-highlight">170</i>&nbsp;        if (oldValue != null) {</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                (envImpl,</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;                 &quot;Failed adding new IN node=&quot; + in.getNodeId() +</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                 &quot; dbIdentity=&quot; + System.identityHashCode(in.getDatabase()) +</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;                 &quot; db=&quot; + in.getDatabase().dumpString(0) +</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                 &quot;\nExisting IN node=&quot; + oldValue.getNodeId() +</b>
+<i class="no-highlight">177</i>&nbsp;                 &quot; dbIdentity=&quot; +
+<b class="nc"><i class="no-highlight">178</i>&nbsp;                 System.identityHashCode(oldValue.getDatabase()) +</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                 &quot; db=&quot; + oldValue.getDatabase().dumpString(0));</b>
+<i class="no-highlight">180</i>&nbsp;        }
+<i class="no-highlight">181</i>&nbsp;
+<b class="fc"><i class="no-highlight">182</i>&nbsp;        long size = in.getBudgetedMemorySize();</b>
+<b class="fc"><i class="no-highlight">183</i>&nbsp;        memRecalcAdd(in, size);</b>
+<b class="fc"><i class="no-highlight">184</i>&nbsp;        envImpl.getMemoryBudget().updateTreeMemoryUsage(size);</b>
+<b class="fc"><i class="no-highlight">185</i>&nbsp;        in.setInListResident(true);</b>
+<b class="fc"><i class="no-highlight">186</i>&nbsp;    }</b>
+<i class="no-highlight">187</i>&nbsp;
+<i class="no-highlight">188</i>&nbsp;    /**
+<i class="no-highlight">189</i>&nbsp;     * An IN is being evicted.
+<i class="no-highlight">190</i>&nbsp;     */
+<i class="no-highlight">191</i>&nbsp;    public void remove(IN in) {
+<b class="fc"><i class="no-highlight">192</i>&nbsp;        if (!enabled) {</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            return;</b>
+<i class="no-highlight">194</i>&nbsp;        }
+<i class="no-highlight">195</i>&nbsp; 
+<b class="fc"><i class="no-highlight">196</i>&nbsp;        boolean removed = removeInternal(in);</b>
+<b class="fc"><i class="no-highlight">197</i>&nbsp;        assert removed;</b>
+<i class="no-highlight">198</i>&nbsp;
+<b class="fc"><i class="no-highlight">199</i>&nbsp;        long delta = 0 - in.getBudgetedMemorySize();</b>
+<b class="fc"><i class="no-highlight">200</i>&nbsp;        memRecalcRemove(in, delta);</b>
+<b class="fc"><i class="no-highlight">201</i>&nbsp;        envImpl.getMemoryBudget().updateTreeMemoryUsage(delta);</b>
+<b class="fc"><i class="no-highlight">202</i>&nbsp;    }</b>
+<i class="no-highlight">203</i>&nbsp;
+<i class="no-highlight">204</i>&nbsp;    /**
+<i class="no-highlight">205</i>&nbsp;     * Performs unconditional IN removal, but does not update memory usage.
+<i class="no-highlight">206</i>&nbsp;     *
+<i class="no-highlight">207</i>&nbsp;     * @returns whether the IN was found in the map and removed.
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    private boolean removeInternal(IN in) {
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;        /* Be sure to check for BIN first, since it&#39;s a subclass of IN! */
+<b class="fc"><i class="no-highlight">212</i>&nbsp;        if (in.isBIN()) {</b>
+<b class="fc"><i class="no-highlight">213</i>&nbsp;            nCachedBINs.decrementAndGet();</b>
+<b class="fc"><i class="no-highlight">214</i>&nbsp;            if (in.isBINDelta(false/*checkLatched*/)) {</b>
+<b class="fc"><i class="no-highlight">215</i>&nbsp;                nCachedBINDeltas.decrementAndGet();</b>
+<i class="no-highlight">216</i>&nbsp;            }
+<i class="no-highlight">217</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">218</i>&nbsp;            nCachedUpperINs.decrementAndGet();</b>
+<i class="no-highlight">219</i>&nbsp;        }
+<i class="no-highlight">220</i>&nbsp;
+<b class="fc"><i class="no-highlight">221</i>&nbsp;        final Evictor evictor = envImpl.getEvictor();</b>
+<i class="no-highlight">222</i>&nbsp;
+<b class="fc"><i class="no-highlight">223</i>&nbsp;        boolean latchAcquired = false;</b>
+<b class="fc"><i class="no-highlight">224</i>&nbsp;        if (!in.isLatchOwner()) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            in.latch(CacheMode.UNCHANGED);</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;            latchAcquired = true;</b>
+<i class="no-highlight">227</i>&nbsp;        }
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">230</i>&nbsp;            evictor.remove(in);</b>
+<b class="fc"><i class="no-highlight">231</i>&nbsp;            in.setInListResident(false);</b>
+<b class="fc"><i class="no-highlight">232</i>&nbsp;            envImpl.getOffHeapCache().removeINFromMain(in);</b>
+<i class="no-highlight">233</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">234</i>&nbsp;            if (latchAcquired) {</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;                in.releaseLatch();</b>
+<i class="no-highlight">236</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        }</b>
+<i class="no-highlight">238</i>&nbsp;
+<b class="fc"><i class="no-highlight">239</i>&nbsp;        IN oldValue = ins.remove(in);</b>
+<b class="fc"><i class="no-highlight">240</i>&nbsp;        return oldValue != null;</b>
+<i class="no-highlight">241</i>&nbsp;    }
+<i class="no-highlight">242</i>&nbsp;
+<i class="no-highlight">243</i>&nbsp;    public void updateBINDeltaStat(int incr) {
+<b class="fc"><i class="no-highlight">244</i>&nbsp;        nCachedBINDeltas.addAndGet(incr);</b>
+<b class="fc"><i class="no-highlight">245</i>&nbsp;    }</b>
+<i class="no-highlight">246</i>&nbsp;
+<i class="no-highlight">247</i>&nbsp;    /**
+<i class="no-highlight">248</i>&nbsp;     * Return an iterator over the main &#39;ins&#39; set.  Returned iterator may or
+<i class="no-highlight">249</i>&nbsp;     * may not show elements added or removed after the iterator is created.
+<i class="no-highlight">250</i>&nbsp;     *
+<i class="no-highlight">251</i>&nbsp;     * @return an iterator over the main &#39;ins&#39; set.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    public Iterator&lt;IN&gt; iterator() {
+<b class="fc"><i class="no-highlight">254</i>&nbsp;        return new Iter();</b>
+<i class="no-highlight">255</i>&nbsp;    }
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;    /**
+<i class="no-highlight">258</i>&nbsp;     * A direct Iterator on the INList may return INs that have been removed,
+<i class="no-highlight">259</i>&nbsp;     * since the underlying ConcurrentHashMap doesn&#39;t block changes to the list
+<i class="no-highlight">260</i>&nbsp;     * during the iteration.  This Iterator implementation wraps a direct
+<i class="no-highlight">261</i>&nbsp;     * Iterator and returns only those INs that are on the INList.
+<i class="no-highlight">262</i>&nbsp;     *
+<i class="no-highlight">263</i>&nbsp;     * Note that this doesn&#39;t guarantee that an IN will not be removed from the
+<i class="no-highlight">264</i>&nbsp;     * INList after being returned by this iterator.  But filtering out the INs
+<i class="no-highlight">265</i>&nbsp;     * already removed will avoid wasting effort in the evictor, checkpointer,
+<i class="no-highlight">266</i>&nbsp;     * and other places where INs are iterated and processed.
+<i class="no-highlight">267</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">268</i>&nbsp;    private class Iter implements Iterator&lt;IN&gt; {</b>
+<i class="no-highlight">269</i>&nbsp;
+<i class="no-highlight">270</i>&nbsp;        private final Iterator&lt;IN&gt; baseIter;
+<i class="no-highlight">271</i>&nbsp;        private IN next;
+<i class="no-highlight">272</i>&nbsp;        private IN lastReturned;
+<i class="no-highlight">273</i>&nbsp;
+<b class="fc"><i class="no-highlight">274</i>&nbsp;        private Iter() {</b>
+<b class="fc"><i class="no-highlight">275</i>&nbsp;            baseIter = ins.keySet().iterator();</b>
+<b class="fc"><i class="no-highlight">276</i>&nbsp;        }</b>
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;        public boolean hasNext() {
+<b class="fc"><i class="no-highlight">279</i>&nbsp;            if (next != null) {</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;                return true;</b>
+<i class="no-highlight">281</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">282</i>&nbsp;                return advance();</b>
+<i class="no-highlight">283</i>&nbsp;            }
+<i class="no-highlight">284</i>&nbsp;        }
+<i class="no-highlight">285</i>&nbsp;
+<i class="no-highlight">286</i>&nbsp;        public IN next() {
+<b class="fc"><i class="no-highlight">287</i>&nbsp;            if (next == null) {</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                if (!advance()) {</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                    throw new NoSuchElementException();</b>
+<i class="no-highlight">290</i>&nbsp;                }
+<i class="no-highlight">291</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">292</i>&nbsp;            lastReturned = next;</b>
+<b class="fc"><i class="no-highlight">293</i>&nbsp;            next = null;</b>
+<b class="fc"><i class="no-highlight">294</i>&nbsp;            return lastReturned;</b>
+<i class="no-highlight">295</i>&nbsp;        }
+<i class="no-highlight">296</i>&nbsp;
+<i class="no-highlight">297</i>&nbsp;        private boolean advance() {
+<b class="fc"><i class="no-highlight">298</i>&nbsp;            while (baseIter.hasNext()) {</b>
+<b class="fc"><i class="no-highlight">299</i>&nbsp;                IN in = baseIter.next();</b>
+<b class="fc"><i class="no-highlight">300</i>&nbsp;                if (in.getInListResident()) {</b>
+<b class="fc"><i class="no-highlight">301</i>&nbsp;                    next = in;</b>
+<b class="fc"><i class="no-highlight">302</i>&nbsp;                    return true;</b>
+<i class="no-highlight">303</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">305</i>&nbsp;            return false;</b>
+<i class="no-highlight">306</i>&nbsp;        }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;        /**
+<i class="no-highlight">309</i>&nbsp;         * Caller must update memory usage.
+<i class="no-highlight">310</i>&nbsp;         */
+<i class="no-highlight">311</i>&nbsp;        @Override
+<i class="no-highlight">312</i>&nbsp;        public void remove() {
+<b class="nc"><i class="no-highlight">313</i>&nbsp;            if (lastReturned != null) {</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;                removeInternal(lastReturned);</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;                lastReturned = null;</b>
+<i class="no-highlight">316</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">317</i>&nbsp;                throw EnvironmentFailureException.unexpectedState();</b>
+<i class="no-highlight">318</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        }</b>
+<i class="no-highlight">320</i>&nbsp;    }
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;    /**
+<i class="no-highlight">323</i>&nbsp;     * Clear the entire list at shutdown and release its portion of the memory
+<i class="no-highlight">324</i>&nbsp;     * budget.
+<i class="no-highlight">325</i>&nbsp;     */
+<i class="no-highlight">326</i>&nbsp;    public void clear()  {
+<i class="no-highlight">327</i>&nbsp;
+<b class="fc"><i class="no-highlight">328</i>&nbsp;        ins.clear();</b>
+<b class="fc"><i class="no-highlight">329</i>&nbsp;        nCachedUpperINs.set(0);</b>
+<b class="fc"><i class="no-highlight">330</i>&nbsp;        nCachedBINs.set(0);</b>
+<b class="fc"><i class="no-highlight">331</i>&nbsp;        nCachedBINDeltas.set(0);</b>
+<i class="no-highlight">332</i>&nbsp;
+<b class="fc"><i class="no-highlight">333</i>&nbsp;        MemoryBudget mb = envImpl.getMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">334</i>&nbsp;        mb.refreshTreeMemoryUsage(0);</b>
+<b class="fc"><i class="no-highlight">335</i>&nbsp;        mb.refreshTreeAdminMemoryUsage(0);</b>
+<b class="fc"><i class="no-highlight">336</i>&nbsp;    }</b>
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;    public void dump() {
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        System.out.println(&quot;size=&quot; + getSize());</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        for (IN theIN : ins.keySet()) {</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;            System.out.println(&quot;db=&quot; + theIN.getDatabase().getId() +</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;                               &quot; nid=: &quot; + theIN.getNodeId() + &quot;/&quot; +</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;                               theIN.getLevel());</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;    }</b>
+<i class="no-highlight">346</i>&nbsp;
+<i class="no-highlight">347</i>&nbsp;    /*
+<i class="no-highlight">348</i>&nbsp;     * The following set of memRecalc methods allow an iteration over the
+<i class="no-highlight">349</i>&nbsp;     * INList to recalculate the tree memory budget.  This is done during a
+<i class="no-highlight">350</i>&nbsp;     * checkpoint by the DirtyINMap class.
+<i class="no-highlight">351</i>&nbsp;     *
+<i class="no-highlight">352</i>&nbsp;     * We flip the INList toggle, recalcToggle, at the beginning of the recalc.
+<i class="no-highlight">353</i>&nbsp;     * At that point, if recalcConsistent is true, all IN toggles have the
+<i class="no-highlight">354</i>&nbsp;     * opposite value of recalcToggle.  As we process INs we flip their
+<i class="no-highlight">355</i>&nbsp;     * toggles.  We can tell whether we have already processed an IN by
+<i class="no-highlight">356</i>&nbsp;     * comparing its toggle to recalcToggle.  If they are equal, we have
+<i class="no-highlight">357</i>&nbsp;     * already processed the IN.
+<i class="no-highlight">358</i>&nbsp;     *
+<i class="no-highlight">359</i>&nbsp;     * The scenarios below describe how the recalcTotal is updated for a
+<i class="no-highlight">360</i>&nbsp;     * particular IN.
+<i class="no-highlight">361</i>&nbsp;     *
+<i class="no-highlight">362</i>&nbsp;     * Scenario #1: IN size is unchanged during the iteration
+<i class="no-highlight">363</i>&nbsp;     *  begin
+<i class="no-highlight">364</i>&nbsp;     *   iterate -- add total IN size, mark processed
+<i class="no-highlight">365</i>&nbsp;     *  end
+<i class="no-highlight">366</i>&nbsp;     *
+<i class="no-highlight">367</i>&nbsp;     * Scenario #2: IN size is updated during the iteration
+<i class="no-highlight">368</i>&nbsp;     *  begin
+<i class="no-highlight">369</i>&nbsp;     *   update  -- do not add delta because IN is not yet processed
+<i class="no-highlight">370</i>&nbsp;     *   iterate -- add total IN size, mark processed
+<i class="no-highlight">371</i>&nbsp;     *   update  -- do add delta because IN was already processed
+<i class="no-highlight">372</i>&nbsp;     *  end
+<i class="no-highlight">373</i>&nbsp;     *
+<i class="no-highlight">374</i>&nbsp;     * Scenario #3: IN is added during the iteration but not iterated
+<i class="no-highlight">375</i>&nbsp;     *  begin
+<i class="no-highlight">376</i>&nbsp;     *   add -- add IN size, mark processed
+<i class="no-highlight">377</i>&nbsp;     *  end
+<i class="no-highlight">378</i>&nbsp;     *
+<i class="no-highlight">379</i>&nbsp;     * Scenario #4: IN is added during the iteration and is iterated
+<i class="no-highlight">380</i>&nbsp;     *  begin
+<i class="no-highlight">381</i>&nbsp;     *   add     -- add IN size, mark processed
+<i class="no-highlight">382</i>&nbsp;     *   iterate -- do not add size because IN was already processed
+<i class="no-highlight">383</i>&nbsp;     *  end
+<i class="no-highlight">384</i>&nbsp;     *
+<i class="no-highlight">385</i>&nbsp;     * Scenario #5: IN is removed during the iteration but not iterated
+<i class="no-highlight">386</i>&nbsp;     *  begin
+<i class="no-highlight">387</i>&nbsp;     *   remove  -- do not add delta because IN is not yet processed
+<i class="no-highlight">388</i>&nbsp;     *  end
+<i class="no-highlight">389</i>&nbsp;     *
+<i class="no-highlight">390</i>&nbsp;     * Scenario #6: IN is removed during the iteration and is iterated
+<i class="no-highlight">391</i>&nbsp;     *  begin
+<i class="no-highlight">392</i>&nbsp;     *   iterate -- add total IN size, mark processed
+<i class="no-highlight">393</i>&nbsp;     *   remove  -- add delta because IN was already processed
+<i class="no-highlight">394</i>&nbsp;     *  end
+<i class="no-highlight">395</i>&nbsp;     *
+<i class="no-highlight">396</i>&nbsp;     * If recalcConsistent is false, the last attempted recalc was not
+<i class="no-highlight">397</i>&nbsp;     * compeleted.  In that case the next reset pass will simply set the toggle
+<i class="no-highlight">398</i>&nbsp;     * in every IN so that they are consistent.  The pass following that will
+<i class="no-highlight">399</i>&nbsp;     * then do a normal recalc.  At the end of any pass, we only update the
+<i class="no-highlight">400</i>&nbsp;     * memory budget if the last recalc was consistent (or this is the first
+<i class="no-highlight">401</i>&nbsp;     * recalc), and the current recalc is completed.
+<i class="no-highlight">402</i>&nbsp;     *
+<i class="no-highlight">403</i>&nbsp;     * We do not synchronize when changing state variables.  In memRecalcBegin
+<i class="no-highlight">404</i>&nbsp;     * and memRecalcEnd it is possible for an IN to be added or removed by
+<i class="no-highlight">405</i>&nbsp;     * another thread in the window between settting recalcInProgress and
+<i class="no-highlight">406</i>&nbsp;     * setting or getting the recalclTotal.  In memRecalcUpdate a similar thing
+<i class="no-highlight">407</i>&nbsp;     * can happen in the window between checking the IN toggle and adding to
+<i class="no-highlight">408</i>&nbsp;     * recalcTotal, if memRecaclcIterate is called by the checkpointer in that
+<i class="no-highlight">409</i>&nbsp;     * window. If this occurs, the reset total can be inaccurate by the amount
+<i class="no-highlight">410</i>&nbsp;     * that was changed in the window.  We have chosen to live with this
+<i class="no-highlight">411</i>&nbsp;     * possible inaccuracy rather than synchronize these methods.  We would
+<i class="no-highlight">412</i>&nbsp;     * have to synchronize every time we add/remove INs and update the size of
+<i class="no-highlight">413</i>&nbsp;     * an IN, which could introduce a new point of contention.
+<i class="no-highlight">414</i>&nbsp;     */
+<i class="no-highlight">415</i>&nbsp;
+<i class="no-highlight">416</i>&nbsp;    /**
+<i class="no-highlight">417</i>&nbsp;     * We are starting the iteration of the INList.  Flip the INList toggle
+<i class="no-highlight">418</i>&nbsp;     * and set the total amount to zero.
+<i class="no-highlight">419</i>&nbsp;     *
+<i class="no-highlight">420</i>&nbsp;     * After calling this method, memRecalcEnd must be called in a finally
+<i class="no-highlight">421</i>&nbsp;     * block.  If it is not called, internal state will be invalid.
+<i class="no-highlight">422</i>&nbsp;     */
+<i class="no-highlight">423</i>&nbsp;    public void memRecalcBegin() {
+<b class="fc"><i class="no-highlight">424</i>&nbsp;        recalcTotal.set(0);</b>
+<b class="fc"><i class="no-highlight">425</i>&nbsp;        recalcInProgress = true;</b>
+<b class="fc"><i class="no-highlight">426</i>&nbsp;        recalcToggle = !recalcToggle;</b>
+<b class="fc"><i class="no-highlight">427</i>&nbsp;    }</b>
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;    /**
+<i class="no-highlight">430</i>&nbsp;     * An IN was encountered during the iteration through the entire INList.
+<i class="no-highlight">431</i>&nbsp;     * Add its size to the recalc total if we have not already processed it,
+<i class="no-highlight">432</i>&nbsp;     * and mark it as processed.  If it was already processed, memRecalcAdd
+<i class="no-highlight">433</i>&nbsp;     * must have been called for the IN when it was added to the INList during
+<i class="no-highlight">434</i>&nbsp;     * the iteration.
+<i class="no-highlight">435</i>&nbsp;     */
+<i class="no-highlight">436</i>&nbsp;    public void memRecalcIterate(IN in) {
+<b class="fc"><i class="no-highlight">437</i>&nbsp;        assert recalcInProgress;</b>
+<b class="fc"><i class="no-highlight">438</i>&nbsp;        if (recalcConsistent &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">439</i>&nbsp;            recalcToggle != in.getRecalcToggle()) {</b>
+<b class="fc"><i class="no-highlight">440</i>&nbsp;            long delta = in.resetAndGetMemorySize();</b>
+<b class="fc"><i class="no-highlight">441</i>&nbsp;            recalcTotal.addAndGet(delta);</b>
+<i class="no-highlight">442</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">443</i>&nbsp;        in.setRecalcToggle(recalcToggle);</b>
+<b class="fc"><i class="no-highlight">444</i>&nbsp;    }</b>
+<i class="no-highlight">445</i>&nbsp;
+<i class="no-highlight">446</i>&nbsp;    /**
+<i class="no-highlight">447</i>&nbsp;     * An IN is being added to the INList.  Add its size to the recalc total
+<i class="no-highlight">448</i>&nbsp;     * and mark it as processed.  It cannot have already been processed since
+<i class="no-highlight">449</i>&nbsp;     * it is a new IN.
+<i class="no-highlight">450</i>&nbsp;     */
+<i class="no-highlight">451</i>&nbsp;    private void memRecalcAdd(IN in, long size) {
+<b class="fc"><i class="no-highlight">452</i>&nbsp;        if (recalcInProgress &amp;&amp;</b>
+<i class="no-highlight">453</i>&nbsp;            recalcConsistent) {
+<b class="nc"><i class="no-highlight">454</i>&nbsp;            recalcTotal.addAndGet(size);</b>
+<i class="no-highlight">455</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">456</i>&nbsp;        in.setRecalcToggle(recalcToggle);</b>
+<b class="fc"><i class="no-highlight">457</i>&nbsp;    }</b>
+<i class="no-highlight">458</i>&nbsp;
+<i class="no-highlight">459</i>&nbsp;    /**
+<i class="no-highlight">460</i>&nbsp;     * An IN is being removed from the INList.  Add the delta to the recalc
+<i class="no-highlight">461</i>&nbsp;     * total if it was already processed, and mark it as processed.  If we have
+<i class="no-highlight">462</i>&nbsp;     * not yet processed it, it is not included in the total.
+<i class="no-highlight">463</i>&nbsp;     */
+<i class="no-highlight">464</i>&nbsp;    private void memRecalcRemove(IN in, long delta) {
+<b class="fc"><i class="no-highlight">465</i>&nbsp;        memRecalcUpdate(in, delta); // Remove and update are the same</b>
+<b class="fc"><i class="no-highlight">466</i>&nbsp;    }</b>
+<i class="no-highlight">467</i>&nbsp;
+<i class="no-highlight">468</i>&nbsp;    /**
+<i class="no-highlight">469</i>&nbsp;     * The size of an IN is changing.  Add the delta to the recalc total if it
+<i class="no-highlight">470</i>&nbsp;     * have already processed the IN.  If we have not yet processed it, its
+<i class="no-highlight">471</i>&nbsp;     * total size will be added by memRecalcIterate.
+<i class="no-highlight">472</i>&nbsp;     */
+<i class="no-highlight">473</i>&nbsp;    public void memRecalcUpdate(IN in, long delta) {
+<b class="fc"><i class="no-highlight">474</i>&nbsp;        if (recalcInProgress &amp;&amp;</b>
+<i class="no-highlight">475</i>&nbsp;            recalcConsistent &amp;&amp;
+<b class="nc"><i class="no-highlight">476</i>&nbsp;            recalcToggle == in.getRecalcToggle()) {</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;            recalcTotal.addAndGet(delta);</b>
+<i class="no-highlight">478</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">479</i>&nbsp;    }</b>
+<i class="no-highlight">480</i>&nbsp;
+<i class="no-highlight">481</i>&nbsp;    /**
+<i class="no-highlight">482</i>&nbsp;     * The reset operation is over.  Only update the tree budget if the
+<i class="no-highlight">483</i>&nbsp;     * iteration was completed and the state was consistent prior to this reset
+<i class="no-highlight">484</i>&nbsp;     * operation.
+<i class="no-highlight">485</i>&nbsp;     */
+<i class="no-highlight">486</i>&nbsp;    public void memRecalcEnd(boolean completed) {
+<b class="fc"><i class="no-highlight">487</i>&nbsp;        assert recalcInProgress;</b>
+<b class="fc"><i class="no-highlight">488</i>&nbsp;        if (completed &amp;&amp;</b>
+<i class="no-highlight">489</i>&nbsp;            recalcConsistent) {
+<b class="fc"><i class="no-highlight">490</i>&nbsp;            envImpl.getMemoryBudget().refreshTreeMemoryUsage</b>
+<b class="fc"><i class="no-highlight">491</i>&nbsp;                (recalcTotal.get());</b>
+<i class="no-highlight">492</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">493</i>&nbsp;        recalcInProgress = false;</b>
+<b class="fc"><i class="no-highlight">494</i>&nbsp;        recalcConsistent = completed;</b>
+<b class="fc"><i class="no-highlight">495</i>&nbsp;    }</b>
+<i class="no-highlight">496</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,876 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DbInternal</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: DbInternal (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DbInternal</td>
+<td class="coverageStat">
+  <span class="percent">
+    23%
+  </span>
+  <span class="absValue">
+    (14/61)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    15.3%
+  </span>
+  <span class="absValue">
+    (19/124)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">DbInternal$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">DbInternal$Search</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    22.2%
+  </span>
+  <span class="absValue">
+    (14/63)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    14.6%
+  </span>
+  <span class="absValue">
+    (19/130)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Properties;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.compat.DbCompat.OpReadOptions;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.compat.DbCompat.OpResult;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.dbi.DiskOrderedCursorImpl;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.GetMode;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.PutMode;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.SearchMode;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.util.keyrange.KeyRange;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.util.keyrange.RangeCursor;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;/**
+<i class="no-highlight">36</i>&nbsp; * @hidden
+<i class="no-highlight">37</i>&nbsp; * For internal use only. It serves to shelter methods that must be public to
+<i class="no-highlight">38</i>&nbsp; * be used by other BDB JE packages but that are not part of the public API
+<i class="no-highlight">39</i>&nbsp; * available to applications.
+<i class="no-highlight">40</i>&nbsp; */
+<b class="fc"><i class="no-highlight">41</i>&nbsp;public class DbInternal {</b>
+<i class="no-highlight">42</i>&nbsp;
+<b class="fc"><i class="no-highlight">43</i>&nbsp;    public static OperationResult DEFAULT_RESULT =</b>
+<i class="no-highlight">44</i>&nbsp;        new OperationResult(0, false);
+<i class="no-highlight">45</i>&nbsp;
+<i class="no-highlight">46</i>&nbsp;    /**
+<i class="no-highlight">47</i>&nbsp;     * Proxy to Database.invalidate()
+<i class="no-highlight">48</i>&nbsp;     */
+<i class="no-highlight">49</i>&nbsp;    public static void invalidate(final Database db) {
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        db.invalidate();</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;    }</b>
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /**
+<i class="no-highlight">54</i>&nbsp;     * Proxy to Database.setPreempted()
+<i class="no-highlight">55</i>&nbsp;     */
+<i class="no-highlight">56</i>&nbsp;    public static void setPreempted(final Database db,
+<i class="no-highlight">57</i>&nbsp;                                    final String dbName,
+<i class="no-highlight">58</i>&nbsp;                                    final String msg) {
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        db.setPreempted(dbName, msg);</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;    }</b>
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /**
+<i class="no-highlight">63</i>&nbsp;     * Proxy to Environment.getMaybeNullEnvImpl.
+<i class="no-highlight">64</i>&nbsp;     *
+<i class="no-highlight">65</i>&nbsp;     * This method does not check whether the returned envImpl is valid.
+<i class="no-highlight">66</i>&nbsp;     *
+<i class="no-highlight">67</i>&nbsp;     * WARNING: This method will be phased out over time and normally
+<i class="no-highlight">68</i>&nbsp;     * getNonNullEnvImpl should be called instead.
+<i class="no-highlight">69</i>&nbsp;     *
+<i class="no-highlight">70</i>&nbsp;     * @return the non-null underlying EnvironmentImpl, or null if the env has
+<i class="no-highlight">71</i>&nbsp;     * been closed.
+<i class="no-highlight">72</i>&nbsp;     */
+<i class="no-highlight">73</i>&nbsp;    public static EnvironmentImpl getEnvironmentImpl(final Environment env) {
+<b class="nc"><i class="no-highlight">74</i>&nbsp;        return env.getMaybeNullEnvImpl();</b>
+<i class="no-highlight">75</i>&nbsp;    }
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;    /**
+<i class="no-highlight">78</i>&nbsp;     * Proxy to Environment.getNonNullEnvImpl
+<i class="no-highlight">79</i>&nbsp;     *
+<i class="no-highlight">80</i>&nbsp;     * This method is called to access the underlying EnvironmentImpl when an
+<i class="no-highlight">81</i>&nbsp;     * env is expected to be open, to guard against NPE when the env has been
+<i class="no-highlight">82</i>&nbsp;     * closed.
+<i class="no-highlight">83</i>&nbsp;     *
+<i class="no-highlight">84</i>&nbsp;     * This method does not check whether the env is valid.
+<i class="no-highlight">85</i>&nbsp;     *
+<i class="no-highlight">86</i>&nbsp;     * @return the non-null, underlying EnvironmentImpl.
+<i class="no-highlight">87</i>&nbsp;     *
+<i class="no-highlight">88</i>&nbsp;     * @throws IllegalStateException if the env has been closed.
+<i class="no-highlight">89</i>&nbsp;     */
+<i class="no-highlight">90</i>&nbsp;    public static EnvironmentImpl getNonNullEnvImpl(final Environment env) {
+<b class="fc"><i class="no-highlight">91</i>&nbsp;        return env.getNonNullEnvImpl();</b>
+<i class="no-highlight">92</i>&nbsp;    }
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /**
+<i class="no-highlight">95</i>&nbsp;     * Proxy to Environment.clearEnvImpl
+<i class="no-highlight">96</i>&nbsp;     */
+<i class="no-highlight">97</i>&nbsp;    public static void clearEnvImpl(final Environment env) {
+<b class="nc"><i class="no-highlight">98</i>&nbsp;        env.clearEnvImpl();</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;    }</b>
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    /**
+<i class="no-highlight">102</i>&nbsp;     * Proxy to Environment.checkOpen
+<i class="no-highlight">103</i>&nbsp;     */
+<i class="no-highlight">104</i>&nbsp;    public static EnvironmentImpl checkOpen(final Environment env) {
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        return env.checkOpen();</b>
+<i class="no-highlight">106</i>&nbsp;    }
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    /**
+<i class="no-highlight">109</i>&nbsp;     * Proxy to Environment.closeInternalHandle
+<i class="no-highlight">110</i>&nbsp;     */
+<i class="no-highlight">111</i>&nbsp;    public static void closeInternalHandle(final Environment env) {
+<b class="fc"><i class="no-highlight">112</i>&nbsp;        env.closeInternalHandle();</b>
+<b class="fc"><i class="no-highlight">113</i>&nbsp;    }</b>
+<i class="no-highlight">114</i>&nbsp;    
+<i class="no-highlight">115</i>&nbsp;    /**
+<i class="no-highlight">116</i>&nbsp;     * Proxy to Database.getDebugName
+<i class="no-highlight">117</i>&nbsp;     */
+<i class="no-highlight">118</i>&nbsp;    public static String getDbDebugName(final Database dbHandle) {
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        return dbHandle.getDebugName();</b>
+<i class="no-highlight">120</i>&nbsp;    }
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;    /**
+<i class="no-highlight">123</i>&nbsp;     * Proxy to SecondaryDatabase.getSecondaryAssociation
+<i class="no-highlight">124</i>&nbsp;     */
+<i class="no-highlight">125</i>&nbsp;    public static SecondaryAssociation getSecondaryAssociation(
+<i class="no-highlight">126</i>&nbsp;        final Database db) {
+<b class="nc"><i class="no-highlight">127</i>&nbsp;        return db.getSecondaryAssociation();</b>
+<i class="no-highlight">128</i>&nbsp;    }
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    /**
+<i class="no-highlight">131</i>&nbsp;     * Proxy to SecondaryDatabase.getPrivateSecondaryConfig
+<i class="no-highlight">132</i>&nbsp;     */
+<i class="no-highlight">133</i>&nbsp;    public static SecondaryConfig getPrivateSecondaryConfig(
+<i class="no-highlight">134</i>&nbsp;        final SecondaryDatabase secDb) {
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        return secDb.getPrivateSecondaryConfig();</b>
+<i class="no-highlight">136</i>&nbsp;    }
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /**
+<i class="no-highlight">139</i>&nbsp;     * Proxy to Cursor.readPrimaryAfterGet
+<i class="no-highlight">140</i>&nbsp;     */
+<i class="no-highlight">141</i>&nbsp;    public static boolean readPrimaryAfterGet(
+<i class="no-highlight">142</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">143</i>&nbsp;        final Database priDb,
+<i class="no-highlight">144</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">145</i>&nbsp;        final DatabaseEntry pKey,
+<i class="no-highlight">146</i>&nbsp;        DatabaseEntry data,
+<i class="no-highlight">147</i>&nbsp;        final LockMode lockMode,
+<i class="no-highlight">148</i>&nbsp;        final boolean secDirtyRead,
+<i class="no-highlight">149</i>&nbsp;        final boolean lockPrimaryOnly,
+<i class="no-highlight">150</i>&nbsp;        final boolean allowNoData,
+<i class="no-highlight">151</i>&nbsp;        final Locker locker,
+<i class="no-highlight">152</i>&nbsp;        final SecondaryDatabase secDb,
+<i class="no-highlight">153</i>&nbsp;        final SecondaryAssociation secAssoc) {
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        return cursor.readPrimaryAfterGet(</b>
+<i class="no-highlight">156</i>&nbsp;            priDb, key, pKey, data, lockMode, secDirtyRead,
+<i class="no-highlight">157</i>&nbsp;            lockPrimaryOnly, allowNoData, locker, secDb, secAssoc);
+<i class="no-highlight">158</i>&nbsp;    }
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;    /**
+<i class="no-highlight">161</i>&nbsp;     * Proxy to Cursor.position().
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    public static OperationResult position(
+<i class="no-highlight">164</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">165</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">166</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">167</i>&nbsp;        final LockMode lockMode,
+<i class="no-highlight">168</i>&nbsp;        final boolean first) {
+<i class="no-highlight">169</i>&nbsp;
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        return cursor.position(key, data, lockMode, null, first);</b>
+<i class="no-highlight">171</i>&nbsp;    }
+<i class="no-highlight">172</i>&nbsp;
+<i class="no-highlight">173</i>&nbsp;    /**
+<i class="no-highlight">174</i>&nbsp;     * Proxy to Cursor.search().
+<i class="no-highlight">175</i>&nbsp;     */
+<i class="no-highlight">176</i>&nbsp;    public static OperationResult search(
+<i class="no-highlight">177</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">178</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">179</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">180</i>&nbsp;        final LockMode lockMode,
+<i class="no-highlight">181</i>&nbsp;        final CacheMode cacheMode,
+<i class="no-highlight">182</i>&nbsp;        final SearchMode searchMode,
+<i class="no-highlight">183</i>&nbsp;        final boolean countOpStat) {
+<i class="no-highlight">184</i>&nbsp;
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        return cursor.search(</b>
+<i class="no-highlight">186</i>&nbsp;            key, data, lockMode, cacheMode, searchMode, countOpStat);
+<i class="no-highlight">187</i>&nbsp;    }
+<i class="no-highlight">188</i>&nbsp;
+<i class="no-highlight">189</i>&nbsp;    /**
+<i class="no-highlight">190</i>&nbsp;     * Proxy to Cursor.searchForReplay().
+<i class="no-highlight">191</i>&nbsp;     */
+<i class="no-highlight">192</i>&nbsp;    public static OperationResult searchForReplay(
+<i class="no-highlight">193</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">194</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">195</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">196</i>&nbsp;        final LockMode lockMode,
+<i class="no-highlight">197</i>&nbsp;        final SearchMode searchMode) {
+<i class="no-highlight">198</i>&nbsp;
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        return cursor.searchForReplay(key, data, lockMode, null, searchMode);</b>
+<i class="no-highlight">200</i>&nbsp;    }
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /**
+<i class="no-highlight">203</i>&nbsp;     * Proxy to Cursor.retrieveNext().
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    public static OperationResult retrieveNext(
+<i class="no-highlight">206</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">207</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">208</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">209</i>&nbsp;        final LockMode lockMode,
+<i class="no-highlight">210</i>&nbsp;        final GetMode getMode)
+<i class="no-highlight">211</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">212</i>&nbsp;
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        return cursor.retrieveNext(key, data, lockMode, null, getMode);</b>
+<i class="no-highlight">214</i>&nbsp;    }
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;    /**
+<i class="no-highlight">217</i>&nbsp;     * Proxy to Cursor.advanceCursor()
+<i class="no-highlight">218</i>&nbsp;     */
+<i class="no-highlight">219</i>&nbsp;    public static boolean advanceCursor(
+<i class="no-highlight">220</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">221</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">222</i>&nbsp;        final DatabaseEntry data) {
+<i class="no-highlight">223</i>&nbsp;
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        return cursor.advanceCursor(key, data);</b>
+<i class="no-highlight">225</i>&nbsp;    }
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * Proxy to Cursor.deleteInternal()
+<i class="no-highlight">229</i>&nbsp;     */
+<i class="no-highlight">230</i>&nbsp;    public static OperationResult deleteInternal(
+<i class="no-highlight">231</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">232</i>&nbsp;        final ReplicationContext repContext) {
+<i class="no-highlight">233</i>&nbsp;
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        return cursor.deleteInternal(repContext, null);</b>
+<i class="no-highlight">235</i>&nbsp;    }
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    /**
+<i class="no-highlight">238</i>&nbsp;     * Proxy to Cursor.deleteForReplay()
+<i class="no-highlight">239</i>&nbsp;     */
+<i class="no-highlight">240</i>&nbsp;    public static OperationResult deleteForReplay(
+<i class="no-highlight">241</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">242</i>&nbsp;        final ReplicationContext repContext) {
+<i class="no-highlight">243</i>&nbsp;
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        return cursor.deleteForReplay(repContext);</b>
+<i class="no-highlight">245</i>&nbsp;    }
+<i class="no-highlight">246</i>&nbsp;
+<i class="no-highlight">247</i>&nbsp;    /**
+<i class="no-highlight">248</i>&nbsp;     * Proxy to Cursor.putForReplay()
+<i class="no-highlight">249</i>&nbsp;     */
+<i class="no-highlight">250</i>&nbsp;    public static OperationResult putForReplay(
+<i class="no-highlight">251</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">252</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">253</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">254</i>&nbsp;        final LN ln,
+<i class="no-highlight">255</i>&nbsp;        final int expiration,
+<i class="no-highlight">256</i>&nbsp;        final boolean expirationInHours,
+<i class="no-highlight">257</i>&nbsp;        final PutMode putMode,
+<i class="no-highlight">258</i>&nbsp;        final ReplicationContext repContext) {
+<i class="no-highlight">259</i>&nbsp;
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        return cursor.putForReplay(</b>
+<i class="no-highlight">261</i>&nbsp;            key, data, ln, expiration, expirationInHours, putMode, repContext);
+<i class="no-highlight">262</i>&nbsp;    }
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;    /**
+<i class="no-highlight">265</i>&nbsp;     * Search mode used with the internal search and searchBoth methods.
+<i class="no-highlight">266</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">267</i>&nbsp;    public enum Search {</b>
+<i class="no-highlight">268</i>&nbsp;
+<i class="no-highlight">269</i>&nbsp;        /**
+<i class="no-highlight">270</i>&nbsp;         * Match the smallest value greater than the key or data param.
+<i class="no-highlight">271</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">272</i>&nbsp;        GT,</b>
+<i class="no-highlight">273</i>&nbsp;
+<i class="no-highlight">274</i>&nbsp;        /**
+<i class="no-highlight">275</i>&nbsp;         * Match the smallest value greater than or equal to the key or data
+<i class="no-highlight">276</i>&nbsp;         * param.
+<i class="no-highlight">277</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        GTE,</b>
+<i class="no-highlight">279</i>&nbsp;
+<i class="no-highlight">280</i>&nbsp;        /**
+<i class="no-highlight">281</i>&nbsp;         * Match the largest value less than the key or data param.
+<i class="no-highlight">282</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">283</i>&nbsp;        LT,</b>
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;        /**
+<i class="no-highlight">286</i>&nbsp;         * Match the largest value less than or equal to the key or data param.
+<i class="no-highlight">287</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        LTE,</b>
+<i class="no-highlight">289</i>&nbsp;    }
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;    /**
+<i class="no-highlight">292</i>&nbsp;     * @deprecated use new-style API below instead.
+<i class="no-highlight">293</i>&nbsp;     */
+<i class="no-highlight">294</i>&nbsp;    public static OperationStatus search(
+<i class="no-highlight">295</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">296</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">297</i>&nbsp;        final DatabaseEntry pKey,
+<i class="no-highlight">298</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">299</i>&nbsp;        final Search searchMode,
+<i class="no-highlight">300</i>&nbsp;        final LockMode lockMode) {
+<i class="no-highlight">301</i>&nbsp;
+<b class="nc"><i class="no-highlight">302</i>&nbsp;        final OperationResult result = search(</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;            cursor, key, pKey, data, searchMode, getReadOptions(lockMode));</b>
+<i class="no-highlight">304</i>&nbsp;
+<b class="nc"><i class="no-highlight">305</i>&nbsp;        return result != null ?</b>
+<i class="no-highlight">306</i>&nbsp;            OperationStatus.SUCCESS : OperationStatus.NOTFOUND;
+<i class="no-highlight">307</i>&nbsp;    }
+<i class="no-highlight">308</i>&nbsp;
+<i class="no-highlight">309</i>&nbsp;    /**
+<i class="no-highlight">310</i>&nbsp;     * Finds the key according to the Search param. If dups are configured, GT
+<i class="no-highlight">311</i>&nbsp;     * and GTE will land on the first dup for the matching key, while LT and
+<i class="no-highlight">312</i>&nbsp;     * LTE will land on the last dup for the matching key.
+<i class="no-highlight">313</i>&nbsp;     *
+<i class="no-highlight">314</i>&nbsp;     * search() and searchBoth() in this class may eventually be exposed as
+<i class="no-highlight">315</i>&nbsp;     * public JE Cursor methods, but this isn&#39;t practical now for the following
+<i class="no-highlight">316</i>&nbsp;     * reasons:
+<i class="no-highlight">317</i>&nbsp;     *
+<i class="no-highlight">318</i>&nbsp;     *  + The API design needs more thought. Perhaps Search.EQ should be added.
+<i class="no-highlight">319</i>&nbsp;     *    Perhaps existing Cursor methods should be deprecated.
+<i class="no-highlight">320</i>&nbsp;     *
+<i class="no-highlight">321</i>&nbsp;     *  + This implementation moves the cursor multiple times and does not
+<i class="no-highlight">322</i>&nbsp;     *    release locks on the intermediate records.
+<i class="no-highlight">323</i>&nbsp;     *
+<i class="no-highlight">324</i>&nbsp;     *  + This could be implemented more efficiently using lower level cursor
+<i class="no-highlight">325</i>&nbsp;     *    code. For example, an LTE search would actually more efficient than
+<i class="no-highlight">326</i>&nbsp;     *    the existing GTE search (getSearchKeyRange and getSearchBothRange).
+<i class="no-highlight">327</i>&nbsp;     *
+<i class="no-highlight">328</i>&nbsp;     * These methods are used by KVStore.
+<i class="no-highlight">329</i>&nbsp;     */
+<i class="no-highlight">330</i>&nbsp;    public static OperationResult search(
+<i class="no-highlight">331</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">332</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">333</i>&nbsp;        final DatabaseEntry pKey,
+<i class="no-highlight">334</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">335</i>&nbsp;        final Search searchMode,
+<i class="no-highlight">336</i>&nbsp;        final ReadOptions options) {
+<i class="no-highlight">337</i>&nbsp;
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        final DatabaseImpl dbImpl = cursor.getDatabaseImpl();</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        KeyRange range = new KeyRange(dbImpl.getBtreeComparator());</b>
+<i class="no-highlight">340</i>&nbsp;        final boolean first;
+<i class="no-highlight">341</i>&nbsp;
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        switch (searchMode) {</b>
+<i class="no-highlight">343</i>&nbsp;        case GT:
+<i class="no-highlight">344</i>&nbsp;        case GTE:
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            range = range.subRange(</b>
+<i class="no-highlight">346</i>&nbsp;                key, searchMode == Search.GTE, null, false);
+<b class="nc"><i class="no-highlight">347</i>&nbsp;            first = true;</b>
+<b class="nc"><i class="no-highlight">348</i>&nbsp;            break;</b>
+<i class="no-highlight">349</i>&nbsp;        case LT:
+<i class="no-highlight">350</i>&nbsp;        case LTE:
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            range = range.subRange(</b>
+<i class="no-highlight">352</i>&nbsp;                null, false, key, searchMode == Search.LTE);
+<b class="nc"><i class="no-highlight">353</i>&nbsp;            first = false;</b>
+<b class="nc"><i class="no-highlight">354</i>&nbsp;            break;</b>
+<i class="no-highlight">355</i>&nbsp;        default:
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            throw EnvironmentFailureException.unexpectedState();</b>
+<i class="no-highlight">357</i>&nbsp;        }
+<i class="no-highlight">358</i>&nbsp;
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        final RangeCursor rangeCursor = new RangeCursor(</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;            range, null, dbImpl.getSortedDuplicates(), cursor);</b>
+<i class="no-highlight">361</i>&nbsp;
+<b class="nc"><i class="no-highlight">362</i>&nbsp;        final OpReadOptions opReadOptions = OpReadOptions.make(options);</b>
+<i class="no-highlight">363</i>&nbsp;
+<b class="nc"><i class="no-highlight">364</i>&nbsp;        final OpResult result = (first) ?</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;            rangeCursor.getFirst(key, pKey, data, opReadOptions) :</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;            rangeCursor.getLast(key, pKey, data, opReadOptions);</b>
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;        /* RangeCursor should not have dup&#39;d the cursor. */
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        assert cursor == rangeCursor.getCursor();</b>
+<i class="no-highlight">370</i>&nbsp;
+<b class="nc"><i class="no-highlight">371</i>&nbsp;        return result.jeResult;</b>
+<i class="no-highlight">372</i>&nbsp;    }
+<i class="no-highlight">373</i>&nbsp;
+<i class="no-highlight">374</i>&nbsp;    /**
+<i class="no-highlight">375</i>&nbsp;     * @deprecated use new-style API below instead.
+<i class="no-highlight">376</i>&nbsp;     */
+<i class="no-highlight">377</i>&nbsp;    public static OperationStatus searchBoth(
+<i class="no-highlight">378</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">379</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">380</i>&nbsp;        final DatabaseEntry pKey,
+<i class="no-highlight">381</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">382</i>&nbsp;        final Search searchMode,
+<i class="no-highlight">383</i>&nbsp;        final LockMode lockMode) {
+<i class="no-highlight">384</i>&nbsp;
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        final OperationResult result = searchBoth(</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            cursor, key, pKey, data, searchMode, getReadOptions(lockMode));</b>
+<i class="no-highlight">387</i>&nbsp;
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        return result != null ?</b>
+<i class="no-highlight">389</i>&nbsp;            OperationStatus.SUCCESS : OperationStatus.NOTFOUND;
+<i class="no-highlight">390</i>&nbsp;    }
+<i class="no-highlight">391</i>&nbsp;
+<i class="no-highlight">392</i>&nbsp;    /**
+<i class="no-highlight">393</i>&nbsp;     * Searches with the dups for the given key and finds the dup matching the
+<i class="no-highlight">394</i>&nbsp;     * pKey value, according to the Search param.
+<i class="no-highlight">395</i>&nbsp;     *
+<i class="no-highlight">396</i>&nbsp;     * See search() for more discussion.
+<i class="no-highlight">397</i>&nbsp;     */
+<i class="no-highlight">398</i>&nbsp;    public static OperationResult searchBoth(
+<i class="no-highlight">399</i>&nbsp;        final Cursor cursor,
+<i class="no-highlight">400</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">401</i>&nbsp;        final DatabaseEntry pKey,
+<i class="no-highlight">402</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">403</i>&nbsp;        final Search searchMode,
+<i class="no-highlight">404</i>&nbsp;        final ReadOptions options) {
+<i class="no-highlight">405</i>&nbsp;
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        final LockMode lockMode =</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;            options != null ? options.getLockMode() : null;</b>
+<i class="no-highlight">408</i>&nbsp;
+<b class="nc"><i class="no-highlight">409</i>&nbsp;        final DatabaseImpl dbImpl = cursor.getDatabaseImpl();</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        KeyRange range = new KeyRange(dbImpl.getBtreeComparator());</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        range = range.subRange(key);</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        KeyRange pKeyRange = new KeyRange(dbImpl.getDuplicateComparator());</b>
+<i class="no-highlight">413</i>&nbsp;        final boolean first;
+<i class="no-highlight">414</i>&nbsp;
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        switch (searchMode) {</b>
+<i class="no-highlight">416</i>&nbsp;        case GT:
+<i class="no-highlight">417</i>&nbsp;        case GTE:
+<b class="nc"><i class="no-highlight">418</i>&nbsp;            pKeyRange = pKeyRange.subRange(</b>
+<i class="no-highlight">419</i>&nbsp;                pKey, searchMode == Search.GTE, null, false);
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            first = true;</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            break;</b>
+<i class="no-highlight">422</i>&nbsp;        case LT:
+<i class="no-highlight">423</i>&nbsp;        case LTE:
+<b class="nc"><i class="no-highlight">424</i>&nbsp;            pKeyRange = pKeyRange.subRange(</b>
+<i class="no-highlight">425</i>&nbsp;                null, false, pKey, searchMode == Search.LTE);
+<b class="nc"><i class="no-highlight">426</i>&nbsp;            first = false;</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;            break;</b>
+<i class="no-highlight">428</i>&nbsp;        default:
+<b class="nc"><i class="no-highlight">429</i>&nbsp;            throw EnvironmentFailureException.unexpectedState();</b>
+<i class="no-highlight">430</i>&nbsp;        }
+<i class="no-highlight">431</i>&nbsp;
+<b class="nc"><i class="no-highlight">432</i>&nbsp;        final RangeCursor rangeCursor = new RangeCursor(</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            range, pKeyRange, dbImpl.getSortedDuplicates(), cursor);</b>
+<i class="no-highlight">434</i>&nbsp;
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        final OpReadOptions opReadOptions = OpReadOptions.make(options);</b>
+<i class="no-highlight">436</i>&nbsp;
+<b class="nc"><i class="no-highlight">437</i>&nbsp;        final OpResult result = (first) ?</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;            rangeCursor.getFirst(key, pKey, data, opReadOptions) :</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;            rangeCursor.getLast(key, pKey, data, opReadOptions);</b>
+<i class="no-highlight">440</i>&nbsp;
+<i class="no-highlight">441</i>&nbsp;        /* RangeCursor should not have dup&#39;d the cursor. */
+<b class="nc"><i class="no-highlight">442</i>&nbsp;        assert cursor == rangeCursor.getCursor();</b>
+<i class="no-highlight">443</i>&nbsp;
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        return result.jeResult;</b>
+<i class="no-highlight">445</i>&nbsp;    }
+<i class="no-highlight">446</i>&nbsp;
+<i class="no-highlight">447</i>&nbsp;    /**
+<i class="no-highlight">448</i>&nbsp;     * Proxy to Cursor.getCursorImpl()
+<i class="no-highlight">449</i>&nbsp;     */
+<i class="no-highlight">450</i>&nbsp;    public static CursorImpl getCursorImpl(Cursor cursor) {
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        return cursor.getCursorImpl();</b>
+<i class="no-highlight">452</i>&nbsp;    }
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;    /**
+<i class="no-highlight">455</i>&nbsp;     * Create a Cursor for internal use from a DatabaseImpl.
+<i class="no-highlight">456</i>&nbsp;     */
+<i class="no-highlight">457</i>&nbsp;    public static Cursor makeCursor(final DatabaseImpl databaseImpl,
+<i class="no-highlight">458</i>&nbsp;                                    final Locker locker,
+<i class="no-highlight">459</i>&nbsp;                                    final CursorConfig cursorConfig) {
+<b class="fc"><i class="no-highlight">460</i>&nbsp;        return makeCursor(databaseImpl, locker, cursorConfig, true);</b>
+<i class="no-highlight">461</i>&nbsp;    }
+<i class="no-highlight">462</i>&nbsp;
+<i class="no-highlight">463</i>&nbsp;    /**
+<i class="no-highlight">464</i>&nbsp;     * Create a Cursor for internal use from a DatabaseImpl for btree
+<i class="no-highlight">465</i>&nbsp;     * corruption, which can set retainNonTxnLocks.
+<i class="no-highlight">466</i>&nbsp;     */
+<i class="no-highlight">467</i>&nbsp;    public static Cursor makeCursor(final DatabaseImpl databaseImpl,
+<i class="no-highlight">468</i>&nbsp;                                    final Locker locker,
+<i class="no-highlight">469</i>&nbsp;                                    final CursorConfig cursorConfig,
+<i class="no-highlight">470</i>&nbsp;                                    boolean retainNonTxnLocks) {
+<b class="fc"><i class="no-highlight">471</i>&nbsp;        final Cursor cursor = new Cursor(</b>
+<i class="no-highlight">472</i>&nbsp;            databaseImpl, locker, cursorConfig, retainNonTxnLocks);
+<i class="no-highlight">473</i>&nbsp;        /* Internal cursors don&#39;t need to be sticky. */
+<b class="fc"><i class="no-highlight">474</i>&nbsp;        cursor.setNonSticky(true);</b>
+<b class="fc"><i class="no-highlight">475</i>&nbsp;        return cursor;</b>
+<i class="no-highlight">476</i>&nbsp;    }
+<i class="no-highlight">477</i>&nbsp;
+<i class="no-highlight">478</i>&nbsp;    /**
+<i class="no-highlight">479</i>&nbsp;     * Create a Cursor from a DatabaseHandle.
+<i class="no-highlight">480</i>&nbsp;     */
+<i class="no-highlight">481</i>&nbsp;    public static Cursor makeCursor(final Database dbHandle,
+<i class="no-highlight">482</i>&nbsp;                                    final Locker locker,
+<i class="no-highlight">483</i>&nbsp;                                    final CursorConfig cursorConfig) {
+<b class="nc"><i class="no-highlight">484</i>&nbsp;        return makeCursor(dbHandle, locker, cursorConfig, false);</b>
+<i class="no-highlight">485</i>&nbsp;    }
+<i class="no-highlight">486</i>&nbsp;
+<i class="no-highlight">487</i>&nbsp;    public static Cursor makeCursor(final Database dbHandle,
+<i class="no-highlight">488</i>&nbsp;                                    final Locker locker,
+<i class="no-highlight">489</i>&nbsp;                                    final CursorConfig cursorConfig,
+<i class="no-highlight">490</i>&nbsp;                                    boolean retainNonTxnLocks) {
+<b class="nc"><i class="no-highlight">491</i>&nbsp;        return new Cursor(dbHandle, locker, cursorConfig, retainNonTxnLocks);</b>
+<i class="no-highlight">492</i>&nbsp;    }
+<i class="no-highlight">493</i>&nbsp;
+<i class="no-highlight">494</i>&nbsp;    /**
+<i class="no-highlight">495</i>&nbsp;     * @deprecated use {@link CursorConfig#setNonSticky} instead.
+<i class="no-highlight">496</i>&nbsp;     */
+<i class="no-highlight">497</i>&nbsp;    public static void setNonCloning(final Cursor cursor,
+<i class="no-highlight">498</i>&nbsp;                                     final boolean nonSticky) {
+<b class="nc"><i class="no-highlight">499</i>&nbsp;        cursor.setNonSticky(nonSticky);</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;    }</b>
+<i class="no-highlight">501</i>&nbsp;
+<i class="no-highlight">502</i>&nbsp;    public static boolean isCorrupted(Database db) {
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        return db.isCorrupted();</b>
+<i class="no-highlight">504</i>&nbsp;    }
+<i class="no-highlight">505</i>&nbsp;
+<i class="no-highlight">506</i>&nbsp;    /**
+<i class="no-highlight">507</i>&nbsp;     * Proxy to Database.getDbImpl()
+<i class="no-highlight">508</i>&nbsp;     */
+<i class="no-highlight">509</i>&nbsp;    public static DatabaseImpl getDbImpl(final Database db) {
+<b class="fc"><i class="no-highlight">510</i>&nbsp;        return db.getDbImpl();</b>
+<i class="no-highlight">511</i>&nbsp;    }
+<i class="no-highlight">512</i>&nbsp;
+<i class="no-highlight">513</i>&nbsp;    /**
+<i class="no-highlight">514</i>&nbsp;     * Proxy to JoinCursor.getSortedCursors()
+<i class="no-highlight">515</i>&nbsp;     */
+<i class="no-highlight">516</i>&nbsp;    public static Cursor[] getSortedCursors(final JoinCursor cursor) {
+<b class="nc"><i class="no-highlight">517</i>&nbsp;        return cursor.getSortedCursors();</b>
+<i class="no-highlight">518</i>&nbsp;    }
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;    /**
+<i class="no-highlight">521</i>&nbsp;     * Proxy to EnvironmentConfig.setLoadPropertyFile()
+<i class="no-highlight">522</i>&nbsp;     */
+<i class="no-highlight">523</i>&nbsp;    public static void setLoadPropertyFile(final EnvironmentConfig config,
+<i class="no-highlight">524</i>&nbsp;                                           final boolean loadProperties) {
+<b class="nc"><i class="no-highlight">525</i>&nbsp;        config.setLoadPropertyFile(loadProperties);</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;    }</b>
+<i class="no-highlight">527</i>&nbsp;
+<i class="no-highlight">528</i>&nbsp;    /**
+<i class="no-highlight">529</i>&nbsp;     * Proxy to EnvironmentConfig.setCreateUP()
+<i class="no-highlight">530</i>&nbsp;     */
+<i class="no-highlight">531</i>&nbsp;    public static void setCreateUP(final EnvironmentConfig config,
+<i class="no-highlight">532</i>&nbsp;                                   final boolean val) {
+<b class="nc"><i class="no-highlight">533</i>&nbsp;        config.setCreateUP(val);</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;    }</b>
+<i class="no-highlight">535</i>&nbsp;
+<i class="no-highlight">536</i>&nbsp;    /**
+<i class="no-highlight">537</i>&nbsp;     * Proxy to EnvironmentConfig.getCreateUP()
+<i class="no-highlight">538</i>&nbsp;     */
+<i class="no-highlight">539</i>&nbsp;    public static boolean getCreateUP(final EnvironmentConfig config) {
+<b class="fc"><i class="no-highlight">540</i>&nbsp;        return config.getCreateUP();</b>
+<i class="no-highlight">541</i>&nbsp;    }
+<i class="no-highlight">542</i>&nbsp;
+<i class="no-highlight">543</i>&nbsp;    /**
+<i class="no-highlight">544</i>&nbsp;     * Proxy to EnvironmentConfig.setCreateEP()
+<i class="no-highlight">545</i>&nbsp;     */
+<i class="no-highlight">546</i>&nbsp;    public static void setCreateEP(final EnvironmentConfig config,
+<i class="no-highlight">547</i>&nbsp;                                   final boolean val) {
+<b class="nc"><i class="no-highlight">548</i>&nbsp;        config.setCreateEP(val);</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;    }</b>
+<i class="no-highlight">550</i>&nbsp;
+<i class="no-highlight">551</i>&nbsp;    /**
+<i class="no-highlight">552</i>&nbsp;     * Proxy to EnvironmentConfig.getCreateEP()
+<i class="no-highlight">553</i>&nbsp;     */
+<i class="no-highlight">554</i>&nbsp;    public static boolean getCreateEP(final EnvironmentConfig config) {
+<b class="fc"><i class="no-highlight">555</i>&nbsp;        return config.getCreateEP();</b>
+<i class="no-highlight">556</i>&nbsp;    }
+<i class="no-highlight">557</i>&nbsp;
+<i class="no-highlight">558</i>&nbsp;    /**
+<i class="no-highlight">559</i>&nbsp;     * Proxy to EnvironmentConfig.setCheckpointUP()
+<i class="no-highlight">560</i>&nbsp;     */
+<i class="no-highlight">561</i>&nbsp;    public static void setCheckpointUP(final EnvironmentConfig config,
+<i class="no-highlight">562</i>&nbsp;                                       final boolean checkpointUP) {
+<b class="nc"><i class="no-highlight">563</i>&nbsp;        config.setCheckpointUP(checkpointUP);</b>
+<b class="nc"><i class="no-highlight">564</i>&nbsp;    }</b>
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;    /**
+<i class="no-highlight">567</i>&nbsp;     * Proxy to EnvironmentConfig.getCheckpointUP()
+<i class="no-highlight">568</i>&nbsp;     */
+<i class="no-highlight">569</i>&nbsp;    public static boolean getCheckpointUP(final EnvironmentConfig config) {
+<b class="fc"><i class="no-highlight">570</i>&nbsp;        return config.getCheckpointUP();</b>
+<i class="no-highlight">571</i>&nbsp;    }
+<i class="no-highlight">572</i>&nbsp;
+<i class="no-highlight">573</i>&nbsp;    /**
+<i class="no-highlight">574</i>&nbsp;     * Proxy to EnvironmentConfig.setTxnReadCommitted()
+<i class="no-highlight">575</i>&nbsp;     */
+<i class="no-highlight">576</i>&nbsp;    public static void setTxnReadCommitted(final EnvironmentConfig config,
+<i class="no-highlight">577</i>&nbsp;                                           final boolean txnReadCommitted) {
+<b class="nc"><i class="no-highlight">578</i>&nbsp;        config.setTxnReadCommitted(txnReadCommitted);</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;    }</b>
+<i class="no-highlight">580</i>&nbsp;
+<i class="no-highlight">581</i>&nbsp;    /**
+<i class="no-highlight">582</i>&nbsp;     * Proxy to EnvironmentConfig.setTxnReadCommitted()
+<i class="no-highlight">583</i>&nbsp;     */
+<i class="no-highlight">584</i>&nbsp;    public static boolean getTxnReadCommitted(final EnvironmentConfig config) {
+<b class="nc"><i class="no-highlight">585</i>&nbsp;        return config.getTxnReadCommitted();</b>
+<i class="no-highlight">586</i>&nbsp;    }
+<i class="no-highlight">587</i>&nbsp;
+<i class="no-highlight">588</i>&nbsp;    /**
+<i class="no-highlight">589</i>&nbsp;     * Proxy to EnvironmentMutableConfig.cloneMutableConfig()
+<i class="no-highlight">590</i>&nbsp;     */
+<i class="no-highlight">591</i>&nbsp;    public static EnvironmentMutableConfig
+<i class="no-highlight">592</i>&nbsp;        cloneMutableConfig(final EnvironmentMutableConfig config) {
+<b class="nc"><i class="no-highlight">593</i>&nbsp;        return config.cloneMutableConfig();</b>
+<i class="no-highlight">594</i>&nbsp;    }
+<i class="no-highlight">595</i>&nbsp;
+<i class="no-highlight">596</i>&nbsp;    /**
+<i class="no-highlight">597</i>&nbsp;     * Proxy to EnvironmentMutableConfig.checkImmutablePropsForEquality()
+<i class="no-highlight">598</i>&nbsp;     */
+<i class="no-highlight">599</i>&nbsp;    public static void
+<i class="no-highlight">600</i>&nbsp;        checkImmutablePropsForEquality(final EnvironmentMutableConfig config,
+<i class="no-highlight">601</i>&nbsp;                                       final Properties handleConfigProps)
+<i class="no-highlight">602</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">603</i>&nbsp;
+<b class="nc"><i class="no-highlight">604</i>&nbsp;        config.checkImmutablePropsForEquality(handleConfigProps);</b>
+<b class="nc"><i class="no-highlight">605</i>&nbsp;    }</b>
+<i class="no-highlight">606</i>&nbsp;
+<i class="no-highlight">607</i>&nbsp;    /**
+<i class="no-highlight">608</i>&nbsp;     * Proxy to EnvironmentMutableConfig.copyMutablePropsTo()
+<i class="no-highlight">609</i>&nbsp;     */
+<i class="no-highlight">610</i>&nbsp;    public static void
+<i class="no-highlight">611</i>&nbsp;        copyMutablePropsTo(final EnvironmentMutableConfig config,
+<i class="no-highlight">612</i>&nbsp;                           final EnvironmentMutableConfig toConfig) {
+<b class="nc"><i class="no-highlight">613</i>&nbsp;        config.copyMutablePropsTo(toConfig);</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;    }</b>
+<i class="no-highlight">615</i>&nbsp;
+<i class="no-highlight">616</i>&nbsp;    /**
+<i class="no-highlight">617</i>&nbsp;     * Proxy to EnvironmentMutableConfig.validateParams.
+<i class="no-highlight">618</i>&nbsp;     */
+<i class="no-highlight">619</i>&nbsp;    public static void
+<i class="no-highlight">620</i>&nbsp;        disableParameterValidation(final EnvironmentMutableConfig config) {
+<b class="nc"><i class="no-highlight">621</i>&nbsp;        config.setValidateParams(false);</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;    }</b>
+<i class="no-highlight">623</i>&nbsp;
+<i class="no-highlight">624</i>&nbsp;    /**
+<i class="no-highlight">625</i>&nbsp;     * Proxy to EnvironmentMutableConfig.getProps
+<i class="no-highlight">626</i>&nbsp;     */
+<i class="no-highlight">627</i>&nbsp;    public static Properties getProps(final EnvironmentMutableConfig config) {
+<b class="fc"><i class="no-highlight">628</i>&nbsp;        return config.getProps();</b>
+<i class="no-highlight">629</i>&nbsp;    }
+<i class="no-highlight">630</i>&nbsp;
+<i class="no-highlight">631</i>&nbsp;    /**
+<i class="no-highlight">632</i>&nbsp;     * Proxy to DatabaseConfig.setUseExistingConfig()
+<i class="no-highlight">633</i>&nbsp;     */
+<i class="no-highlight">634</i>&nbsp;    public static void setUseExistingConfig(final DatabaseConfig config,
+<i class="no-highlight">635</i>&nbsp;                                            final boolean useExistingConfig) {
+<b class="nc"><i class="no-highlight">636</i>&nbsp;        config.setUseExistingConfig(useExistingConfig);</b>
+<b class="nc"><i class="no-highlight">637</i>&nbsp;    }</b>
+<i class="no-highlight">638</i>&nbsp;
+<i class="no-highlight">639</i>&nbsp;    /**
+<i class="no-highlight">640</i>&nbsp;     * Proxy to DatabaseConfig.validate(DatabaseConfig()
+<i class="no-highlight">641</i>&nbsp;     */
+<i class="no-highlight">642</i>&nbsp;    public static void validate(final DatabaseConfig config1,
+<i class="no-highlight">643</i>&nbsp;                                final DatabaseConfig config2)
+<i class="no-highlight">644</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">645</i>&nbsp;
+<b class="nc"><i class="no-highlight">646</i>&nbsp;        config1.validate(config2);</b>
+<b class="nc"><i class="no-highlight">647</i>&nbsp;    }</b>
+<i class="no-highlight">648</i>&nbsp;
+<i class="no-highlight">649</i>&nbsp;    /**
+<i class="no-highlight">650</i>&nbsp;     * Proxy to Transaction.getLocker()
+<i class="no-highlight">651</i>&nbsp;     */
+<i class="no-highlight">652</i>&nbsp;    public static Locker getLocker(final Transaction txn)
+<i class="no-highlight">653</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">654</i>&nbsp;
+<b class="nc"><i class="no-highlight">655</i>&nbsp;        return txn.getLocker();</b>
+<i class="no-highlight">656</i>&nbsp;    }
+<i class="no-highlight">657</i>&nbsp;
+<i class="no-highlight">658</i>&nbsp;    /**
+<i class="no-highlight">659</i>&nbsp;     * Proxy to Transaction.getEnvironment()
+<i class="no-highlight">660</i>&nbsp;     */
+<i class="no-highlight">661</i>&nbsp;    public static Environment getEnvironment(final Transaction txn)
+<i class="no-highlight">662</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">663</i>&nbsp;
+<b class="nc"><i class="no-highlight">664</i>&nbsp;        return txn.getEnvironment();</b>
+<i class="no-highlight">665</i>&nbsp;    }
+<i class="no-highlight">666</i>&nbsp;
+<i class="no-highlight">667</i>&nbsp;    /**
+<i class="no-highlight">668</i>&nbsp;     * Proxy to Environment.getDefaultTxnConfig()
+<i class="no-highlight">669</i>&nbsp;     */
+<i class="no-highlight">670</i>&nbsp;    public static TransactionConfig
+<i class="no-highlight">671</i>&nbsp;        getDefaultTxnConfig(final Environment env) {
+<b class="nc"><i class="no-highlight">672</i>&nbsp;        return env.getDefaultTxnConfig();</b>
+<i class="no-highlight">673</i>&nbsp;    }
+<i class="no-highlight">674</i>&nbsp;
+<i class="no-highlight">675</i>&nbsp;    public static Transaction
+<i class="no-highlight">676</i>&nbsp;        beginInternalTransaction(final Environment env,
+<i class="no-highlight">677</i>&nbsp;                                 final TransactionConfig config) {
+<b class="nc"><i class="no-highlight">678</i>&nbsp;        return env.beginInternalTransaction(config);</b>
+<i class="no-highlight">679</i>&nbsp;    }
+<i class="no-highlight">680</i>&nbsp;
+<i class="no-highlight">681</i>&nbsp;    public static ExceptionEvent makeExceptionEvent(final Exception e,
+<i class="no-highlight">682</i>&nbsp;                                                    final String n) {
+<b class="nc"><i class="no-highlight">683</i>&nbsp;        return new ExceptionEvent(e, n);</b>
+<i class="no-highlight">684</i>&nbsp;    }
+<i class="no-highlight">685</i>&nbsp;
+<i class="no-highlight">686</i>&nbsp;    public static Txn getTxn(final Transaction transaction) {
+<b class="nc"><i class="no-highlight">687</i>&nbsp;        return transaction.getTxn();</b>
+<i class="no-highlight">688</i>&nbsp;    }
+<i class="no-highlight">689</i>&nbsp;
+<i class="no-highlight">690</i>&nbsp;    public static DiskOrderedCursorImpl
+<i class="no-highlight">691</i>&nbsp;        getDiskOrderedCursorImpl(final DiskOrderedCursor cursor) {
+<i class="no-highlight">692</i>&nbsp;
+<b class="nc"><i class="no-highlight">693</i>&nbsp;        return cursor.getCursorImpl();</b>
+<i class="no-highlight">694</i>&nbsp;    }
+<i class="no-highlight">695</i>&nbsp;
+<i class="no-highlight">696</i>&nbsp;    public static OperationResult makeResult(final long time) {
+<i class="no-highlight">697</i>&nbsp;
+<b class="fc"><i class="no-highlight">698</i>&nbsp;        return time == 0 ?</b>
+<i class="no-highlight">699</i>&nbsp;            DEFAULT_RESULT :
+<i class="no-highlight">700</i>&nbsp;            new OperationResult(time, false /*update*/);
+<i class="no-highlight">701</i>&nbsp;    }
+<i class="no-highlight">702</i>&nbsp;
+<i class="no-highlight">703</i>&nbsp;    public static OperationResult makeResult(
+<i class="no-highlight">704</i>&nbsp;        final int expiration,
+<i class="no-highlight">705</i>&nbsp;        final boolean expirationInHours) {
+<i class="no-highlight">706</i>&nbsp;
+<b class="fc"><i class="no-highlight">707</i>&nbsp;        return makeResult(</b>
+<b class="fc"><i class="no-highlight">708</i>&nbsp;            TTL.expirationToSystemTime(expiration, expirationInHours));</b>
+<i class="no-highlight">709</i>&nbsp;    }
+<i class="no-highlight">710</i>&nbsp;
+<i class="no-highlight">711</i>&nbsp;    public static OperationResult makeUpdateResult(
+<i class="no-highlight">712</i>&nbsp;        final int expiration,
+<i class="no-highlight">713</i>&nbsp;        final boolean expirationInHours) {
+<i class="no-highlight">714</i>&nbsp;
+<b class="fc"><i class="no-highlight">715</i>&nbsp;        return new OperationResult(</b>
+<b class="fc"><i class="no-highlight">716</i>&nbsp;            TTL.expirationToSystemTime(expiration, expirationInHours),</b>
+<i class="no-highlight">717</i>&nbsp;            true /*update*/);
+<i class="no-highlight">718</i>&nbsp;    }
+<i class="no-highlight">719</i>&nbsp;
+<i class="no-highlight">720</i>&nbsp;    public static ReadOptions getReadOptions(LockMode lockMode) {
+<b class="nc"><i class="no-highlight">721</i>&nbsp;        if (lockMode == null) {</b>
+<b class="nc"><i class="no-highlight">722</i>&nbsp;            lockMode = LockMode.DEFAULT;</b>
+<i class="no-highlight">723</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">724</i>&nbsp;        return lockMode.toReadOptions();</b>
+<i class="no-highlight">725</i>&nbsp;    }
+<i class="no-highlight">726</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

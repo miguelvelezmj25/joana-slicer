@@ -1,0 +1,462 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > MatchpointSearchResults</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.stream</a>
+</div>
+
+<h1>Coverage Summary for Class: MatchpointSearchResults (com.sleepycat.je.rep.stream)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">MatchpointSearchResults</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/17)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/62)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">MatchpointSearchResults$PassedTxnInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/19)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/70)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.stream;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.Serializable;
+<i class="no-highlight">17</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">18</i>&nbsp;import java.util.List;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.txn.TxnAbort;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.txn.TxnCommit;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.utilint.Timestamp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">27</i>&nbsp;
+<i class="no-highlight">28</i>&nbsp;/**
+<i class="no-highlight">29</i>&nbsp; * Holds information seen by the ReplicaSyncupReader when
+<i class="no-highlight">30</i>&nbsp; * scanning a replica&#39;s log for a matchpoint.
+<i class="no-highlight">31</i>&nbsp; */
+<i class="no-highlight">32</i>&nbsp;public class MatchpointSearchResults implements Serializable {
+<i class="no-highlight">33</i>&nbsp;    private static final long serialVersionUID = 1L;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;    private long matchpointLSN;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;    /*
+<i class="no-highlight">38</i>&nbsp;     * Track whether we passed a checkpoint which deleted cleaned log files.
+<i class="no-highlight">39</i>&nbsp;     * If so, we cannot do a hard recovery.
+<i class="no-highlight">40</i>&nbsp;     */
+<i class="no-highlight">41</i>&nbsp;    private boolean passedCheckpointEnd;
+<i class="no-highlight">42</i>&nbsp;
+<i class="no-highlight">43</i>&nbsp;    /*
+<i class="no-highlight">44</i>&nbsp;     * If we skip a gap in the log file when searching for a matchpoint, we
+<i class="no-highlight">45</i>&nbsp;     * no longer can be sure if we have passed checkpoints.
+<i class="no-highlight">46</i>&nbsp;     */
+<i class="no-highlight">47</i>&nbsp;    private boolean passedSkippedGap;
+<i class="no-highlight">48</i>&nbsp;
+<i class="no-highlight">49</i>&nbsp;    /*
+<i class="no-highlight">50</i>&nbsp;     * We save a set number of passed transactions for debugging information.
+<i class="no-highlight">51</i>&nbsp;     * The list is limited in size in case we end up passing a large number
+<i class="no-highlight">52</i>&nbsp;     * of transactions on our hunt for a matchpoint. Note that we save both
+<i class="no-highlight">53</i>&nbsp;     * durable and non-durable transactions to aid with debugging.
+<i class="no-highlight">54</i>&nbsp;     */
+<i class="no-highlight">55</i>&nbsp;    private final List&lt;PassedTxnInfo&gt; passedTxns;
+<i class="no-highlight">56</i>&nbsp;    private final int passedTxnLimit;
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    /*
+<i class="no-highlight">59</i>&nbsp;     * We need to keep the penultimate passed txn so we can readjust the
+<i class="no-highlight">60</i>&nbsp;     * passed transaction information when the matchpoint is found. For
+<i class="no-highlight">61</i>&nbsp;     * example, suppose the log contains:
+<i class="no-highlight">62</i>&nbsp;     *   txn A commit
+<i class="no-highlight">63</i>&nbsp;     *   txn B commit
+<i class="no-highlight">64</i>&nbsp;     *   txn C commit
+<i class="no-highlight">65</i>&nbsp;     * and txn A commit is the matchpoint. The way the loop works, we&#39;ll
+<i class="no-highlight">66</i>&nbsp;     * have earliestPassedTxn = txnA, and penultimate = txn B. If the
+<i class="no-highlight">67</i>&nbsp;     * matchpoint is txnA, the log will be truncated at txnB, and we
+<i class="no-highlight">68</i>&nbsp;     * should reset earliestPassedTxn = txnB.
+<i class="no-highlight">69</i>&nbsp;     *
+<i class="no-highlight">70</i>&nbsp;     * Note that numPassedDurableCommits is a subset of numPassedCommits
+<i class="no-highlight">71</i>&nbsp;     */
+<i class="no-highlight">72</i>&nbsp;    private PassedTxnInfo earliestPassedTxn;
+<i class="no-highlight">73</i>&nbsp;    private PassedTxnInfo penultimatePassedTxn;
+<i class="no-highlight">74</i>&nbsp;    private int numPassedCommits;
+<i class="no-highlight">75</i>&nbsp;    private int numPassedDurableCommits;
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;    /*
+<i class="no-highlight">78</i>&nbsp;     * The DTVLSN established when scanning the log backwards from high to low
+<i class="no-highlight">79</i>&nbsp;     * VLSNS
+<i class="no-highlight">80</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">81</i>&nbsp;    private VLSN dtvlsn = VLSN.NULL_VLSN;</b>
+<i class="no-highlight">82</i>&nbsp;
+<b class="nc"><i class="no-highlight">83</i>&nbsp;    public MatchpointSearchResults(EnvironmentImpl envImpl) {</b>
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;        /*
+<i class="no-highlight">86</i>&nbsp;         * The matchpointLSN should be a non-null value, because we always have
+<i class="no-highlight">87</i>&nbsp;         * to provide a valid truncation point.
+<i class="no-highlight">88</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        matchpointLSN = DbLsn.makeLsn(0, 0);</b>
+<i class="no-highlight">90</i>&nbsp;
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        passedTxnLimit =</b>
+<b class="nc"><i class="no-highlight">92</i>&nbsp;            envImpl.getConfigManager().getInt(RepParams.TXN_ROLLBACK_LIMIT);</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        passedTxns = new ArrayList&lt;PassedTxnInfo&gt;();</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;        numPassedCommits = 0;</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;        numPassedDurableCommits = 0;</b>
+<i class="no-highlight">96</i>&nbsp;    }
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * If we see a checkpoint end record, see if it is a barrier to
+<i class="no-highlight">100</i>&nbsp;     * rolling back, and advance the file reader position.
+<i class="no-highlight">101</i>&nbsp;     */
+<i class="no-highlight">102</i>&nbsp;    void notePassedCheckpointEnd() {
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        passedCheckpointEnd = true;</b>
+<i class="no-highlight">104</i>&nbsp;    }
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;    /**
+<i class="no-highlight">107</i>&nbsp;     * Keep track if we have jumped over a gap in the log files, and might have
+<i class="no-highlight">108</i>&nbsp;     * missed a checkpoint end.
+<i class="no-highlight">109</i>&nbsp;     */
+<i class="no-highlight">110</i>&nbsp;    void noteSkippedGap() {
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        passedSkippedGap = true;</b>
+<i class="no-highlight">112</i>&nbsp;    }
+<i class="no-highlight">113</i>&nbsp;
+<i class="no-highlight">114</i>&nbsp;    /**
+<i class="no-highlight">115</i>&nbsp;     * At the end of the search for a matchpoint, set the matchpointLSN and
+<i class="no-highlight">116</i>&nbsp;     * adjust the debugging list of passed transactions. The matchpoint entry
+<i class="no-highlight">117</i>&nbsp;     * is just before the truncation point, and does not get truncated.
+<i class="no-highlight">118</i>&nbsp;     */
+<i class="no-highlight">119</i>&nbsp;    void setMatchpoint(long match) {
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        matchpointLSN = match;</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        if ((earliestPassedTxn != null) &amp;&amp;</b>
+<i class="no-highlight">122</i>&nbsp;            (earliestPassedTxn.lsn == matchpointLSN)) {
+<b class="nc"><i class="no-highlight">123</i>&nbsp;            numPassedCommits--;</b>
+<i class="no-highlight">124</i>&nbsp;
+<b class="nc"><i class="no-highlight">125</i>&nbsp;            if (passedTxns.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;               int lastSavedTxn = passedTxns.size() - 1;</b>
+<b class="nc"><i class="no-highlight">127</i>&nbsp;               if (passedTxns.get(lastSavedTxn).lsn == match) {</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;                  passedTxns.remove(lastSavedTxn);</b>
+<i class="no-highlight">129</i>&nbsp;               }
+<b class="nc"><i class="no-highlight">130</i>&nbsp;               earliestPassedTxn = penultimatePassedTxn;</b>
+<i class="no-highlight">131</i>&nbsp;            }
+<i class="no-highlight">132</i>&nbsp;        }
+<i class="no-highlight">133</i>&nbsp;    }
+<i class="no-highlight">134</i>&nbsp;
+<i class="no-highlight">135</i>&nbsp;    /**
+<i class="no-highlight">136</i>&nbsp;     * The reader saw a transaction commit; record relevant information. Note
+<i class="no-highlight">137</i>&nbsp;     * that we record all transactions (replicated and non-replicated) to avoid
+<i class="no-highlight">138</i>&nbsp;     * cutting off a checkpoint. Note that the stream can be a combination of
+<i class="no-highlight">139</i>&nbsp;     * log records from pre and post-dtvlsn masters. Note that we are scanning
+<i class="no-highlight">140</i>&nbsp;     * the log backwards, so we are encountering commits in decreasing VLSN
+<i class="no-highlight">141</i>&nbsp;     * sequence.
+<i class="no-highlight">142</i>&nbsp;     *
+<i class="no-highlight">143</i>&nbsp;     * @param commit the commit being passed. Note that this object is reused
+<i class="no-highlight">144</i>&nbsp;     * and so should not be saved.
+<i class="no-highlight">145</i>&nbsp;     *
+<i class="no-highlight">146</i>&nbsp;     * @param commitVLSN the VLSN associated with the commit. It could be null
+<i class="no-highlight">147</i>&nbsp;     * if the commit was local and not HA
+<i class="no-highlight">148</i>&nbsp;     *
+<i class="no-highlight">149</i>&nbsp;     * @param commitLSN the LSN at which the commit is located
+<i class="no-highlight">150</i>&nbsp;     */
+<i class="no-highlight">151</i>&nbsp;    void notePassedCommits(TxnCommit commit,
+<i class="no-highlight">152</i>&nbsp;                           VLSN commitVLSN,
+<i class="no-highlight">153</i>&nbsp;                           long commitLSN) {
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        boolean durableCommit = false;</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        final Timestamp commitTime = commit.getTime();</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        final long txnId = commit.getId();</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        final long commitDTVLSN = commit.getDTVLSN();</b>
+<i class="no-highlight">158</i>&nbsp;
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        if ((commitVLSN != null) &amp;&amp; !commitVLSN.isNull()) {</b>
+<i class="no-highlight">160</i>&nbsp;            /* A replicated txn */
+<b class="nc"><i class="no-highlight">161</i>&nbsp;            processDTVLSN(commitVLSN, commitDTVLSN);</b>
+<i class="no-highlight">162</i>&nbsp;
+<b class="nc"><i class="no-highlight">163</i>&nbsp;            if (commit.hasLoggedEntries() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                ((dtvlsn.getSequence() == VLSN.UNINITIALIZED_VLSN_SEQUENCE) ||</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;                 (commitVLSN.compareTo(dtvlsn) &lt;= 0))) {</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                numPassedDurableCommits++;</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                durableCommit = true;</b>
+<i class="no-highlight">168</i>&nbsp;            }
+<i class="no-highlight">169</i>&nbsp;        }
+<i class="no-highlight">170</i>&nbsp;
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        numPassedCommits++;</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        if (earliestPassedTxn != null) {</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            penultimatePassedTxn = earliestPassedTxn;</b>
+<i class="no-highlight">174</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">175</i>&nbsp;        earliestPassedTxn =</b>
+<i class="no-highlight">176</i>&nbsp;            new PassedTxnInfo(commitTime, txnId, commitVLSN, commitLSN,
+<i class="no-highlight">177</i>&nbsp;                              durableCommit);
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;        /*
+<i class="no-highlight">180</i>&nbsp;         * Save only a limited number of passed txns, for displaying to the log
+<i class="no-highlight">181</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        if (numPassedCommits &lt;= passedTxnLimit) {</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;            passedTxns.add(earliestPassedTxn);</b>
+<i class="no-highlight">184</i>&nbsp;        }
+<i class="no-highlight">185</i>&nbsp;    }
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    private void processDTVLSN(VLSN txnEndVLSN, final long txnEndDTVLSN) {
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        if (dtvlsn.isNull()) {</b>
+<i class="no-highlight">189</i>&nbsp;            /*
+<i class="no-highlight">190</i>&nbsp;             * The first commit/abort record, set the dtvlsn to a
+<i class="no-highlight">191</i>&nbsp;             * non null value
+<i class="no-highlight">192</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            dtvlsn = new VLSN(txnEndDTVLSN);</b>
+<i class="no-highlight">194</i>&nbsp;        } else {
+<i class="no-highlight">195</i>&nbsp;            /*
+<i class="no-highlight">196</i>&nbsp;             * Already set, verify sequencing. Make allowance for transitions
+<i class="no-highlight">197</i>&nbsp;             * from pre to post-DTVLSN stream segments. Note that we are going
+<i class="no-highlight">198</i>&nbsp;             * backwards in the log at this point.
+<i class="no-highlight">199</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            if ((txnEndDTVLSN &gt; dtvlsn.getSequence()) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                (dtvlsn.getSequence() != VLSN.UNINITIALIZED_VLSN_SEQUENCE)) {</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                throw new IllegalStateException</b>
+<i class="no-highlight">203</i>&nbsp;                    (&quot;DTVLSNs should only decrease with decreasing VLSNs.&quot; +
+<i class="no-highlight">204</i>&nbsp;                     &quot; prev:&quot; + dtvlsn + &quot; next:&quot; + txnEndDTVLSN +
+<i class="no-highlight">205</i>&nbsp;                     &quot; commit VLSN:&quot; + txnEndVLSN);
+<i class="no-highlight">206</i>&nbsp;            }
+<i class="no-highlight">207</i>&nbsp;        }
+<i class="no-highlight">208</i>&nbsp;    }
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;    /**
+<i class="no-highlight">211</i>&nbsp;     * Use the DTVLSN value from a replicated abort to set the dtvlsn.
+<i class="no-highlight">212</i>&nbsp;     *
+<i class="no-highlight">213</i>&nbsp;     * @param abort the abort log record
+<i class="no-highlight">214</i>&nbsp;     *
+<i class="no-highlight">215</i>&nbsp;     * @param abortVLSN the VLSN associated with the abort log record
+<i class="no-highlight">216</i>&nbsp;     */
+<i class="no-highlight">217</i>&nbsp;    void notePassedAborts(TxnAbort abort,
+<i class="no-highlight">218</i>&nbsp;                          VLSN abortVLSN) {
+<i class="no-highlight">219</i>&nbsp;
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        if (abortVLSN.isNull()) {</b>
+<i class="no-highlight">221</i>&nbsp;            /* A non-replicated abort. */
+<i class="no-highlight">222</i>&nbsp;            return;
+<i class="no-highlight">223</i>&nbsp;        }
+<i class="no-highlight">224</i>&nbsp;
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        final long abortDTVLSN = abort.getDTVLSN();</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        processDTVLSN(abortVLSN, abortDTVLSN);</b>
+<i class="no-highlight">227</i>&nbsp;    }
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    boolean getPassedCheckpointEnd() {
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        return passedCheckpointEnd;</b>
+<i class="no-highlight">231</i>&nbsp;    }
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;    boolean getSkippedGap() {
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        return passedSkippedGap;</b>
+<i class="no-highlight">235</i>&nbsp;    }
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    public long getMatchpointLSN() {
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        return matchpointLSN;</b>
+<i class="no-highlight">239</i>&nbsp;    }
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    public int getNumPassedCommits() {
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        return numPassedCommits;</b>
+<i class="no-highlight">243</i>&nbsp;    }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    public int getNumPassedDurableCommits() {
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        return numPassedDurableCommits;</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    public PassedTxnInfo getEarliestPassedTxn() {
+<b class="nc"><i class="no-highlight">250</i>&nbsp;        return earliestPassedTxn;</b>
+<i class="no-highlight">251</i>&nbsp;    }
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;    public VLSN getDTVLSN() {
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        return dtvlsn;</b>
+<i class="no-highlight">255</i>&nbsp;    }
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;    /**
+<i class="no-highlight">258</i>&nbsp;     * Display the saved transaction information.
+<i class="no-highlight">259</i>&nbsp;     */
+<i class="no-highlight">260</i>&nbsp;    public String dumpPassedTxns() {
+<b class="nc"><i class="no-highlight">261</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;        for (PassedTxnInfo info : passedTxns) {</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;            sb.append(info);</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;            sb.append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">266</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">267</i>&nbsp;    }
+<i class="no-highlight">268</i>&nbsp;
+<i class="no-highlight">269</i>&nbsp;    @Override
+<i class="no-highlight">270</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">271</i>&nbsp;        return &quot;matchpointLSN=&quot; + DbLsn.getNoFormatString(matchpointLSN) +</b>
+<i class="no-highlight">272</i>&nbsp;            &quot; passedCkpt=&quot; + passedCheckpointEnd +
+<i class="no-highlight">273</i>&nbsp;            &quot; passedTxnLimit=&quot; + passedTxnLimit +
+<i class="no-highlight">274</i>&nbsp;            &quot; passedTxns=&quot; + passedTxns +
+<i class="no-highlight">275</i>&nbsp;            &quot; earliestTxn=&quot; + earliestPassedTxn +
+<i class="no-highlight">276</i>&nbsp;            &quot; penultimateTxn=&quot; + penultimatePassedTxn +
+<i class="no-highlight">277</i>&nbsp;            &quot; numPassedCommits=&quot; + numPassedCommits +
+<i class="no-highlight">278</i>&nbsp;            &quot; numPassedDurableCommits=&quot; + numPassedDurableCommits +
+<i class="no-highlight">279</i>&nbsp;            &quot; passedSkippedGap=&quot; + passedSkippedGap;
+<i class="no-highlight">280</i>&nbsp;    }
+<i class="no-highlight">281</i>&nbsp;
+<i class="no-highlight">282</i>&nbsp;    /**
+<i class="no-highlight">283</i>&nbsp;     * If 1 or more commits was passed, construct a message that can
+<i class="no-highlight">284</i>&nbsp;     * be used by RollbackException and RollbackProhibitedException.
+<i class="no-highlight">285</i>&nbsp;     */
+<i class="no-highlight">286</i>&nbsp;    public String getRollbackMsg() {
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        if (numPassedCommits == 0) {</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;            return &quot; uncommitted operations&quot;;</b>
+<i class="no-highlight">289</i>&nbsp;        }
+<i class="no-highlight">290</i>&nbsp;
+<b class="nc"><i class="no-highlight">291</i>&nbsp;        if (numPassedDurableCommits == 0) {</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;            return &quot; &quot; + numPassedCommits +</b>
+<i class="no-highlight">293</i>&nbsp;                &quot; total commits to the earliest point indicated by transaction &quot; +
+<i class="no-highlight">294</i>&nbsp;                earliestPassedTxn;
+<i class="no-highlight">295</i>&nbsp;        }
+<i class="no-highlight">296</i>&nbsp;
+<b class="nc"><i class="no-highlight">297</i>&nbsp;        return &quot; &quot; + numPassedCommits + &quot; total commits(&quot; +</b>
+<i class="no-highlight">298</i>&nbsp;                numPassedDurableCommits + &quot; of which were durable) &quot; +
+<i class="no-highlight">299</i>&nbsp;                &quot;to the earliest point indicated by transaction &quot; +
+<i class="no-highlight">300</i>&nbsp;            earliestPassedTxn;
+<i class="no-highlight">301</i>&nbsp;    }
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;    /* Struct to hold information about passed txns. */
+<i class="no-highlight">304</i>&nbsp;    public static class PassedTxnInfo  implements Serializable {
+<i class="no-highlight">305</i>&nbsp;        private static final long serialVersionUID = 1L;
+<i class="no-highlight">306</i>&nbsp;
+<i class="no-highlight">307</i>&nbsp;        public final Timestamp time;
+<i class="no-highlight">308</i>&nbsp;        public final long id;
+<i class="no-highlight">309</i>&nbsp;        public final VLSN vlsn;
+<i class="no-highlight">310</i>&nbsp;        public final long lsn;
+<i class="no-highlight">311</i>&nbsp;        public final boolean durableCommit;
+<i class="no-highlight">312</i>&nbsp;
+<i class="no-highlight">313</i>&nbsp;        PassedTxnInfo(Timestamp time, long id, VLSN vlsn, long lsn,
+<b class="nc"><i class="no-highlight">314</i>&nbsp;                      boolean durableCommit) {</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            this.time = time;</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            this.id = id;</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            this.vlsn = vlsn;</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            this.lsn = lsn;</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;            this.durableCommit = durableCommit;</b>
+<i class="no-highlight">320</i>&nbsp;        }
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;        @Override
+<i class="no-highlight">323</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            return &quot;id=&quot; + id +</b>
+<i class="no-highlight">325</i>&nbsp;                &quot; time=&quot; + time +
+<i class="no-highlight">326</i>&nbsp;                &quot; vlsn=&quot; + vlsn +
+<b class="nc"><i class="no-highlight">327</i>&nbsp;                &quot; lsn=&quot; + DbLsn.getNoFormatString(lsn) +</b>
+<i class="no-highlight">328</i>&nbsp;                &quot; durable=&quot; + durableCommit;
+<i class="no-highlight">329</i>&nbsp;        }
+<i class="no-highlight">330</i>&nbsp;    }
+<i class="no-highlight">331</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

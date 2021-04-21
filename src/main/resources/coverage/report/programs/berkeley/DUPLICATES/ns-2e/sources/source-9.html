@@ -1,0 +1,544 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DbRunAction</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.util</a>
+</div>
+
+<h1>Coverage Summary for Class: DbRunAction (com.sleepycat.je.util)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DbRunAction</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/186)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">DbRunAction$StatsPrinter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/15)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/201)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.util;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.BufferedReader;
+<i class="no-highlight">17</i>&nbsp;import java.io.File;
+<i class="no-highlight">18</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">19</i>&nbsp;import java.io.InputStreamReader;
+<i class="no-highlight">20</i>&nbsp;import java.text.DecimalFormat;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.CheckpointConfig;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.EnvironmentMutableConfig;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.EnvironmentStats;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.LockMode;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.cleaner.VerifyUtils;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.utilint.CmdUtil;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;/**
+<i class="no-highlight">42</i>&nbsp; * @hidden
+<i class="no-highlight">43</i>&nbsp; * For internal use only.
+<i class="no-highlight">44</i>&nbsp; * DbRunAction is a debugging aid that can invoke a JE operation or background
+<i class="no-highlight">45</i>&nbsp; * activity from the command line.
+<i class="no-highlight">46</i>&nbsp; *
+<i class="no-highlight">47</i>&nbsp; *   batchClean calls Environment.cleanLog() in a loop
+<i class="no-highlight">48</i>&nbsp; *   checkpoint calls Environment.checkpoint() with force=true
+<i class="no-highlight">49</i>&nbsp; *   compress calls Environment.compress
+<i class="no-highlight">50</i>&nbsp; *   evict calls Environment.preload, then evictMemory
+<i class="no-highlight">51</i>&nbsp; *   removeDb calls Environment.removeDatabase, but doesn&#39;t do any cleaning
+<i class="no-highlight">52</i>&nbsp; *   removeDbAndClean calls removeDatabase, then cleanLog in a loop
+<i class="no-highlight">53</i>&nbsp; *   activateCleaner wakes up the cleaner, and then the main thread waits
+<i class="no-highlight">54</i>&nbsp; *     until you type &quot;y&quot; to the console before calling Environment.close().
+<i class="no-highlight">55</i>&nbsp; *     The control provided by the prompt is necessary for daemon activities
+<i class="no-highlight">56</i>&nbsp; *     because often threads check and bail out if the environment is closed.
+<i class="no-highlight">57</i>&nbsp; *   verifyUtilization calls CleanerTestUtils.verifyUtilization() to compare
+<i class="no-highlight">58</i>&nbsp; *     utilization as calculated by UtilizationProfile to utilization as
+<i class="no-highlight">59</i>&nbsp; *     calculated by UtilizationFileReader.
+<i class="no-highlight">60</i>&nbsp; */
+<b class="nc"><i class="no-highlight">61</i>&nbsp;public class DbRunAction {</b>
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    private static final int BATCH_CLEAN = 1;   // app-driven batch cleaning
+<i class="no-highlight">64</i>&nbsp;    private static final int COMPRESS = 2;
+<i class="no-highlight">65</i>&nbsp;    private static final int EVICT = 3;
+<i class="no-highlight">66</i>&nbsp;    private static final int CHECKPOINT = 4;
+<i class="no-highlight">67</i>&nbsp;    private static final int REMOVEDB = 5;
+<i class="no-highlight">68</i>&nbsp;    private static final int REMOVEDB_AND_CLEAN = 6;
+<i class="no-highlight">69</i>&nbsp;    private static final int ACTIVATE_CLEANER_THREADS = 7;
+<i class="no-highlight">70</i>&nbsp;                                           // wake up cleaner threads
+<i class="no-highlight">71</i>&nbsp;    private static final int VERIFY_UTILIZATION = 8;
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;    public static void main(String[] argv) {
+<i class="no-highlight">74</i>&nbsp;
+<b class="nc"><i class="no-highlight">75</i>&nbsp;        long recoveryStart = 0;</b>
+<b class="nc"><i class="no-highlight">76</i>&nbsp;        long actionStart = 0;</b>
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        long actionEnd = 0;</b>
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">80</i>&nbsp;            int whichArg = 0;</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;            if (argv.length == 0) {</b>
+<b class="nc"><i class="no-highlight">82</i>&nbsp;                usage();</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;                System.exit(1);</b>
+<i class="no-highlight">84</i>&nbsp;            }
+<i class="no-highlight">85</i>&nbsp;
+<b class="nc"><i class="no-highlight">86</i>&nbsp;            String dbName = null;</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;            int doAction = 0;</b>
+<b class="nc"><i class="no-highlight">88</i>&nbsp;            String envHome = &quot;.&quot;;</b>
+<b class="nc"><i class="no-highlight">89</i>&nbsp;            boolean readOnly = false;</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;            boolean printStats = false;</b>
+<i class="no-highlight">91</i>&nbsp;
+<b class="nc"><i class="no-highlight">92</i>&nbsp;            while (whichArg &lt; argv.length) {</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;                String nextArg = argv[whichArg];</b>
+<i class="no-highlight">94</i>&nbsp;
+<b class="nc"><i class="no-highlight">95</i>&nbsp;                if (nextArg.equals(&quot;-h&quot;)) {</b>
+<b class="nc"><i class="no-highlight">96</i>&nbsp;                    whichArg++;</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;                    envHome = CmdUtil.getArg(argv, whichArg);</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                } else if (nextArg.equals(&quot;-a&quot;)) {</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;                    whichArg++;</b>
+<b class="nc"><i class="no-highlight">100</i>&nbsp;                    String action = CmdUtil.getArg(argv, whichArg);</b>
+<b class="nc"><i class="no-highlight">101</i>&nbsp;                    if (action.equalsIgnoreCase(&quot;batchClean&quot;)) {</b>
+<b class="nc"><i class="no-highlight">102</i>&nbsp;                        doAction = BATCH_CLEAN;</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;compress&quot;)) {</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                        doAction = COMPRESS;</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;checkpoint&quot;)) {</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;                        doAction = CHECKPOINT;</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;evict&quot;)) {</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                        doAction = EVICT;</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;removedb&quot;)) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                        doAction = REMOVEDB;</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;removedbAndClean&quot;)) {</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                        doAction = REMOVEDB_AND_CLEAN;</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;activateCleaner&quot;)) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                        doAction = ACTIVATE_CLEANER_THREADS;</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                    } else if (action.equalsIgnoreCase(&quot;verifyUtilization&quot;)) {</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;                        doAction = VERIFY_UTILIZATION;</b>
+<i class="no-highlight">117</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">118</i>&nbsp;                        usage();</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;                        System.exit(1);</b>
+<i class="no-highlight">120</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">121</i>&nbsp;                } else if (nextArg.equals(&quot;-ro&quot;)) {</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;                    readOnly = true;</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;                } else if (nextArg.equals(&quot;-s&quot;)) {</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;                    dbName = argv[++whichArg];</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;                } else if (nextArg.equals(&quot;-stats&quot;)) {</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;                    printStats = true;</b>
+<i class="no-highlight">127</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">128</i>&nbsp;                    throw new IllegalArgumentException</b>
+<i class="no-highlight">129</i>&nbsp;                        (nextArg + &quot; is not a supported option.&quot;);
+<i class="no-highlight">130</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">131</i>&nbsp;                whichArg++;</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;            }</b>
+<i class="no-highlight">133</i>&nbsp;
+<b class="nc"><i class="no-highlight">134</i>&nbsp;            EnvironmentConfig envConfig = new EnvironmentConfig();</b>
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;            /* Don&#39;t debug log to the database log. */
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            if (readOnly) {</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;                envConfig.setConfigParam</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;                    (EnvironmentParams.JE_LOGGING_DBLOG.getName(), &quot;false&quot;);</b>
+<i class="no-highlight">140</i>&nbsp;
+<b class="nc"><i class="no-highlight">141</i>&nbsp;                envConfig.setReadOnly(true);</b>
+<i class="no-highlight">142</i>&nbsp;            }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;            /*
+<i class="no-highlight">145</i>&nbsp;             * If evicting, scan the given database first and don&#39;t run the
+<i class="no-highlight">146</i>&nbsp;             * background evictor.
+<i class="no-highlight">147</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            if (doAction == EVICT) {</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;                envConfig.setConfigParam</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;                    (EnvironmentParams.ENV_RUN_EVICTOR.getName(), &quot;false&quot;);</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;                envConfig.setConfigParam</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;                    (EnvironmentParams.EVICTOR_CRITICAL_PERCENTAGE.getName(),</b>
+<i class="no-highlight">153</i>&nbsp;                     &quot;1000&quot;);
+<i class="no-highlight">154</i>&nbsp;            }
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;            /*
+<i class="no-highlight">157</i>&nbsp;             * If cleaning, disable the daemon cleaner threads.  The work being
+<i class="no-highlight">158</i>&nbsp;             * done by these threads is aborted when the environment is closed,
+<i class="no-highlight">159</i>&nbsp;             * which can result in incomplete log cleaning.
+<i class="no-highlight">160</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">161</i>&nbsp;            if (doAction == BATCH_CLEAN) {</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                envConfig.setConfigParam</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                    (EnvironmentParams.ENV_RUN_CLEANER.getName(), &quot;false&quot;);</b>
+<i class="no-highlight">164</i>&nbsp;            }
+<i class="no-highlight">165</i>&nbsp;
+<b class="nc"><i class="no-highlight">166</i>&nbsp;            recoveryStart = System.currentTimeMillis();</b>
+<i class="no-highlight">167</i>&nbsp;
+<b class="nc"><i class="no-highlight">168</i>&nbsp;            Environment env =</b>
+<i class="no-highlight">169</i>&nbsp;                new Environment(new File(envHome), envConfig);
+<i class="no-highlight">170</i>&nbsp;
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            CheckpointConfig forceConfig = new CheckpointConfig();</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;            forceConfig.setForce(true);</b>
+<i class="no-highlight">173</i>&nbsp;
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            Thread statsPrinter = null;</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            if (printStats) {</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                statsPrinter = new StatsPrinter(env);</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;                statsPrinter.start();</b>
+<i class="no-highlight">178</i>&nbsp;            }
+<i class="no-highlight">179</i>&nbsp;            
+<b class="nc"><i class="no-highlight">180</i>&nbsp;            boolean promptForShutdown = false;</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;            actionStart = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;            switch(doAction) {</b>
+<i class="no-highlight">183</i>&nbsp;            case BATCH_CLEAN:
+<i class="no-highlight">184</i>&nbsp;                /* Since this is batch cleaning, repeat until no progress. */
+<i class="no-highlight">185</i>&nbsp;                while (true) {
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                    int nFiles = env.cleanLog();</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                    System.out.println(&quot;Files cleaned: &quot; + nFiles);</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                    if (nFiles == 0) {</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;                        break;</b>
+<i class="no-highlight">190</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">191</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;                env.checkpoint(forceConfig);</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;                break;</b>
+<i class="no-highlight">194</i>&nbsp;            case COMPRESS:
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                env.compress();</b>
+<b class="nc"><i class="no-highlight">196</i>&nbsp;                break;</b>
+<i class="no-highlight">197</i>&nbsp;            case CHECKPOINT:
+<b class="nc"><i class="no-highlight">198</i>&nbsp;                env.checkpoint(forceConfig);</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;                break;</b>
+<i class="no-highlight">200</i>&nbsp;            case EVICT:
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                preload(env, dbName);</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                break;</b>
+<i class="no-highlight">203</i>&nbsp;            case REMOVEDB:
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                removeAndClean(env, dbName, false);</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                break;</b>
+<i class="no-highlight">206</i>&nbsp;            case REMOVEDB_AND_CLEAN:
+<b class="nc"><i class="no-highlight">207</i>&nbsp;                removeAndClean(env, dbName, true);</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;                break;</b>
+<i class="no-highlight">209</i>&nbsp;            case ACTIVATE_CLEANER_THREADS:
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                EnvironmentImpl envImpl =</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                    DbInternal.getNonNullEnvImpl(env);</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;                envImpl.getCleaner().wakeupActivate();</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                promptForShutdown = true;</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                break;</b>
+<i class="no-highlight">215</i>&nbsp;            case VERIFY_UTILIZATION:
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                EnvironmentImpl envImpl2 =</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                    DbInternal.getNonNullEnvImpl(env);</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                VerifyUtils. verifyUtilization</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                    (envImpl2,</b>
+<i class="no-highlight">220</i>&nbsp;                     true,  // expectAccurateObsoleteLNCount
+<i class="no-highlight">221</i>&nbsp;                     true,  // expectAccurateObsoleteLNSize
+<i class="no-highlight">222</i>&nbsp;                     true); // expectAccurateDbUtilization
+<i class="no-highlight">223</i>&nbsp;                break;
+<i class="no-highlight">224</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            actionEnd = System.currentTimeMillis();</b>
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            if (promptForShutdown) {</b>
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;                /*
+<i class="no-highlight">230</i>&nbsp;                 * If the requested action is a daemon driven one, we don&#39;t
+<i class="no-highlight">231</i>&nbsp;                 * want the main thread to shutdown the environment until we
+<i class="no-highlight">232</i>&nbsp;                 * say we&#39;re ready
+<i class="no-highlight">233</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">234</i>&nbsp;                waitForShutdown();</b>
+<i class="no-highlight">235</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            if (statsPrinter != null) {</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                statsPrinter.interrupt();</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                statsPrinter.join();</b>
+<i class="no-highlight">239</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">240</i>&nbsp;            env.close();</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            System.out.println(e.getMessage());</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;            usage();</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            System.exit(1);</b>
+<i class="no-highlight">246</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            DecimalFormat f = new DecimalFormat();</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;            f.setMaximumFractionDigits(2);</b>
+<i class="no-highlight">249</i>&nbsp;
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            long recoveryDuration = actionStart - recoveryStart;</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;            System.out.println(&quot;\nrecovery time = &quot; +</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;                               f.format(recoveryDuration) +</b>
+<i class="no-highlight">253</i>&nbsp;                               &quot; millis &quot; +
+<b class="nc"><i class="no-highlight">254</i>&nbsp;                               f.format((double)recoveryDuration/60000) +</b>
+<i class="no-highlight">255</i>&nbsp;                               &quot; minutes&quot;);
+<i class="no-highlight">256</i>&nbsp;
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            long actionDuration = actionEnd - actionStart;</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            System.out.println(&quot;action time = &quot; +</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;                               f.format(actionDuration) +</b>
+<i class="no-highlight">260</i>&nbsp;                               &quot; millis &quot; +
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                               f.format(actionDuration/60000) +</b>
+<i class="no-highlight">262</i>&nbsp;                               &quot; minutes&quot;);
+<b class="nc"><i class="no-highlight">263</i>&nbsp;        }</b>
+<i class="no-highlight">264</i>&nbsp;    }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;    private static void removeAndClean(Environment env,
+<i class="no-highlight">267</i>&nbsp;                                       String name,
+<i class="no-highlight">268</i>&nbsp;                                       boolean doCleaning)
+<i class="no-highlight">269</i>&nbsp;        throws Exception {
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;        long a, c, d, e, f;
+<i class="no-highlight">272</i>&nbsp;
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        Transaction txn = null;</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        CheckpointConfig force = new CheckpointConfig();</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        force.setForce(true);</b>
+<i class="no-highlight">276</i>&nbsp;
+<b class="nc"><i class="no-highlight">277</i>&nbsp;        a = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        env.removeDatabase(txn, name);</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        c = System.currentTimeMillis();</b>
+<i class="no-highlight">280</i>&nbsp;
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        int cleanedCount = 0;</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;        if (doCleaning) {</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;            while (env.cleanLog() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;                cleanedCount++;</b>
+<i class="no-highlight">285</i>&nbsp;            }
+<i class="no-highlight">286</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        d = System.currentTimeMillis();</b>
+<i class="no-highlight">288</i>&nbsp;
+<b class="nc"><i class="no-highlight">289</i>&nbsp;        System.out.println(&quot;cleanedCount=&quot; + cleanedCount);</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        e = 0;</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;        f = 0;</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;        if (cleanedCount &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;            e = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;            env.checkpoint(force);</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;            f = System.currentTimeMillis();</b>
+<i class="no-highlight">296</i>&nbsp;        }
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        System.out.println(&quot;Remove of &quot; + name  +</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;                           &quot; remove: &quot; + getSecs(a, c) +</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;                           &quot; clean: &quot; + getSecs(c, d) +</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;                           &quot; checkpoint: &quot; + getSecs(e, f));</b>
+<i class="no-highlight">302</i>&nbsp;    }
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;    private static String getSecs(long start, long end) {
+<b class="nc"><i class="no-highlight">305</i>&nbsp;        return (end-start) / 1000 + &quot; secs&quot;;</b>
+<i class="no-highlight">306</i>&nbsp;    }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;    private static void preload(Environment env, String dbName)
+<i class="no-highlight">309</i>&nbsp;        throws Exception {
+<i class="no-highlight">310</i>&nbsp;
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        System.out.println(&quot;Preload starting&quot;);</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;        Database db = env.openDatabase(null, dbName, null);</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;        Cursor cursor = db.openCursor(null, null);</b>
+<i class="no-highlight">314</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            DatabaseEntry key = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            DatabaseEntry data = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            int count = 0;</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            while (cursor.getNext(key, data, LockMode.DEFAULT) ==</b>
+<i class="no-highlight">319</i>&nbsp;                   OperationStatus.SUCCESS) {
+<b class="nc"><i class="no-highlight">320</i>&nbsp;                count++;</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;                if ((count % 50000) == 0) {</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;                    System.out.println(count + &quot;...&quot;);</b>
+<i class="no-highlight">323</i>&nbsp;                }
+<i class="no-highlight">324</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            System.out.println(&quot;Preloaded &quot; + count + &quot; records&quot;);</b>
+<i class="no-highlight">326</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">327</i>&nbsp;            cursor.close();</b>
+<b class="nc"><i class="no-highlight">328</i>&nbsp;            db.close();</b>
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        }</b>
+<i class="no-highlight">330</i>&nbsp;    }
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">333</i>&nbsp;    private static void doEvict(Environment env)
+<i class="no-highlight">334</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">335</i>&nbsp;            
+<i class="no-highlight">336</i>&nbsp;        /* Push the cache size down by half to force eviction. */
+<b class="nc"><i class="no-highlight">337</i>&nbsp;        EnvironmentImpl envImpl = DbInternal.getNonNullEnvImpl(env);</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        long cacheUsage = envImpl.getMemoryBudget().getCacheMemoryUsage();</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        EnvironmentMutableConfig c = new EnvironmentMutableConfig();</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        c.setCacheSize(cacheUsage/2);</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        env.setMutableConfig(c);</b>
+<i class="no-highlight">342</i>&nbsp;
+<b class="nc"><i class="no-highlight">343</i>&nbsp;        long start = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;        env.evictMemory();</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        long end = System.currentTimeMillis();</b>
+<i class="no-highlight">346</i>&nbsp;
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        DecimalFormat f = new DecimalFormat();</b>
+<b class="nc"><i class="no-highlight">348</i>&nbsp;        f.setMaximumFractionDigits(2);</b>
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        System.out.println(&quot;evict time=&quot; + f.format(end-start));</b>
+<i class="no-highlight">350</i>&nbsp;    }
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;    private static void waitForShutdown()
+<i class="no-highlight">353</i>&nbsp;        throws IOException {
+<i class="no-highlight">354</i>&nbsp;
+<b class="nc"><i class="no-highlight">355</i>&nbsp;        System.out.println</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            (&quot;Wait for daemon activity to run. When ready to stop, type (y)&quot;);</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;        BufferedReader reader =</b>
+<i class="no-highlight">358</i>&nbsp;            new BufferedReader(new InputStreamReader(System.in));
+<i class="no-highlight">359</i>&nbsp;        do {
+<b class="nc"><i class="no-highlight">360</i>&nbsp;            String val = reader.readLine();</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;            if (val != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">362</i>&nbsp;                (val.equalsIgnoreCase(&quot;y&quot;) ||</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;                 val.equalsIgnoreCase(&quot;yes&quot;))) {</b>
+<b class="nc"><i class="no-highlight">364</i>&nbsp;                break;</b>
+<i class="no-highlight">365</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                System.out.println(&quot;Shutdown? (y)&quot;);</b>
+<i class="no-highlight">367</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">368</i>&nbsp;        } while (true);</b>
+<i class="no-highlight">369</i>&nbsp;    }
+<i class="no-highlight">370</i>&nbsp;
+<i class="no-highlight">371</i>&nbsp;    private static class StatsPrinter extends Thread {
+<i class="no-highlight">372</i>&nbsp;
+<i class="no-highlight">373</i>&nbsp;        private Environment env;
+<i class="no-highlight">374</i>&nbsp;
+<b class="nc"><i class="no-highlight">375</i>&nbsp;        StatsPrinter(Environment env) {</b>
+<b class="nc"><i class="no-highlight">376</i>&nbsp;            this.env = env;</b>
+<i class="no-highlight">377</i>&nbsp;        }
+<i class="no-highlight">378</i>&nbsp;
+<i class="no-highlight">379</i>&nbsp;        @Override
+<i class="no-highlight">380</i>&nbsp;        public void run() {
+<i class="no-highlight">381</i>&nbsp;
+<b class="nc"><i class="no-highlight">382</i>&nbsp;            StatsConfig clearConfig = new StatsConfig();</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;            clearConfig.setClear(true);</b>
+<i class="no-highlight">384</i>&nbsp;
+<i class="no-highlight">385</i>&nbsp;            while (true) {
+<i class="no-highlight">386</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">387</i>&nbsp;                    synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;                        wait(30 * 1000);</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;                    }</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;                    EnvironmentStats stats = env.getStats(clearConfig);</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;                    System.out.println(&quot;\n&quot; + stats + &quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;                } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;                    e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;                    break;</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                    break;</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;                }</b>
+<i class="no-highlight">398</i>&nbsp;            }
+<i class="no-highlight">399</i>&nbsp;        }
+<i class="no-highlight">400</i>&nbsp;    }
+<i class="no-highlight">401</i>&nbsp;
+<i class="no-highlight">402</i>&nbsp;    private static void usage() {
+<b class="nc"><i class="no-highlight">403</i>&nbsp;        System.out.println(&quot;Usage: \n &quot; +</b>
+<b class="nc"><i class="no-highlight">404</i>&nbsp;                           CmdUtil.getJavaCommand(DbRunAction.class));</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;        System.out.println(&quot;  -h &lt;environment home&gt; &quot;);</b>
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        System.out.println(&quot;  -a &lt;batchClean|compress|evict|checkpoint|&quot; +</b>
+<i class="no-highlight">407</i>&nbsp;                           &quot;removeDb|removeDbAndClean|activateCleaner|&quot; +
+<i class="no-highlight">408</i>&nbsp;                           &quot;verifyUtilization&gt;&quot;);
+<b class="nc"><i class="no-highlight">409</i>&nbsp;        System.out.println(&quot;  -ro (read-only - defaults to read-write)&quot;);</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        System.out.println(&quot;  -s &lt;dbName&gt; (for removeDb)&quot;);</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        System.out.println(&quot;  -stats (print every 30 seconds)&quot;);</b>
+<i class="no-highlight">412</i>&nbsp;    }
+<i class="no-highlight">413</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

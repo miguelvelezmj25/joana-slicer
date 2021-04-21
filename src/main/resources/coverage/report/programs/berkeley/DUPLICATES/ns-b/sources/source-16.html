@@ -1,0 +1,256 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > NodeSequence</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.dbi</a>
+</div>
+
+<h1>Coverage Summary for Class: NodeSequence (com.sleepycat.je.dbi)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">NodeSequence</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    53.8%
+  </span>
+  <span class="absValue">
+    (7/13)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    57.6%
+  </span>
+  <span class="absValue">
+    (19/33)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.dbi;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.concurrent.atomic.AtomicLong;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;/**
+<i class="no-highlight">22</i>&nbsp; * NodeSequence encapsulates the generation and maintenance of a sequence for
+<i class="no-highlight">23</i>&nbsp; * generating node IDs, transient LSNs and other misc sequences.
+<i class="no-highlight">24</i>&nbsp; */
+<b class="fc"><i class="no-highlight">25</i>&nbsp;public class NodeSequence {</b>
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;    public static final int FIRST_LOCAL_NODE_ID = 1;
+<i class="no-highlight">28</i>&nbsp;    public static final int FIRST_REPLICATED_NODE_ID = -10;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;    /*
+<i class="no-highlight">31</i>&nbsp;     * Node IDs: We need to ensure that local and replicated nodes use
+<i class="no-highlight">32</i>&nbsp;     * different number spaces for their ids, so there can&#39;t be any possible
+<i class="no-highlight">33</i>&nbsp;     * conflicts.  Local, non replicated nodes use positive values starting
+<i class="no-highlight">34</i>&nbsp;     * with 1, replicated nodes use negative values starting with -10.
+<i class="no-highlight">35</i>&nbsp;     *
+<i class="no-highlight">36</i>&nbsp;     * Node ID values from 0 to -9 are reserved.  0 is not used and should be
+<i class="no-highlight">37</i>&nbsp;     * avoided.  -1 is used to mean null or none, and should be used via the
+<i class="no-highlight">38</i>&nbsp;     * Node.NULL_NODE_ID constant.  -2 through -9 are reserved for future use.
+<i class="no-highlight">39</i>&nbsp;     *
+<i class="no-highlight">40</i>&nbsp;     * The local and replicated node ID sequences are initialized by the first
+<i class="no-highlight">41</i>&nbsp;     * pass of recovery, after the log has been scanned for the latest used
+<i class="no-highlight">42</i>&nbsp;     * node ID.
+<i class="no-highlight">43</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">44</i>&nbsp;    private AtomicLong lastAllocatedLocalNodeId = null;</b>
+<b class="fc"><i class="no-highlight">45</i>&nbsp;    private AtomicLong lastAllocatedReplicatedNodeId = null;</b>
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;    /*
+<i class="no-highlight">48</i>&nbsp;     * Transient LSNs are used for not-yet-logged DeferredWrite records and
+<i class="no-highlight">49</i>&nbsp;     * for the EOF record used for Serializable isolation. Transient LSNs are
+<i class="no-highlight">50</i>&nbsp;     * used to provide unique locks, and are only used during the life of an
+<i class="no-highlight">51</i>&nbsp;     * environment, for non-persistent objects.
+<i class="no-highlight">52</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">53</i>&nbsp;    private final AtomicLong lastAllocatedTransientLsnOffset =</b>
+<i class="no-highlight">54</i>&nbsp;        new AtomicLong(0L);
+<i class="no-highlight">55</i>&nbsp;
+<i class="no-highlight">56</i>&nbsp;    public final EnvironmentImpl envImpl;
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    /* Transient sequences. */
+<b class="fc"><i class="no-highlight">59</i>&nbsp;    private final AtomicLong nextBackupId = new AtomicLong(0L);</b>
+<b class="fc"><i class="no-highlight">60</i>&nbsp;    private final AtomicLong nextDatabaseCountId = new AtomicLong(0L);</b>
+<b class="fc"><i class="no-highlight">61</i>&nbsp;    private final AtomicLong nextDiskOrderedCursorId = new AtomicLong(0L);</b>
+<b class="fc"><i class="no-highlight">62</i>&nbsp;    private final AtomicLong nextNetworkRestoreId = new AtomicLong(0L);</b>
+<i class="no-highlight">63</i>&nbsp;
+<b class="fc"><i class="no-highlight">64</i>&nbsp;    public NodeSequence(EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">65</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">66</i>&nbsp;    }</b>
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    /**
+<i class="no-highlight">69</i>&nbsp;     * Initialize the counters in these methods rather than a constructor
+<i class="no-highlight">70</i>&nbsp;     * so we can control the initialization more precisely.
+<i class="no-highlight">71</i>&nbsp;     */
+<i class="no-highlight">72</i>&nbsp;    void initRealNodeId() {
+<b class="fc"><i class="no-highlight">73</i>&nbsp;        lastAllocatedLocalNodeId = new AtomicLong(FIRST_LOCAL_NODE_ID - 1);</b>
+<b class="fc"><i class="no-highlight">74</i>&nbsp;        lastAllocatedReplicatedNodeId =</b>
+<i class="no-highlight">75</i>&nbsp;            new AtomicLong(FIRST_REPLICATED_NODE_ID + 1);
+<b class="fc"><i class="no-highlight">76</i>&nbsp;    }</b>
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    /**
+<i class="no-highlight">79</i>&nbsp;     * The last allocated local and replicated node IDs are used for ckpts.
+<i class="no-highlight">80</i>&nbsp;     */
+<i class="no-highlight">81</i>&nbsp;    public long getLastLocalNodeId() {
+<b class="fc"><i class="no-highlight">82</i>&nbsp;        return lastAllocatedLocalNodeId.get();</b>
+<i class="no-highlight">83</i>&nbsp;    }
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    public long getLastReplicatedNodeId() {
+<b class="fc"><i class="no-highlight">86</i>&nbsp;        return lastAllocatedReplicatedNodeId.get();</b>
+<i class="no-highlight">87</i>&nbsp;    }
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;    /**
+<i class="no-highlight">90</i>&nbsp;     * We get a new node ID of the appropriate kind when creating a new node.
+<i class="no-highlight">91</i>&nbsp;     */
+<i class="no-highlight">92</i>&nbsp;    public long getNextLocalNodeId() {
+<b class="fc"><i class="no-highlight">93</i>&nbsp;        return lastAllocatedLocalNodeId.incrementAndGet();</b>
+<i class="no-highlight">94</i>&nbsp;    }
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    /*
+<i class="no-highlight">97</i>&nbsp;    public long getNextReplicatedNodeId() {
+<i class="no-highlight">98</i>&nbsp;        return lastAllocatedReplicatedNodeId.decrementAndGet();
+<i class="no-highlight">99</i>&nbsp;    }
+<i class="no-highlight">100</i>&nbsp;    */
+<i class="no-highlight">101</i>&nbsp;
+<i class="no-highlight">102</i>&nbsp;    /**
+<i class="no-highlight">103</i>&nbsp;     * Initialize the node IDs, from recovery.
+<i class="no-highlight">104</i>&nbsp;     */
+<i class="no-highlight">105</i>&nbsp;    public void setLastNodeId(long lastReplicatedNodeId,
+<i class="no-highlight">106</i>&nbsp;                              long lastLocalNodeId) {
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        lastAllocatedReplicatedNodeId.set(lastReplicatedNodeId);</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        lastAllocatedLocalNodeId.set(lastLocalNodeId);</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;    }</b>
+<i class="no-highlight">110</i>&nbsp;
+<i class="no-highlight">111</i>&nbsp;    /*
+<i class="no-highlight">112</i>&nbsp;     * Tracks the lowest replicated node ID used during a replay of the
+<i class="no-highlight">113</i>&nbsp;     * replication stream, so that it&#39;s available as the starting point if this
+<i class="no-highlight">114</i>&nbsp;     * replica transitions to being the master.
+<i class="no-highlight">115</i>&nbsp;     */
+<i class="no-highlight">116</i>&nbsp;    public void updateFromReplay(long replayNodeId) {
+<b class="nc"><i class="no-highlight">117</i>&nbsp;        assert !envImpl.isMaster();</b>
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        if (replayNodeId &gt; 0 &amp;&amp; !envImpl.isRepConverted()) {</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;           throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;               (&quot;replay node id is unexpectedly positive &quot; + replayNodeId);</b>
+<i class="no-highlight">121</i>&nbsp;        }
+<i class="no-highlight">122</i>&nbsp;
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        if (replayNodeId &lt; lastAllocatedReplicatedNodeId.get()) {</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;            lastAllocatedReplicatedNodeId.set(replayNodeId);</b>
+<i class="no-highlight">125</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">126</i>&nbsp;    }</b>
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    /**
+<i class="no-highlight">129</i>&nbsp;     * Assign the next available transient LSN.
+<i class="no-highlight">130</i>&nbsp;     */
+<i class="no-highlight">131</i>&nbsp;    public long getNextTransientLsn() {
+<b class="fc"><i class="no-highlight">132</i>&nbsp;        return DbLsn.makeTransientLsn</b>
+<b class="fc"><i class="no-highlight">133</i>&nbsp;            (lastAllocatedTransientLsnOffset.getAndIncrement());</b>
+<i class="no-highlight">134</i>&nbsp;    }
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    public long getNextBackupId() {
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        return nextBackupId.getAndIncrement();</b>
+<i class="no-highlight">138</i>&nbsp;    }
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    public long getNextDatabaseCountId() {
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        return nextDatabaseCountId.getAndIncrement();</b>
+<i class="no-highlight">142</i>&nbsp;    }
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    public long getNextDiskOrderedCursorId() {
+<b class="nc"><i class="no-highlight">145</i>&nbsp;        return nextDiskOrderedCursorId.getAndIncrement();</b>
+<i class="no-highlight">146</i>&nbsp;    }
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;    public long getNextNetworkRestoreId() {
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        return nextNetworkRestoreId.getAndIncrement();</b>
+<i class="no-highlight">150</i>&nbsp;    }
+<i class="no-highlight">151</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

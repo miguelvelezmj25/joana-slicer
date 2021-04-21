@@ -1,0 +1,174 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > VersionedWriteLoggable</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: VersionedWriteLoggable (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+</tr>
+<tr>
+  <td class="name">VersionedWriteLoggable</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.log.entry.ReplicableLogEntry;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;/**
+<i class="no-highlight">22</i>&nbsp; * A sub-interface of {@link Loggable} implemented by classes that can write
+<i class="no-highlight">23</i>&nbsp; * themselves to a byte buffer in an earlier log format, for use by instances
+<i class="no-highlight">24</i>&nbsp; * of {@link ReplicableLogEntry} that need to support an earlier log format
+<i class="no-highlight">25</i>&nbsp; * during replication.  See [#22336].
+<i class="no-highlight">26</i>&nbsp; *
+<i class="no-highlight">27</i>&nbsp; * &lt;p&gt;Classes that implement {@code Loggable} should implement this interface
+<i class="no-highlight">28</i>&nbsp; * if they are included in replication data.
+<i class="no-highlight">29</i>&nbsp; *
+<i class="no-highlight">30</i>&nbsp; * &lt;p&gt;Implementing classes should document the version of the class&#39;s most
+<i class="no-highlight">31</i>&nbsp; * recent format change.  Log entry classes that contain {@code
+<i class="no-highlight">32</i>&nbsp; * VersionedWriteLoggable} items can use that information to determine if they
+<i class="no-highlight">33</i>&nbsp; * can copy the log contents for an entry directly or if they need to convert
+<i class="no-highlight">34</i>&nbsp; * them in order to be compatible with a particular log version.
+<i class="no-highlight">35</i>&nbsp; */
+<i class="no-highlight">36</i>&nbsp;public interface VersionedWriteLoggable extends Loggable {
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;    /**
+<i class="no-highlight">39</i>&nbsp;     * Returns the log version of the most recent format change for this
+<i class="no-highlight">40</i>&nbsp;     * loggable item.
+<i class="no-highlight">41</i>&nbsp;     *
+<i class="no-highlight">42</i>&nbsp;     * @return the log version of the most recent format change
+<i class="no-highlight">43</i>&nbsp;     *
+<i class="no-highlight">44</i>&nbsp;     * @see ReplicableLogEntry#getLastFormatChange()
+<i class="no-highlight">45</i>&nbsp;     */
+<i class="no-highlight">46</i>&nbsp;    int getLastFormatChange();
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /**
+<i class="no-highlight">49</i>&nbsp;     * @see ReplicableLogEntry#getEmbeddedLoggables()
+<i class="no-highlight">50</i>&nbsp;     */
+<i class="no-highlight">51</i>&nbsp;    Collection&lt;VersionedWriteLoggable&gt; getEmbeddedLoggables();
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /**
+<i class="no-highlight">54</i>&nbsp;     * Returns the number of bytes needed to store this object in the format
+<i class="no-highlight">55</i>&nbsp;     * for the specified log version.  Earlier log versions only need to be
+<i class="no-highlight">56</i>&nbsp;     * supported for log entries with format changes made in {@link
+<i class="no-highlight">57</i>&nbsp;     * LogEntryType#LOG_VERSION_REPLICATE_OLDER} or greater.
+<i class="no-highlight">58</i>&nbsp;     *
+<i class="no-highlight">59</i>&nbsp;     * @param logVersion the log version
+<i class="no-highlight">60</i>&nbsp;     * @param forReplication whether the entry will be sent over the wire,
+<i class="no-highlight">61</i>&nbsp;     * and not written to the log.
+<i class="no-highlight">62</i>&nbsp;     * @return the number of bytes to store this object for the log version
+<i class="no-highlight">63</i>&nbsp;     */
+<i class="no-highlight">64</i>&nbsp;    int getLogSize(int logVersion, boolean forReplication);
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /**
+<i class="no-highlight">67</i>&nbsp;     * Serializes this object into the specified buffer in the format for the
+<i class="no-highlight">68</i>&nbsp;     * specified log version.  Earlier log versions only need to be
+<i class="no-highlight">69</i>&nbsp;     * supported for log entries with format changes made in {@link
+<i class="no-highlight">70</i>&nbsp;     * LogEntryType#LOG_VERSION_REPLICATE_OLDER} or greater.
+<i class="no-highlight">71</i>&nbsp;     *
+<i class="no-highlight">72</i>&nbsp;     * @param logBuffer the destination buffer
+<i class="no-highlight">73</i>&nbsp;     * @param logVersion the log version
+<i class="no-highlight">74</i>&nbsp;     * @param forReplication whether the entry will be sent over the wire,
+<i class="no-highlight">75</i>&nbsp;     * and not written to the log.
+<i class="no-highlight">76</i>&nbsp;     */
+<i class="no-highlight">77</i>&nbsp;    void writeToLog(ByteBuffer logBuffer,
+<i class="no-highlight">78</i>&nbsp;        int logVersion,
+<i class="no-highlight">79</i>&nbsp;        boolean forReplication);
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /**
+<i class="no-highlight">82</i>&nbsp;     * Returns whether this format has a variant that is optimized for
+<i class="no-highlight">83</i>&nbsp;     * replication.
+<i class="no-highlight">84</i>&nbsp;     */
+<i class="no-highlight">85</i>&nbsp;    boolean hasReplicationFormat();
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    /**
+<i class="no-highlight">88</i>&nbsp;     * Returns whether it is worthwhile to materialize and then re-serialize a
+<i class="no-highlight">89</i>&nbsp;     * log entry in a format optimized for replication. Implementations should
+<i class="no-highlight">90</i>&nbsp;     * attempt to check efficiently, without instantiating the log entry
+<i class="no-highlight">91</i>&nbsp;     * object. Some implementations will simply return false.
+<i class="no-highlight">92</i>&nbsp;     *
+<i class="no-highlight">93</i>&nbsp;     * &lt;p&gt;WARNING: The logBuffer position must not be changed by this method.
+<i class="no-highlight">94</i>&nbsp;     *
+<i class="no-highlight">95</i>&nbsp;     * &lt;p&gt;WARNING: The shared LogEntry object is used for calling this method,
+<i class="no-highlight">96</i>&nbsp;     * and this method must not change any of the fields in the object.
+<i class="no-highlight">97</i>&nbsp;     *
+<i class="no-highlight">98</i>&nbsp;     * @param logBuffer contains the entry that would be re-serialized.
+<i class="no-highlight">99</i>&nbsp;     * @param srcVersion the log version of entry in logBuffer.
+<i class="no-highlight">100</i>&nbsp;     * @param destVersion the version that would be used for re-serialization.
+<i class="no-highlight">101</i>&nbsp;     */
+<i class="no-highlight">102</i>&nbsp;    boolean isReplicationFormatWorthwhile(ByteBuffer logBuffer,
+<i class="no-highlight">103</i>&nbsp;        int srcVersion,
+<i class="no-highlight">104</i>&nbsp;        int destVersion);
+<i class="no-highlight">105</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

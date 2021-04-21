@@ -1,0 +1,357 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SecondaryAssociation</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: SecondaryAssociation (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+</tr>
+<tr>
+  <td class="name">SecondaryAssociation</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;/**
+<i class="no-highlight">19</i>&nbsp; * @hidden
+<i class="no-highlight">20</i>&nbsp; * For internal use only.
+<i class="no-highlight">21</i>&nbsp; *
+<i class="no-highlight">22</i>&nbsp; * Provides a way to create an association between primary and secondary
+<i class="no-highlight">23</i>&nbsp; * databases that is not limited to a one-to-many association.
+<i class="no-highlight">24</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">25</i>&nbsp; * By implementing this interface, a secondary database may be associated with
+<i class="no-highlight">26</i>&nbsp; * one or more primary databases.  For example, imagine an application that
+<i class="no-highlight">27</i>&nbsp; * wishes to partition data from a single logical &quot;table&quot; into multiple primary
+<i class="no-highlight">28</i>&nbsp; * databases to take advantage of the performance benefits of {@link
+<i class="no-highlight">29</i>&nbsp; * Environment#removeDatabase} for a single partition, while at the same having
+<i class="no-highlight">30</i>&nbsp; * a single index database for the entire &quot;table&quot;.  For read operations via a
+<i class="no-highlight">31</i>&nbsp; * secondary database, JE reads the primary key from the secondary database and
+<i class="no-highlight">32</i>&nbsp; * then must read the primary record from the primary database.  The mapping
+<i class="no-highlight">33</i>&nbsp; * from a primary key to its primary database is performed by the user&#39;s
+<i class="no-highlight">34</i>&nbsp; * implementation of the {@link #getPrimary} method.
+<i class="no-highlight">35</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">36</i>&nbsp; * In addition, a primary database may be divided into subsets of keys where
+<i class="no-highlight">37</i>&nbsp; * each subset may be efficiently indexed by zero or more secondary databases.
+<i class="no-highlight">38</i>&nbsp; * This effectively allows multiple logical &quot;tables&quot; per primary database.
+<i class="no-highlight">39</i>&nbsp; * When a primary record is written, the secondaries for its logical &quot;table&quot;
+<i class="no-highlight">40</i>&nbsp; * are returned by the user&#39;s implementation of {@link #getSecondaries}.
+<i class="no-highlight">41</i>&nbsp; * During a primary record write, because {@link #getSecondaries} is called to
+<i class="no-highlight">42</i>&nbsp; * determine the secondary databases, only the key creators/extractors for
+<i class="no-highlight">43</i>&nbsp; * those secondaries are invoked.  For example, if you have a single primary
+<i class="no-highlight">44</i>&nbsp; * database with 10 logical &quot;tables&quot;, each of which has 5 distinct secondary
+<i class="no-highlight">45</i>&nbsp; * databases, when a record is written only 5 key creators/extractors will be
+<i class="no-highlight">46</i>&nbsp; * invoked, not 50.
+<i class="no-highlight">47</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">48</i>&nbsp; * &lt;b&gt;Configuring a SecondaryAssociation&lt;/b&gt;
+<i class="no-highlight">49</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">50</i>&nbsp; * When primary and secondary databases are associated using a {@code
+<i class="no-highlight">51</i>&nbsp; * SecondaryAssociation}, the databases must all be configured with the same
+<i class="no-highlight">52</i>&nbsp; * {@code SecondaryAssociation} instance.  A common error is to forget to
+<i class="no-highlight">53</i>&nbsp; * configure the {@code SecondaryAssociation} on the primary database.
+<i class="no-highlight">54</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">55</i>&nbsp; * A {@code SecondaryAssociation} is configured using {@link
+<i class="no-highlight">56</i>&nbsp; * DatabaseConfig#setSecondaryAssociation} and {@link
+<i class="no-highlight">57</i>&nbsp; * SecondaryConfig#setSecondaryAssociation} for a primary and secondary
+<i class="no-highlight">58</i>&nbsp; * database, respectively. When calling {@link
+<i class="no-highlight">59</i>&nbsp; * Environment#openSecondaryDatabase}, null must be passed for the
+<i class="no-highlight">60</i>&nbsp; * primaryDatabase parameter when a {@code SecondaryAssociation} is configured.
+<i class="no-highlight">61</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">62</i>&nbsp; * Note that when a {@code SecondaryAssociation} is configured, {@code true}
+<i class="no-highlight">63</i>&nbsp; * may not be passed to the {@link SecondaryConfig#setAllowPopulate} method.
+<i class="no-highlight">64</i>&nbsp; * Population of new secondary databases in an existing {@code
+<i class="no-highlight">65</i>&nbsp; * SecondaryAssociation} is done differently, as described below.
+<i class="no-highlight">66</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">67</i>&nbsp; * &lt;b&gt;Adding and removing secondary associations&lt;/b&gt;
+<i class="no-highlight">68</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">69</i>&nbsp; * The state information defining the association between primary and secondary
+<i class="no-highlight">70</i>&nbsp; * databases is maintained by the application, and made available to JE by
+<i class="no-highlight">71</i>&nbsp; * implementing the {@code SecondaryAssociation} interface.  The application
+<i class="no-highlight">72</i>&nbsp; * may add/remove databases to/from the association without any explicit
+<i class="no-highlight">73</i>&nbsp; * coordination with JE.  However, certain rules need to be followed to
+<i class="no-highlight">74</i>&nbsp; * maintain data integrity.
+<i class="no-highlight">75</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">76</i>&nbsp; * In the simplest case, there is a fixed (never changing) set of primary and
+<i class="no-highlight">77</i>&nbsp; * secondary databases and they are added to the association at the time they
+<i class="no-highlight">78</i>&nbsp; * are created, before writing or reading records.  In this case, since reads
+<i class="no-highlight">79</i>&nbsp; * and writes do not occur concurrently with changes to the association, no
+<i class="no-highlight">80</i>&nbsp; * special rules are needed.  For example:
+<i class="no-highlight">81</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">82</i>&nbsp; *     &lt;li&gt;Open the databases.&lt;/li&gt;
+<i class="no-highlight">83</i>&nbsp; *     &lt;li&gt;Add databases to the association.&lt;/li&gt;
+<i class="no-highlight">84</i>&nbsp; *     &lt;li&gt;Begin writing and reading.&lt;/li&gt;
+<i class="no-highlight">85</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">86</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">87</i>&nbsp; * In other cases, primary and secondary databases may be added to an already
+<i class="no-highlight">88</i>&nbsp; * established association, along with concurrent reads and writes.  The rules
+<i class="no-highlight">89</i>&nbsp; * for doing so are described below.
+<i class="no-highlight">90</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">91</i>&nbsp; * Adding an empty (newly created) primary database is no more complex than in
+<i class="no-highlight">92</i>&nbsp; * the simple case above, assuming that writes to the primary database do not
+<i class="no-highlight">93</i>&nbsp; * proceed until after it has been added to the association.
+<i class="no-highlight">94</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">95</i>&nbsp; *     &lt;li&gt;Open the new primary database.&lt;/li&gt;
+<i class="no-highlight">96</i>&nbsp; *     &lt;li&gt;Add the primary database to the association such that {@link
+<i class="no-highlight">97</i>&nbsp; *     #getSecondaries} returns the appropriate list when passed a key in the
+<i class="no-highlight">98</i>&nbsp; *     new primary database, and {@link #getPrimary} returns the new database
+<i class="no-highlight">99</i>&nbsp; *     when passed a key it contains.&lt;/li&gt;
+<i class="no-highlight">100</i>&nbsp; *     &lt;li&gt;Begin writing to the new primary database.&lt;/li&gt;
+<i class="no-highlight">101</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">102</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">103</i>&nbsp; * Using the procedure above for adding a primary database, records will be
+<i class="no-highlight">104</i>&nbsp; * indexed in secondary databases as they are added to the primary database,
+<i class="no-highlight">105</i>&nbsp; * and will be immediately available to secondary index queries.
+<i class="no-highlight">106</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">107</i>&nbsp; * Alternatively, records can be added to the primary database without making
+<i class="no-highlight">108</i>&nbsp; * them immediately available to secondary index queries by using the following
+<i class="no-highlight">109</i>&nbsp; * procedure.  Records will be indexed in secondary databases as they are added
+<i class="no-highlight">110</i>&nbsp; * but will not be returned by secondary queries until after the last step.
+<i class="no-highlight">111</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">112</i>&nbsp; *     &lt;li&gt;Open the new primary database.&lt;/li&gt;
+<i class="no-highlight">113</i>&nbsp; *     &lt;li&gt;Modify the association such that {@link #getSecondaries} returns the
+<i class="no-highlight">114</i>&nbsp; *     appropriate list when passed a key in the new primary database, but
+<i class="no-highlight">115</i>&nbsp; *     {@link #getPrimary} returns null when passed a key it contains.&lt;/li&gt;
+<i class="no-highlight">116</i>&nbsp; *     &lt;li&gt;Write records in the new primary database.&lt;/li&gt;
+<i class="no-highlight">117</i>&nbsp; *     &lt;li&gt;Modify the association such that {@link #getPrimary} returns the new
+<i class="no-highlight">118</i>&nbsp; *     database when passed a key it contains.&lt;/li&gt;
+<i class="no-highlight">119</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">120</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">121</i>&nbsp; * The following procedure should be used for removing an existing (non-empty)
+<i class="no-highlight">122</i>&nbsp; * primary database from an association.
+<i class="no-highlight">123</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">124</i>&nbsp; *     &lt;li&gt;Remove the primary database from the association, such that {@link
+<i class="no-highlight">125</i>&nbsp; *     #getPrimary} returns null for all keys in the primary.&lt;/li&gt;
+<i class="no-highlight">126</i>&nbsp; *     &lt;li&gt;Disable read and write operations on the database and ensure that
+<i class="no-highlight">127</i>&nbsp; *     all in-progress operations have completed.&lt;/li&gt;
+<i class="no-highlight">128</i>&nbsp; *     &lt;li&gt;At this point the primary database may be closed and removed
+<i class="no-highlight">129</i>&nbsp; *     (e.g., with {@link Environment#removeDatabase}), if desired.&lt;/li&gt;
+<i class="no-highlight">130</i>&nbsp; *     &lt;li&gt;For each secondary database associated with the removed primary
+<i class="no-highlight">131</i>&nbsp; *     database, {@link SecondaryDatabase#deleteObsoletePrimaryKeys} should be
+<i class="no-highlight">132</i>&nbsp; *     called to process all secondary records.&lt;/li&gt;
+<i class="no-highlight">133</i>&nbsp; *     &lt;li&gt;At this point {@link #getPrimary} may throw an exception (rather
+<i class="no-highlight">134</i>&nbsp; *     than return null) when called for a primary key in the removed database,
+<i class="no-highlight">135</i>&nbsp; *     if desired.&lt;/li&gt;
+<i class="no-highlight">136</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">137</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">138</i>&nbsp; * The following procedure should be used for adding a new (empty) secondary
+<i class="no-highlight">139</i>&nbsp; * database to an association, and to populate the secondary incrementally
+<i class="no-highlight">140</i>&nbsp; * from its associated primary database(s).
+<i class="no-highlight">141</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">142</i>&nbsp; *     &lt;li&gt;Open the secondary database and call {@link
+<i class="no-highlight">143</i>&nbsp; *     SecondaryDatabase#startIncrementalPopulation}.  The secondary may not be
+<i class="no-highlight">144</i>&nbsp; *     used (yet) for read operations.&lt;/li&gt;
+<i class="no-highlight">145</i>&nbsp; *     &lt;li&gt;Add the secondary database to the association, such that the
+<i class="no-highlight">146</i>&nbsp; *     collection returned by {@link #getSecondaries} includes the new
+<i class="no-highlight">147</i>&nbsp; *     database, for all primary keys that should be indexed.&lt;/li&gt;
+<i class="no-highlight">148</i>&nbsp; *     &lt;li&gt;For each primary database associated with the new secondary
+<i class="no-highlight">149</i>&nbsp; *     database, {@link Database#populateSecondaries} should be called to
+<i class="no-highlight">150</i>&nbsp; *     process all primary records.&lt;/li&gt;
+<i class="no-highlight">151</i>&nbsp; *     &lt;li&gt;Call {@link SecondaryDatabase#endIncrementalPopulation}. The
+<i class="no-highlight">152</i>&nbsp; *     secondary database may now be used for read operations.&lt;/li&gt;
+<i class="no-highlight">153</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">154</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">155</i>&nbsp; * The following procedure should be used for removing an existing (non-empty)
+<i class="no-highlight">156</i>&nbsp; * secondary database from an association.
+<i class="no-highlight">157</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">158</i>&nbsp; *     &lt;li&gt;Remove the secondary database from the association, such that it is
+<i class="no-highlight">159</i>&nbsp; *     not included in the collection returned by {@link #getSecondaries}.&lt;/li&gt;
+<i class="no-highlight">160</i>&nbsp; *     &lt;li&gt;Disable read and write operations on the database and ensure that
+<i class="no-highlight">161</i>&nbsp; *     all in-progress operations have completed.&lt;/li&gt;
+<i class="no-highlight">162</i>&nbsp; *     &lt;li&gt;The secondary database may now be closed and removed, if
+<i class="no-highlight">163</i>&nbsp; *     desired.&lt;/li&gt;
+<i class="no-highlight">164</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">165</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">166</i>&nbsp; * &lt;b&gt;Other Implementation Requirements&lt;/b&gt;
+<i class="no-highlight">167</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">168</i>&nbsp; * The implementation must use data structures for storing and accessing
+<i class="no-highlight">169</i>&nbsp; * association information that provide &lt;em&gt;happens-before&lt;/em&gt; semantics.  In
+<i class="no-highlight">170</i>&nbsp; * other words, when the association is changed, other threads calling the
+<i class="no-highlight">171</i>&nbsp; * methods in this interface must see the changes as soon as the change is
+<i class="no-highlight">172</i>&nbsp; * complete.
+<i class="no-highlight">173</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">174</i>&nbsp; * The implementation should use non-blocking data structures to hold
+<i class="no-highlight">175</i>&nbsp; * association information to avoid blocking on the methods in this interface,
+<i class="no-highlight">176</i>&nbsp; * which may be frequently called from many threads.
+<i class="no-highlight">177</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">178</i>&nbsp; * The simplest way to meet the above two requirements is to use concurrent
+<i class="no-highlight">179</i>&nbsp; * structures such as those provided in the java.util.concurrent package, e.g.,
+<i class="no-highlight">180</i>&nbsp; * ConcurrentHashMap.
+<i class="no-highlight">181</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">182</i>&nbsp; * For an example implementation, see:
+<i class="no-highlight">183</i>&nbsp; * test/com/sleepycat/je/test/SecondaryAssociationTest.java
+<i class="no-highlight">184</i>&nbsp; */
+<i class="no-highlight">185</i>&nbsp;public interface SecondaryAssociation {
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    /*
+<i class="no-highlight">188</i>&nbsp;     * Implementation note on concurrent access and latching.
+<i class="no-highlight">189</i>&nbsp;     *
+<i class="no-highlight">190</i>&nbsp;     * When adding/removing primary/secondary DBs to an existing association,
+<i class="no-highlight">191</i>&nbsp;     * concurrency issues arise.  This section explains how they are handled,
+<i class="no-highlight">192</i>&nbsp;     * assuming the rules described in the javadoc below are followed when a
+<i class="no-highlight">193</i>&nbsp;     * custom association is configured.
+<i class="no-highlight">194</i>&nbsp;     *
+<i class="no-highlight">195</i>&nbsp;     * There are two cases:
+<i class="no-highlight">196</i>&nbsp;     *
+<i class="no-highlight">197</i>&nbsp;     * 1) A custom association is NOT configured.  An internal association is
+<i class="no-highlight">198</i>&nbsp;     * created that manages the one-many association between a primary and its
+<i class="no-highlight">199</i>&nbsp;     * secondaries.
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * 2) A custom association IS configured.  It is used internally.
+<i class="no-highlight">202</i>&nbsp;     *
+<i class="no-highlight">203</i>&nbsp;     * For case 1, no custom association, DB addition and removal take place in
+<i class="no-highlight">204</i>&nbsp;     * the Environment.openSecondaryDatabase and SecondaryDatabase.close
+<i class="no-highlight">205</i>&nbsp;     * methods, respectively.  These methods, and the changes to the internal
+<i class="no-highlight">206</i>&nbsp;     * association, are protected by acquiring the secondary latch
+<i class="no-highlight">207</i>&nbsp;     * (EnvironmentImpl.getSecondaryAssociationLock) exclusively.  All write
+<i class="no-highlight">208</i>&nbsp;     * operations that use the association -- puts and deletes -- acquire this
+<i class="no-highlight">209</i>&nbsp;     * latch shared.  Therefore, write operations and changes to the
+<i class="no-highlight">210</i>&nbsp;     * association do not take place concurrently.  Read operations via a
+<i class="no-highlight">211</i>&nbsp;     * secondary DB/cursor do not acquire this latch, so they can take place
+<i class="no-highlight">212</i>&nbsp;     * concurrently with changes to the association; however, read operations
+<i class="no-highlight">213</i>&nbsp;     * only call getPrimary and they expect it may return null at any time (the
+<i class="no-highlight">214</i>&nbsp;     * operation ignores the record in that case).  It is impossible to close
+<i class="no-highlight">215</i>&nbsp;     * a primary while it is being read via a secondary, because secondaries
+<i class="no-highlight">216</i>&nbsp;     * must be closed before their associated primary.  (And the application is
+<i class="no-highlight">217</i>&nbsp;     * responsible for finishing reads before closing any DB.)
+<i class="no-highlight">218</i>&nbsp;     *
+<i class="no-highlight">219</i>&nbsp;     * For case 2, a custom association, the secondary latch does not provide
+<i class="no-highlight">220</i>&nbsp;     * protection because modifications to the association take place in the
+<i class="no-highlight">221</i>&nbsp;     * application domain, not in the Environment.openSecondaryDatabase and
+<i class="no-highlight">222</i>&nbsp;     * SecondaryDatabase.close methods.  Instead, protection is provided by the
+<i class="no-highlight">223</i>&nbsp;     * rules described in the javadoc here. Namely:
+<i class="no-highlight">224</i>&nbsp;     *
+<i class="no-highlight">225</i>&nbsp;     *   Primary/secondary DBs are added to the association AFTER opening them
+<i class="no-highlight">226</i>&nbsp;     *   (of course).  The DBs will not be be accessed until they are added to
+<i class="no-highlight">227</i>&nbsp;     *   the association.  
+<i class="no-highlight">228</i>&nbsp;     *
+<i class="no-highlight">229</i>&nbsp;     *   Primary/secondary DBs are removed from the association BEFORE closing
+<i class="no-highlight">230</i>&nbsp;     *   them.  The application is responsible for ensuring they are no longer
+<i class="no-highlight">231</i>&nbsp;     *   accessed before they are closed.
+<i class="no-highlight">232</i>&nbsp;     *
+<i class="no-highlight">233</i>&nbsp;     *   When a primary DB is added, its secondaries will be kept in sync as
+<i class="no-highlight">234</i>&nbsp;     *   soon as writing begins, since it must be added to the association
+<i class="no-highlight">235</i>&nbsp;     *   before writes are allowed.
+<i class="no-highlight">236</i>&nbsp;     *
+<i class="no-highlight">237</i>&nbsp;     *   When a secondary DB is added, the incremental population procedure
+<i class="no-highlight">238</i>&nbsp;     *   ensures that it is fully populated before being accessed.
+<i class="no-highlight">239</i>&nbsp;     */
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    /**
+<i class="no-highlight">242</i>&nbsp;     * Returns true if there are no secondary databases in the association.
+<i class="no-highlight">243</i>&nbsp;     *
+<i class="no-highlight">244</i>&nbsp;     * This method is used by JE to optimize for the case where a primary
+<i class="no-highlight">245</i>&nbsp;     * has no secondary databases.  This allows a {@code SecondaryAssociation}
+<i class="no-highlight">246</i>&nbsp;     * to be configured on a primary database even when it has no associated
+<i class="no-highlight">247</i>&nbsp;     * secondaries, with no added overhead, and to allow for the possibility
+<i class="no-highlight">248</i>&nbsp;     * that secondaries will be added later.
+<i class="no-highlight">249</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">250</i>&nbsp;     * For example, when a primary database has no secondaries, no internal
+<i class="no-highlight">251</i>&nbsp;     * latching is performed by JE during writes.  JE determines that no
+<i class="no-highlight">252</i>&nbsp;     * secondaries are present by calling {@code isEmpty}, prior to doing the
+<i class="no-highlight">253</i>&nbsp;     * write operation.
+<i class="no-highlight">254</i>&nbsp;     *
+<i class="no-highlight">255</i>&nbsp;     * @throws RuntimeException if an unexpected problem occurs.  The exception
+<i class="no-highlight">256</i>&nbsp;     * will be thrown to the application, which should then take appropriate
+<i class="no-highlight">257</i>&nbsp;     * action.
+<i class="no-highlight">258</i>&nbsp;     */
+<i class="no-highlight">259</i>&nbsp;    boolean isEmpty();
+<i class="no-highlight">260</i>&nbsp;
+<i class="no-highlight">261</i>&nbsp;    /**
+<i class="no-highlight">262</i>&nbsp;     * Returns the primary database for the given primary key.  This method
+<i class="no-highlight">263</i>&nbsp;     * is called during read operations on secondary databases that are
+<i class="no-highlight">264</i>&nbsp;     * configured with this {@code SecondaryAssociation}.
+<i class="no-highlight">265</i>&nbsp;     *
+<i class="no-highlight">266</i>&nbsp;     * This method should return null when the primary database has been
+<i class="no-highlight">267</i>&nbsp;     * removed from the association, or when it should not be included in the
+<i class="no-highlight">268</i>&nbsp;     * results for secondary queries.  In this case, the current operation will
+<i class="no-highlight">269</i>&nbsp;     * treat the secondary record as if it does not exist, i.e., it will be
+<i class="no-highlight">270</i>&nbsp;     * skipped over.
+<i class="no-highlight">271</i>&nbsp;     *
+<i class="no-highlight">272</i>&nbsp;     * @throws RuntimeException if an unexpected problem occurs.  The exception
+<i class="no-highlight">273</i>&nbsp;     * will be thrown to the application, which should then take appropriate
+<i class="no-highlight">274</i>&nbsp;     * action.
+<i class="no-highlight">275</i>&nbsp;     */
+<i class="no-highlight">276</i>&nbsp;    Database getPrimary(DatabaseEntry primaryKey);
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /**
+<i class="no-highlight">279</i>&nbsp;     * Returns the secondary databases associated with the given primary key.
+<i class="no-highlight">280</i>&nbsp;     * This method is called during write operations on primary databases that
+<i class="no-highlight">281</i>&nbsp;     * are configured with this {@code SecondaryAssociation}.
+<i class="no-highlight">282</i>&nbsp;     *
+<i class="no-highlight">283</i>&nbsp;     * @throws RuntimeException if an unexpected problem occurs.  The exception
+<i class="no-highlight">284</i>&nbsp;     * will be thrown to the application, which should then take appropriate
+<i class="no-highlight">285</i>&nbsp;     * action.
+<i class="no-highlight">286</i>&nbsp;     */
+<i class="no-highlight">287</i>&nbsp;    Collection&lt;SecondaryDatabase&gt; getSecondaries(DatabaseEntry primaryKey);
+<i class="no-highlight">288</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

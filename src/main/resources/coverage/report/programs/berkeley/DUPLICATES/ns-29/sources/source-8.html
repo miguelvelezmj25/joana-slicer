@@ -1,0 +1,1242 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > VLSNTracker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.vlsn</a>
+</div>
+
+<h1>Coverage Summary for Class: VLSNTracker (com.sleepycat.je.rep.vlsn)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">VLSNTracker</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/30)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/307)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.vlsn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.utilint.VLSN.NULL_VLSN;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">19</i>&nbsp;import java.util.NoSuchElementException;
+<i class="no-highlight">20</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">21</i>&nbsp;import java.util.TreeMap;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.bind.tuple.LongBinding;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.CursorConfig;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.LockMode;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector.ProtectedFileSet;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRange.VLSNRangeBinding;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.txn.BasicLocker;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.utilint.Pair;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;/**
+<i class="no-highlight">48</i>&nbsp; * See @link{VLSNIndex} for an overview of the mapping system. The VLSNTracker
+<i class="no-highlight">49</i>&nbsp; * packages the VLSNRange and the cached, in-memory VLSNBuckets.
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * The tracker has a notion of the &quot;currentBucket&quot;, which is the one receiving
+<i class="no-highlight">52</i>&nbsp; * updates. All other cached buckets are finished and are awaiting a write to
+<i class="no-highlight">53</i>&nbsp; * the database. Those finished buckets will only be updated in special
+<i class="no-highlight">54</i>&nbsp; * circumstances, such as log cleaning or replication stream truncation, when
+<i class="no-highlight">55</i>&nbsp; * we can assume that there will no readers viewing the buckets.
+<i class="no-highlight">56</i>&nbsp; */
+<b class="nc"><i class="no-highlight">57</i>&nbsp;class VLSNTracker {</b>
+<i class="no-highlight">58</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;    /* The first mapping that is is the tracker cache.  */
+<b class="nc"><i class="no-highlight">61</i>&nbsp;    private VLSN firstTrackedVLSN = NULL_VLSN;</b>
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /* The last VLSN that is stored on disk. */
+<b class="nc"><i class="no-highlight">64</i>&nbsp;    private VLSN lastOnDiskVLSN = NULL_VLSN;</b>
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /*
+<i class="no-highlight">67</i>&nbsp;     * A cache of buckets that are not on disk. The map key is the bucket&#39;s
+<i class="no-highlight">68</i>&nbsp;     * first VLSN.
+<i class="no-highlight">69</i>&nbsp;     */
+<i class="no-highlight">70</i>&nbsp;    SortedMap&lt;Long, VLSNBucket&gt; bucketCache;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    /*
+<i class="no-highlight">73</i>&nbsp;     * The range should always be updated through assignment to a new
+<i class="no-highlight">74</i>&nbsp;     * VLSNRange, to ensure that the values stay consistent. The current bucket
+<i class="no-highlight">75</i>&nbsp;     * mutex must be taken in order to update this value, so that the current
+<i class="no-highlight">76</i>&nbsp;     * bucket is updated before the range is updated.  When reading range
+<i class="no-highlight">77</i>&nbsp;     * fields, the caller must be sure to get a reference to a single range
+<i class="no-highlight">78</i>&nbsp;     * instance, so that there&#39;s no danger of getting inconsistent values.
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;    protected volatile VLSNRange range;
+<i class="no-highlight">81</i>&nbsp;    private boolean rangeTruncated;
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;    /*
+<i class="no-highlight">84</i>&nbsp;     * ProtectedFileRange protects files in &#39;range&#39; from being deleted. The
+<i class="no-highlight">85</i>&nbsp;     * range start is changed during initialization and when the head of the
+<i class="no-highlight">86</i>&nbsp;     * index is truncated. It is changed while synchronized on &#39;this&#39; to
+<i class="no-highlight">87</i>&nbsp;     * guarantees that files are not deleted while the range head is locked.
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    private final FileProtector.ProtectedFileRange protectedFileRange;
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;    /*
+<i class="no-highlight">92</i>&nbsp;     * In the future, we may want to vary stride, maxMappings and maxDistance
+<i class="no-highlight">93</i>&nbsp;     * dynamically, in reaction to efficient the mappings look.
+<i class="no-highlight">94</i>&nbsp;     */
+<i class="no-highlight">95</i>&nbsp;    private final int stride;
+<i class="no-highlight">96</i>&nbsp;    private final int maxMappings;
+<i class="no-highlight">97</i>&nbsp;    private final int maxDistance;
+<i class="no-highlight">98</i>&nbsp;
+<i class="no-highlight">99</i>&nbsp;    private final LongStat nBucketsCreated;
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    /*
+<i class="no-highlight">102</i>&nbsp;     * Create an VLSNTracker, with the range initialized from the mapping db.
+<i class="no-highlight">103</i>&nbsp;     */
+<i class="no-highlight">104</i>&nbsp;    VLSNTracker(EnvironmentImpl envImpl,
+<i class="no-highlight">105</i>&nbsp;                DatabaseImpl mappingDbImpl,
+<i class="no-highlight">106</i>&nbsp;                int stride,
+<i class="no-highlight">107</i>&nbsp;                int maxMappings,
+<i class="no-highlight">108</i>&nbsp;                int maxDistance,
+<i class="no-highlight">109</i>&nbsp;                StatGroup statistics)
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">111</i>&nbsp;
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        this.stride = stride;</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        this.maxMappings = maxMappings;</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        this.maxDistance = maxDistance;</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        nBucketsCreated =</b>
+<i class="no-highlight">117</i>&nbsp;            new LongStat(statistics, VLSNIndexStatDefinition.N_BUCKETS_CREATED);
+<i class="no-highlight">118</i>&nbsp;
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        bucketCache = new TreeMap&lt;&gt;();</b>
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;        /*
+<i class="no-highlight">122</i>&nbsp;         * Protect all files initially. The range lower bound will be advanced
+<i class="no-highlight">123</i>&nbsp;         * later during initialization. This special ProtectedFileRange does
+<i class="no-highlight">124</i>&nbsp;         * not impact LogSizeStats -- see FileProtector.
+<i class="no-highlight">125</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">126</i>&nbsp;        final FileProtector fileProtector = envImpl.getFileProtector();</b>
+<i class="no-highlight">127</i>&nbsp;
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        protectedFileRange = fileProtector.protectFileRange(</b>
+<i class="no-highlight">129</i>&nbsp;            FileProtector.VLSN_INDEX_NAME, 0 /*rangeStart*/,
+<i class="no-highlight">130</i>&nbsp;            true /*protectVlsnIndex*/);
+<i class="no-highlight">131</i>&nbsp;
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        fileProtector.setVLSNIndexProtectedFileRange(protectedFileRange);</b>
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;        /* Read the current range information. */
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        DatabaseEntry key = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        DatabaseEntry data = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        LongBinding.longToEntry(VLSNRange.RANGE_KEY, key);</b>
+<i class="no-highlight">138</i>&nbsp;
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        Cursor cursor = null;</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        Locker locker = null;</b>
+<i class="no-highlight">141</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            locker = BasicLocker.createBasicLocker(envImpl);</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;            cursor = DbInternal.makeCursor(mappingDbImpl,</b>
+<i class="no-highlight">144</i>&nbsp;                                           locker,
+<i class="no-highlight">145</i>&nbsp;                                           CursorConfig.DEFAULT);
+<b class="nc"><i class="no-highlight">146</i>&nbsp;            DbInternal.getCursorImpl(cursor).setAllowEviction(false);</b>
+<i class="no-highlight">147</i>&nbsp;
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            OperationStatus status = cursor.getSearchKey(key, data,</b>
+<i class="no-highlight">149</i>&nbsp;                                                         LockMode.DEFAULT);
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            if (status == OperationStatus.SUCCESS) {</b>
+<i class="no-highlight">151</i>&nbsp;                /* initialize the range from the database. */
+<b class="nc"><i class="no-highlight">152</i>&nbsp;                VLSNRangeBinding rangeBinding = new VLSNRangeBinding();</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;                range = rangeBinding.entryToObject(data);</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;                lastOnDiskVLSN = range.getLast();</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            } else if (status == OperationStatus.NOTFOUND) {</b>
+<i class="no-highlight">156</i>&nbsp;                /* No mappings exist before. */
+<b class="nc"><i class="no-highlight">157</i>&nbsp;                range = VLSNRange.EMPTY;</b>
+<i class="no-highlight">158</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">159</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                    (&quot;VLSNTracker init: status=&quot; + status);</b>
+<i class="no-highlight">161</i>&nbsp;            }
+<i class="no-highlight">162</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">163</i>&nbsp;            if (cursor != null) {</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                cursor.close();</b>
+<i class="no-highlight">165</i>&nbsp;            }
+<i class="no-highlight">166</i>&nbsp;
+<b class="nc"><i class="no-highlight">167</i>&nbsp;            if (locker != null) {</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;                locker.operationEnd(true);</b>
+<i class="no-highlight">169</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        }</b>
+<i class="no-highlight">171</i>&nbsp;    }
+<i class="no-highlight">172</i>&nbsp;
+<i class="no-highlight">173</i>&nbsp;    /*
+<i class="no-highlight">174</i>&nbsp;     * Create an empty VLSNTracker. Used during recovery.
+<i class="no-highlight">175</i>&nbsp;     */
+<i class="no-highlight">176</i>&nbsp;    VLSNTracker(EnvironmentImpl envImpl,
+<i class="no-highlight">177</i>&nbsp;                int stride,
+<i class="no-highlight">178</i>&nbsp;                int maxMappings,
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                int maxDistance) {</b>
+<i class="no-highlight">180</i>&nbsp;
+<b class="nc"><i class="no-highlight">181</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        this.stride = stride;</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        this.maxMappings = maxMappings;</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        this.maxDistance = maxDistance;</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        this.protectedFileRange = null;</b>
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;        /* Set up a temporary stat group for use during recovery */
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        StatGroup statistics =</b>
+<i class="no-highlight">189</i>&nbsp;            new StatGroup(VLSNIndexStatDefinition.GROUP_NAME,
+<i class="no-highlight">190</i>&nbsp;                          VLSNIndexStatDefinition.GROUP_DESC);
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        nBucketsCreated =</b>
+<i class="no-highlight">192</i>&nbsp;            new LongStat(statistics,
+<i class="no-highlight">193</i>&nbsp;                         VLSNIndexStatDefinition.N_BUCKETS_CREATED);
+<i class="no-highlight">194</i>&nbsp;
+<b class="nc"><i class="no-highlight">195</i>&nbsp;        initEmpty();</b>
+<i class="no-highlight">196</i>&nbsp;    }
+<i class="no-highlight">197</i>&nbsp;
+<i class="no-highlight">198</i>&nbsp;    void initEmpty() {
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        bucketCache = new TreeMap&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        range = VLSNRange.EMPTY;</b>
+<i class="no-highlight">201</i>&nbsp;    }
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    /**
+<i class="no-highlight">204</i>&nbsp;     * Return a bucket for reading a mapping for this VLSN. If vlsn is &gt;
+<i class="no-highlight">205</i>&nbsp;     * lastOnDisk, a bucket is guaranteed to be returned.
+<i class="no-highlight">206</i>&nbsp;     */
+<i class="no-highlight">207</i>&nbsp;    synchronized VLSNBucket getGTEBucket(VLSN vlsn) {
+<i class="no-highlight">208</i>&nbsp;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        if (lastOnDiskVLSN.compareTo(vlsn) &gt;= 0) {</b>
+<i class="no-highlight">210</i>&nbsp;            /* The bucket is in the database, not the cache. */
+<b class="nc"><i class="no-highlight">211</i>&nbsp;            return null;</b>
+<i class="no-highlight">212</i>&nbsp;        }
+<i class="no-highlight">213</i>&nbsp;
+<b class="nc"><i class="no-highlight">214</i>&nbsp;        Long pivot = vlsn.getSequence() + 1;</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;        SortedMap&lt;Long, VLSNBucket&gt; head = bucketCache.headMap(pivot);</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        VLSNBucket prevBucket = null;</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        if (head.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            prevBucket = head.get(head.lastKey());</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;            if (prevBucket.owns(vlsn)) {</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                return prevBucket;</b>
+<i class="no-highlight">221</i>&nbsp;            }
+<i class="no-highlight">222</i>&nbsp;        }
+<i class="no-highlight">223</i>&nbsp;
+<i class="no-highlight">224</i>&nbsp;        /*
+<i class="no-highlight">225</i>&nbsp;         * If the key is not in the headMap, we must return the next bucket
+<i class="no-highlight">226</i>&nbsp;         * with mappings that follow on.
+<i class="no-highlight">227</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        SortedMap&lt;Long, VLSNBucket&gt; tail = bucketCache.tailMap(pivot);</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        if (tail.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;            VLSNBucket bucket = tail.get(tail.firstKey());</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;            assert (bucket.owns(vlsn) || bucket.follows(vlsn)) :</b>
+<i class="no-highlight">232</i>&nbsp;               &quot;VLSN &quot; + vlsn + &quot; got wrong bucket &quot; + bucket;
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            return bucket;</b>
+<i class="no-highlight">234</i>&nbsp;        }
+<i class="no-highlight">235</i>&nbsp;
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            (envImpl, &quot;VLSN &quot; + vlsn + &quot; should be held within this tracker. &quot; +</b>
+<i class="no-highlight">238</i>&nbsp;             this + &quot; prevBucket=&quot; + prevBucket);
+<i class="no-highlight">239</i>&nbsp;    }
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    /**
+<i class="no-highlight">242</i>&nbsp;     * Get the bucket which holds a mapping for this VLSN. If there is no such
+<i class="no-highlight">243</i>&nbsp;     * bucket, get the one directly preceding it. If this VLSN is &gt;=
+<i class="no-highlight">244</i>&nbsp;     * firstTrackedVLSN, then we should be able to guarantee that a bucket is
+<i class="no-highlight">245</i>&nbsp;     * returned.
+<i class="no-highlight">246</i>&nbsp;     */
+<i class="no-highlight">247</i>&nbsp;    synchronized VLSNBucket getLTEBucket(VLSN vlsn) {
+<i class="no-highlight">248</i>&nbsp;
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        if (firstTrackedVLSN.equals(NULL_VLSN) ||</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            (firstTrackedVLSN.compareTo(vlsn) &gt; 0)) {</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;            return null;</b>
+<i class="no-highlight">252</i>&nbsp;        }
+<i class="no-highlight">253</i>&nbsp;
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        Long pivot = vlsn.getSequence() + 1;</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        SortedMap&lt;Long, VLSNBucket&gt; head = bucketCache.headMap(pivot);</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        if (head.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            return head.get(head.lastKey());</b>
+<i class="no-highlight">258</i>&nbsp;        }
+<i class="no-highlight">259</i>&nbsp;
+<i class="no-highlight">260</i>&nbsp;        /*
+<i class="no-highlight">261</i>&nbsp;         * We shouldn&#39;t get here. Get the tail purely for creating a debugging
+<i class="no-highlight">262</i>&nbsp;         * message.
+<i class="no-highlight">263</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        SortedMap&lt;Long, VLSNBucket&gt; tail = bucketCache.tailMap(pivot);</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        VLSNBucket nextBucket = null;</b>
+<b class="nc"><i class="no-highlight">266</i>&nbsp;        if (tail.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            nextBucket = tail.get(tail.firstKey());</b>
+<i class="no-highlight">268</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;            (envImpl, &quot;VLSN &quot; + vlsn + &quot; should be held within this tracker. &quot; +</b>
+<i class="no-highlight">271</i>&nbsp;             this + &quot; nextBucket=&quot; + nextBucket);
+<i class="no-highlight">272</i>&nbsp;    }
+<i class="no-highlight">273</i>&nbsp;
+<i class="no-highlight">274</i>&nbsp;    /**
+<i class="no-highlight">275</i>&nbsp;     * Record a new VLSN-&gt;LSN mapping. We guarantee that the first and last
+<i class="no-highlight">276</i>&nbsp;     * VLSNs in the range have a mapping. If a VLSN comes out of order, we will
+<i class="no-highlight">277</i>&nbsp;     * discard it, and will not update the range.
+<i class="no-highlight">278</i>&nbsp;     */
+<i class="no-highlight">279</i>&nbsp;    synchronized void track(VLSN vlsn, long lsn, byte entryTypeNum) {
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;        VLSNBucket currentBucket;
+<i class="no-highlight">282</i>&nbsp;
+<b class="nc"><i class="no-highlight">283</i>&nbsp;        if (vlsn.compareTo(lastOnDiskVLSN) &lt; 0) {</b>
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;            /*
+<i class="no-highlight">286</i>&nbsp;             * This VLSN is a laggard. It belongs to a bucket that has already
+<i class="no-highlight">287</i>&nbsp;             * gone to disk. Since on disk buckets can&#39;t be modified, throw
+<i class="no-highlight">288</i>&nbsp;             * this mapping away. Do be sure to update the range in case
+<i class="no-highlight">289</i>&nbsp;             * lastSync or lastTxnEnd should be updated as a result of this
+<i class="no-highlight">290</i>&nbsp;             * mapping.
+<i class="no-highlight">291</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">292</i>&nbsp;            updateRange(vlsn, entryTypeNum);</b>
+<i class="no-highlight">293</i>&nbsp;            return;
+<i class="no-highlight">294</i>&nbsp;        }
+<i class="no-highlight">295</i>&nbsp;
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        if (bucketCache.size() == 0) {</b>
+<i class="no-highlight">297</i>&nbsp;            /* Nothing in the tracker, add a new bucket. */
+<b class="nc"><i class="no-highlight">298</i>&nbsp;            currentBucket = new VLSNBucket(DbLsn.getFileNumber(lsn), stride,</b>
+<i class="no-highlight">299</i>&nbsp;                                           maxMappings, maxDistance, vlsn);
+<b class="nc"><i class="no-highlight">300</i>&nbsp;            nBucketsCreated.increment();</b>
+<i class="no-highlight">301</i>&nbsp;
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            bucketCache.put(currentBucket.getFirst().getSequence(),</b>
+<i class="no-highlight">303</i>&nbsp;                            currentBucket);
+<i class="no-highlight">304</i>&nbsp;        } else {
+<i class="no-highlight">305</i>&nbsp;            /* Find the last bucket. Only the last bucket is updateable. */
+<b class="nc"><i class="no-highlight">306</i>&nbsp;            currentBucket =  bucketCache.get(bucketCache.lastKey());</b>
+<i class="no-highlight">307</i>&nbsp;        }
+<i class="no-highlight">308</i>&nbsp;
+<i class="no-highlight">309</i>&nbsp;        /*
+<i class="no-highlight">310</i>&nbsp;         * This VLSN is a laggard that was preceded by an earlier mapping which
+<i class="no-highlight">311</i>&nbsp;         * came unseasonably early. This VLSN can&#39;t fit into the current
+<i class="no-highlight">312</i>&nbsp;         * bucket, and since we only want to update the last bucket, we&#39;ll
+<i class="no-highlight">313</i>&nbsp;         * throw this mapping away.
+<i class="no-highlight">314</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">315</i>&nbsp;        if (currentBucket.follows(vlsn)) {</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            updateRange(vlsn, entryTypeNum);</b>
+<i class="no-highlight">317</i>&nbsp;            return;
+<i class="no-highlight">318</i>&nbsp;        }
+<i class="no-highlight">319</i>&nbsp;
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        if (!currentBucket.put(vlsn, lsn)) {</b>
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;            /*
+<i class="no-highlight">323</i>&nbsp;             * Couldn&#39;t put the mapping in this bucket. Close it and move to a
+<i class="no-highlight">324</i>&nbsp;             * new one.
+<i class="no-highlight">325</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            currentBucket =</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;                new VLSNBucket(DbLsn.getFileNumber(lsn), stride,</b>
+<i class="no-highlight">328</i>&nbsp;                               maxMappings, maxDistance, vlsn);
+<b class="nc"><i class="no-highlight">329</i>&nbsp;            nBucketsCreated.increment();</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;            bucketCache.put(currentBucket.getFirst().getSequence(),</b>
+<i class="no-highlight">331</i>&nbsp;                            currentBucket);
+<b class="nc"><i class="no-highlight">332</i>&nbsp;            if (!currentBucket.put(vlsn, lsn)) {</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">334</i>&nbsp;                    (envImpl, &quot;Couldn&#39;t put VLSN &quot; + vlsn + &quot; into &quot; +</b>
+<i class="no-highlight">335</i>&nbsp;                     currentBucket);
+<i class="no-highlight">336</i>&nbsp;            }
+<i class="no-highlight">337</i>&nbsp;        }
+<i class="no-highlight">338</i>&nbsp;
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        updateRange(vlsn, entryTypeNum);</b>
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;        /*
+<i class="no-highlight">342</i>&nbsp;         * Only update the firstTrackedVLSN if this mapping is really resident
+<i class="no-highlight">343</i>&nbsp;         * in a bucket. Don&#39;t update it if it&#39;s an out-of-order, skipped
+<i class="no-highlight">344</i>&nbsp;         * mapping.
+<i class="no-highlight">345</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        if (firstTrackedVLSN == NULL_VLSN) {</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;            firstTrackedVLSN = vlsn;</b>
+<i class="no-highlight">348</i>&nbsp;        }
+<i class="no-highlight">349</i>&nbsp;    }
+<i class="no-highlight">350</i>&nbsp;
+<i class="no-highlight">351</i>&nbsp;    /**
+<i class="no-highlight">352</i>&nbsp;     * Update the range with a newly arrived VLSN.
+<i class="no-highlight">353</i>&nbsp;     */
+<i class="no-highlight">354</i>&nbsp;    private void updateRange(VLSN vlsn, byte entryTypeNum) {
+<i class="no-highlight">355</i>&nbsp;
+<i class="no-highlight">356</i>&nbsp;        /*
+<i class="no-highlight">357</i>&nbsp;         * Get a reference to the volatile range field so that we always see
+<i class="no-highlight">358</i>&nbsp;         * consistent values.
+<i class="no-highlight">359</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">360</i>&nbsp;        VLSNRange currentRange = range;</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        range = currentRange.getUpdateForNewMapping(vlsn, entryTypeNum);</b>
+<i class="no-highlight">362</i>&nbsp;    }
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;    /**
+<i class="no-highlight">365</i>&nbsp;     * Flush the tracker cache to disk.
+<i class="no-highlight">366</i>&nbsp;     * Ideally, we&#39;d allow concurrent VLSN put() calls while a flush to database
+<i class="no-highlight">367</i>&nbsp;     * is happening. To do that, we need a more sophisticated synchronization
+<i class="no-highlight">368</i>&nbsp;     * scheme that defines the immutable vs. mutable portion of the tracker
+<i class="no-highlight">369</i>&nbsp;     * cache. See SR [#17689]
+<i class="no-highlight">370</i>&nbsp;     */
+<i class="no-highlight">371</i>&nbsp;    synchronized void flushToDatabase(DatabaseImpl mappingDbImpl, Txn txn) {
+<i class="no-highlight">372</i>&nbsp;
+<b class="nc"><i class="no-highlight">373</i>&nbsp;    	VLSNRange flushRange = range;</b>
+<i class="no-highlight">374</i>&nbsp;
+<b class="nc"><i class="no-highlight">375</i>&nbsp;        if (bucketCache.size() == 0) {</b>
+<i class="no-highlight">376</i>&nbsp;            /*
+<i class="no-highlight">377</i>&nbsp;             * No mappings to write out, but it&#39;s possible that the range
+<i class="no-highlight">378</i>&nbsp;             * changed due to a truncation, in which case we must update the
+<i class="no-highlight">379</i>&nbsp;             * database. RangeTruncated is used to reduce the chance that
+<i class="no-highlight">380</i>&nbsp;             * we are doing unnecessary writes of the range record to the db.
+<i class="no-highlight">381</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">382</i>&nbsp;            if (rangeTruncated) {</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;                lastOnDiskVLSN = flushRange.writeToDatabase(envImpl,</b>
+<i class="no-highlight">384</i>&nbsp;                	                                    mappingDbImpl, txn);
+<b class="nc"><i class="no-highlight">385</i>&nbsp;                rangeTruncated = false;</b>
+<i class="no-highlight">386</i>&nbsp;            }
+<i class="no-highlight">387</i>&nbsp;            return;
+<i class="no-highlight">388</i>&nbsp;        }
+<i class="no-highlight">389</i>&nbsp;
+<i class="no-highlight">390</i>&nbsp;        /*
+<i class="no-highlight">391</i>&nbsp;         * Save information about the portion of the cache that we are trying
+<i class="no-highlight">392</i>&nbsp;         * to flush. Close off the last bucket, so the flush portion becomes
+<i class="no-highlight">393</i>&nbsp;         * immutable. In the past, this was in a synchronization block.
+<i class="no-highlight">394</i>&nbsp;         * This isn&#39;t strictly needed right now, since the method is currently
+<i class="no-highlight">395</i>&nbsp;         * fully synchronized, but is a good practice, and will be
+<i class="no-highlight">396</i>&nbsp;         * necessary if future changes make it possible to have concurrent
+<i class="no-highlight">397</i>&nbsp;         * puts.
+<i class="no-highlight">398</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">399</i>&nbsp;        VLSNBucket lastBucket = bucketCache.get(bucketCache.lastKey());</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;        lastBucket.close();</b>
+<i class="no-highlight">401</i>&nbsp;
+<i class="no-highlight">402</i>&nbsp;        /*
+<i class="no-highlight">403</i>&nbsp;         * Write the flush portion to disk. Ideally, this portion would be done
+<i class="no-highlight">404</i>&nbsp;         * without synchronization on the tracker, to permit concurrent reads
+<i class="no-highlight">405</i>&nbsp;         * and writes to the tracker. Note that because there is no
+<i class="no-highlight">406</i>&nbsp;         * synchronization, the buckets must be flushed to disk in vlsn order,
+<i class="no-highlight">407</i>&nbsp;         * so that the vlsn index always looks consistent. There should be no
+<i class="no-highlight">408</i>&nbsp;         * gaps in the bucket range. This assumption permits concurrent access
+<i class="no-highlight">409</i>&nbsp;         * by VLSNIndex.getGTEBucketFromDatabase.
+<i class="no-highlight">410</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        VLSN currentLastVLSN = lastOnDiskVLSN;</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        for (Long key : bucketCache.keySet()) {</b>
+<i class="no-highlight">413</i>&nbsp;
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            VLSNBucket target = bucketCache.get(key);</b>
+<i class="no-highlight">415</i>&nbsp;
+<i class="no-highlight">416</i>&nbsp;            /* Do some sanity checking before we write this bucket to disk. */
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            validateBeforeWrite(target,</b>
+<i class="no-highlight">418</i>&nbsp;                                flushRange,
+<i class="no-highlight">419</i>&nbsp;                                currentLastVLSN,
+<i class="no-highlight">420</i>&nbsp;                                target==lastBucket);
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            target.writeToDatabase(envImpl, mappingDbImpl, txn);</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            currentLastVLSN = target.getLast();</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;        }</b>
+<i class="no-highlight">424</i>&nbsp;
+<b class="nc"><i class="no-highlight">425</i>&nbsp;        lastOnDiskVLSN = flushRange.writeToDatabase(envImpl,</b>
+<i class="no-highlight">426</i>&nbsp;        	                                    mappingDbImpl, txn);
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        rangeTruncated = false;</b>
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;        /*
+<i class="no-highlight">430</i>&nbsp;         * Update the tracker to remove the parts that have been written to
+<i class="no-highlight">431</i>&nbsp;         * disk. Update firstTrackedVLSN, lastOnDiskVLSN, and clear the bucket
+<i class="no-highlight">432</i>&nbsp;         * cache.
+<i class="no-highlight">433</i>&nbsp;         *
+<i class="no-highlight">434</i>&nbsp;         * In the current implementation, bucketCache is guaranteed not to
+<i class="no-highlight">435</i>&nbsp;         * change, so we can just clear the cache. If we had written the
+<i class="no-highlight">436</i>&nbsp;         * buckets out without synchronization, the cache might have gained
+<i class="no-highlight">437</i>&nbsp;         * mappings, and we wouuld have to be careful to set the
+<i class="no-highlight">438</i>&nbsp;         * firstTrackedVLSN to be the first VLSN of the remaining buckets, and
+<i class="no-highlight">439</i>&nbsp;         * to set lastTrackedVLSN to be the last VLSN in flushRange.
+<i class="no-highlight">440</i>&nbsp;         *
+<i class="no-highlight">441</i>&nbsp;         * We would also have to explicitly call SortedMap.remove() to remove
+<i class="no-highlight">442</i>&nbsp;         * the written buckets. Do not use TreeMap.tailSet, which would
+<i class="no-highlight">443</i>&nbsp;         * inadvertently leave us with the semantics of a SubMap, which has
+<i class="no-highlight">444</i>&nbsp;         * mandated key ranges. With rollbacks, we may end up adding buckets
+<i class="no-highlight">445</i>&nbsp;         * that are &quot;repeats&quot; in the future.
+<i class="no-highlight">446</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">447</i>&nbsp;        bucketCache.clear();</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;        firstTrackedVLSN = NULL_VLSN;</b>
+<i class="no-highlight">449</i>&nbsp;    }
+<i class="no-highlight">450</i>&nbsp;
+<i class="no-highlight">451</i>&nbsp;    /**
+<i class="no-highlight">452</i>&nbsp;     * Do some sanity checking before the write, to help prevent any corruption.
+<i class="no-highlight">453</i>&nbsp;     */
+<i class="no-highlight">454</i>&nbsp;    private void validateBeforeWrite(VLSNBucket target,
+<i class="no-highlight">455</i>&nbsp;                                     VLSNRange flushRange,
+<i class="no-highlight">456</i>&nbsp;                                     VLSN currentLastVLSN,
+<i class="no-highlight">457</i>&nbsp;                                     boolean isLastBucket) {
+<i class="no-highlight">458</i>&nbsp;
+<b class="nc"><i class="no-highlight">459</i>&nbsp;        if (!(currentLastVLSN.equals(NULL_VLSN)) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">460</i>&nbsp;            (target.getFirst().compareTo(currentLastVLSN) &lt;= 0)) {</b>
+<b class="nc"><i class="no-highlight">461</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;                (envImpl, &quot;target bucket overlaps previous bucket. &quot; +</b>
+<i class="no-highlight">463</i>&nbsp;                 &quot;currentLastVLSN= &quot; + currentLastVLSN + &quot; target=&quot; +
+<i class="no-highlight">464</i>&nbsp;                 target);
+<i class="no-highlight">465</i>&nbsp;        }
+<i class="no-highlight">466</i>&nbsp;
+<b class="nc"><i class="no-highlight">467</i>&nbsp;        if (target.getLast().compareTo(flushRange.getLast()) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">468</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;                (envImpl, &quot;target bucket exceeds flush range. &quot; +</b>
+<i class="no-highlight">470</i>&nbsp;                 &quot;range= &quot; + flushRange + &quot; target=&quot; +
+<i class="no-highlight">471</i>&nbsp;                 target);
+<i class="no-highlight">472</i>&nbsp;        }
+<i class="no-highlight">473</i>&nbsp;
+<b class="nc"><i class="no-highlight">474</i>&nbsp;        if (isLastBucket) {</b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;            if (target.getLast().compareTo(flushRange.getLast()) != 0) {</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;                (envImpl, &quot;end of last bucket should match end of range. &quot; +</b>
+<i class="no-highlight">478</i>&nbsp;                 &quot;range= &quot; + flushRange + &quot; target=&quot; + target);
+<i class="no-highlight">479</i>&nbsp;            }
+<i class="no-highlight">480</i>&nbsp;        }
+<i class="no-highlight">481</i>&nbsp;    }
+<i class="no-highlight">482</i>&nbsp;
+<i class="no-highlight">483</i>&nbsp;    /**
+<i class="no-highlight">484</i>&nbsp;     * Initially the protectedFileRange is set to the file of the range start.
+<i class="no-highlight">485</i>&nbsp;     * It is advanced later when the range head is truncated.
+<i class="no-highlight">486</i>&nbsp;     */
+<i class="no-highlight">487</i>&nbsp;    void initProtectedFileRange(long firstFile) {
+<b class="nc"><i class="no-highlight">488</i>&nbsp;        protectedFileRange.advanceRange(firstFile);</b>
+<i class="no-highlight">489</i>&nbsp;    }
+<i class="no-highlight">490</i>&nbsp;
+<i class="no-highlight">491</i>&nbsp;    /**
+<i class="no-highlight">492</i>&nbsp;     * @see VLSNIndex#protectRangeHead
+<i class="no-highlight">493</i>&nbsp;     */
+<i class="no-highlight">494</i>&nbsp;    synchronized ProtectedFileSet protectRangeHead(String lockerName) {
+<i class="no-highlight">495</i>&nbsp;
+<i class="no-highlight">496</i>&nbsp;        /*
+<i class="no-highlight">497</i>&nbsp;         * Protect all files in the range. Because we are synchronized, we know
+<i class="no-highlight">498</i>&nbsp;         * that protectedFileRange will not be advanced and the range head will
+<i class="no-highlight">499</i>&nbsp;         * remain stable.
+<i class="no-highlight">500</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">501</i>&nbsp;        return envImpl.getFileProtector().protectFileRange(</b>
+<b class="nc"><i class="no-highlight">502</i>&nbsp;            lockerName, protectedFileRange.getRangeStart(),</b>
+<i class="no-highlight">503</i>&nbsp;            true /*protectVlsnIndex*/);
+<i class="no-highlight">504</i>&nbsp;    }
+<i class="no-highlight">505</i>&nbsp;
+<i class="no-highlight">506</i>&nbsp;    /**
+<i class="no-highlight">507</i>&nbsp;     * Returns the file at the lower bound of the current range. This method
+<i class="no-highlight">508</i>&nbsp;     * does not synchronize.
+<i class="no-highlight">509</i>&nbsp;     */
+<i class="no-highlight">510</i>&nbsp;    long getProtectedRangeStartFile() {
+<b class="nc"><i class="no-highlight">511</i>&nbsp;        return protectedFileRange.getRangeStart();</b>
+<i class="no-highlight">512</i>&nbsp;    }
+<i class="no-highlight">513</i>&nbsp;
+<i class="no-highlight">514</i>&nbsp;    /**
+<i class="no-highlight">515</i>&nbsp;     * Try to advance the VLSNIndex ProtectedFileRange and truncate the head
+<i class="no-highlight">516</i>&nbsp;     * of the tracker&#39;s range, so that bytesNeeded can be freed by deleting
+<i class="no-highlight">517</i>&nbsp;     * files in this range.
+<i class="no-highlight">518</i>&nbsp;     *
+<i class="no-highlight">519</i>&nbsp;     * @return {deleteEnd, deleteFileNum} pair if the range was changed, or
+<i class="no-highlight">520</i>&nbsp;     * null if no change is currently needed/possible.
+<i class="no-highlight">521</i>&nbsp;     *  -- deleteEnd is the last VLSN to be truncated.
+<i class="no-highlight">522</i>&nbsp;     *  -- deleteFileNum the file having deleteEnd as its last VLSN.
+<i class="no-highlight">523</i>&nbsp;     */
+<i class="no-highlight">524</i>&nbsp;    synchronized Pair&lt;VLSN, Long&gt; tryTruncateFromHead(
+<i class="no-highlight">525</i>&nbsp;        final long bytesNeeded,
+<i class="no-highlight">526</i>&nbsp;        final LogItemCache logItemCache) {
+<i class="no-highlight">527</i>&nbsp;
+<i class="no-highlight">528</i>&nbsp;        /* Do not allow the index to become empty. */
+<b class="nc"><i class="no-highlight">529</i>&nbsp;        final long preserveVlsn = range.getLast().getSequence() -</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;            envImpl.getConfigManager().getInt(RepParams.MIN_VLSN_INDEX_SIZE);</b>
+<i class="no-highlight">531</i>&nbsp;
+<b class="nc"><i class="no-highlight">532</i>&nbsp;        if (preserveVlsn &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">533</i>&nbsp;            return null;</b>
+<i class="no-highlight">534</i>&nbsp;        }
+<i class="no-highlight">535</i>&nbsp;
+<i class="no-highlight">536</i>&nbsp;        /* Determine the vlsn/file after which to truncate the range. */
+<b class="nc"><i class="no-highlight">537</i>&nbsp;        final Pair&lt;VLSN, Long&gt; truncateInfo =</b>
+<b class="nc"><i class="no-highlight">538</i>&nbsp;            envImpl.getFileProtector().checkVLSNIndexTruncation(</b>
+<i class="no-highlight">539</i>&nbsp;                bytesNeeded, new VLSN(preserveVlsn));
+<i class="no-highlight">540</i>&nbsp;
+<b class="nc"><i class="no-highlight">541</i>&nbsp;        if (truncateInfo == null) {</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;            return null;</b>
+<i class="no-highlight">543</i>&nbsp;        }
+<i class="no-highlight">544</i>&nbsp;
+<i class="no-highlight">545</i>&nbsp;        /*
+<i class="no-highlight">546</i>&nbsp;         * It is possible that after checkVLSNIndexTruncation returns, a file
+<i class="no-highlight">547</i>&nbsp;         * in the range we expect to delete becomes protected. This is safe,
+<i class="no-highlight">548</i>&nbsp;         * because we know that a syncup will not begin while synchronized on
+<i class="no-highlight">549</i>&nbsp;         * the VLSNTracker, and feeders always advance their range (never
+<i class="no-highlight">550</i>&nbsp;         * retreat). It is also still beneficial to truncate the index because
+<i class="no-highlight">551</i>&nbsp;         * we expect the other protection for such a file to be removed soon,
+<i class="no-highlight">552</i>&nbsp;         * and then the file can be deleted quickly.
+<i class="no-highlight">553</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">554</i>&nbsp;        return truncateFromHead(</b>
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            truncateInfo.first(), truncateInfo.second(), logItemCache) ?</b>
+<i class="no-highlight">556</i>&nbsp;            truncateInfo : null;
+<i class="no-highlight">557</i>&nbsp;    }
+<i class="no-highlight">558</i>&nbsp;
+<i class="no-highlight">559</i>&nbsp;    /**
+<i class="no-highlight">560</i>&nbsp;     * Truncate the head of the tracker&#39;s range, and advance the
+<i class="no-highlight">561</i>&nbsp;     * ProtectedFileRange accordingly.
+<i class="no-highlight">562</i>&nbsp;     *
+<i class="no-highlight">563</i>&nbsp;     * @return true if range is changed, or false if no change is needed.
+<i class="no-highlight">564</i>&nbsp;     */
+<i class="no-highlight">565</i>&nbsp;    synchronized boolean truncateFromHead(
+<i class="no-highlight">566</i>&nbsp;        VLSN deleteEnd,
+<i class="no-highlight">567</i>&nbsp;        long deleteFileNum,
+<i class="no-highlight">568</i>&nbsp;        LogItemCache logItemCache) {
+<i class="no-highlight">569</i>&nbsp;
+<i class="no-highlight">570</i>&nbsp;        /* The caller should pass a non-null VLSN, but check for safety. */
+<b class="nc"><i class="no-highlight">571</i>&nbsp;        if (deleteEnd.equals(VLSN.NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">572</i>&nbsp;            return false;</b>
+<i class="no-highlight">573</i>&nbsp;        }
+<i class="no-highlight">574</i>&nbsp;
+<i class="no-highlight">575</i>&nbsp;        /*
+<i class="no-highlight">576</i>&nbsp;         * Check the VLSN found in the deleted file against the existing
+<i class="no-highlight">577</i>&nbsp;         * mappings. The range should not be empty, and doing the truncation
+<i class="no-highlight">578</i>&nbsp;         * should not remove the last sync point. We assume that once this
+<i class="no-highlight">579</i>&nbsp;         * environment has received any portion of the replication stream, it
+<i class="no-highlight">580</i>&nbsp;         * will maintain a minimum set of VLSNs.
+<i class="no-highlight">581</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">582</i>&nbsp;        VLSNRange oldRange = range;</b>
+<i class="no-highlight">583</i>&nbsp;
+<b class="nc"><i class="no-highlight">584</i>&nbsp;        if (oldRange.getFirst().compareTo(deleteEnd) &gt; 0) {</b>
+<i class="no-highlight">585</i>&nbsp;            /* deleteEnd has already been cast out of the index. */
+<b class="nc"><i class="no-highlight">586</i>&nbsp;            return false;</b>
+<i class="no-highlight">587</i>&nbsp;        }
+<i class="no-highlight">588</i>&nbsp;
+<b class="nc"><i class="no-highlight">589</i>&nbsp;        if (oldRange.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">590</i>&nbsp;            throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">591</i>&nbsp;                envImpl, &quot;Didn&#39;t expect current range to be empty. &quot; +
+<i class="no-highlight">592</i>&nbsp;                &quot; End of delete range = &quot; +  deleteEnd);
+<i class="no-highlight">593</i>&nbsp;        }
+<i class="no-highlight">594</i>&nbsp;
+<b class="nc"><i class="no-highlight">595</i>&nbsp;        if (!oldRange.getLastSync().equals(NULL_VLSN) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;            (deleteEnd.compareTo(oldRange.getLastSync()) &gt; 0)) {</b>
+<i class="no-highlight">597</i>&nbsp;
+<b class="nc"><i class="no-highlight">598</i>&nbsp;            throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">599</i>&nbsp;                envImpl, &quot;Can&#39;t log clean away last matchpoint. DeleteEnd= &quot; +
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                deleteEnd + &quot; lastSync=&quot; + oldRange.getLastSync());</b>
+<i class="no-highlight">601</i>&nbsp;        }
+<i class="no-highlight">602</i>&nbsp;
+<i class="no-highlight">603</i>&nbsp;        /*
+<i class="no-highlight">604</i>&nbsp;         * Sanity checks are over and we are committed to changing the range.
+<i class="no-highlight">605</i>&nbsp;         *
+<i class="no-highlight">606</i>&nbsp;         * Clear the LogItemCache in case it contains entries with VLSNs being
+<i class="no-highlight">607</i>&nbsp;         * truncated. This seems extremely unlikely, since the cache is a small
+<i class="no-highlight">608</i>&nbsp;         * number of entries at the end of the VLSN range. But perhaps it is
+<i class="no-highlight">609</i>&nbsp;         * simplest to clear it in order to guarantee safely, and incur the
+<i class="no-highlight">610</i>&nbsp;         * infrequent cost of a few cache misses.
+<i class="no-highlight">611</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        if (logItemCache != null) {</b>
+<b class="nc"><i class="no-highlight">613</i>&nbsp;            logItemCache.clear();</b>
+<i class="no-highlight">614</i>&nbsp;        }
+<i class="no-highlight">615</i>&nbsp;
+<i class="no-highlight">616</i>&nbsp;        /*
+<i class="no-highlight">617</i>&nbsp;         * Advance the ProtectedFileRange to allow files in the truncated
+<i class="no-highlight">618</i>&nbsp;         * portion to be deleted. deleteFileNum is the file having deleteEnd as
+<i class="no-highlight">619</i>&nbsp;         * its highest VLSN. The VLSN range will now start with deleteEnd+1, so
+<i class="no-highlight">620</i>&nbsp;         * now we only need to protect files starting at deleteFileNum+1.
+<i class="no-highlight">621</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">622</i>&nbsp;        protectedFileRange.advanceRange(deleteFileNum + 1);</b>
+<i class="no-highlight">623</i>&nbsp;
+<i class="no-highlight">624</i>&nbsp;        /*
+<i class="no-highlight">625</i>&nbsp;         * Update the in-memory, cached portion of the index.
+<i class="no-highlight">626</i>&nbsp;         *
+<i class="no-highlight">627</i>&nbsp;         * Update range first, to prevent others from attempting to read the
+<i class="no-highlight">628</i>&nbsp;         * truncated portions. Update the firstTrackedLSN last, after the
+<i class="no-highlight">629</i>&nbsp;         * buckets are removed; getLTEBucket relies on the firstTrackedLSN
+<i class="no-highlight">630</i>&nbsp;         * value.
+<i class="no-highlight">631</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">632</i>&nbsp;        range = oldRange.shortenFromHead(deleteEnd);</b>
+<i class="no-highlight">633</i>&nbsp;
+<i class="no-highlight">634</i>&nbsp;        /*
+<i class="no-highlight">635</i>&nbsp;         * Ensure that the range is written to the db even if the resulting
+<i class="no-highlight">636</i>&nbsp;         * number of buckets is 0.
+<i class="no-highlight">637</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">638</i>&nbsp;        rangeTruncated = true;</b>
+<i class="no-highlight">639</i>&nbsp;
+<i class="no-highlight">640</i>&nbsp;        /*
+<i class="no-highlight">641</i>&nbsp;         * afterDelete may not == range.getFirst, becayse range.getFirst may
+<i class="no-highlight">642</i>&nbsp;         * be NULL_VLSN if the entire vlsn index has been deleted.
+<i class="no-highlight">643</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">644</i>&nbsp;        VLSN afterDelete = deleteEnd.getNext();</b>
+<i class="no-highlight">645</i>&nbsp;
+<i class="no-highlight">646</i>&nbsp;        /*
+<i class="no-highlight">647</i>&nbsp;         * Check if the cached buckets needs to be modified. Suppose vlsns 1-8
+<i class="no-highlight">648</i>&nbsp;         * are on disk, and vlsns 12-&gt;40 are in the tracker cache, with an out
+<i class="no-highlight">649</i>&nbsp;         * of order gap from 9 - 11.
+<i class="no-highlight">650</i>&nbsp;         *
+<i class="no-highlight">651</i>&nbsp;         * case 1: deleteEnd &lt;= 8, Do not need to truncate anything in the
+<i class="no-highlight">652</i>&nbsp;         *  bucket cacke, but we may have to make a ghost bucket to fill the
+<i class="no-highlight">653</i>&nbsp;         *  gap.
+<i class="no-highlight">654</i>&nbsp;         * case 2: deleteEnd == 11, we don&#39;t need to modify the cache or
+<i class="no-highlight">655</i>&nbsp;         *         create a ghost bucket.
+<i class="no-highlight">656</i>&nbsp;         * case 3: deleteEnd &gt;8 and &lt; 11 is in the gap, we need to create a
+<i class="no-highlight">657</i>&nbsp;         *         ghost bucket to hold the beginning of the range..
+<i class="no-highlight">658</i>&nbsp;         * case 4: deleteEnd &gt;= 12, we need to modify the bucket cache.
+<i class="no-highlight">659</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">660</i>&nbsp;        if (!lastOnDiskVLSN.equals(VLSN.NULL_VLSN) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">661</i>&nbsp;            (lastOnDiskVLSN.compareTo(deleteEnd) &gt;= 0)) {</b>
+<i class="no-highlight">662</i>&nbsp;
+<i class="no-highlight">663</i>&nbsp;            /*
+<i class="no-highlight">664</i>&nbsp;             * case 1:  the buckets in the tracker cache are unaffected, all
+<i class="no-highlight">665</i>&nbsp;             * the pertinent mappings are on disk.
+<i class="no-highlight">666</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">667</i>&nbsp;            if (lastOnDiskVLSN.equals(deleteEnd)) {</b>
+<b class="nc"><i class="no-highlight">668</i>&nbsp;                if (firstTrackedVLSN.compareTo(afterDelete) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">669</i>&nbsp;                    checkForGhostBucket(bucketCache, deleteFileNum);</b>
+<i class="no-highlight">670</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                lastOnDiskVLSN = NULL_VLSN;</b>
+<i class="no-highlight">672</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">673</i>&nbsp;            return true;</b>
+<i class="no-highlight">674</i>&nbsp;        }
+<i class="no-highlight">675</i>&nbsp;
+<b class="nc"><i class="no-highlight">676</i>&nbsp;        assert(!firstTrackedVLSN.equals(NULL_VLSN));</b>
+<i class="no-highlight">677</i>&nbsp;
+<b class="nc"><i class="no-highlight">678</i>&nbsp;        if (firstTrackedVLSN.equals(afterDelete)) {</b>
+<i class="no-highlight">679</i>&nbsp;            /* case 2: The tracker is lined up perfectly with the new range. */
+<b class="nc"><i class="no-highlight">680</i>&nbsp;            lastOnDiskVLSN = NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">681</i>&nbsp;            return true;</b>
+<i class="no-highlight">682</i>&nbsp;        }
+<i class="no-highlight">683</i>&nbsp;
+<b class="nc"><i class="no-highlight">684</i>&nbsp;        if (firstTrackedVLSN.compareTo(afterDelete) &gt; 0) {</b>
+<i class="no-highlight">685</i>&nbsp;            /*
+<i class="no-highlight">686</i>&nbsp;             * case 3: we have to make a ghost bucket.
+<i class="no-highlight">687</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">688</i>&nbsp;            checkForGhostBucket(bucketCache, deleteFileNum);</b>
+<b class="nc"><i class="no-highlight">689</i>&nbsp;            lastOnDiskVLSN = NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">690</i>&nbsp;            return true;</b>
+<i class="no-highlight">691</i>&nbsp;        }
+<i class="no-highlight">692</i>&nbsp;
+<i class="no-highlight">693</i>&nbsp;        /*
+<i class="no-highlight">694</i>&nbsp;         * case 4: we have to prune the buckets.
+<i class="no-highlight">695</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">696</i>&nbsp;        VLSNBucket owningBucket = getLTEBucket(deleteEnd);</b>
+<b class="nc"><i class="no-highlight">697</i>&nbsp;        Long retainBucketKey = owningBucket.getFirst().getNext().getSequence();</b>
+<i class="no-highlight">698</i>&nbsp;        SortedMap&lt;Long, VLSNBucket&gt; tail;
+<i class="no-highlight">699</i>&nbsp;        try {
+<i class="no-highlight">700</i>&nbsp;            /*
+<i class="no-highlight">701</i>&nbsp;             * We need to chop off part of the bucket cache. Find the portion
+<i class="no-highlight">702</i>&nbsp;             * to retain.
+<i class="no-highlight">703</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">704</i>&nbsp;            tail = bucketCache.tailMap(retainBucketKey);</b>
+<b class="nc"><i class="no-highlight">705</i>&nbsp;            checkForGhostBucket(tail, deleteFileNum);</b>
+<b class="nc"><i class="no-highlight">706</i>&nbsp;            bucketCache = tail;</b>
+<b class="nc"><i class="no-highlight">707</i>&nbsp;        } catch (NoSuchElementException e) {</b>
+<b class="nc"><i class="no-highlight">708</i>&nbsp;            firstTrackedVLSN = NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">709</i>&nbsp;            bucketCache = new TreeMap&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">710</i>&nbsp;        }</b>
+<i class="no-highlight">711</i>&nbsp;
+<b class="nc"><i class="no-highlight">712</i>&nbsp;        lastOnDiskVLSN = NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">713</i>&nbsp;        return true;</b>
+<i class="no-highlight">714</i>&nbsp;    }
+<i class="no-highlight">715</i>&nbsp;
+<i class="no-highlight">716</i>&nbsp;    private void checkForGhostBucket(SortedMap&lt;Long, VLSNBucket&gt; buckets,
+<i class="no-highlight">717</i>&nbsp;                                     long deleteFileNum) {
+<i class="no-highlight">718</i>&nbsp;        /*
+<i class="no-highlight">719</i>&nbsp;         * The range has just been truncated. If the first bucket&#39;s first vlsn
+<i class="no-highlight">720</i>&nbsp;         * != the first in range, insert a GhostBucket.
+<i class="no-highlight">721</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">722</i>&nbsp;        Long firstKey = buckets.firstKey();</b>
+<b class="nc"><i class="no-highlight">723</i>&nbsp;        VLSNBucket firstBucket = buckets.get(firstKey);</b>
+<b class="nc"><i class="no-highlight">724</i>&nbsp;        VLSN firstRangeVLSN = range.getFirst();</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;        VLSN firstBucketVLSN = firstBucket.getFirst();</b>
+<b class="nc"><i class="no-highlight">726</i>&nbsp;        if (!firstBucketVLSN.equals(firstRangeVLSN)) {</b>
+<b class="nc"><i class="no-highlight">727</i>&nbsp;            long nextFile =</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                envImpl.getFileManager().getFollowingFileNum(deleteFileNum,</b>
+<i class="no-highlight">729</i>&nbsp;                                                   true /* forward */);
+<b class="nc"><i class="no-highlight">730</i>&nbsp;            long lastPossibleLsn = firstBucket.getLsn(firstBucketVLSN);</b>
+<b class="nc"><i class="no-highlight">731</i>&nbsp;            VLSNBucket placeholder = new GhostBucket(firstRangeVLSN,</b>
+<b class="nc"><i class="no-highlight">732</i>&nbsp;                                                     DbLsn.makeLsn(nextFile, 0),</b>
+<i class="no-highlight">733</i>&nbsp;                                                     lastPossibleLsn);
+<b class="nc"><i class="no-highlight">734</i>&nbsp;            buckets.put(firstRangeVLSN.getSequence(), placeholder);</b>
+<i class="no-highlight">735</i>&nbsp;        }
+<i class="no-highlight">736</i>&nbsp;    }
+<i class="no-highlight">737</i>&nbsp;
+<i class="no-highlight">738</i>&nbsp;    /**
+<i class="no-highlight">739</i>&nbsp;     * Remove the mappings for VLSNs &gt;= deleteStart.  This should only be used
+<i class="no-highlight">740</i>&nbsp;     * at syncup, or recovery. We can assume no new mappings are coming in, but
+<i class="no-highlight">741</i>&nbsp;     * the VLSNIndex may be read during this time; checkpoints continue to
+<i class="no-highlight">742</i>&nbsp;     * happen during rollbacks. Since syncup is always at a sync-able log
+<i class="no-highlight">743</i>&nbsp;     * entry, and since we don&#39;t roll back past a commit, we can assume that
+<i class="no-highlight">744</i>&nbsp;     * the lastSync can be changed to deleteStart.getPrev(), and lastTxnEnd is
+<i class="no-highlight">745</i>&nbsp;     * unchanged.  The VLSNRange itself is updated before the tracker and
+<i class="no-highlight">746</i>&nbsp;     * on-disk buckets are pruned.
+<i class="no-highlight">747</i>&nbsp;     *
+<i class="no-highlight">748</i>&nbsp;     * The VLSNIndex guarantees that the beginning and end vlsns in the range
+<i class="no-highlight">749</i>&nbsp;     * have mappings so LTE and GTE search operations work. When truncating the
+<i class="no-highlight">750</i>&nbsp;     * mappings in the tracker, check to see if the new end vlsn has a mapping,
+<i class="no-highlight">751</i>&nbsp;     * since that may not happen if the buckets are cut in the middle, or have
+<i class="no-highlight">752</i>&nbsp;     * a gap due to out of order mapping. For example, suppose mapping for vlsn
+<i class="no-highlight">753</i>&nbsp;     * 20 came before the mappings for vlsn 17, 18 and 19. The buckets would
+<i class="no-highlight">754</i>&nbsp;     * have this gap:
+<i class="no-highlight">755</i>&nbsp;     *     Bucket A: vlsns 10-16           
+<i class="no-highlight">756</i>&nbsp;     *     Bucket B: vlsns 20-25 
+<i class="no-highlight">757</i>&nbsp;     *     Bucket C: vlsns 26 - 30
+<i class="no-highlight">758</i>&nbsp;     * If the new end of vlsn range is 11-14, 17, 18, 19, 21 - 24, or 27-29,
+<i class="no-highlight">759</i>&nbsp;     * we have to end the vlsn tracker with a new mapping of 
+<i class="no-highlight">760</i>&nbsp;     * (vlsn (deleteStart-1) -&gt;  prevLsn) to cap off the buckets.
+<i class="no-highlight">761</i>&nbsp;     *
+<i class="no-highlight">762</i>&nbsp;     * Cases:
+<i class="no-highlight">763</i>&nbsp;     * End of range is in the gap -- either 17, 18, 19
+<i class="no-highlight">764</i>&nbsp;     * 1. on disk buckets exist, but don&#39;t encompass the gap: bucket A on disk
+<i class="no-highlight">765</i>&nbsp;     * 2. all buckets are in the tracker cache: bucket A in tracker
+<i class="no-highlight">766</i>&nbsp;     * 3. on disk buckets encompass the gap: bucket A and B on disk.
+<i class="no-highlight">767</i>&nbsp;     */
+<i class="no-highlight">768</i>&nbsp;    synchronized void truncateFromTail(VLSN deleteStart, long prevLsn) {
+<i class="no-highlight">769</i>&nbsp;        
+<i class="no-highlight">770</i>&nbsp;        /* 
+<i class="no-highlight">771</i>&nbsp;         * Update the range first, it will define the range that the vlsnIndex
+<i class="no-highlight">772</i>&nbsp;         * covers. Then adjust any mappings held in the bucket cache. Don&#39;t
+<i class="no-highlight">773</i>&nbsp;         * update the lastOnDiskVLSN marker, which says what is on disk. Since
+<i class="no-highlight">774</i>&nbsp;         * the on-disk portion may also get truncated, the caller will update
+<i class="no-highlight">775</i>&nbsp;         * the lastOnDiskVLSN field when it inspects the database.
+<i class="no-highlight">776</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">777</i>&nbsp;        VLSNRange oldRange = range;</b>
+<b class="nc"><i class="no-highlight">778</i>&nbsp;        range = oldRange.shortenFromEnd(deleteStart);</b>
+<i class="no-highlight">779</i>&nbsp;
+<i class="no-highlight">780</i>&nbsp;        /*
+<i class="no-highlight">781</i>&nbsp;         * Ensure that the range is written to the db even if the resulting
+<i class="no-highlight">782</i>&nbsp;         * number of buckets is 0.
+<i class="no-highlight">783</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">784</i>&nbsp;        rangeTruncated = true;</b>
+<i class="no-highlight">785</i>&nbsp;
+<b class="nc"><i class="no-highlight">786</i>&nbsp;        if (firstTrackedVLSN.equals(NULL_VLSN)) {</b>
+<i class="no-highlight">787</i>&nbsp;            /* No mappings in this tracker */
+<i class="no-highlight">788</i>&nbsp;            return;
+<i class="no-highlight">789</i>&nbsp;        }
+<i class="no-highlight">790</i>&nbsp;
+<b class="nc"><i class="no-highlight">791</i>&nbsp;        if (firstTrackedVLSN.compareTo(deleteStart) &gt;= 0) {</b>
+<i class="no-highlight">792</i>&nbsp;
+<i class="no-highlight">793</i>&nbsp;            /*
+<i class="no-highlight">794</i>&nbsp;             * Everything in this tracker should be removed. In addition, the
+<i class="no-highlight">795</i>&nbsp;             * caller may be removing some items from the database.
+<i class="no-highlight">796</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">797</i>&nbsp;            bucketCache.clear();</b>
+<b class="nc"><i class="no-highlight">798</i>&nbsp;            firstTrackedVLSN = NULL_VLSN;</b>
+<i class="no-highlight">799</i>&nbsp;            return;
+<i class="no-highlight">800</i>&nbsp;        }
+<i class="no-highlight">801</i>&nbsp;
+<i class="no-highlight">802</i>&nbsp;        /*
+<i class="no-highlight">803</i>&nbsp;         * We need to do some pruning of the bucket in the cache. Find the
+<i class="no-highlight">804</i>&nbsp;         * buckets in the bucketCache that have mappings &gt;= deleteStart, and
+<i class="no-highlight">805</i>&nbsp;         * remove their mappings. First establish the headset of buckets that
+<i class="no-highlight">806</i>&nbsp;         * should be preserved.
+<i class="no-highlight">807</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">808</i>&nbsp;        VLSNBucket targetBucket = getGTEBucket(deleteStart);</b>
+<b class="nc"><i class="no-highlight">809</i>&nbsp;        Long targetKey = targetBucket.getFirst().getSequence();</b>
+<i class="no-highlight">810</i>&nbsp;
+<i class="no-highlight">811</i>&nbsp;        /* The newCache has buckets that should be preserved. */
+<b class="nc"><i class="no-highlight">812</i>&nbsp;        SortedMap&lt;Long, VLSNBucket&gt; newCache =</b>
+<b class="nc"><i class="no-highlight">813</i>&nbsp;            new TreeMap&lt;&gt;(bucketCache.headMap(targetKey));</b>
+<i class="no-highlight">814</i>&nbsp;
+<i class="no-highlight">815</i>&nbsp;        /*
+<i class="no-highlight">816</i>&nbsp;         * Prune any mappings &gt;= deleteStart out of targetBucket. If it has any
+<i class="no-highlight">817</i>&nbsp;         * mappings left, add it to newCache.
+<i class="no-highlight">818</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">819</i>&nbsp;        targetBucket.removeFromTail(deleteStart, prevLsn);</b>
+<b class="nc"><i class="no-highlight">820</i>&nbsp;        if (!targetBucket.empty()) {</b>
+<b class="nc"><i class="no-highlight">821</i>&nbsp;            newCache.put(targetBucket.getFirst().getSequence(),</b>
+<i class="no-highlight">822</i>&nbsp;                         targetBucket);
+<i class="no-highlight">823</i>&nbsp;        }
+<i class="no-highlight">824</i>&nbsp;
+<b class="nc"><i class="no-highlight">825</i>&nbsp;        bucketCache = newCache;</b>
+<i class="no-highlight">826</i>&nbsp;
+<i class="no-highlight">827</i>&nbsp;        /*
+<i class="no-highlight">828</i>&nbsp;         * Now all truncated mappings have been removed from the index. Check
+<i class="no-highlight">829</i>&nbsp;         * that the end point of the vlsn range is represented in this
+<i class="no-highlight">830</i>&nbsp;         * tracker. Since vlsn mappings can  come out of order, it&#39;s
+<i class="no-highlight">831</i>&nbsp;         * possible that the buckets have a gap, and that truncation will
+<i class="no-highlight">832</i>&nbsp;         * cleave the bucket cache just at a point where a mapping is
+<i class="no-highlight">833</i>&nbsp;         * missing. For example, vlsn mappings come in this order:
+<i class="no-highlight">834</i>&nbsp;         *           vlsn 16, vlsn 18, vlsn 17
+<i class="no-highlight">835</i>&nbsp;         * causing the buckets to have this gap:
+<i class="no-highlight">836</i>&nbsp;         *           bucket N: vlsn 10 - 16
+<i class="no-highlight">837</i>&nbsp;         *           bucket N+1: vlsn 18 - 20
+<i class="no-highlight">838</i>&nbsp;         * and that the vlsn range is truncated with a deleteStart of vlsn 18.
+<i class="no-highlight">839</i>&nbsp;         * The new end range becomes 17, but the buckets do not have a
+<i class="no-highlight">840</i>&nbsp;         * mapping for vlsn 17. If so, create a mapping now.
+<i class="no-highlight">841</i>&nbsp;         *
+<i class="no-highlight">842</i>&nbsp;         * If we are at this point, we know that the tracker should contain
+<i class="no-highlight">843</i>&nbsp;         * a mapping for the last VLSN in the range. Fix it now, so the
+<i class="no-highlight">844</i>&nbsp;         * datastructure is as tidy as possible.
+<i class="no-highlight">845</i>&nbsp;         */
+<i class="no-highlight">846</i>&nbsp;        boolean needEndMapping;
+<b class="nc"><i class="no-highlight">847</i>&nbsp;        if (bucketCache.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">848</i>&nbsp;            needEndMapping = true;</b>
+<i class="no-highlight">849</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">850</i>&nbsp;            VLSNBucket lastBucket = bucketCache.get(bucketCache.lastKey());</b>
+<b class="nc"><i class="no-highlight">851</i>&nbsp;            needEndMapping = </b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;                    (lastBucket.getLast().compareTo(range.getLast()) &lt; 0);</b>
+<i class="no-highlight">853</i>&nbsp;        }
+<i class="no-highlight">854</i>&nbsp;
+<b class="nc"><i class="no-highlight">855</i>&nbsp;        if (needEndMapping) {</b>
+<b class="nc"><i class="no-highlight">856</i>&nbsp;            addEndMapping(range.getLast(), prevLsn);</b>
+<i class="no-highlight">857</i>&nbsp;        }
+<i class="no-highlight">858</i>&nbsp;    }
+<i class="no-highlight">859</i>&nbsp;
+<i class="no-highlight">860</i>&nbsp;    /**
+<i class="no-highlight">861</i>&nbsp;     * Called by the VLSNIndex to see if we have to add a bucket in the tracker
+<i class="no-highlight">862</i>&nbsp;     * after pruning the on-disk storage. The get{LTE,GTE}Bucket methods 
+<i class="no-highlight">863</i>&nbsp;     * assume that there are mappings for the first and last VLSN in the range.
+<i class="no-highlight">864</i>&nbsp;     * But since out of order vlsn mappings can cause non-contiguous buckets,
+<i class="no-highlight">865</i>&nbsp;     * the pruning may have lost the end mapping. [#23491]
+<i class="no-highlight">866</i>&nbsp;     */
+<i class="no-highlight">867</i>&nbsp;    synchronized void ensureRangeEndIsMapped(VLSN lastVLSN, long lastLsn) {
+<i class="no-highlight">868</i>&nbsp;
+<i class="no-highlight">869</i>&nbsp;        /*
+<i class="no-highlight">870</i>&nbsp;         * if lastOnDiskVLSN &lt; lastVLSN &lt; firstTrackedVLSN or
+<i class="no-highlight">871</i>&nbsp;         *    lastOnDiskVLSN &lt; lastVLSN and firstTrackedVLSN is null
+<i class="no-highlight">872</i>&nbsp;         * then we need to add a mapping for lastVLSN-&gt;lastLsn. Otherwise a
+<i class="no-highlight">873</i>&nbsp;         * mapping already exists.
+<i class="no-highlight">874</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">875</i>&nbsp;        if (lastOnDiskVLSN.compareTo(lastVLSN) &lt; 0) {</b>
+<i class="no-highlight">876</i>&nbsp;
+<i class="no-highlight">877</i>&nbsp;            /* 
+<i class="no-highlight">878</i>&nbsp;             * The on-disk vlsn mappings aren&#39;t sufficient to cover the 
+<i class="no-highlight">879</i>&nbsp;             * lastVLSN. There needs to be a mapping in the tracker for the
+<i class="no-highlight">880</i>&nbsp;             * end point of the range.
+<i class="no-highlight">881</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">882</i>&nbsp;            if (!firstTrackedVLSN.equals(NULL_VLSN)) {</b>
+<i class="no-highlight">883</i>&nbsp;
+<i class="no-highlight">884</i>&nbsp;                /* 
+<i class="no-highlight">885</i>&nbsp;                 * There are mappings in the tracker, so we can assume
+<i class="no-highlight">886</i>&nbsp;                 * that they cover the end point, because truncateFromTail() 
+<i class="no-highlight">887</i>&nbsp;                 * should have adjusted for that. But assert to be sure!
+<i class="no-highlight">888</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">889</i>&nbsp;                if (lastVLSN.compareTo(firstTrackedVLSN) &lt; 0) { </b>
+<b class="nc"><i class="no-highlight">890</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">891</i>&nbsp;                        (envImpl,</b>
+<i class="no-highlight">892</i>&nbsp;                         &quot;Expected this tracker to cover vlsn &quot; + lastVLSN +
+<i class="no-highlight">893</i>&nbsp;                         &quot; after truncateFromTail. LastOnDiskVLSN= &quot; +
+<i class="no-highlight">894</i>&nbsp;                         lastOnDiskVLSN + &quot; tracker=&quot; + this);
+<i class="no-highlight">895</i>&nbsp;                }
+<i class="no-highlight">896</i>&nbsp;                
+<i class="no-highlight">897</i>&nbsp;                return;
+<i class="no-highlight">898</i>&nbsp;            }
+<i class="no-highlight">899</i>&nbsp;
+<i class="no-highlight">900</i>&nbsp;            /* 
+<i class="no-highlight">901</i>&nbsp;             * There are no mappings in the tracker. The on disk mappings were
+<i class="no-highlight">902</i>&nbsp;             * pruned, and a gap was created between what was on disk and what
+<i class="no-highlight">903</i>&nbsp;             * is in the tracker cache. Add a mapping.
+<i class="no-highlight">904</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">905</i>&nbsp;            addEndMapping(lastVLSN, lastLsn);</b>
+<i class="no-highlight">906</i>&nbsp;        }
+<i class="no-highlight">907</i>&nbsp;    }
+<i class="no-highlight">908</i>&nbsp;
+<i class="no-highlight">909</i>&nbsp;    /**
+<i class="no-highlight">910</i>&nbsp;     * Add a bucket holding a lastVLSN -&gt; lastLsn mapping
+<i class="no-highlight">911</i>&nbsp;     */
+<i class="no-highlight">912</i>&nbsp;    private void addEndMapping(VLSN lastVLSN, long lastLsn) {
+<i class="no-highlight">913</i>&nbsp;        /* Assert that it&#39;s in the range */
+<b class="nc"><i class="no-highlight">914</i>&nbsp;        assert (lastVLSN.compareTo(range.getLast()) == 0) :</b>
+<i class="no-highlight">915</i>&nbsp;            &quot;lastVLSN=&quot; + lastVLSN + &quot; lastLsn = &quot; + lastLsn + 
+<i class="no-highlight">916</i>&nbsp;            &quot; range=&quot; + range;
+<i class="no-highlight">917</i>&nbsp;
+<b class="nc"><i class="no-highlight">918</i>&nbsp;        VLSNBucket addBucket =</b>
+<b class="nc"><i class="no-highlight">919</i>&nbsp;            new VLSNBucket(DbLsn.getFileNumber(lastLsn), stride,</b>
+<i class="no-highlight">920</i>&nbsp;                           maxMappings, maxDistance, lastVLSN);
+<b class="nc"><i class="no-highlight">921</i>&nbsp;        addBucket.put(lastVLSN, lastLsn);</b>
+<b class="nc"><i class="no-highlight">922</i>&nbsp;        nBucketsCreated.increment();</b>
+<b class="nc"><i class="no-highlight">923</i>&nbsp;        bucketCache.put(addBucket.getFirst().getSequence(), addBucket);</b>
+<b class="nc"><i class="no-highlight">924</i>&nbsp;        if (firstTrackedVLSN.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">925</i>&nbsp;            firstTrackedVLSN = lastVLSN;</b>
+<i class="no-highlight">926</i>&nbsp;        }
+<i class="no-highlight">927</i>&nbsp;    }
+<i class="no-highlight">928</i>&nbsp;
+<i class="no-highlight">929</i>&nbsp;    /**
+<i class="no-highlight">930</i>&nbsp;     * Attempt to replace the mappings in this vlsnIndex for
+<i class="no-highlight">931</i>&nbsp;     * deleteStart-&gt;lastVLSN with those from the recovery mapper.
+<i class="no-highlight">932</i>&nbsp;     * Since we do not supply a prevLsn argument, we may not be able to &quot;cap&quot;
+<i class="no-highlight">933</i>&nbsp;     * the truncated vlsn bucket the same what that we can in
+<i class="no-highlight">934</i>&nbsp;     * truncateFromTail. Because of that, we may need to remove mappings that
+<i class="no-highlight">935</i>&nbsp;     * are &lt; deleteStart.
+<i class="no-highlight">936</i>&nbsp;     *
+<i class="no-highlight">937</i>&nbsp;     * For example, suppose a bucket holds mappings
+<i class="no-highlight">938</i>&nbsp;     *   10 -&gt; 101
+<i class="no-highlight">939</i>&nbsp;     *   15 -&gt; 201
+<i class="no-highlight">940</i>&nbsp;     *   18 -&gt; 301
+<i class="no-highlight">941</i>&nbsp;     * If deleteStart == 17, we will have to delete all the way to vlsn 15.
+<i class="no-highlight">942</i>&nbsp;     *
+<i class="no-highlight">943</i>&nbsp;     * The maintenance of VLSNRange.lastSync and lastTxnEnd are simplified
+<i class="no-highlight">944</i>&nbsp;     * because of assumptions we can make because we are about to append
+<i class="no-highlight">945</i>&nbsp;     * mappings found by the recovery tracker that begin at deleteStart. If
+<i class="no-highlight">946</i>&nbsp;     * lastSync and lastTxnEnd are &lt;= deleteStart, we know that they will
+<i class="no-highlight">947</i>&nbsp;     * either stay the same, or be replaced by lastSync and lastTxnEnd from the
+<i class="no-highlight">948</i>&nbsp;     * recoveryTracker. Even we delete mappings that are &lt; deleteStart, we know
+<i class="no-highlight">949</i>&nbsp;     * that we did not roll back past an abort or commit, so that we do not
+<i class="no-highlight">950</i>&nbsp;     * have to updated the lastSync or lastTxnEnd value.
+<i class="no-highlight">951</i>&nbsp;     */
+<i class="no-highlight">952</i>&nbsp;    void merge(VLSN prunedLastOnDiskVLSN, VLSNRecoveryTracker recoveryTracker) {
+<i class="no-highlight">953</i>&nbsp;
+<b class="nc"><i class="no-highlight">954</i>&nbsp;        VLSNRange oldRange = range;</b>
+<b class="nc"><i class="no-highlight">955</i>&nbsp;        range = oldRange.merge(recoveryTracker.range);</b>
+<b class="nc"><i class="no-highlight">956</i>&nbsp;        VLSN recoveryFirst = recoveryTracker.getRange().getFirst();</b>
+<i class="no-highlight">957</i>&nbsp;
+<b class="nc"><i class="no-highlight">958</i>&nbsp;        lastOnDiskVLSN = prunedLastOnDiskVLSN;</b>
+<i class="no-highlight">959</i>&nbsp;
+<i class="no-highlight">960</i>&nbsp;        /*
+<i class="no-highlight">961</i>&nbsp;         * Find the buckets in the bucketCache that have mappings &gt;=
+<i class="no-highlight">962</i>&nbsp;         * recoveryFirst, and remove their mappings. First establish the
+<i class="no-highlight">963</i>&nbsp;         * headset of buckets that should be preserved. At this point, we
+<i class="no-highlight">964</i>&nbsp;         * have already pruned the database, so the bucket set may not
+<i class="no-highlight">965</i>&nbsp;         * be fully contiguous -- we may have pruned away mappings that
+<i class="no-highlight">966</i>&nbsp;         * would normally be in the database.
+<i class="no-highlight">967</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">968</i>&nbsp;        if (bucketCache.size() == 0) {</b>
+<i class="no-highlight">969</i>&nbsp;            /* Just take all the recovery tracker&#39;s mappings */
+<b class="nc"><i class="no-highlight">970</i>&nbsp;            bucketCache = recoveryTracker.bucketCache;</b>
+<i class="no-highlight">971</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">972</i>&nbsp;            VLSNBucket targetBucket = getGTEBucket(recoveryFirst);</b>
+<b class="nc"><i class="no-highlight">973</i>&nbsp;            Long targetKey = targetBucket.getFirst().getSequence();</b>
+<i class="no-highlight">974</i>&nbsp;
+<i class="no-highlight">975</i>&nbsp;            /* The newCache holds buckets that should be preserved. */
+<b class="nc"><i class="no-highlight">976</i>&nbsp;            SortedMap&lt;Long, VLSNBucket&gt; newCache =</b>
+<b class="nc"><i class="no-highlight">977</i>&nbsp;                new TreeMap&lt;&gt;(bucketCache.headMap(targetKey));</b>
+<i class="no-highlight">978</i>&nbsp;
+<i class="no-highlight">979</i>&nbsp;            /*
+<i class="no-highlight">980</i>&nbsp;             * Prune any mappings &gt;= recoveryFirst out of targetBucket. If it
+<i class="no-highlight">981</i>&nbsp;             * has any mappings left, add it to newCache.
+<i class="no-highlight">982</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">983</i>&nbsp;            targetBucket.removeFromTail(recoveryFirst, DbLsn.NULL_LSN);</b>
+<b class="nc"><i class="no-highlight">984</i>&nbsp;            if (!targetBucket.empty()) {</b>
+<b class="nc"><i class="no-highlight">985</i>&nbsp;                newCache.put(targetBucket.getFirst().getSequence(),</b>
+<i class="no-highlight">986</i>&nbsp;                             targetBucket);
+<i class="no-highlight">987</i>&nbsp;            }
+<i class="no-highlight">988</i>&nbsp;
+<b class="nc"><i class="no-highlight">989</i>&nbsp;            newCache.putAll(recoveryTracker.bucketCache);</b>
+<b class="nc"><i class="no-highlight">990</i>&nbsp;            bucketCache = newCache;</b>
+<i class="no-highlight">991</i>&nbsp;        }
+<i class="no-highlight">992</i>&nbsp;
+<b class="nc"><i class="no-highlight">993</i>&nbsp;        if (bucketCache.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">994</i>&nbsp;            VLSNBucket firstBucket = bucketCache.get(bucketCache.firstKey());</b>
+<b class="nc"><i class="no-highlight">995</i>&nbsp;            firstTrackedVLSN = firstBucket.getFirst();</b>
+<i class="no-highlight">996</i>&nbsp;        }
+<i class="no-highlight">997</i>&nbsp;    }
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;    void append(VLSNRecoveryTracker recoveryTracker) {
+<i class="no-highlight">1000</i>&nbsp;
+<i class="no-highlight">1001</i>&nbsp;        /*
+<i class="no-highlight">1002</i>&nbsp;         * This method assume that there is no overlap between this tracker
+<i class="no-highlight">1003</i>&nbsp;         * and the recovery tracker. Everything in this tracker should precede
+<i class="no-highlight">1004</i>&nbsp;         * the recovery tracker.
+<i class="no-highlight">1005</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1006</i>&nbsp;        if (!range.getLast().isNull()) {</b>
+<b class="nc"><i class="no-highlight">1007</i>&nbsp;            if (range.getLast().compareTo</b>
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;                (recoveryTracker.getFirstTracked()) &gt;= 0) {</b>
+<i class="no-highlight">1009</i>&nbsp;
+<b class="nc"><i class="no-highlight">1010</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1011</i>&nbsp;                    (envImpl,</b>
+<i class="no-highlight">1012</i>&nbsp;                     &quot;Expected this tracker to precede recovery tracker. &quot; +
+<i class="no-highlight">1013</i>&nbsp;                     &quot;This tracker= &quot; + this + &quot; recoveryTracker = &quot; +
+<i class="no-highlight">1014</i>&nbsp;                     recoveryTracker);
+<i class="no-highlight">1015</i>&nbsp;            }
+<i class="no-highlight">1016</i>&nbsp;        }
+<i class="no-highlight">1017</i>&nbsp;
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;        bucketCache.putAll(recoveryTracker.bucketCache);</b>
+<b class="nc"><i class="no-highlight">1019</i>&nbsp;        VLSNRange currentRange = range;</b>
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;        range = currentRange.getUpdate(recoveryTracker.getRange());</b>
+<b class="nc"><i class="no-highlight">1021</i>&nbsp;        if (bucketCache.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1022</i>&nbsp;            VLSNBucket firstBucket = bucketCache.get(bucketCache.firstKey());</b>
+<b class="nc"><i class="no-highlight">1023</i>&nbsp;            firstTrackedVLSN = firstBucket.getFirst();</b>
+<i class="no-highlight">1024</i>&nbsp;        }
+<i class="no-highlight">1025</i>&nbsp;    }
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;    VLSNRange getRange() {
+<b class="nc"><i class="no-highlight">1028</i>&nbsp;        return range;</b>
+<i class="no-highlight">1029</i>&nbsp;    }
+<i class="no-highlight">1030</i>&nbsp;
+<i class="no-highlight">1031</i>&nbsp;    @Override
+<i class="no-highlight">1032</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">1033</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;        sb.append(range);</b>
+<b class="nc"><i class="no-highlight">1035</i>&nbsp;        sb.append(&quot; firstTracked=&quot;).append(firstTrackedVLSN);</b>
+<b class="nc"><i class="no-highlight">1036</i>&nbsp;        sb.append(&quot; lastOnDiskVLSN=&quot;).append(lastOnDiskVLSN);</b>
+<i class="no-highlight">1037</i>&nbsp;
+<b class="nc"><i class="no-highlight">1038</i>&nbsp;        for (VLSNBucket bucket: bucketCache.values()) {</b>
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;            sb.append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;            sb.append(bucket);</b>
+<b class="nc"><i class="no-highlight">1041</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1042</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">1043</i>&nbsp;    }
+<i class="no-highlight">1044</i>&nbsp;
+<i class="no-highlight">1045</i>&nbsp;    /**
+<i class="no-highlight">1046</i>&nbsp;     * For unit test support.
+<i class="no-highlight">1047</i>&nbsp;     */
+<i class="no-highlight">1048</i>&nbsp;    synchronized boolean verify(boolean verbose) {
+<i class="no-highlight">1049</i>&nbsp;
+<b class="nc"><i class="no-highlight">1050</i>&nbsp;        if (!range.verify(verbose)) {</b>
+<b class="nc"><i class="no-highlight">1051</i>&nbsp;            return false;</b>
+<i class="no-highlight">1052</i>&nbsp;        }
+<i class="no-highlight">1053</i>&nbsp;
+<i class="no-highlight">1054</i>&nbsp;        /* Check that all the buckets are in order. */
+<b class="nc"><i class="no-highlight">1055</i>&nbsp;        ArrayList&lt;VLSN&gt; firstVLSN = new ArrayList&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">1056</i>&nbsp;        ArrayList&lt;VLSN&gt; lastVLSN = new ArrayList&lt;&gt;();</b>
+<i class="no-highlight">1057</i>&nbsp;
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;        for (VLSNBucket b : bucketCache.values()) {</b>
+<b class="nc"><i class="no-highlight">1059</i>&nbsp;            firstVLSN.add(b.getFirst());</b>
+<b class="nc"><i class="no-highlight">1060</i>&nbsp;            lastVLSN.add(b.getLast());</b>
+<b class="nc"><i class="no-highlight">1061</i>&nbsp;        }</b>
+<i class="no-highlight">1062</i>&nbsp;
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;        if (!verifyBucketBoundaries(firstVLSN, lastVLSN)) {</b>
+<b class="nc"><i class="no-highlight">1064</i>&nbsp;            return false;</b>
+<i class="no-highlight">1065</i>&nbsp;        }
+<i class="no-highlight">1066</i>&nbsp;
+<b class="nc"><i class="no-highlight">1067</i>&nbsp;        if (firstVLSN.size() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1068</i>&nbsp;            if (!firstVLSN.get(0).equals(firstTrackedVLSN)) {</b>
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;                if (verbose) {</b>
+<b class="nc"><i class="no-highlight">1070</i>&nbsp;                    System.err.println(&quot;firstBucketVLSN = &quot; +</b>
+<b class="nc"><i class="no-highlight">1071</i>&nbsp;                                       firstVLSN.get(0) + &quot; should equal &quot; +</b>
+<i class="no-highlight">1072</i>&nbsp;                                       firstTrackedVLSN);
+<i class="no-highlight">1073</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;                return false;</b>
+<i class="no-highlight">1075</i>&nbsp;            }
+<i class="no-highlight">1076</i>&nbsp;
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;            VLSN lastBucketVLSN = lastVLSN.get(lastVLSN.size() -1);</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;            if (!lastBucketVLSN.equals(range.getLast())) {</b>
+<b class="nc"><i class="no-highlight">1079</i>&nbsp;                if (verbose) {</b>
+<b class="nc"><i class="no-highlight">1080</i>&nbsp;                    System.err.println(&quot;lastBucketVLSN = &quot; + lastBucketVLSN +</b>
+<b class="nc"><i class="no-highlight">1081</i>&nbsp;                                       &quot; should equal &quot; + range.getLast());</b>
+<i class="no-highlight">1082</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1083</i>&nbsp;                return false;</b>
+<i class="no-highlight">1084</i>&nbsp;            }
+<i class="no-highlight">1085</i>&nbsp;        }
+<i class="no-highlight">1086</i>&nbsp;
+<b class="nc"><i class="no-highlight">1087</i>&nbsp;        return true;</b>
+<i class="no-highlight">1088</i>&nbsp;    }
+<i class="no-highlight">1089</i>&nbsp;
+<i class="no-highlight">1090</i>&nbsp;    /*
+<i class="no-highlight">1091</i>&nbsp;     * Used to check bucket boundaries for both the in-memory flush list and
+<i class="no-highlight">1092</i>&nbsp;     * the on-disk database buckets. Buckets may not be adjacent, but must be
+<i class="no-highlight">1093</i>&nbsp;     * in order.
+<i class="no-highlight">1094</i>&nbsp;     */
+<i class="no-highlight">1095</i>&nbsp;    static boolean verifyBucketBoundaries(ArrayList&lt;VLSN&gt; firstVLSN,
+<i class="no-highlight">1096</i>&nbsp;                                          ArrayList&lt;VLSN&gt; lastVLSN) {
+<b class="nc"><i class="no-highlight">1097</i>&nbsp;        for (int i = 1; i &lt; firstVLSN.size(); i++) {</b>
+<b class="nc"><i class="no-highlight">1098</i>&nbsp;            VLSN first = firstVLSN.get(i);</b>
+<b class="nc"><i class="no-highlight">1099</i>&nbsp;            VLSN prevLast = lastVLSN.get(i-1);</b>
+<b class="nc"><i class="no-highlight">1100</i>&nbsp;            if (first.compareTo(prevLast.getNext()) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">1101</i>&nbsp;                System.out.println(&quot;Boundary problem: bucket &quot; + i +</b>
+<i class="no-highlight">1102</i>&nbsp;                                   &quot; first &quot; + first +
+<i class="no-highlight">1103</i>&nbsp;                                   &quot; follows bucket.last &quot; + prevLast);
+<b class="nc"><i class="no-highlight">1104</i>&nbsp;                return false;</b>
+<i class="no-highlight">1105</i>&nbsp;            }
+<i class="no-highlight">1106</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1107</i>&nbsp;        return true;</b>
+<i class="no-highlight">1108</i>&nbsp;    }
+<i class="no-highlight">1109</i>&nbsp;
+<i class="no-highlight">1110</i>&nbsp;    VLSN getFirstTracked() {
+<b class="nc"><i class="no-highlight">1111</i>&nbsp;        return firstTrackedVLSN;</b>
+<i class="no-highlight">1112</i>&nbsp;    }
+<i class="no-highlight">1113</i>&nbsp;
+<i class="no-highlight">1114</i>&nbsp;    VLSN getLastOnDisk() {
+<b class="nc"><i class="no-highlight">1115</i>&nbsp;        return lastOnDiskVLSN;</b>
+<i class="no-highlight">1116</i>&nbsp;    }
+<i class="no-highlight">1117</i>&nbsp;
+<i class="no-highlight">1118</i>&nbsp;    void setLastOnDiskVLSN(VLSN lastOnDisk) {
+<b class="nc"><i class="no-highlight">1119</i>&nbsp;        lastOnDiskVLSN = lastOnDisk;</b>
+<i class="no-highlight">1120</i>&nbsp;    }
+<i class="no-highlight">1121</i>&nbsp;
+<i class="no-highlight">1122</i>&nbsp;    /*
+<i class="no-highlight">1123</i>&nbsp;     * For unit test support only. Can only be called when replication stream
+<i class="no-highlight">1124</i>&nbsp;     * is quiescent.
+<i class="no-highlight">1125</i>&nbsp;     */
+<i class="no-highlight">1126</i>&nbsp;    boolean isFlushedToDisk() {
+<b class="nc"><i class="no-highlight">1127</i>&nbsp;        return lastOnDiskVLSN.equals(range.getLast());</b>
+<i class="no-highlight">1128</i>&nbsp;    }
+<i class="no-highlight">1129</i>&nbsp;
+<i class="no-highlight">1130</i>&nbsp;    void close() {
+<b class="nc"><i class="no-highlight">1131</i>&nbsp;        if (protectedFileRange != null) {</b>
+<b class="nc"><i class="no-highlight">1132</i>&nbsp;            final FileProtector fileProtector = envImpl.getFileProtector();</b>
+<b class="nc"><i class="no-highlight">1133</i>&nbsp;            fileProtector.removeFileProtection(protectedFileRange);</b>
+<b class="nc"><i class="no-highlight">1134</i>&nbsp;            fileProtector.setVLSNIndexProtectedFileRange(null);</b>
+<i class="no-highlight">1135</i>&nbsp;        }
+<i class="no-highlight">1136</i>&nbsp;    }
+<i class="no-highlight">1137</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

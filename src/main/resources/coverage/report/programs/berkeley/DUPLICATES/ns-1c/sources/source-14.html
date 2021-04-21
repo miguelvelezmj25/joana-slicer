@@ -1,0 +1,431 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicaOutputThreadBase</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl.node</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicaOutputThreadBase (com.sleepycat.je.rep.impl.node)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicaOutputThreadBase</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/92)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.impl.node;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.BlockingQueue;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">20</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.rep.ReplicationSecurityException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.utilint.StoppableThread;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">32</i>&nbsp;
+<i class="no-highlight">33</i>&nbsp;/**
+<i class="no-highlight">34</i>&nbsp; * The thread used to write responses asynchronously to the network, to avoid
+<i class="no-highlight">35</i>&nbsp; * network stalls in the replica replay thread. This thread, like the
+<i class="no-highlight">36</i>&nbsp; * Replica.ReplayThread, is created each time the node establishes contact with
+<i class="no-highlight">37</i>&nbsp; * a new feeder and starts replaying the log from it.
+<i class="no-highlight">38</i>&nbsp; *
+<i class="no-highlight">39</i>&nbsp; * The inputs and outputs of this thread are schematically described as:
+<i class="no-highlight">40</i>&nbsp; *
+<i class="no-highlight">41</i>&nbsp; * outputQueue -&gt; ReplicaOutputThread (does write) -&gt; writes to network
+<i class="no-highlight">42</i>&nbsp; *
+<i class="no-highlight">43</i>&nbsp; * It&#39;s the third component of the three thread structure outlined in the
+<i class="no-highlight">44</i>&nbsp; * Replica&#39;s class level comment.
+<i class="no-highlight">45</i>&nbsp; */
+<b class="nc"><i class="no-highlight">46</i>&nbsp;public abstract class ReplicaOutputThreadBase extends StoppableThread {</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /**
+<i class="no-highlight">49</i>&nbsp;     * The size of the write queue.
+<i class="no-highlight">50</i>&nbsp;     */
+<i class="no-highlight">51</i>&nbsp;    protected final int queueSize;
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /*
+<i class="no-highlight">54</i>&nbsp;     * The heartbeat interval in ms.
+<i class="no-highlight">55</i>&nbsp;     */
+<i class="no-highlight">56</i>&nbsp;    protected final int heartbeatMs;
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    /**
+<i class="no-highlight">59</i>&nbsp;     * Thread exit exception. It&#39;s non-null if the thread exited due to an
+<i class="no-highlight">60</i>&nbsp;     * exception. It&#39;s the responsibility of the main replica thread to
+<i class="no-highlight">61</i>&nbsp;     * propagate the exception across the thread boundary in this case.
+<i class="no-highlight">62</i>&nbsp;     */
+<i class="no-highlight">63</i>&nbsp;    protected volatile Exception exception;
+<i class="no-highlight">64</i>&nbsp;
+<i class="no-highlight">65</i>&nbsp;    protected final RepImpl repImpl;
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    /*
+<i class="no-highlight">68</i>&nbsp;     * A reference to the common output queue shared with Replay
+<i class="no-highlight">69</i>&nbsp;     */
+<i class="no-highlight">70</i>&nbsp;    protected final BlockingQueue&lt;Long&gt; outputQueue;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    protected final Protocol protocol ;
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    protected final DataChannel replicaFeederChannel;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /*
+<i class="no-highlight">77</i>&nbsp;     * Reserved transaction ids, that don&#39;t represent transaction Acks
+<i class="no-highlight">78</i>&nbsp;     * when encountered in the write queue.
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /*
+<i class="no-highlight">82</i>&nbsp;     * Forces the replica thread to exit when encountered in the write
+<i class="no-highlight">83</i>&nbsp;     * queue.
+<i class="no-highlight">84</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">85</i>&nbsp;    public final static Long EOF = Long.MAX_VALUE;</b>
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    /*
+<i class="no-highlight">88</i>&nbsp;     * Results in a heartbeat response when encountered in the write queue.
+<i class="no-highlight">89</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">90</i>&nbsp;    public final static Long HEARTBEAT_ACK = EOF - 1;</b>
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;    /*
+<i class="no-highlight">93</i>&nbsp;     * Results in a shutdown response when encountered in the write queue.
+<i class="no-highlight">94</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">95</i>&nbsp;    public final static Long SHUTDOWN_ACK = EOF - 2;</b>
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;    private TestHook&lt;Object&gt; outputHook;
+<i class="no-highlight">98</i>&nbsp;
+<i class="no-highlight">99</i>&nbsp;    /* Keep the max size below Maximum Segment Size = 1460 bytes. */
+<i class="no-highlight">100</i>&nbsp;    private final static int maxGroupedAcks = (1460 - 100) / 8;
+<i class="no-highlight">101</i>&nbsp;
+<b class="nc"><i class="no-highlight">102</i>&nbsp;    final ArrayList&lt;Long&gt; groupAcks = new ArrayList&lt;&gt;(maxGroupedAcks);</b>
+<i class="no-highlight">103</i>&nbsp;
+<i class="no-highlight">104</i>&nbsp;    protected final boolean groupAcksEnabled;
+<i class="no-highlight">105</i>&nbsp;
+<b class="nc"><i class="no-highlight">106</i>&nbsp;    protected volatile long numGroupedAcks = 0;</b>
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    protected final Logger logger;
+<i class="no-highlight">109</i>&nbsp;
+<i class="no-highlight">110</i>&nbsp;    ReplicaOutputThreadBase(RepImpl repImpl) {
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        this(repImpl,</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;             repImpl.getReplay().getOutputQueue(),</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;             repImpl.getRepNode().getReplica().getProtocol(),</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;             repImpl.getRepNode().getReplica().getReplicaFeederChannel());</b>
+<i class="no-highlight">115</i>&nbsp;    }
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    public ReplicaOutputThreadBase(RepImpl repImpl,
+<i class="no-highlight">118</i>&nbsp;                                   BlockingQueue&lt;Long&gt; outputQueue,
+<i class="no-highlight">119</i>&nbsp;                                   Protocol protocol,
+<i class="no-highlight">120</i>&nbsp;                                   DataChannel replicaFeederChannel) {
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        super(repImpl, &quot;ReplicaOutputThread&quot;);</b>
+<i class="no-highlight">122</i>&nbsp;
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        logger = repImpl.getLogger();</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        this.repImpl = repImpl;</b>
+<i class="no-highlight">125</i>&nbsp;
+<b class="nc"><i class="no-highlight">126</i>&nbsp;        this.outputQueue = outputQueue;</b>
+<b class="nc"><i class="no-highlight">127</i>&nbsp;        this.protocol = protocol;</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        this.replicaFeederChannel = replicaFeederChannel;</b>
+<i class="no-highlight">129</i>&nbsp;
+<b class="nc"><i class="no-highlight">130</i>&nbsp;        heartbeatMs =</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;            repImpl.getConfigManager().getInt(RepParams.HEARTBEAT_INTERVAL);</b>
+<i class="no-highlight">132</i>&nbsp;
+<b class="nc"><i class="no-highlight">133</i>&nbsp;        queueSize = outputQueue.remainingCapacity();</b>
+<i class="no-highlight">134</i>&nbsp;
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        groupAcksEnabled =</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        (protocol.getVersion() &gt; Protocol.VERSION_5) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;         repImpl.getConfigManager().getBoolean(RepParams.ENABLE_GROUP_ACKS);</b>
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    }
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;    @Override
+<i class="no-highlight">142</i>&nbsp;    protected Logger getLogger() {
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        return logger;</b>
+<i class="no-highlight">144</i>&nbsp;    }
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    public Exception getException() {
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        return exception;</b>
+<i class="no-highlight">148</i>&nbsp;    }
+<i class="no-highlight">149</i>&nbsp;
+<i class="no-highlight">150</i>&nbsp;    public long getNumGroupedAcks() {
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        return numGroupedAcks;</b>
+<i class="no-highlight">152</i>&nbsp;    }
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    /**
+<i class="no-highlight">155</i>&nbsp;     * For testing only.
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    public long getOutputQueueSize() {
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        return outputQueue.size();</b>
+<i class="no-highlight">159</i>&nbsp;    }
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;    public void setOutputHook(TestHook&lt;Object&gt; outputHook) {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        this.outputHook = outputHook;</b>
+<i class="no-highlight">163</i>&nbsp;    }
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    @Override
+<i class="no-highlight">166</i>&nbsp;    public void run() {
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;        /* Max number of pending responses in the output queue. */
+<b class="nc"><i class="no-highlight">169</i>&nbsp;        long maxPending = 0;</b>
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;        /* Number of singleton acks. */
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        long numAcks = 0;</b>
+<i class="no-highlight">173</i>&nbsp;
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">175</i>&nbsp;                         &quot;Replica output thread started. Queue size:&quot; +
+<i class="no-highlight">176</i>&nbsp;                          queueSize +
+<i class="no-highlight">177</i>&nbsp;                          &quot; Max grouped acks:&quot; + maxGroupedAcks);
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">180</i>&nbsp;            for (Long txnId = outputQueue.poll(heartbeatMs,</b>
+<i class="no-highlight">181</i>&nbsp;                                               TimeUnit.MILLISECONDS);
+<b class="nc"><i class="no-highlight">182</i>&nbsp;                 !EOF.equals(txnId);</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;                 txnId = outputQueue.poll(heartbeatMs,</b>
+<i class="no-highlight">184</i>&nbsp;                                          TimeUnit.MILLISECONDS)) {
+<i class="no-highlight">185</i>&nbsp;
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                assert TestHookExecute.doHookIfSet(outputHook, this);</b>
+<i class="no-highlight">187</i>&nbsp;
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                writeReauthentication();</b>
+<i class="no-highlight">189</i>&nbsp;
+<b class="nc"><i class="no-highlight">190</i>&nbsp;                if ((txnId == null) || HEARTBEAT_ACK.equals(txnId)) {</b>
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;                    /*
+<i class="no-highlight">193</i>&nbsp;                     * Send a heartbeat if requested, or unsolicited in the
+<i class="no-highlight">194</i>&nbsp;                     * absence of output activity for a heartbeat interval.
+<i class="no-highlight">195</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">196</i>&nbsp;                    writeHeartbeat(txnId);</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                    continue;</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;                } else if (SHUTDOWN_ACK.equals(txnId)) {</b>
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;                    /*
+<i class="no-highlight">201</i>&nbsp;                     * Acknowledge the shutdown request, the actual shutdown is
+<i class="no-highlight">202</i>&nbsp;                     * processed in the replay thread.
+<i class="no-highlight">203</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                    protocol.write(protocol.new ShutdownResponse(),</b>
+<i class="no-highlight">205</i>&nbsp;                                   replicaFeederChannel);
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                    continue;</b>
+<i class="no-highlight">207</i>&nbsp;                }
+<i class="no-highlight">208</i>&nbsp;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;                final int pending = outputQueue.size();</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                if (pending &gt; maxPending) {</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                    maxPending = pending;</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;                    if ((maxPending % 100) == 0) {</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                        LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">214</i>&nbsp;                                         &quot;Max pending acks:&quot; + maxPending);
+<i class="no-highlight">215</i>&nbsp;                    }
+<i class="no-highlight">216</i>&nbsp;                }
+<i class="no-highlight">217</i>&nbsp;
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                if ((pending == 0) || (! groupAcksEnabled)) {</b>
+<i class="no-highlight">219</i>&nbsp;                    /* A singleton ack. */
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                    numAcks++;</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;                    protocol.write(protocol.new Ack(txnId),</b>
+<i class="no-highlight">222</i>&nbsp;                                   replicaFeederChannel);
+<i class="no-highlight">223</i>&nbsp;                } else {
+<i class="no-highlight">224</i>&nbsp;
+<i class="no-highlight">225</i>&nbsp;                    /*
+<i class="no-highlight">226</i>&nbsp;                     * Have items pending inthe queue and group acks are
+<i class="no-highlight">227</i>&nbsp;                     * enabled.
+<i class="no-highlight">228</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">229</i>&nbsp;                    if (groupWriteAcks(txnId)) {</b>
+<i class="no-highlight">230</i>&nbsp;                        /* At eof */
+<b class="nc"><i class="no-highlight">231</i>&nbsp;                        break;</b>
+<i class="no-highlight">232</i>&nbsp;                    }
+<i class="no-highlight">233</i>&nbsp;                }
+<i class="no-highlight">234</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        } catch (ReplicationSecurityException rse) {</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            exception = rse;</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">238</i>&nbsp;                             &quot;Output thread exiting due to security error, &quot; +
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                             &quot;client: &quot; + rse.getConsumer() +</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                             &quot;, error: &quot; + rse.getMessage());</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;            exception = e;</b>
+<i class="no-highlight">243</i>&nbsp;
+<i class="no-highlight">244</i>&nbsp;            /*
+<i class="no-highlight">245</i>&nbsp;             * Get the attention of the main replica thread.
+<i class="no-highlight">246</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            RepUtils.shutdownChannel(replicaFeederChannel);</b>
+<i class="no-highlight">248</i>&nbsp;
+<b class="nc"><i class="no-highlight">249</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">250</i>&nbsp;                             this + &quot;exiting with exception:&quot; + e);
+<i class="no-highlight">251</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">252</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">253</i>&nbsp;                             this + &quot;exited. &quot; +
+<i class="no-highlight">254</i>&nbsp;                                 &quot;Singleton acks sent:&quot; + numAcks +
+<i class="no-highlight">255</i>&nbsp;                                 &quot; Grouped acks sent:&quot; + numGroupedAcks +
+<i class="no-highlight">256</i>&nbsp;                                 &quot; Max pending acks:&quot; + maxPending);
+<b class="nc"><i class="no-highlight">257</i>&nbsp;        }</b>
+<i class="no-highlight">258</i>&nbsp;    }
+<i class="no-highlight">259</i>&nbsp;
+<i class="no-highlight">260</i>&nbsp;    public abstract void writeReauthentication() throws IOException;
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;    public abstract void writeHeartbeat(Long txnId) throws IOException;
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;    /**
+<i class="no-highlight">265</i>&nbsp;     * Writes out the acks that are currently queued in the output queue
+<i class="no-highlight">266</i>&nbsp;     *
+<i class="no-highlight">267</i>&nbsp;     * Returns true if it encountered an EOF or a request for a shutdown.
+<i class="no-highlight">268</i>&nbsp;     */
+<i class="no-highlight">269</i>&nbsp;    protected boolean groupWriteAcks(long txnId)
+<i class="no-highlight">270</i>&nbsp;        throws IOException {
+<i class="no-highlight">271</i>&nbsp;
+<i class="no-highlight">272</i>&nbsp;        /* More potential acks, group them. */
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        boolean eof = false;</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        groupAcks.clear();</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        groupAcks.add(txnId);</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;        outputQueue.drainTo(groupAcks, maxGroupedAcks - 1);</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;        long txnIds[] = new long[groupAcks.size()];</b>
+<i class="no-highlight">278</i>&nbsp;
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        int i = 0;</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        for (long gtxnId : groupAcks) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;            if (gtxnId == EOF) {</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                eof = true;</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                break;</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;            } else if (gtxnId == SHUTDOWN_ACK) {</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;                protocol.write(protocol.new ShutdownResponse(),</b>
+<i class="no-highlight">286</i>&nbsp;                               replicaFeederChannel);
+<b class="nc"><i class="no-highlight">287</i>&nbsp;                eof = true;</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                break;</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            } else if (gtxnId == HEARTBEAT_ACK) {</b>
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;                /*
+<i class="no-highlight">292</i>&nbsp;                 * Heartbeat could be out of sequence relative to acks, but
+<i class="no-highlight">293</i>&nbsp;                 * that&#39;s ok.
+<i class="no-highlight">294</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                writeHeartbeat(gtxnId);</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;                continue;</b>
+<i class="no-highlight">297</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">298</i>&nbsp;            txnIds[i++] = gtxnId;</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;        }</b>
+<i class="no-highlight">300</i>&nbsp;
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        if (i &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            if (txnIds.length &gt; i) {</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;                long la[] = new long[txnIds.length - 1];</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;                System.arraycopy(txnIds, 0, la, 0, la.length);</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;                txnIds = la;</b>
+<i class="no-highlight">306</i>&nbsp;            }
+<i class="no-highlight">307</i>&nbsp;
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            protocol.write(protocol.new GroupAck(txnIds), replicaFeederChannel);</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            numGroupedAcks += txnIds.length;</b>
+<i class="no-highlight">310</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        return eof;</b>
+<i class="no-highlight">312</i>&nbsp;    }
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;    @Override
+<i class="no-highlight">315</i>&nbsp;    protected int initiateSoftShutdown() {
+<i class="no-highlight">316</i>&nbsp;
+<i class="no-highlight">317</i>&nbsp;        /* Queue EOF to terminate the thread */
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        if (! outputQueue.offer(EOF)) {</b>
+<i class="no-highlight">319</i>&nbsp;            /* No room in write queue, resort to an interrupt. */
+<b class="nc"><i class="no-highlight">320</i>&nbsp;            return -1;</b>
+<i class="no-highlight">321</i>&nbsp;        }
+<i class="no-highlight">322</i>&nbsp;
+<i class="no-highlight">323</i>&nbsp;        /* Wait up to 10 seconds for any queued writes to be flushed out. */
+<b class="nc"><i class="no-highlight">324</i>&nbsp;        return 10000;</b>
+<i class="no-highlight">325</i>&nbsp;    }
+<i class="no-highlight">326</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

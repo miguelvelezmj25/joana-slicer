@@ -1,0 +1,719 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > INFileReader</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: INFileReader (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">INFileReader</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/18)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/144)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">19</i>&nbsp;import java.util.Map;
+<i class="no-highlight">20</i>&nbsp;import java.util.Set;
+<i class="no-highlight">21</i>&nbsp;import java.util.concurrent.atomic.AtomicBoolean;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.cleaner.RecoveryUtilizationTracker;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.log.entry.INContainingEntry;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.entry.INLogEntry;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.recovery.VLSNRecoveryProxy;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.tree.FileSummaryLN;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.tree.MapLN;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.tree.Node;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">39</i>&nbsp;
+<i class="no-highlight">40</i>&nbsp;/**
+<i class="no-highlight">41</i>&nbsp; * INFileReader supports recovery by scanning log files during the IN rebuild
+<i class="no-highlight">42</i>&nbsp; * pass. It looks for internal nodes (all types), segregated by whether they
+<i class="no-highlight">43</i>&nbsp; * belong to the main tree or the duplicate trees.
+<i class="no-highlight">44</i>&nbsp; *
+<i class="no-highlight">45</i>&nbsp; * &lt;p&gt;This file reader can also be run in tracking mode to keep track of the
+<i class="no-highlight">46</i>&nbsp; * maximum node ID, database ID and txn ID seen so those sequences can be
+<i class="no-highlight">47</i>&nbsp; * updated properly at recovery.  In this mode it also performs utilization
+<i class="no-highlight">48</i>&nbsp; * counting.  It is only run once in tracking mode per recovery, in the first
+<i class="no-highlight">49</i>&nbsp; * phase of recovery.&lt;/p&gt;
+<i class="no-highlight">50</i>&nbsp; */
+<b class="nc"><i class="no-highlight">51</i>&nbsp;public class INFileReader extends FileReader {</b>
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /* Information about the last entry seen. */
+<i class="no-highlight">54</i>&nbsp;    private boolean lastEntryWasDelete;
+<i class="no-highlight">55</i>&nbsp;    private boolean lastEntryWasDupDelete;
+<i class="no-highlight">56</i>&nbsp;    private LogEntryType fromLogType;
+<i class="no-highlight">57</i>&nbsp;    private boolean isProvisional;
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /*
+<i class="no-highlight">60</i>&nbsp;     * targetEntryMap maps DbLogEntryTypes to log entries. We use this
+<i class="no-highlight">61</i>&nbsp;     * collection to find the right LogEntry instance to read in the current
+<i class="no-highlight">62</i>&nbsp;     * entry.
+<i class="no-highlight">63</i>&nbsp;     */
+<i class="no-highlight">64</i>&nbsp;    private Map&lt;LogEntryType, LogEntry&gt; targetEntryMap;
+<i class="no-highlight">65</i>&nbsp;    private LogEntry targetLogEntry;
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    /* Set of non-target log entry types for ID tracking. */
+<i class="no-highlight">68</i>&nbsp;    private Set&lt;LogEntryType&gt; idTrackingSet;
+<i class="no-highlight">69</i>&nbsp;    /* Cache of non-target log entries for ID tracking. */
+<i class="no-highlight">70</i>&nbsp;    private Map&lt;LogEntryType, LogEntry&gt; idTrackingMap;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    private boolean trackIds;
+<i class="no-highlight">73</i>&nbsp;    private long minReplicatedNodeId;
+<i class="no-highlight">74</i>&nbsp;    private long maxNodeId;
+<i class="no-highlight">75</i>&nbsp;    private long minReplicatedDbId;
+<i class="no-highlight">76</i>&nbsp;    private long maxDbId;
+<i class="no-highlight">77</i>&nbsp;    private long minReplicatedTxnId;
+<i class="no-highlight">78</i>&nbsp;    private long maxTxnId;
+<i class="no-highlight">79</i>&nbsp;    private long ckptEnd;
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /* Used for utilization tracking. */
+<i class="no-highlight">82</i>&nbsp;    private long partialCkptStart;
+<i class="no-highlight">83</i>&nbsp;    private RecoveryUtilizationTracker tracker;
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    /* Used for replication. */
+<i class="no-highlight">86</i>&nbsp;    private VLSNRecoveryProxy vlsnProxy;
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /** DBs that may violate the rule for upgrading to log version 8. */
+<i class="no-highlight">89</i>&nbsp;    private Set&lt;DatabaseId&gt; logVersion8UpgradeDbs;
+<i class="no-highlight">90</i>&nbsp;    private AtomicBoolean logVersion8UpgradeDeltas;
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;    /**
+<i class="no-highlight">93</i>&nbsp;     * Create this reader to start at a given LSN.
+<i class="no-highlight">94</i>&nbsp;     */
+<i class="no-highlight">95</i>&nbsp;    public INFileReader(EnvironmentImpl env,
+<i class="no-highlight">96</i>&nbsp;                        int readBufferSize,
+<i class="no-highlight">97</i>&nbsp;                        long startLsn,
+<i class="no-highlight">98</i>&nbsp;                        long finishLsn,
+<i class="no-highlight">99</i>&nbsp;                        boolean trackIds,
+<i class="no-highlight">100</i>&nbsp;                        long partialCkptStart,
+<i class="no-highlight">101</i>&nbsp;                        long ckptEnd,
+<i class="no-highlight">102</i>&nbsp;                        RecoveryUtilizationTracker tracker) {
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        this(env, readBufferSize, startLsn, finishLsn, trackIds,</b>
+<i class="no-highlight">104</i>&nbsp;             partialCkptStart, ckptEnd, tracker,
+<i class="no-highlight">105</i>&nbsp;             null /*logVersion8UpgradeDbs*/,
+<i class="no-highlight">106</i>&nbsp;             null /*logVersion8UpgradeDeltas*/);
+<i class="no-highlight">107</i>&nbsp;    }
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /**
+<i class="no-highlight">110</i>&nbsp;     * Create with logVersion8UpgradeDbs and logVersion8UpgradeDeltas params.
+<i class="no-highlight">111</i>&nbsp;     */
+<i class="no-highlight">112</i>&nbsp;    public INFileReader(EnvironmentImpl env,
+<i class="no-highlight">113</i>&nbsp;                        int readBufferSize,
+<i class="no-highlight">114</i>&nbsp;                        long startLsn,
+<i class="no-highlight">115</i>&nbsp;                        long finishLsn,
+<i class="no-highlight">116</i>&nbsp;                        boolean trackIds,
+<i class="no-highlight">117</i>&nbsp;                        long partialCkptStart,
+<i class="no-highlight">118</i>&nbsp;                        long ckptEnd,
+<i class="no-highlight">119</i>&nbsp;                        RecoveryUtilizationTracker tracker,
+<i class="no-highlight">120</i>&nbsp;                        Set&lt;DatabaseId&gt; logVersion8UpgradeDbs,
+<i class="no-highlight">121</i>&nbsp;                        AtomicBoolean logVersion8UpgradeDeltas)
+<i class="no-highlight">122</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">123</i>&nbsp;
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        super(env, readBufferSize, true, startLsn, null,</b>
+<i class="no-highlight">125</i>&nbsp;              DbLsn.NULL_LSN, finishLsn);
+<i class="no-highlight">126</i>&nbsp;
+<b class="nc"><i class="no-highlight">127</i>&nbsp;        this.trackIds = trackIds;</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        this.ckptEnd = ckptEnd;</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        targetEntryMap = new HashMap&lt;LogEntryType, LogEntry&gt;();</b>
+<i class="no-highlight">130</i>&nbsp;
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        if (trackIds) {</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;            maxNodeId = 0;</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;            maxDbId = 0;</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;            maxTxnId = 0;</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;            minReplicatedNodeId = 0;</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;            minReplicatedDbId = DbTree.NEG_DB_ID_START;</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            minReplicatedTxnId = 0;</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;            this.tracker = tracker;</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            this.partialCkptStart = partialCkptStart;</b>
+<i class="no-highlight">140</i>&nbsp;
+<b class="nc"><i class="no-highlight">141</i>&nbsp;            idTrackingSet = new HashSet&lt;LogEntryType&gt;();</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            idTrackingMap = new HashMap&lt;LogEntryType, LogEntry&gt;();</b>
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;            /*
+<i class="no-highlight">145</i>&nbsp;             * Need all nodes for tracking:
+<i class="no-highlight">146</i>&nbsp;             * - Need all INs for node ID tracking.
+<i class="no-highlight">147</i>&nbsp;             * - Need all LNs for obsolete tracking.
+<i class="no-highlight">148</i>&nbsp;             * - Need txnal LNs for txn ID tracking.
+<i class="no-highlight">149</i>&nbsp;             * - Need FileSummaryLN for obsolete tracking.
+<i class="no-highlight">150</i>&nbsp;             * - Need MapLN for obsolete and DB ID tracking.
+<i class="no-highlight">151</i>&nbsp;             * - Need BIN-delta for obsolete tracking.
+<i class="no-highlight">152</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">153</i>&nbsp;            for (LogEntryType entryType : LogEntryType.getAllTypes()) {</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;                if (entryType.isNodeType()) {</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;                    idTrackingSet.add(entryType);</b>
+<i class="no-highlight">156</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            idTrackingSet.add(LogEntryType.LOG_BIN_DELTA);</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            idTrackingSet.add(LogEntryType.LOG_OLD_BIN_DELTA);</b>
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;            /* For tracking VLSNs. */
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            vlsnProxy = envImpl.getVLSNProxy();</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;            idTrackingSet.add(LogEntryType.LOG_ROLLBACK_START);</b>
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;            /* For checking for log version 8 upgrade errors. */
+<b class="nc"><i class="no-highlight">166</i>&nbsp;            this.logVersion8UpgradeDbs = logVersion8UpgradeDbs;</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;            this.logVersion8UpgradeDeltas = logVersion8UpgradeDeltas;</b>
+<i class="no-highlight">168</i>&nbsp;        }
+<i class="no-highlight">169</i>&nbsp;    }
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;    /**
+<i class="no-highlight">172</i>&nbsp;     * Configure this reader to target this kind of entry.
+<i class="no-highlight">173</i>&nbsp;     */
+<i class="no-highlight">174</i>&nbsp;    public void addTargetType(LogEntryType entryType)
+<i class="no-highlight">175</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">176</i>&nbsp;
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        targetEntryMap.put(entryType, entryType.getNewLogEntry());</b>
+<i class="no-highlight">178</i>&nbsp;    }
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /*
+<i class="no-highlight">181</i>&nbsp;     * Utilization Tracking
+<i class="no-highlight">182</i>&nbsp;     * --------------------
+<i class="no-highlight">183</i>&nbsp;     * This class counts all new log entries and obsolete INs.  Obsolete LNs,
+<i class="no-highlight">184</i>&nbsp;     * on the other hand, are counted by RecoveryManager undo/redo.
+<i class="no-highlight">185</i>&nbsp;     *
+<i class="no-highlight">186</i>&nbsp;     * Utilization counting is done in the first recovery pass where IDs are
+<i class="no-highlight">187</i>&nbsp;     * tracked (trackIds=true).  Processing is split between isTargetEntry
+<i class="no-highlight">188</i>&nbsp;     * and processEntry as follows.
+<i class="no-highlight">189</i>&nbsp;     *
+<i class="no-highlight">190</i>&nbsp;     * isTargetEntry counts only new non-node entries; this can be done very
+<i class="no-highlight">191</i>&nbsp;     * efficiently using only the LSN and entry type, without reading and
+<i class="no-highlight">192</i>&nbsp;     * unmarshalling the entry.
+<i class="no-highlight">193</i>&nbsp;     *
+<i class="no-highlight">194</i>&nbsp;     * processEntry counts new node entries and obsolete INs.
+<i class="no-highlight">195</i>&nbsp;     *
+<i class="no-highlight">196</i>&nbsp;     * processEntry also resets (sets all counters to zero and clears obsolete
+<i class="no-highlight">197</i>&nbsp;     * offsets) the tracked summary for a file or database when a FileSummaryLN
+<i class="no-highlight">198</i>&nbsp;     * or MapLN is encountered.  This clears the totals that have accumulated
+<i class="no-highlight">199</i>&nbsp;     * during this recovery pass for entries prior to that point.  We only want
+<i class="no-highlight">200</i>&nbsp;     * to count utilization for entries after that point.
+<i class="no-highlight">201</i>&nbsp;     *
+<i class="no-highlight">202</i>&nbsp;     * In addition, when processEntry encounters a FileSummaryLN or MapLN, its
+<i class="no-highlight">203</i>&nbsp;     * LSN is recorded in the tracker.  This information is used during IN and
+<i class="no-highlight">204</i>&nbsp;     * LN utilization counting.  For each file, knowing the LSN of the last
+<i class="no-highlight">205</i>&nbsp;     * logged FileSummaryLN for that file allows the undo/redo code to know
+<i class="no-highlight">206</i>&nbsp;     * whether to perform obsolete countng.  If the LSN of the FileSummaryLN is
+<i class="no-highlight">207</i>&nbsp;     * less than (to the left of) the LN&#39;s LSN, obsolete counting should be
+<i class="no-highlight">208</i>&nbsp;     * performed.  If it is greater, obsolete counting is already included in
+<i class="no-highlight">209</i>&nbsp;     * the logged FileSummaryLN and should not be repeated to prevent double
+<i class="no-highlight">210</i>&nbsp;     * counting.  The same thing is true of counting per-database utilization
+<i class="no-highlight">211</i>&nbsp;     * relative to the LSN of the last logged MapLN.
+<i class="no-highlight">212</i>&nbsp;     */
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;    /**
+<i class="no-highlight">215</i>&nbsp;     * If we&#39;re tracking node, database and txn IDs, we want to see all node
+<i class="no-highlight">216</i>&nbsp;     * log entries. If not, we only want to see IN entries.
+<i class="no-highlight">217</i>&nbsp;     */
+<i class="no-highlight">218</i>&nbsp;    @Override
+<i class="no-highlight">219</i>&nbsp;    protected boolean isTargetEntry()
+<i class="no-highlight">220</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">221</i>&nbsp;
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        lastEntryWasDelete = false;</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;        lastEntryWasDupDelete = false;</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        targetLogEntry = null;</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        isProvisional = currentEntryHeader.getProvisional().isProvisional</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;            (getLastLsn(), ckptEnd);</b>
+<i class="no-highlight">227</i>&nbsp;
+<i class="no-highlight">228</i>&nbsp;        /* Get the log entry type instance we need to read the entry. */
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        fromLogType = LogEntryType.findType(currentEntryHeader.getType());</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        LogEntry possibleTarget = targetEntryMap.get(fromLogType);</b>
+<i class="no-highlight">231</i>&nbsp;
+<i class="no-highlight">232</i>&nbsp;        /* Always select a non-provisional target entry. */
+<b class="nc"><i class="no-highlight">233</i>&nbsp;        if (!isProvisional) {</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            targetLogEntry = possibleTarget;</b>
+<i class="no-highlight">235</i>&nbsp;        }
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;        /* Recognize IN deletion. */
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        if (LogEntryType.LOG_IN_DELETE_INFO.equals(fromLogType)) {</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            lastEntryWasDelete = true;</b>
+<i class="no-highlight">240</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        if (LogEntryType.LOG_IN_DUPDELETE_INFO.equals(fromLogType)) {</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;            lastEntryWasDupDelete = true;</b>
+<i class="no-highlight">243</i>&nbsp;        }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;        /* If we&#39;re not tracking IDs, select only the targeted entry. */
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        if (!trackIds) {</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            return (targetLogEntry != null);</b>
+<i class="no-highlight">248</i>&nbsp;        }
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;        /*
+<i class="no-highlight">251</i>&nbsp;         * Count all non-node non-delta entries except for the file header as
+<i class="no-highlight">252</i>&nbsp;         * new.  UtilizationTracker does not count the file header.  Node/delta
+<i class="no-highlight">253</i>&nbsp;         * entries will be counted in processEntry.  Null is passed for the
+<i class="no-highlight">254</i>&nbsp;         * database ID; it is only needed for node entries.
+<i class="no-highlight">255</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        if (!fromLogType.isNodeType() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            !fromLogType.equals(LogEntryType.LOG_BIN_DELTA) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            !fromLogType.equals(LogEntryType.LOG_OLD_BIN_DELTA) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;            !LogEntryType.LOG_FILE_HEADER.equals(fromLogType)) {</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            tracker.countNewLogEntry(getLastLsn(),</b>
+<i class="no-highlight">261</i>&nbsp;                                     fromLogType,
+<b class="nc"><i class="no-highlight">262</i>&nbsp;                                     currentEntryHeader.getSize() +</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;                                     currentEntryHeader.getItemSize(),</b>
+<i class="no-highlight">264</i>&nbsp;                                     null); // DatabaseId
+<i class="no-highlight">265</i>&nbsp;        }
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;        /*
+<i class="no-highlight">268</i>&nbsp;         * When we encouter a DbTree log entry, reset the tracked summary for
+<i class="no-highlight">269</i>&nbsp;         * the ID and Name mapping DBs.  This clears what we accumulated
+<i class="no-highlight">270</i>&nbsp;         * previously for these databases during this recovery pass. Save the
+<i class="no-highlight">271</i>&nbsp;         * LSN for these databases for use by undo/redo.
+<i class="no-highlight">272</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        if (LogEntryType.LOG_DBTREE.equals(fromLogType)) {</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            tracker.saveLastLoggedMapLN(DbTree.ID_DB_ID, getLastLsn());</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            tracker.saveLastLoggedMapLN(DbTree.NAME_DB_ID, getLastLsn());</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;            tracker.resetDbInfo(DbTree.ID_DB_ID);</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            tracker.resetDbInfo(DbTree.NAME_DB_ID);</b>
+<i class="no-highlight">278</i>&nbsp;        }
+<i class="no-highlight">279</i>&nbsp;
+<i class="no-highlight">280</i>&nbsp;        /* Track VLSNs in the log entry header of all replicated entries. */
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        if (currentEntryHeader.getReplicated()) {</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;            vlsnProxy.trackMapping(getLastLsn(),</b>
+<i class="no-highlight">283</i>&nbsp;                                   currentEntryHeader,
+<i class="no-highlight">284</i>&nbsp;                                   null /*targetLogEntry*/);
+<i class="no-highlight">285</i>&nbsp;        }
+<i class="no-highlight">286</i>&nbsp;
+<i class="no-highlight">287</i>&nbsp;        /* Return true if this logrec should be passed on to processEntry. */
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        return (targetLogEntry != null ||</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                idTrackingSet.contains(fromLogType));</b>
+<i class="no-highlight">290</i>&nbsp;    }
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;    /**
+<i class="no-highlight">293</i>&nbsp;     * This reader returns non-provisional INs and IN delete entries.
+<i class="no-highlight">294</i>&nbsp;     * In tracking mode, it may also scan log entries that aren&#39;t returned:
+<i class="no-highlight">295</i>&nbsp;     *  -to set the sequences for txn, node, and database ID.
+<i class="no-highlight">296</i>&nbsp;     *  -to update utilization and obsolete offset information.
+<i class="no-highlight">297</i>&nbsp;     *  -for VLSN mappings for recovery
+<i class="no-highlight">298</i>&nbsp;     */
+<i class="no-highlight">299</i>&nbsp;    protected boolean processEntry(ByteBuffer entryBuffer)
+<i class="no-highlight">300</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">301</i>&nbsp;
+<b class="nc"><i class="no-highlight">302</i>&nbsp;        boolean useEntry = false;</b>
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;        /* Read targeted entry. */
+<b class="nc"><i class="no-highlight">305</i>&nbsp;        if (targetLogEntry != null) {</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;            targetLogEntry.readEntry(envImpl, currentEntryHeader, entryBuffer);</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            useEntry = true;</b>
+<i class="no-highlight">308</i>&nbsp;        }
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;        /* If we&#39;re not tracking IDs, we&#39;re done. */
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        if (!trackIds) {</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            return useEntry;</b>
+<i class="no-highlight">313</i>&nbsp;        }
+<i class="no-highlight">314</i>&nbsp;
+<i class="no-highlight">315</i>&nbsp;        /* Read non-target entry. */
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        if (targetLogEntry == null) {</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            assert idTrackingSet.contains(fromLogType);</b>
+<i class="no-highlight">318</i>&nbsp;
+<b class="nc"><i class="no-highlight">319</i>&nbsp;            targetLogEntry = idTrackingMap.get(fromLogType);</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;            if (targetLogEntry == null) {</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;                targetLogEntry = fromLogType.getNewLogEntry();</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;                idTrackingMap.put(fromLogType, targetLogEntry);</b>
+<i class="no-highlight">323</i>&nbsp;            }
+<i class="no-highlight">324</i>&nbsp;
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            targetLogEntry.readEntry(envImpl, currentEntryHeader, entryBuffer);</b>
+<i class="no-highlight">326</i>&nbsp;        }
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;        /*
+<i class="no-highlight">329</i>&nbsp;         * Count node and delta entries as new.  Non-node/delta entries are
+<i class="no-highlight">330</i>&nbsp;         * counted in isTargetEntry.
+<i class="no-highlight">331</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        if (fromLogType.isNodeType() ||</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;            fromLogType.equals(LogEntryType.LOG_BIN_DELTA) ||</b>
+<b class="nc"><i class="no-highlight">334</i>&nbsp;            fromLogType.equals(LogEntryType.LOG_OLD_BIN_DELTA)) {</b>
+<b class="nc"><i class="no-highlight">335</i>&nbsp;            tracker.countNewLogEntry(getLastLsn(), fromLogType,</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;                                     currentEntryHeader.getSize() +</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;                                     currentEntryHeader.getItemSize(),</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;                                     targetLogEntry.getDbId());</b>
+<i class="no-highlight">339</i>&nbsp;        }
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;        /* Track VLSNs in RollbackStart. */
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        if (fromLogType.equals(LogEntryType.LOG_ROLLBACK_START)) {</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            vlsnProxy.trackMapping(getLastLsn(),</b>
+<i class="no-highlight">344</i>&nbsp;                                   currentEntryHeader,
+<i class="no-highlight">345</i>&nbsp;                                   targetLogEntry);
+<i class="no-highlight">346</i>&nbsp;        }
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;        /* Process LN types. */
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        if (fromLogType.isLNType()) {</b>
+<i class="no-highlight">350</i>&nbsp;
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            LNLogEntry&lt;?&gt; lnEntry = (LNLogEntry&lt;?&gt;) targetLogEntry;</b>
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;            /*
+<i class="no-highlight">354</i>&nbsp;             * When a MapLN is encountered, reset the tracked info for that
+<i class="no-highlight">355</i>&nbsp;             * DB. This clears what we have accummulated so far for the DB
+<i class="no-highlight">356</i>&nbsp;             * during this recovery pass. This is important to eliminate 
+<i class="no-highlight">357</i>&nbsp;             * potential double counting of obsolete logrecs done earlier
+<i class="no-highlight">358</i>&nbsp;             * in this recovery pass.  
+<i class="no-highlight">359</i>&nbsp;             *
+<i class="no-highlight">360</i>&nbsp;             * Also, save the LSN of the MapLN for use in utilization counting
+<i class="no-highlight">361</i>&nbsp;             * during LN undo/redo.
+<i class="no-highlight">362</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">363</i>&nbsp;            if (fromLogType.equals(LogEntryType.LOG_MAPLN)) {</b>
+<i class="no-highlight">364</i>&nbsp;
+<b class="nc"><i class="no-highlight">365</i>&nbsp;                MapLN mapLN = (MapLN) lnEntry.getMainItem();</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                DatabaseId dbId = mapLN.getDatabase().getId();</b>
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;                /* Track latest DB ID. */
+<b class="nc"><i class="no-highlight">369</i>&nbsp;                long dbIdVal = dbId.getId();</b>
+<b class="nc"><i class="no-highlight">370</i>&nbsp;                maxDbId = (dbIdVal &gt; maxDbId ? dbIdVal : maxDbId);</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;                minReplicatedDbId = (dbIdVal &lt; minReplicatedDbId ?</b>
+<i class="no-highlight">372</i>&nbsp;                                     dbIdVal : minReplicatedDbId);
+<i class="no-highlight">373</i>&nbsp;
+<b class="nc"><i class="no-highlight">374</i>&nbsp;                tracker.resetDbInfo(dbId);</b>
+<i class="no-highlight">375</i>&nbsp;
+<b class="nc"><i class="no-highlight">376</i>&nbsp;                tracker.saveLastLoggedMapLN(dbId, getLastLsn());</b>
+<i class="no-highlight">377</i>&nbsp;            }
+<i class="no-highlight">378</i>&nbsp;
+<i class="no-highlight">379</i>&nbsp;            /* Track latest txn ID. */
+<b class="nc"><i class="no-highlight">380</i>&nbsp;            if (fromLogType.isTransactional()) {</b>
+<b class="nc"><i class="no-highlight">381</i>&nbsp;                long txnId = lnEntry.getTxnId().longValue();</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;                maxTxnId = (txnId &gt; maxTxnId ? txnId : maxTxnId);</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;                minReplicatedTxnId = (txnId &lt; minReplicatedTxnId ?</b>
+<i class="no-highlight">384</i>&nbsp;                                      txnId : minReplicatedTxnId);
+<i class="no-highlight">385</i>&nbsp;            }
+<i class="no-highlight">386</i>&nbsp;
+<i class="no-highlight">387</i>&nbsp;            /*
+<i class="no-highlight">388</i>&nbsp;             * When a FSLN is encountered, reset the tracked summary info for
+<i class="no-highlight">389</i>&nbsp;             * that file. This clears what we have accummulated so far for the
+<i class="no-highlight">390</i>&nbsp;             * file during this recovery pass. This is important to eliminate 
+<i class="no-highlight">391</i>&nbsp;             * potential double counting of obsolete logrecs done earlier
+<i class="no-highlight">392</i>&nbsp;             * in this recovery pass. 
+<i class="no-highlight">393</i>&nbsp;             * 
+<i class="no-highlight">394</i>&nbsp;             * Also, save the LSN of the FSLN for use in utilization counting
+<i class="no-highlight">395</i>&nbsp;             * during LN undo/redo.
+<i class="no-highlight">396</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">397</i>&nbsp;            if (LogEntryType.LOG_FILESUMMARYLN.equals(fromLogType)) {</b>
+<i class="no-highlight">398</i>&nbsp;
+<b class="nc"><i class="no-highlight">399</i>&nbsp;                lnEntry.postFetchInit(false /*isDupDb*/);</b>
+<i class="no-highlight">400</i>&nbsp;
+<b class="nc"><i class="no-highlight">401</i>&nbsp;                long fileNum = FileSummaryLN.getFileNumber(lnEntry.getKey());</b>
+<i class="no-highlight">402</i>&nbsp;
+<b class="nc"><i class="no-highlight">403</i>&nbsp;                tracker.resetFileInfo(fileNum);</b>
+<i class="no-highlight">404</i>&nbsp;
+<b class="nc"><i class="no-highlight">405</i>&nbsp;                tracker.saveLastLoggedFileSummaryLN(fileNum, getLastLsn());</b>
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;                /*
+<i class="no-highlight">408</i>&nbsp;                 * Do not cache the file summary in the UtilizationProfile here,
+<i class="no-highlight">409</i>&nbsp;                 * since it may be for a deleted log file. [#10395]
+<i class="no-highlight">410</i>&nbsp;                 */
+<i class="no-highlight">411</i>&nbsp;            }
+<i class="no-highlight">412</i>&nbsp;        }
+<i class="no-highlight">413</i>&nbsp;
+<i class="no-highlight">414</i>&nbsp;        /* Process IN types. */
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        if (fromLogType.isINType()) {</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;            INLogEntry&lt;?&gt; inEntry = (INLogEntry&lt;?&gt;) targetLogEntry;</b>
+<i class="no-highlight">417</i>&nbsp;
+<i class="no-highlight">418</i>&nbsp;            /* Keep track of the largest node ID seen. */
+<b class="nc"><i class="no-highlight">419</i>&nbsp;            long nodeId = inEntry.getNodeId();</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            assert (nodeId != Node.NULL_NODE_ID);</b>
+<i class="no-highlight">421</i>&nbsp;
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            maxNodeId = (nodeId &gt; maxNodeId ? nodeId : maxNodeId);</b>
+<i class="no-highlight">423</i>&nbsp;
+<b class="nc"><i class="no-highlight">424</i>&nbsp;            minReplicatedNodeId = </b>
+<i class="no-highlight">425</i>&nbsp;                (nodeId &lt; minReplicatedNodeId ? nodeId : minReplicatedNodeId);
+<i class="no-highlight">426</i>&nbsp;        }
+<i class="no-highlight">427</i>&nbsp;
+<i class="no-highlight">428</i>&nbsp;        /* Process INContainingEntry types. */
+<b class="nc"><i class="no-highlight">429</i>&nbsp;        if (fromLogType.isINType() ||</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;            fromLogType.equals(LogEntryType.LOG_OLD_BIN_DELTA)) {</b>
+<i class="no-highlight">431</i>&nbsp;
+<b class="nc"><i class="no-highlight">432</i>&nbsp;            INContainingEntry inEntry = (INContainingEntry) targetLogEntry;</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            DatabaseId dbId = inEntry.getDbId();</b>
+<i class="no-highlight">434</i>&nbsp;
+<b class="nc"><i class="no-highlight">435</i>&nbsp;            long newLsn = getLastLsn();</b>
+<i class="no-highlight">436</i>&nbsp;
+<i class="no-highlight">437</i>&nbsp;            /*
+<i class="no-highlight">438</i>&nbsp;             * Count the previous version of this IN as obsolete. If lsn
+<i class="no-highlight">439</i>&nbsp;             * (i.e. the current version) is non-provisional, then oldLsn is
+<i class="no-highlight">440</i>&nbsp;             * indeed obsolete. However, if lsn is provisional, oldLsn is
+<i class="no-highlight">441</i>&nbsp;             * obsolete only if an ancestor of this IN has been logged non-
+<i class="no-highlight">442</i>&nbsp;             * provisionally later in the log, and unless lsn &lt; CKPT_END
+<i class="no-highlight">443</i>&nbsp;             * we cannot know if this is true or not. For this reason, we 
+<i class="no-highlight">444</i>&nbsp;             * conservatively assume that oldLsn is indeed obsolete, but we
+<i class="no-highlight">445</i>&nbsp;             * use inexact counting, so that the oldLsn value will not be
+<i class="no-highlight">446</i>&nbsp;             * recorded by the tracker. (another reason is that earlier log
+<i class="no-highlight">447</i>&nbsp;             * versions did not have a full LSN in oldLsn; they had only the
+<i class="no-highlight">448</i>&nbsp;             * file number).
+<i class="no-highlight">449</i>&nbsp;             *
+<i class="no-highlight">450</i>&nbsp;             * Notice also that there may be an FSLN logrec after lsn that
+<i class="no-highlight">451</i>&nbsp;             * includes oldLsn as an obsolete IN. If so, we are double counting
+<i class="no-highlight">452</i>&nbsp;             * here, but the double counting will go away when we later process
+<i class="no-highlight">453</i>&nbsp;             * that FSLN and as a result wipe-out the utilization info we have
+<i class="no-highlight">454</i>&nbsp;             * collected so far about the log file containing oldLsn.
+<i class="no-highlight">455</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">456</i>&nbsp;            long oldLsn = inEntry.getPrevFullLsn();</b>
+<i class="no-highlight">457</i>&nbsp;
+<b class="nc"><i class="no-highlight">458</i>&nbsp;            if (oldLsn != DbLsn.NULL_LSN &amp;&amp; !inEntry.isBINDelta()) {</b>
+<b class="nc"><i class="no-highlight">459</i>&nbsp;                tracker.countObsoleteUnconditional(</b>
+<i class="no-highlight">460</i>&nbsp;                    oldLsn, fromLogType, 0, dbId, false /*countExact*/);
+<i class="no-highlight">461</i>&nbsp;            }
+<i class="no-highlight">462</i>&nbsp;
+<b class="nc"><i class="no-highlight">463</i>&nbsp;            oldLsn = inEntry.getPrevDeltaLsn();</b>
+<i class="no-highlight">464</i>&nbsp;
+<b class="nc"><i class="no-highlight">465</i>&nbsp;            if (oldLsn != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">466</i>&nbsp;                tracker.countObsoleteUnconditional(</b>
+<i class="no-highlight">467</i>&nbsp;                    oldLsn, fromLogType, 0, dbId, false /*countExact*/);
+<i class="no-highlight">468</i>&nbsp;            }
+<i class="no-highlight">469</i>&nbsp;
+<i class="no-highlight">470</i>&nbsp;            /*
+<i class="no-highlight">471</i>&nbsp;             * Count the current IN version as obsolete if lsn is
+<i class="no-highlight">472</i>&nbsp;             * provisional and is after partialCkptStart. In this case, the
+<i class="no-highlight">473</i>&nbsp;             * crash occurred during a ckpt and it the crash event itself
+<i class="no-highlight">474</i>&nbsp;             * that may make the current logrec be obsolete. Again, whether
+<i class="no-highlight">475</i>&nbsp;             * the lsn is indeed obsolete or not depends on whether an
+<i class="no-highlight">476</i>&nbsp;             * ancestor of this IN has been logged non-provisionally later
+<i class="no-highlight">477</i>&nbsp;             * in the log. At this point we cannot know if this is true or
+<i class="no-highlight">478</i>&nbsp;             * not. For this reason, we conservatively assume that lsn
+<i class="no-highlight">479</i>&nbsp;             * is indeed obsolete, but we use inexact counting, so that the
+<i class="no-highlight">480</i>&nbsp;             * lsn value will not be recorded by the tracker. As explained
+<i class="no-highlight">481</i>&nbsp;             * above, we may be double counting here, but this will be fixed
+<i class="no-highlight">482</i>&nbsp;             * if we later find an FSLN for the same log file as lsn.
+<i class="no-highlight">483</i>&nbsp;             *
+<i class="no-highlight">484</i>&nbsp;             * We are too conservative here in assuming that lsn is
+<i class="no-highlight">485</i>&nbsp;             * obsolete. This is because of the &quot;grouping&quot; behaviour of the
+<i class="no-highlight">486</i>&nbsp;             * checpointer. Specifically:
+<i class="no-highlight">487</i>&nbsp;             *
+<i class="no-highlight">488</i>&nbsp;             * Most of the provisional IN logrecs in this region of the log
+<i class="no-highlight">489</i>&nbsp;             * (i.e., after the start of an incomplete ckpt) are for BINs
+<i class="no-highlight">490</i>&nbsp;             * logged by the checkpointer (eviction during a ckpt logs dirty
+<i class="no-highlight">491</i>&nbsp;             * BINs and UINs provisionally as well). The checkpointer logs
+<i class="no-highlight">492</i>&nbsp;             * all the dirty BIN siblings and then logs their parent non-
+<i class="no-highlight">493</i>&nbsp;             * provisionally, before logging any other BINs. So, not taking
+<i class="no-highlight">494</i>&nbsp;             * eviction into account, there can be at most 128 BIN logrecs
+<i class="no-highlight">495</i>&nbsp;             * after the partialCkptStart that are trully obsolete.
+<i class="no-highlight">496</i>&nbsp;             *
+<i class="no-highlight">497</i>&nbsp;             * Note that older versions of the checkpointer did not use to
+<i class="no-highlight">498</i>&nbsp;             * group together the logging of siblings BINs and their parent.
+<i class="no-highlight">499</i>&nbsp;             * Without this grouping, the assumption done here that most
+<i class="no-highlight">500</i>&nbsp;             * provisional logrecs after partialCkptStart are obsolete is
+<i class="no-highlight">501</i>&nbsp;             * much more accurate.
+<i class="no-highlight">502</i>&nbsp;             *
+<i class="no-highlight">503</i>&nbsp;             * A potential solution: instead of counting these logrecs as
+<i class="no-highlight">504</i>&nbsp;             * obsolete here, save their LSNs on-the-side inside the tracker.
+<i class="no-highlight">505</i>&nbsp;             * When, later, a UIN N is replayed and attached to the tree, 
+<i class="no-highlight">506</i>&nbsp;             * remove from the saved LSN set any LSNs that appear in the slots
+<i class="no-highlight">507</i>&nbsp;             * of N. After all REDO-INs passes are done, count as obsolete any
+<i class="no-highlight">508</i>&nbsp;             * LSNs remaining in the saved set. 
+<i class="no-highlight">509</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">510</i>&nbsp;            if (isProvisional &amp;&amp;</b>
+<i class="no-highlight">511</i>&nbsp;                partialCkptStart != DbLsn.NULL_LSN &amp;&amp;
+<b class="nc"><i class="no-highlight">512</i>&nbsp;                DbLsn.compareTo(partialCkptStart, newLsn) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;                tracker.countObsoleteUnconditional(</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                    newLsn, fromLogType, 0, inEntry.getDbId(),</b>
+<i class="no-highlight">515</i>&nbsp;                    false /*countExact*/);
+<i class="no-highlight">516</i>&nbsp;            }
+<i class="no-highlight">517</i>&nbsp;        }
+<i class="no-highlight">518</i>&nbsp;
+<i class="no-highlight">519</i>&nbsp;        /*
+<i class="no-highlight">520</i>&nbsp;         * Add candidate DB IDs and note deltas for possible log version 8
+<i class="no-highlight">521</i>&nbsp;         * upgrade violations.
+<i class="no-highlight">522</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">523</i>&nbsp;        if (currentEntryHeader.getVersion() &lt; 8) {</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;            if (logVersion8UpgradeDbs != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">525</i>&nbsp;                fromLogType.isNodeType()) {</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;                logVersion8UpgradeDbs.add(targetLogEntry.getDbId());</b>
+<i class="no-highlight">527</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            if (logVersion8UpgradeDeltas != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                (fromLogType.equals(LogEntryType.LOG_OLD_BIN_DELTA) ||</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;                 fromLogType.equals(LogEntryType.LOG_OLD_DUP_BIN_DELTA))) {</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;                logVersion8UpgradeDeltas.set(true);</b>
+<i class="no-highlight">532</i>&nbsp;            }
+<i class="no-highlight">533</i>&nbsp;        }
+<i class="no-highlight">534</i>&nbsp;
+<i class="no-highlight">535</i>&nbsp;        /* Return true if this is a targeted entry. */
+<b class="nc"><i class="no-highlight">536</i>&nbsp;        return useEntry;</b>
+<i class="no-highlight">537</i>&nbsp;    }
+<i class="no-highlight">538</i>&nbsp;
+<i class="no-highlight">539</i>&nbsp;    /**
+<i class="no-highlight">540</i>&nbsp;     * Get the last IN seen by the reader.
+<i class="no-highlight">541</i>&nbsp;     */
+<i class="no-highlight">542</i>&nbsp;    public IN getIN(DatabaseImpl dbImpl)
+<i class="no-highlight">543</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">544</i>&nbsp;
+<b class="nc"><i class="no-highlight">545</i>&nbsp;        return ((INContainingEntry) targetLogEntry).getIN(dbImpl);</b>
+<i class="no-highlight">546</i>&nbsp;    }
+<i class="no-highlight">547</i>&nbsp;
+<i class="no-highlight">548</i>&nbsp;    /**
+<i class="no-highlight">549</i>&nbsp;     * Get the last databaseId seen by the reader.
+<i class="no-highlight">550</i>&nbsp;     */
+<i class="no-highlight">551</i>&nbsp;    public DatabaseId getDatabaseId() {
+<b class="nc"><i class="no-highlight">552</i>&nbsp;        return ((INContainingEntry) targetLogEntry).getDbId();</b>
+<i class="no-highlight">553</i>&nbsp;    }
+<i class="no-highlight">554</i>&nbsp;
+<i class="no-highlight">555</i>&nbsp;    /**
+<i class="no-highlight">556</i>&nbsp;     * Get the maximum node ID seen by the reader.
+<i class="no-highlight">557</i>&nbsp;     */
+<i class="no-highlight">558</i>&nbsp;    public long getMaxNodeId() {
+<b class="nc"><i class="no-highlight">559</i>&nbsp;        return maxNodeId;</b>
+<i class="no-highlight">560</i>&nbsp;    }
+<i class="no-highlight">561</i>&nbsp;
+<i class="no-highlight">562</i>&nbsp;    public long getMinReplicatedNodeId() {
+<b class="nc"><i class="no-highlight">563</i>&nbsp;        return minReplicatedNodeId;</b>
+<i class="no-highlight">564</i>&nbsp;    }
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;    /**
+<i class="no-highlight">567</i>&nbsp;     * Get the maximum DB ID seen by the reader.
+<i class="no-highlight">568</i>&nbsp;     */
+<i class="no-highlight">569</i>&nbsp;    public long getMaxDbId() {
+<b class="nc"><i class="no-highlight">570</i>&nbsp;        return maxDbId;</b>
+<i class="no-highlight">571</i>&nbsp;    }
+<i class="no-highlight">572</i>&nbsp;
+<i class="no-highlight">573</i>&nbsp;    public long getMinReplicatedDbId() {
+<b class="nc"><i class="no-highlight">574</i>&nbsp;        return minReplicatedDbId;</b>
+<i class="no-highlight">575</i>&nbsp;    }
+<i class="no-highlight">576</i>&nbsp;
+<i class="no-highlight">577</i>&nbsp;    /**
+<i class="no-highlight">578</i>&nbsp;     * Get the maximum txn ID seen by the reader.
+<i class="no-highlight">579</i>&nbsp;     */
+<i class="no-highlight">580</i>&nbsp;    public long getMaxTxnId() {
+<b class="nc"><i class="no-highlight">581</i>&nbsp;        return maxTxnId;</b>
+<i class="no-highlight">582</i>&nbsp;    }
+<i class="no-highlight">583</i>&nbsp;
+<i class="no-highlight">584</i>&nbsp;    public long getMinReplicatedTxnId() {
+<b class="nc"><i class="no-highlight">585</i>&nbsp;        return minReplicatedTxnId;</b>
+<i class="no-highlight">586</i>&nbsp;    }
+<i class="no-highlight">587</i>&nbsp;
+<i class="no-highlight">588</i>&nbsp;    /**
+<i class="no-highlight">589</i>&nbsp;     * @return true if the last entry was a delete info entry.
+<i class="no-highlight">590</i>&nbsp;     */
+<i class="no-highlight">591</i>&nbsp;    public boolean isDeleteInfo() {
+<b class="nc"><i class="no-highlight">592</i>&nbsp;        return lastEntryWasDelete;</b>
+<i class="no-highlight">593</i>&nbsp;    }
+<i class="no-highlight">594</i>&nbsp;
+<i class="no-highlight">595</i>&nbsp;    /**
+<i class="no-highlight">596</i>&nbsp;     * @return true if the last entry was a dup delete info entry.
+<i class="no-highlight">597</i>&nbsp;     */
+<i class="no-highlight">598</i>&nbsp;    public boolean isDupDeleteInfo() {
+<b class="nc"><i class="no-highlight">599</i>&nbsp;        return lastEntryWasDupDelete;</b>
+<i class="no-highlight">600</i>&nbsp;    }
+<i class="no-highlight">601</i>&nbsp;
+<i class="no-highlight">602</i>&nbsp;    /**
+<i class="no-highlight">603</i>&nbsp;     * @return true if the last entry was a BIN-delta.
+<i class="no-highlight">604</i>&nbsp;     */
+<i class="no-highlight">605</i>&nbsp;    public boolean isBINDelta() {
+<b class="nc"><i class="no-highlight">606</i>&nbsp;        return</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            targetLogEntry.getLogType().equals(LogEntryType.LOG_BIN_DELTA) ||</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            targetLogEntry.getLogType().equals(LogEntryType.LOG_OLD_BIN_DELTA);</b>
+<i class="no-highlight">609</i>&nbsp;    }
+<i class="no-highlight">610</i>&nbsp;
+<i class="no-highlight">611</i>&nbsp;    public VLSNRecoveryProxy getVLSNProxy() {
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        return vlsnProxy;</b>
+<i class="no-highlight">613</i>&nbsp;    }
+<i class="no-highlight">614</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

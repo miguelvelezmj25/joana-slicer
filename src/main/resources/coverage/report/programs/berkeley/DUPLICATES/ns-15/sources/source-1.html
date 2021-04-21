@@ -1,0 +1,331 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > CommitPointConsistencyPolicy</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep</a>
+</div>
+
+<h1>Coverage Summary for Class: CommitPointConsistencyPolicy (com.sleepycat.je.rep)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">CommitPointConsistencyPolicy</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/39)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.CommitToken;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.ReplicaConsistencyPolicy;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replica;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.utilint.PropUtil;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;/**
+<i class="no-highlight">26</i>&nbsp; * A consistency policy which ensures that the environment on a Replica node is
+<i class="no-highlight">27</i>&nbsp; * at least as current as denoted by the specified {@link CommitToken}. This
+<i class="no-highlight">28</i>&nbsp; * token represents a point in the serialized transaction schedule created by
+<i class="no-highlight">29</i>&nbsp; * the master. In other words, this token is like a bookmark, representing a
+<i class="no-highlight">30</i>&nbsp; * particular transaction commit in the replication stream. The Replica ensures
+<i class="no-highlight">31</i>&nbsp; * that the commit identified by the {@link CommitToken} has been executed on
+<i class="no-highlight">32</i>&nbsp; * this node before allowing the application&#39;s {@link
+<i class="no-highlight">33</i>&nbsp; * com.sleepycat.je.Environment#beginTransaction(com.sleepycat.je.Transaction,
+<i class="no-highlight">34</i>&nbsp; * com.sleepycat.je.TransactionConfig) Environment.beginTransaction()}
+<i class="no-highlight">35</i>&nbsp; * operation on the Replica to proceed.
+<i class="no-highlight">36</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">37</i>&nbsp; * For example, suppose the application is a web application where a replicated
+<i class="no-highlight">38</i>&nbsp; * group is implemented within a load balanced web server group. Each request
+<i class="no-highlight">39</i>&nbsp; * to the web server consists of an update operation followed by read
+<i class="no-highlight">40</i>&nbsp; * operations (say from the same client), The read operations naturally expect
+<i class="no-highlight">41</i>&nbsp; * to see the data from the updates executed by the same request. However, the
+<i class="no-highlight">42</i>&nbsp; * read operations might have been routed to a node that did not execute the
+<i class="no-highlight">43</i>&nbsp; * update.
+<i class="no-highlight">44</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">45</i>&nbsp; * In such a case, the update request would generate a {@link CommitToken},
+<i class="no-highlight">46</i>&nbsp; * which would be resubmitted by the browser, along with subsequent read
+<i class="no-highlight">47</i>&nbsp; * requests. The read request could be directed at any one of the available web
+<i class="no-highlight">48</i>&nbsp; * servers by a load balancer. The node which executes the read request would
+<i class="no-highlight">49</i>&nbsp; * create a CommitPointConsistencyPolicy with that {@link CommitToken} and use
+<i class="no-highlight">50</i>&nbsp; * it at transaction begin. If the environment at the web server was already
+<i class="no-highlight">51</i>&nbsp; * current (wrt the commit token), it could immediately execute the transaction
+<i class="no-highlight">52</i>&nbsp; * and satisfy the request. If not, the &quot;transaction begin&quot; would stall until
+<i class="no-highlight">53</i>&nbsp; * the Replica replay had caught up and the change was available at that web
+<i class="no-highlight">54</i>&nbsp; * server.
+<i class="no-highlight">55</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">56</i>&nbsp; * Consistency policies are specified at either a per-transaction level through
+<i class="no-highlight">57</i>&nbsp; * {@link com.sleepycat.je.TransactionConfig#setConsistencyPolicy} or as an
+<i class="no-highlight">58</i>&nbsp; * replication node wide default through {@link
+<i class="no-highlight">59</i>&nbsp; * ReplicationConfig#setConsistencyPolicy}
+<i class="no-highlight">60</i>&nbsp; *
+<i class="no-highlight">61</i>&nbsp; * @see com.sleepycat.je.CommitToken
+<i class="no-highlight">62</i>&nbsp; * @see &lt;a href=&quot;{@docRoot}/../ReplicationGuide/consistency.html&quot;
+<i class="no-highlight">63</i>&nbsp; * target=&quot;_top&quot;&gt;Managing Consistency&lt;/a&gt;
+<i class="no-highlight">64</i>&nbsp; */
+<i class="no-highlight">65</i>&nbsp;public class CommitPointConsistencyPolicy implements ReplicaConsistencyPolicy {
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    /**
+<i class="no-highlight">68</i>&nbsp;     * The name:{@value} associated with this policy. The name can be used when
+<i class="no-highlight">69</i>&nbsp;     * constructing policy property values for use in je.properties files.
+<i class="no-highlight">70</i>&nbsp;     */
+<i class="no-highlight">71</i>&nbsp;    public static final String NAME = &quot;CommitPointConsistencyPolicy&quot;;
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;    /*
+<i class="no-highlight">74</i>&nbsp;     * Identifies the commit of interest in a serialized transaction schedule.
+<i class="no-highlight">75</i>&nbsp;     */
+<i class="no-highlight">76</i>&nbsp;    private final CommitToken commitToken;
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    /*
+<i class="no-highlight">79</i>&nbsp;     * Amount of time (in milliseconds) to wait for consistency to be
+<i class="no-highlight">80</i>&nbsp;     * reached.
+<i class="no-highlight">81</i>&nbsp;     */
+<i class="no-highlight">82</i>&nbsp;    private final int timeout;
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    /**
+<i class="no-highlight">85</i>&nbsp;     * Defines how current a Replica needs to be in terms of a specific
+<i class="no-highlight">86</i>&nbsp;     * transaction that was committed on the Master. A transaction on the
+<i class="no-highlight">87</i>&nbsp;     * Replica that uses this consistency policy is allowed to start only
+<i class="no-highlight">88</i>&nbsp;     * after the transaction identified by the &lt;code&gt;commitToken&lt;/code&gt; has
+<i class="no-highlight">89</i>&nbsp;     * been committed on the Replica. The {@link
+<i class="no-highlight">90</i>&nbsp;     * com.sleepycat.je.Environment#beginTransaction(
+<i class="no-highlight">91</i>&nbsp;     * com.sleepycat.je.Transaction, com.sleepycat.je.TransactionConfig)
+<i class="no-highlight">92</i>&nbsp;     * Environment.beginTransaction()} will wait for at most
+<i class="no-highlight">93</i>&nbsp;     * &lt;code&gt;timeout&lt;/code&gt; for the Replica to catch up. If the Replica has
+<i class="no-highlight">94</i>&nbsp;     * not caught up in this period, the &lt;code&gt;beginTransaction()&lt;/code&gt;
+<i class="no-highlight">95</i>&nbsp;     * method will throw a {@link ReplicaConsistencyException}.
+<i class="no-highlight">96</i>&nbsp;     *
+<i class="no-highlight">97</i>&nbsp;     * @param commitToken the token identifying the transaction
+<i class="no-highlight">98</i>&nbsp;     *
+<i class="no-highlight">99</i>&nbsp;     * @param timeout the maximum amount of time that the transaction start
+<i class="no-highlight">100</i>&nbsp;     * will wait to allow the Replica to catch up.
+<i class="no-highlight">101</i>&nbsp;     *
+<i class="no-highlight">102</i>&nbsp;     * @param timeoutUnit the {@code TimeUnit} for the timeout parameter.
+<i class="no-highlight">103</i>&nbsp;     *
+<i class="no-highlight">104</i>&nbsp;     * @throws IllegalArgumentException if the commitToken or timeoutUnit is
+<i class="no-highlight">105</i>&nbsp;     * null.
+<i class="no-highlight">106</i>&nbsp;     */
+<i class="no-highlight">107</i>&nbsp;    public CommitPointConsistencyPolicy(CommitToken commitToken,
+<i class="no-highlight">108</i>&nbsp;                                        long timeout,
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                                        TimeUnit timeoutUnit) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        if (commitToken == null) {</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;            throw new IllegalArgumentException(&quot;commitToken must not be null&quot;);</b>
+<i class="no-highlight">112</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        this.commitToken = commitToken;</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        this.timeout = PropUtil.durationToMillis(timeout, timeoutUnit);</b>
+<i class="no-highlight">115</i>&nbsp;    }
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    /**
+<i class="no-highlight">118</i>&nbsp;     * Returns the name:{@value #NAME}, associated with this policy.
+<i class="no-highlight">119</i>&nbsp;     * @see #NAME
+<i class="no-highlight">120</i>&nbsp;     */
+<i class="no-highlight">121</i>&nbsp;    @Override
+<i class="no-highlight">122</i>&nbsp;    public String getName() {
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        return NAME;</b>
+<i class="no-highlight">124</i>&nbsp;    }
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    /**
+<i class="no-highlight">127</i>&nbsp;     * @hidden
+<i class="no-highlight">128</i>&nbsp;     * For internal use only.
+<i class="no-highlight">129</i>&nbsp;     * Ensures that the replica has replayed the replication stream to the
+<i class="no-highlight">130</i>&nbsp;     * point identified by the commit token or past it. If it has not, the
+<i class="no-highlight">131</i>&nbsp;     * method waits until the constraint is satisfied, or the timeout period
+<i class="no-highlight">132</i>&nbsp;     * has expired, whichever event takes place first.
+<i class="no-highlight">133</i>&nbsp;     */
+<i class="no-highlight">134</i>&nbsp;    @Override
+<i class="no-highlight">135</i>&nbsp;    public void ensureConsistency(EnvironmentImpl envImpl)
+<i class="no-highlight">136</i>&nbsp;        throws InterruptedException,
+<i class="no-highlight">137</i>&nbsp;               ReplicaConsistencyException {
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;        /*
+<i class="no-highlight">140</i>&nbsp;         * Cast is done to preserve replication/non replication code
+<i class="no-highlight">141</i>&nbsp;         * boundaries.
+<i class="no-highlight">142</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        RepImpl repImpl = (RepImpl) envImpl;</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        if (!commitToken.getRepenvUUID().equals</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;                (repImpl.getRepNode().getUUID())) {</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">147</i>&nbsp;                (&quot;Replication environment mismatch. &quot; +
+<i class="no-highlight">148</i>&nbsp;                 &quot;The UUID associated with the commit token is: &quot; +
+<b class="nc"><i class="no-highlight">149</i>&nbsp;                 commitToken.getRepenvUUID() +</b>
+<i class="no-highlight">150</i>&nbsp;                 &quot; but this replica environment has the UUID: &quot; +
+<b class="nc"><i class="no-highlight">151</i>&nbsp;                 repImpl.getRepNode().getUUID());</b>
+<i class="no-highlight">152</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        Replica replica = repImpl.getRepNode().replica();</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        replica.getConsistencyTracker().awaitVLSN</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            (commitToken.getVLSN(), this);</b>
+<i class="no-highlight">156</i>&nbsp;    }
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * Return the &lt;code&gt;CommitToken&lt;/code&gt; used to create this consistency
+<i class="no-highlight">160</i>&nbsp;     * policy.
+<i class="no-highlight">161</i>&nbsp;     * @return the &lt;code&gt;CommitToken&lt;/code&gt; used to create this consistency
+<i class="no-highlight">162</i>&nbsp;     * policy.
+<i class="no-highlight">163</i>&nbsp;     */
+<i class="no-highlight">164</i>&nbsp;    public CommitToken getCommitToken() {
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        return commitToken;</b>
+<i class="no-highlight">166</i>&nbsp;    }
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;    /**
+<i class="no-highlight">169</i>&nbsp;     * Return the timeout specified when creating this consistency policy.
+<i class="no-highlight">170</i>&nbsp;     *
+<i class="no-highlight">171</i>&nbsp;     * @param unit the {@code TimeUnit} of the returned value.
+<i class="no-highlight">172</i>&nbsp;     *
+<i class="no-highlight">173</i>&nbsp;     * @return the timeout specified when creating this consistency policy
+<i class="no-highlight">174</i>&nbsp;     */
+<i class="no-highlight">175</i>&nbsp;    @Override
+<i class="no-highlight">176</i>&nbsp;    public long getTimeout(TimeUnit unit) {
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        return PropUtil.millisToDuration(timeout, unit);</b>
+<i class="no-highlight">178</i>&nbsp;    }
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /**
+<i class="no-highlight">181</i>&nbsp;     * @see Object#hashCode()
+<i class="no-highlight">182</i>&nbsp;     */
+<i class="no-highlight">183</i>&nbsp;    @Override
+<i class="no-highlight">184</i>&nbsp;    public int hashCode() {
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        final int prime = 31;</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;        int result = 1;</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        result = prime * result</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                + ((commitToken == null) ? 0 : commitToken.hashCode());</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        result = prime * result + timeout;</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        return result;</b>
+<i class="no-highlight">191</i>&nbsp;    }
+<i class="no-highlight">192</i>&nbsp;
+<i class="no-highlight">193</i>&nbsp;    /**
+<i class="no-highlight">194</i>&nbsp;     * @see Object#equals(Object)
+<i class="no-highlight">195</i>&nbsp;     */
+<i class="no-highlight">196</i>&nbsp;    @Override
+<i class="no-highlight">197</i>&nbsp;    public boolean equals(Object obj) {
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        if (this == obj) {</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            return true;</b>
+<i class="no-highlight">200</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">201</i>&nbsp;        if (obj == null) {</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;            return false;</b>
+<i class="no-highlight">203</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">204</i>&nbsp;        if (!(obj instanceof CommitPointConsistencyPolicy)) {</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;            return false;</b>
+<i class="no-highlight">206</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        CommitPointConsistencyPolicy other =</b>
+<i class="no-highlight">208</i>&nbsp;            (CommitPointConsistencyPolicy) obj;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        if (commitToken == null) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            if (other.commitToken != null) {</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                return false;</b>
+<i class="no-highlight">212</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        } else if (!commitToken.equals(other.commitToken)) {</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;            return false;</b>
+<i class="no-highlight">215</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        if (timeout != other.timeout) {</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            return false;</b>
+<i class="no-highlight">218</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">219</i>&nbsp;        return true;</b>
+<i class="no-highlight">220</i>&nbsp;    }
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;    @Override
+<i class="no-highlight">223</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        return getName() + &quot; commitToken=&quot; + commitToken;</b>
+<i class="no-highlight">225</i>&nbsp;    }
+<i class="no-highlight">226</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

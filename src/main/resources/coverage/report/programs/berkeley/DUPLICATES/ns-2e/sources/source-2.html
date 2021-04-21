@@ -1,0 +1,916 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DbBackup</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.util</a>
+</div>
+
+<h1>Coverage Summary for Class: DbBackup (com.sleepycat.je.util)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DbBackup</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/18)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/75)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.util;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.NavigableSet;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.CheckpointConfig;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.EnvironmentStats;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector.ProtectedActiveFileSet;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector.ProtectedFileRange;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.log.FileManager;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.log.entry.EmptyLogEntry;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.log.entry.SingleItemEntry;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;/**
+<i class="no-highlight">39</i>&nbsp; * DbBackup is a helper class for stopping and restarting JE background
+<i class="no-highlight">40</i>&nbsp; * activity in an open environment in order to simplify backup operations. It
+<i class="no-highlight">41</i>&nbsp; * also lets the application create a backup which can support restoring the
+<i class="no-highlight">42</i>&nbsp; * environment to a specific point in time.
+<i class="no-highlight">43</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">44</i>&nbsp; * &lt;b&gt;Backing up without DbBackup&lt;/b&gt;
+<i class="no-highlight">45</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">46</i>&nbsp; * Because JE has an append only log file architecture, it is always possible
+<i class="no-highlight">47</i>&nbsp; * to do a hot backup without the use of DbBackup by copying all log files
+<i class="no-highlight">48</i>&nbsp; * (.jdb files) to your archival location. As long as the log files are copied
+<i class="no-highlight">49</i>&nbsp; * in alphabetical order, (numerical in effect) &lt;i&gt;and&lt;/i&gt; all log files are
+<i class="no-highlight">50</i>&nbsp; * copied, the environment can be successfully backed up without any need to
+<i class="no-highlight">51</i>&nbsp; * stop database operations or background activity. This means that your
+<i class="no-highlight">52</i>&nbsp; * backup operation must do a loop to check for the creation of new log files
+<i class="no-highlight">53</i>&nbsp; * before deciding that the backup is finished. For example:
+<i class="no-highlight">54</i>&nbsp; * &lt;pre&gt;
+<i class="no-highlight">55</i>&nbsp; * time    files in                    activity
+<i class="no-highlight">56</i>&nbsp; *         environment
+<i class="no-highlight">57</i>&nbsp; *
+<i class="no-highlight">58</i>&nbsp; *  t0     000000001.jdb     Backup starts copying file 1
+<i class="no-highlight">59</i>&nbsp; *         000000003.jdb
+<i class="no-highlight">60</i>&nbsp; *         000000004.jdb
+<i class="no-highlight">61</i>&nbsp; *
+<i class="no-highlight">62</i>&nbsp; *  t1     000000001.jdb     JE log cleaner migrates portion of file 3 to newly
+<i class="no-highlight">63</i>&nbsp; *         000000004.jdb     created file 5 and deletes file 3. Backup finishes
+<i class="no-highlight">64</i>&nbsp; *         000000005.jdb     file 1, starts copying file 4. Backup MUST include
+<i class="no-highlight">65</i>&nbsp; *                           file 5 for a consistent backup!
+<i class="no-highlight">66</i>&nbsp; *
+<i class="no-highlight">67</i>&nbsp; *  t2     000000001.jdb     Backup finishes copying file 4, starts and
+<i class="no-highlight">68</i>&nbsp; *         000000004.jdb     finishes file 5, has caught up. Backup ends.
+<i class="no-highlight">69</i>&nbsp; *         000000005.jdb
+<i class="no-highlight">70</i>&nbsp; *&lt;/pre&gt;
+<i class="no-highlight">71</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">72</i>&nbsp; * In the example above, the backup operation must be sure to copy file 5,
+<i class="no-highlight">73</i>&nbsp; * which came into existence after the backup had started. If the backup
+<i class="no-highlight">74</i>&nbsp; * stopped operations at file 4, the backup set would include only file 1 and
+<i class="no-highlight">75</i>&nbsp; * 4, omitting file 3, which would be an inconsistent set.
+<i class="no-highlight">76</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">77</i>&nbsp; * Also note that log file 5 may not have filled up before it was copied to
+<i class="no-highlight">78</i>&nbsp; * archival storage. On the next backup, there might be a newer, larger version
+<i class="no-highlight">79</i>&nbsp; * of file 5, and that newer version should replace the older file 5 in archive
+<i class="no-highlight">80</i>&nbsp; * storage.
+<i class="no-highlight">81</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">82</i>&nbsp; * Using the approach above, as opposed to using DbBackup, will copy all files
+<i class="no-highlight">83</i>&nbsp; * including {@link EnvironmentStats#getReservedLogSize reserved files} as well
+<i class="no-highlight">84</i>&nbsp; * as {@link EnvironmentStats#getActiveLogSize active files}. A large number of
+<i class="no-highlight">85</i>&nbsp; * reserved files may be present in an HA Environment, and they are essentially
+<i class="no-highlight">86</i>&nbsp; * wasted space in a backup. Using DbBackup is strongly recommended for this
+<i class="no-highlight">87</i>&nbsp; * reason, as well as to reduce the complexity of file copying.
+<i class="no-highlight">88</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">89</i>&nbsp; * &lt;b&gt;Backing up with DbBackup&lt;/b&gt;
+<i class="no-highlight">90</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">91</i>&nbsp; * DbBackup helps simplify application backup by defining the set of {@link
+<i class="no-highlight">92</i>&nbsp; * EnvironmentStats#getActiveLogSize active files} that must be copied for each
+<i class="no-highlight">93</i>&nbsp; * backup operation. If the environment directory has read/write protection,
+<i class="no-highlight">94</i>&nbsp; * the application must pass DbBackup an open, read/write environment handle.
+<i class="no-highlight">95</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">96</i>&nbsp; * When entering backup mode, JE determines the set of active files needed for
+<i class="no-highlight">97</i>&nbsp; * a consistent backup, and freezes all changes to those files. The application
+<i class="no-highlight">98</i>&nbsp; * can copy that defined set of files and finish operation without checking for
+<i class="no-highlight">99</i>&nbsp; * the ongoing creation of new files. Also, there will be no need to check for
+<i class="no-highlight">100</i>&nbsp; * a newer version of the last file on the next backup.
+<i class="no-highlight">101</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">102</i>&nbsp; * In the example above, if DbBackup was used at t0, the application would only
+<i class="no-highlight">103</i>&nbsp; * have to copy files 1, 3 and 4 to back up. On a subsequent backup, the
+<i class="no-highlight">104</i>&nbsp; * application could start its copying at file 5. There would be no need to
+<i class="no-highlight">105</i>&nbsp; * check for a newer version of file 4.
+<i class="no-highlight">106</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">107</i>&nbsp; * When it is important to minimize the time that it takes to recover using a
+<i class="no-highlight">108</i>&nbsp; * backup, a checkpoint should be performed immediately before calling {@link
+<i class="no-highlight">109</i>&nbsp; * #startBackup}.  This will reduce recovery time when opening the environment
+<i class="no-highlight">110</i>&nbsp; * with the restored log files.  A checkpoint is performed explicitly by
+<i class="no-highlight">111</i>&nbsp; * calling {@link Environment#checkpoint} using a config object for which
+<i class="no-highlight">112</i>&nbsp; * {@link CheckpointConfig#setForce setForce(true)} has been called.
+<i class="no-highlight">113</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">114</i>&nbsp; * &lt;b&gt;Performing simple/full backups&lt;/b&gt;
+<i class="no-highlight">115</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">116</i>&nbsp; * The following examples shows how to perform a full backup.  A checkpoint is
+<i class="no-highlight">117</i>&nbsp; * performed to minimize recovery time.
+<i class="no-highlight">118</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">119</i>&nbsp; * void myBackup(Environment env, File destDir) {
+<i class="no-highlight">120</i>&nbsp; *     DbBackup backupHelper = new DbBackup(env);
+<i class="no-highlight">121</i>&nbsp; *
+<i class="no-highlight">122</i>&nbsp; *     // Optional: Do a checkpoint to reduce recovery time after a restore.
+<i class="no-highlight">123</i>&nbsp; *     env.checkpoint(new CheckpointConfig().setForce(true));
+<i class="no-highlight">124</i>&nbsp; *
+<i class="no-highlight">125</i>&nbsp; *     // Start backup, find out what needs to be copied.
+<i class="no-highlight">126</i>&nbsp; *     backupHelper.startBackup();
+<i class="no-highlight">127</i>&nbsp; *     try {
+<i class="no-highlight">128</i>&nbsp; *         // Copy the necessary files to archival storage.
+<i class="no-highlight">129</i>&nbsp; *         String[] filesToCopy = backupHelper.getLogFilesInBackupSet();
+<i class="no-highlight">130</i>&nbsp; *         myCopyFiles(env, backupHelper, filesToCopy, destDir);
+<i class="no-highlight">131</i>&nbsp; *     } finally {
+<i class="no-highlight">132</i>&nbsp; *         // Remember to exit backup mode, or the JE cleaner cannot delete
+<i class="no-highlight">133</i>&nbsp; *         // log files and disk usage will grow without bounds.
+<i class="no-highlight">134</i>&nbsp; *        backupHelper.endBackup();
+<i class="no-highlight">135</i>&nbsp; *     }
+<i class="no-highlight">136</i>&nbsp; * }
+<i class="no-highlight">137</i>&nbsp; *
+<i class="no-highlight">138</i>&nbsp; * void myCopyFiles(
+<i class="no-highlight">139</i>&nbsp; *     Environment env,
+<i class="no-highlight">140</i>&nbsp; *     DbBackup backupHelper,
+<i class="no-highlight">141</i>&nbsp; *     String[] filesToCopy,
+<i class="no-highlight">142</i>&nbsp; *     File destDir) {
+<i class="no-highlight">143</i>&nbsp; *
+<i class="no-highlight">144</i>&nbsp; *     for (String fileName : filesToCopy) {
+<i class="no-highlight">145</i>&nbsp; *         // Copy fileName to destDir.
+<i class="no-highlight">146</i>&nbsp; *         // See {@link LogVerificationReadableByteChannel} and
+<i class="no-highlight">147</i>&nbsp; *         // {@link LogVerificationInputStream}.
+<i class="no-highlight">148</i>&nbsp; *         ....
+<i class="no-highlight">149</i>&nbsp; *
+<i class="no-highlight">150</i>&nbsp; *         // Remove protection to allow file to be deleted in order to reclaim
+<i class="no-highlight">151</i>&nbsp; *         // disk space.
+<i class="no-highlight">152</i>&nbsp; *         backupHelper.removeFileProtection(fileName);
+<i class="no-highlight">153</i>&nbsp; *     }
+<i class="no-highlight">154</i>&nbsp; * }
+<i class="no-highlight">155</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">156</i>&nbsp; * When copying files to the backup directory, it is critical that each file is
+<i class="no-highlight">157</i>&nbsp; * verified before or during the copy.  If a file is copied that is corrupt
+<i class="no-highlight">158</i>&nbsp; * (due to an earlier disk failure that went unnoticed, for example), the
+<i class="no-highlight">159</i>&nbsp; * backup will be invalid and provide a false sense of security.
+<i class="no-highlight">160</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">161</i>&nbsp; * The {@link LogVerificationInputStream example here} shows how to implement
+<i class="no-highlight">162</i>&nbsp; * the {@code myCopyFiles} method using {@link
+<i class="no-highlight">163</i>&nbsp; * LogVerificationInputStream}. A {@link LogVerificationReadableByteChannel}
+<i class="no-highlight">164</i>&nbsp; * could also be used for higher performance copying. A filter input stream is
+<i class="no-highlight">165</i>&nbsp; * used to verify the file efficiently as it is being read.  If you choose to
+<i class="no-highlight">166</i>&nbsp; * use a script for copying files, the {@link DbVerifyLog} command line tool
+<i class="no-highlight">167</i>&nbsp; * can be used instead.
+<i class="no-highlight">168</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">169</i>&nbsp; * Assuming that the full backup copied files into an empty directory, to
+<i class="no-highlight">170</i>&nbsp; * restore you can simply copy these files back into another empty directory.
+<i class="no-highlight">171</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">172</i>&nbsp; * Always start with an empty directory as the destination for a full backup or
+<i class="no-highlight">173</i>&nbsp; * a restore, to ensure that no unused files are present.  Unused files --
+<i class="no-highlight">174</i>&nbsp; * perhaps the residual of an earlier environment or an earlier backup -- will
+<i class="no-highlight">175</i>&nbsp; * take up space, and they will never be deleted by the JE log cleaner.  Also
+<i class="no-highlight">176</i>&nbsp; * note that such files will not be used by JE for calculating utilization and
+<i class="no-highlight">177</i>&nbsp; * will not appear in the {@link DbSpace} output.
+<i class="no-highlight">178</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">179</i>&nbsp; * &lt;b&gt;Performing incremental backups&lt;/b&gt;
+<i class="no-highlight">180</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">181</i>&nbsp; * Incremental backups are used to reduce the number of files copied during
+<i class="no-highlight">182</i>&nbsp; * each backup.  Compared to a full backup, there are two additional pieces of
+<i class="no-highlight">183</i>&nbsp; * information needed for an incremental backup: the number of the last file in
+<i class="no-highlight">184</i>&nbsp; * the previous backup, and a list of the active files in the environment
+<i class="no-highlight">185</i>&nbsp; * directory at the time of the current backup, i.e., the current snapshot.
+<i class="no-highlight">186</i>&nbsp; * Their purpose is explained below.
+<i class="no-highlight">187</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">188</i>&nbsp; * The number of the last file in the previous backup is used to avoid copying
+<i class="no-highlight">189</i>&nbsp; * files that are already present in the backup set.  This file number must be
+<i class="no-highlight">190</i>&nbsp; * obtained before beginning the backup, either by checking the backup archive,
+<i class="no-highlight">191</i>&nbsp; * or getting this value from a stored location.  For example, the last file
+<i class="no-highlight">192</i>&nbsp; * number could be written to a special file in the backup set at the time of a
+<i class="no-highlight">193</i>&nbsp; * backup, and then read from the special file before starting the next backup.
+<i class="no-highlight">194</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">195</i>&nbsp; * The list of files in the current snapshot, which should be obtained by
+<i class="no-highlight">196</i>&nbsp; * calling {@link #getLogFilesInSnapshot} (after calling {@link #startBackup}),
+<i class="no-highlight">197</i>&nbsp; * is used to avoid unused files after a restore, and may also be used to
+<i class="no-highlight">198</i>&nbsp; * reduce the size of the backup set.  How to use this list is described below.
+<i class="no-highlight">199</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">200</i>&nbsp; * Some applications need the ability to restore to the point in time of any of
+<i class="no-highlight">201</i>&nbsp; * the incremental backups that were made in the past, and other applications
+<i class="no-highlight">202</i>&nbsp; * only need to restore to the point in time of the most recent backup.
+<i class="no-highlight">203</i>&nbsp; * Accordingly, the list of current files (that is made at the time of the
+<i class="no-highlight">204</i>&nbsp; * backup), should be used in one of two ways.
+<i class="no-highlight">205</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">206</i>&nbsp; *   &lt;li&gt;If you only need to restore to the point in time of the most recent
+<i class="no-highlight">207</i>&nbsp; *   backup, then the list should be used to delete unused files from the
+<i class="no-highlight">208</i>&nbsp; *   backup set.  After copying all files during the backup, any file that is
+<i class="no-highlight">209</i>&nbsp; *   &lt;em&gt;not&lt;/em&gt; present in the list may then be deleted from the backup set.
+<i class="no-highlight">210</i>&nbsp; *   This both reduces the size of the backup set, and ensures that unused
+<i class="no-highlight">211</i>&nbsp; *   files will not be present in the backup set and therefore will not be
+<i class="no-highlight">212</i>&nbsp; *   restored.&lt;/li&gt;
+<i class="no-highlight">213</i>&nbsp; *   &lt;li&gt;If you need to keep all log files from each backup so you can restore
+<i class="no-highlight">214</i>&nbsp; *   to more than one point in time, then the list for each backup should be
+<i class="no-highlight">215</i>&nbsp; *   saved with the backup file set so it can be used during a restore. During
+<i class="no-highlight">216</i>&nbsp; *   the restore, only the files in the list should be copied, starting with an
+<i class="no-highlight">217</i>&nbsp; *   empty destination directory.  This ensures that unused files will not be
+<i class="no-highlight">218</i>&nbsp; *   restored.&lt;/li&gt;
+<i class="no-highlight">219</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">220</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">221</i>&nbsp; * The following two examples shows how to perform an incremental backup.  In
+<i class="no-highlight">222</i>&nbsp; * the first example, the list of current files is used to delete files from
+<i class="no-highlight">223</i>&nbsp; * the backup set that are no longer needed.
+<i class="no-highlight">224</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">225</i>&nbsp; * void myBackup(Environment env, File destDir) {
+<i class="no-highlight">226</i>&nbsp; *
+<i class="no-highlight">227</i>&nbsp; *     // Get the file number of the last file in the previous backup.
+<i class="no-highlight">228</i>&nbsp; *     long lastFileInPrevBackup =  ...
+<i class="no-highlight">229</i>&nbsp; *
+<i class="no-highlight">230</i>&nbsp; *     DbBackup backupHelper = new DbBackup(env, lastFileInPrevBackup);
+<i class="no-highlight">231</i>&nbsp; *
+<i class="no-highlight">232</i>&nbsp; *     // Optional: Do a checkpoint to reduce recovery time after a restore.
+<i class="no-highlight">233</i>&nbsp; *     env.checkpoint(new CheckpointConfig().setForce(true));
+<i class="no-highlight">234</i>&nbsp; *
+<i class="no-highlight">235</i>&nbsp; *     // Start backup, find out what needs to be copied.
+<i class="no-highlight">236</i>&nbsp; *     backupHelper.startBackup();
+<i class="no-highlight">237</i>&nbsp; *     try {
+<i class="no-highlight">238</i>&nbsp; *         // Copy the necessary files to archival storage.
+<i class="no-highlight">239</i>&nbsp; *         String[] filesToCopy = backupHelper.getLogFilesInBackupSet();
+<i class="no-highlight">240</i>&nbsp; *         myCopyFiles(env, backupHelper, filesToCopy, destDir);
+<i class="no-highlight">241</i>&nbsp; *
+<i class="no-highlight">242</i>&nbsp; *         // Delete files that are no longer needed.
+<i class="no-highlight">243</i>&nbsp; *         // WARNING: This should only be done after copying all new files.
+<i class="no-highlight">244</i>&nbsp; *         String[] filesInSnapshot = backupHelper.getLogFilesInSnapshot();
+<i class="no-highlight">245</i>&nbsp; *         myDeleteUnusedFiles(destDir, filesInSnapshot);
+<i class="no-highlight">246</i>&nbsp; *
+<i class="no-highlight">247</i>&nbsp; *         // Update knowledge of last file saved in the backup set.
+<i class="no-highlight">248</i>&nbsp; *         lastFileInPrevBackup = backupHelper.getLastFileInBackupSet();
+<i class="no-highlight">249</i>&nbsp; *         // Save lastFileInPrevBackup persistently here ...
+<i class="no-highlight">250</i>&nbsp; *     } finally {
+<i class="no-highlight">251</i>&nbsp; *         // Remember to exit backup mode, or the JE cleaner cannot delete
+<i class="no-highlight">252</i>&nbsp; *         // log files and disk usage will grow without bounds.
+<i class="no-highlight">253</i>&nbsp; *        backupHelper.endBackup();
+<i class="no-highlight">254</i>&nbsp; *     }
+<i class="no-highlight">255</i>&nbsp; * }
+<i class="no-highlight">256</i>&nbsp; *
+<i class="no-highlight">257</i>&nbsp; * void myDeleteUnusedFiles(File destDir, String[] filesInSnapshot) {
+<i class="no-highlight">258</i>&nbsp; *     // For each file in destDir that is NOT in filesInSnapshot, it should
+<i class="no-highlight">259</i>&nbsp; *     // be deleted from destDir to save disk space in the backup set, and to
+<i class="no-highlight">260</i>&nbsp; *     // ensure that unused files will not be restored.
+<i class="no-highlight">261</i>&nbsp; * }
+<i class="no-highlight">262</i>&nbsp; *
+<i class="no-highlight">263</i>&nbsp; * See myCopyFiles further above.
+<i class="no-highlight">264</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">265</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">266</i>&nbsp; * When performing backups as shown in the first example above, to restore you
+<i class="no-highlight">267</i>&nbsp; * can simply copy all files from the backup set into an empty directory.
+<i class="no-highlight">268</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">269</i>&nbsp; * In the second example below, the list of current files is saved with the
+<i class="no-highlight">270</i>&nbsp; * backup set so it can be used during a restore.  The backup set will
+<i class="no-highlight">271</i>&nbsp; * effectively hold multiple backups that can be used to restore to different
+<i class="no-highlight">272</i>&nbsp; * points in time.
+<i class="no-highlight">273</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">274</i>&nbsp; * void myBackup(Environment env, File destDir) {
+<i class="no-highlight">275</i>&nbsp; *
+<i class="no-highlight">276</i>&nbsp; *     // Get the file number of the last file in the previous backup.
+<i class="no-highlight">277</i>&nbsp; *     long lastFileInPrevBackup =  ...
+<i class="no-highlight">278</i>&nbsp; *
+<i class="no-highlight">279</i>&nbsp; *     DbBackup backupHelper = new DbBackup(env, lastFileInPrevBackup);
+<i class="no-highlight">280</i>&nbsp; *
+<i class="no-highlight">281</i>&nbsp; *     // Optional: Do a checkpoint to reduce recovery time after a restore.
+<i class="no-highlight">282</i>&nbsp; *     env.checkpoint(new CheckpointConfig().setForce(true));
+<i class="no-highlight">283</i>&nbsp; *
+<i class="no-highlight">284</i>&nbsp; *     // Start backup, find out what needs to be copied.
+<i class="no-highlight">285</i>&nbsp; *     backupHelper.startBackup();
+<i class="no-highlight">286</i>&nbsp; *     try {
+<i class="no-highlight">287</i>&nbsp; *         // Copy the necessary files to archival storage.
+<i class="no-highlight">288</i>&nbsp; *         String[] filesToCopy = backupHelper.getLogFilesInBackupSet();
+<i class="no-highlight">289</i>&nbsp; *         myCopyFiles(env, backupHelper, filesToCopy, destDir);
+<i class="no-highlight">290</i>&nbsp; *
+<i class="no-highlight">291</i>&nbsp; *         // Save current list of files with backup data set.
+<i class="no-highlight">292</i>&nbsp; *         String[] filesInSnapshot = backupHelper.getLogFilesInSnapshot();
+<i class="no-highlight">293</i>&nbsp; *         // Save filesInSnapshot persistently here ...
+<i class="no-highlight">294</i>&nbsp; *
+<i class="no-highlight">295</i>&nbsp; *         // Update knowledge of last file saved in the backup set.
+<i class="no-highlight">296</i>&nbsp; *         lastFileInPrevBackup = backupHelper.getLastFileInBackupSet();
+<i class="no-highlight">297</i>&nbsp; *         // Save lastFileInPrevBackup persistently here ...
+<i class="no-highlight">298</i>&nbsp; *     } finally {
+<i class="no-highlight">299</i>&nbsp; *         // Remember to exit backup mode, or the JE cleaner cannot delete
+<i class="no-highlight">300</i>&nbsp; *         // log files and disk usage will grow without bounds.
+<i class="no-highlight">301</i>&nbsp; *        backupHelper.endBackup();
+<i class="no-highlight">302</i>&nbsp; *     }
+<i class="no-highlight">303</i>&nbsp; * }
+<i class="no-highlight">304</i>&nbsp; *
+<i class="no-highlight">305</i>&nbsp; * See myCopyFiles further above.
+<i class="no-highlight">306</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">307</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">308</i>&nbsp; * When performing backups as shown in the second example above, to restore you
+<i class="no-highlight">309</i>&nbsp; * must choose one of the file lists that was saved.  You may choose the list
+<i class="no-highlight">310</i>&nbsp; * written by the most recent backup, or a list written by an earlier backup.
+<i class="no-highlight">311</i>&nbsp; * To restore, the files in the list should be copied into an empty destination
+<i class="no-highlight">312</i>&nbsp; * directory.
+<i class="no-highlight">313</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">314</i>&nbsp; * &lt;b&gt;&lt;a href=&quot;restore&quot;&gt;Restoring from a backup&lt;/a&gt;&lt;/b&gt;
+<i class="no-highlight">315</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">316</i>&nbsp; * As described in the sections above, the restore procedure is to copy the
+<i class="no-highlight">317</i>&nbsp; * files from a backup set into an empty directory.  Depending on the type of
+<i class="no-highlight">318</i>&nbsp; * backup that was performed (see above), either all files from the backup set
+<i class="no-highlight">319</i>&nbsp; * are copied, or only the files on a list that was created during the backup.
+<i class="no-highlight">320</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">321</i>&nbsp; * There is one additional consideration when performing a restore, under the
+<i class="no-highlight">322</i>&nbsp; * following condition:
+<i class="no-highlight">323</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">324</i>&nbsp; *     &lt;li&gt;Incremental backups are used, AND
+<i class="no-highlight">325</i>&nbsp; *     &lt;ul&gt;
+<i class="no-highlight">326</i>&nbsp; *         &lt;li&gt;the backup was created using DbBackup with JE 6.2 or earlier,
+<i class="no-highlight">327</i>&nbsp; *         OR&lt;/li&gt;
+<i class="no-highlight">328</i>&nbsp; *         &lt;li&gt;the backup was created in a read-only JE environment.&lt;/li&gt;
+<i class="no-highlight">329</i>&nbsp; *     &lt;/ul&gt;
+<i class="no-highlight">330</i>&nbsp; *     &lt;/li&gt;
+<i class="no-highlight">331</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">332</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">333</i>&nbsp; * If the above condition holds, after copying the files an additional step is
+<i class="no-highlight">334</i>&nbsp; * needed. To enable the creation of future incremental backups using the
+<i class="no-highlight">335</i>&nbsp; * restored files, the {@link
+<i class="no-highlight">336</i>&nbsp; * com.sleepycat.je.EnvironmentConfig#ENV_RECOVERY_FORCE_NEW_FILE} parameter
+<i class="no-highlight">337</i>&nbsp; * should be set to true when opening the JE Environment for the first time
+<i class="no-highlight">338</i>&nbsp; * after the restore.  When this parameter is set to true, the last .jdb file
+<i class="no-highlight">339</i>&nbsp; * restored will not be modified when opening the Environment, and the next
+<i class="no-highlight">340</i>&nbsp; * .jdb file will be created and will become the end-of-log file.
+<i class="no-highlight">341</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">342</i>&nbsp; * WARNING: When the above special condition is true and this property is
+<i class="no-highlight">343</i>&nbsp; * &lt;em&gt;not&lt;/em&gt; set to true when opening the environment for the first time
+<i class="no-highlight">344</i>&nbsp; * after a restore, then the backup set that was restored may not be used as
+<i class="no-highlight">345</i>&nbsp; * the basis for future incremental backups. If a future incremental backup
+<i class="no-highlight">346</i>&nbsp; * were performed based on this backup set, it would be incomplete and data
+<i class="no-highlight">347</i>&nbsp; * would be lost if that incremental backup were restored.
+<i class="no-highlight">348</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">349</i>&nbsp; * When JE 6.3 or later is used to create the backup, and the backup is created
+<i class="no-highlight">350</i>&nbsp; * in a read-write environment (the usual case), this extra step is
+<i class="no-highlight">351</i>&nbsp; * unnecessary. In this case, {@link #startBackup} will have added an
+<i class="no-highlight">352</i>&nbsp; * &quot;immutable file&quot; marker to the last file in the backup and this will prevent
+<i class="no-highlight">353</i>&nbsp; * that file from being modified, just as if the
+<i class="no-highlight">354</i>&nbsp; * {@code ENV_RECOVERY_FORCE_NEW_FILE} parameter were set to true.
+<i class="no-highlight">355</i>&nbsp; */
+<b class="nc"><i class="no-highlight">356</i>&nbsp;public class DbBackup {</b>
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">359</i>&nbsp;    private final boolean envIsReadOnly;
+<i class="no-highlight">360</i>&nbsp;    private final long firstFileInBackup;
+<b class="nc"><i class="no-highlight">361</i>&nbsp;    private long lastFileInBackup = -1;</b>
+<i class="no-highlight">362</i>&nbsp;    private boolean backupStarted;
+<i class="no-highlight">363</i>&nbsp;    private boolean networkRestore;
+<i class="no-highlight">364</i>&nbsp;    private ProtectedActiveFileSet protectedFileSet;
+<i class="no-highlight">365</i>&nbsp;    private NavigableSet&lt;Long&gt; snapshotFiles;
+<i class="no-highlight">366</i>&nbsp;    /* Status presents whether this back up is invalid because of roll back. */
+<i class="no-highlight">367</i>&nbsp;    private boolean invalid;
+<i class="no-highlight">368</i>&nbsp;    /* The rollback start file number. */
+<i class="no-highlight">369</i>&nbsp;    private long rollbackStartedFileNumber;
+<i class="no-highlight">370</i>&nbsp;    /* For unit tests. */
+<i class="no-highlight">371</i>&nbsp;    private TestHook testHook;
+<i class="no-highlight">372</i>&nbsp;
+<i class="no-highlight">373</i>&nbsp;    /**
+<i class="no-highlight">374</i>&nbsp;     * Creates a DbBackup helper for a full backup.
+<i class="no-highlight">375</i>&nbsp;     *
+<i class="no-highlight">376</i>&nbsp;     * &lt;p&gt;This is equivalent to using {@link #DbBackup(Environment,long)} and
+<i class="no-highlight">377</i>&nbsp;     * passing {@code -1} for the {@code lastFileInPrevBackup} parameter.&lt;/p&gt;
+<i class="no-highlight">378</i>&nbsp;     *
+<i class="no-highlight">379</i>&nbsp;     * @param env with an open, valid environment handle.  If the environment
+<i class="no-highlight">380</i>&nbsp;     * directory has read/write permissions, the environment handle must be
+<i class="no-highlight">381</i>&nbsp;     * configured for read/write.
+<i class="no-highlight">382</i>&nbsp;     *
+<i class="no-highlight">383</i>&nbsp;     * @throws IllegalArgumentException if the environment directory has
+<i class="no-highlight">384</i>&nbsp;     * read/write permissions, but the environment handle is not configured for
+<i class="no-highlight">385</i>&nbsp;     * read/write.
+<i class="no-highlight">386</i>&nbsp;     */
+<i class="no-highlight">387</i>&nbsp;    public DbBackup(Environment env)
+<i class="no-highlight">388</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">389</i>&nbsp;
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        this(env, -1);</b>
+<i class="no-highlight">391</i>&nbsp;    }
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;    /**
+<i class="no-highlight">394</i>&nbsp;     * Creates a DbBackup helper for an incremental backup.
+<i class="no-highlight">395</i>&nbsp;     *
+<i class="no-highlight">396</i>&nbsp;     * @param env with an open, valid environment handle.  If the environment
+<i class="no-highlight">397</i>&nbsp;     * directory has read/write permissions, the environment handle must be
+<i class="no-highlight">398</i>&nbsp;     * configured for read/write.
+<i class="no-highlight">399</i>&nbsp;     *
+<i class="no-highlight">400</i>&nbsp;     * @param lastFileInPrevBackup the last file in the previous backup set
+<i class="no-highlight">401</i>&nbsp;     * when performing an incremental backup, or {@code -1} to perform a full
+<i class="no-highlight">402</i>&nbsp;     * backup.  The first file in this backup set will be the file following
+<i class="no-highlight">403</i>&nbsp;     * {@code lastFileInPrevBackup}.
+<i class="no-highlight">404</i>&nbsp;     *
+<i class="no-highlight">405</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">406</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">407</i>&nbsp;     *
+<i class="no-highlight">408</i>&nbsp;     * @throws IllegalArgumentException if the environment directory has
+<i class="no-highlight">409</i>&nbsp;     * read/write permissions, but the environment handle is not configured for
+<i class="no-highlight">410</i>&nbsp;     * read/write.
+<i class="no-highlight">411</i>&nbsp;     */
+<i class="no-highlight">412</i>&nbsp;    public DbBackup(Environment env, long lastFileInPrevBackup) {
+<b class="nc"><i class="no-highlight">413</i>&nbsp;        this(env, DbInternal.getNonNullEnvImpl(env), lastFileInPrevBackup);</b>
+<i class="no-highlight">414</i>&nbsp;    }
+<i class="no-highlight">415</i>&nbsp;
+<i class="no-highlight">416</i>&nbsp;    /**
+<i class="no-highlight">417</i>&nbsp;     * @hidden
+<i class="no-highlight">418</i>&nbsp;     * For internal use only.
+<i class="no-highlight">419</i>&nbsp;     */
+<i class="no-highlight">420</i>&nbsp;    public DbBackup(EnvironmentImpl envImpl) {
+<b class="nc"><i class="no-highlight">421</i>&nbsp;        this(null, envImpl, -1);</b>
+<i class="no-highlight">422</i>&nbsp;    }
+<i class="no-highlight">423</i>&nbsp;
+<i class="no-highlight">424</i>&nbsp;    /**
+<i class="no-highlight">425</i>&nbsp;     * This is the true body of the DbBackup constructor. The env param may be
+<i class="no-highlight">426</i>&nbsp;     * null when this class is used internally.
+<i class="no-highlight">427</i>&nbsp;     */
+<i class="no-highlight">428</i>&nbsp;    private DbBackup(Environment env,
+<i class="no-highlight">429</i>&nbsp;                     EnvironmentImpl envImpl,
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                     long lastFileInPrevBackup) {</b>
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;        /* Check that the Environment is open. */
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        if (env != null) {</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;            DbInternal.checkOpen(env);</b>
+<i class="no-highlight">435</i>&nbsp;        }
+<i class="no-highlight">436</i>&nbsp;
+<b class="nc"><i class="no-highlight">437</i>&nbsp;        this.envImpl = envImpl;</b>
+<i class="no-highlight">438</i>&nbsp;
+<i class="no-highlight">439</i>&nbsp;        /*
+<i class="no-highlight">440</i>&nbsp;         * If the environment is writable, we need a r/w environment handle
+<i class="no-highlight">441</i>&nbsp;         * in order to flip the file.
+<i class="no-highlight">442</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">443</i>&nbsp;        envIsReadOnly = envImpl.getFileManager().checkEnvHomePermissions(true);</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        if ((!envIsReadOnly) &amp;&amp; envImpl.isReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;            throw new IllegalArgumentException</b>
+<i class="no-highlight">446</i>&nbsp;                (&quot;Environment handle may not be read-only when directory &quot; +
+<i class="no-highlight">447</i>&nbsp;                 &quot;is read-write&quot;);
+<i class="no-highlight">448</i>&nbsp;        }
+<i class="no-highlight">449</i>&nbsp;
+<b class="nc"><i class="no-highlight">450</i>&nbsp;        firstFileInBackup = lastFileInPrevBackup + 1;</b>
+<i class="no-highlight">451</i>&nbsp;    }
+<i class="no-highlight">452</i>&nbsp;
+<i class="no-highlight">453</i>&nbsp;    /**
+<i class="no-highlight">454</i>&nbsp;     * Start backup mode in order to determine the definitive backup set needed
+<i class="no-highlight">455</i>&nbsp;     * at this point in time.
+<i class="no-highlight">456</i>&nbsp;     *
+<i class="no-highlight">457</i>&nbsp;     * &lt;p&gt;This method determines the last file in the backup set, which is the
+<i class="no-highlight">458</i>&nbsp;     * last log file in the environment at this point in time.  Following this
+<i class="no-highlight">459</i>&nbsp;     * method call, all new data will be written to other, new log files.  In
+<i class="no-highlight">460</i>&nbsp;     * other words, the last file in the backup set will not be modified after
+<i class="no-highlight">461</i>&nbsp;     * this method returns.&lt;/p&gt;
+<i class="no-highlight">462</i>&nbsp;     *
+<i class="no-highlight">463</i>&nbsp;     * &lt;p&gt;&lt;em&gt;WARNING:&lt;/em&gt; After calling this method, deletion of log files in
+<i class="no-highlight">464</i>&nbsp;     * the backup set by the JE log cleaner will be disabled until {@link
+<i class="no-highlight">465</i>&nbsp;     * #endBackup()} is called.  To prevent unbounded growth of disk usage, be
+<i class="no-highlight">466</i>&nbsp;     * sure to call {@link #endBackup()} to re-enable log file deletion.
+<i class="no-highlight">467</i>&nbsp;     * Additionally, the Environment can&#39;t be closed until endBackup() is
+<i class="no-highlight">468</i>&nbsp;     * called.
+<i class="no-highlight">469</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">470</i>&nbsp;     *
+<i class="no-highlight">471</i>&nbsp;     * @throws com.sleepycat.je.rep.LogOverwriteException if a replication
+<i class="no-highlight">472</i>&nbsp;     * operation is overwriting log files. The backup can not proceed because
+<i class="no-highlight">473</i>&nbsp;     * files may be invalid. The backup may be attempted at a later time.
+<i class="no-highlight">474</i>&nbsp;     *
+<i class="no-highlight">475</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">476</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">477</i>&nbsp;     *
+<i class="no-highlight">478</i>&nbsp;     * @throws IllegalStateException if a backup is already in progress
+<i class="no-highlight">479</i>&nbsp;     */
+<i class="no-highlight">480</i>&nbsp;    public synchronized void startBackup()
+<i class="no-highlight">481</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">482</i>&nbsp;
+<b class="nc"><i class="no-highlight">483</i>&nbsp;        if (backupStarted) {</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;            throw new IllegalStateException(&quot;startBackup was already called&quot;);</b>
+<i class="no-highlight">485</i>&nbsp;        }
+<i class="no-highlight">486</i>&nbsp;
+<i class="no-highlight">487</i>&nbsp;        /* Throw a LogOverwriteException if the Environment is rolling back. */
+<b class="nc"><i class="no-highlight">488</i>&nbsp;        if (!envImpl.addDbBackup(this)) {</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;            throw envImpl.createLogOverwriteException</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;                (&quot;A replication operation is overwriting log files. The &quot; +</b>
+<i class="no-highlight">491</i>&nbsp;                 &quot;backup can not proceed because files may be invalid. The &quot; +
+<i class="no-highlight">492</i>&nbsp;                 &quot;backup may be attempted at a later time.&quot;);
+<i class="no-highlight">493</i>&nbsp;        }
+<i class="no-highlight">494</i>&nbsp;
+<b class="nc"><i class="no-highlight">495</i>&nbsp;        final FileProtector fileProtector = envImpl.getFileProtector();</b>
+<i class="no-highlight">496</i>&nbsp;
+<i class="no-highlight">497</i>&nbsp;        /*
+<i class="no-highlight">498</i>&nbsp;         * For a network restore we use a different backup name/id and also
+<i class="no-highlight">499</i>&nbsp;         * protect the 2 newest (highest numbered) reserved files. This is a
+<i class="no-highlight">500</i>&nbsp;         * safeguard to ensure that the restored node can function as a master.
+<i class="no-highlight">501</i>&nbsp;         * In a future release this approach may be improved by additionally
+<i class="no-highlight">502</i>&nbsp;         * copying all reserved files to the restored node, but only after it
+<i class="no-highlight">503</i>&nbsp;         * has recovered using the active files [#25783].
+<i class="no-highlight">504</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        final long backupId = networkRestore ?</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;            envImpl.getNodeSequence().getNextNetworkRestoreId() :</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            envImpl.getNodeSequence().getNextBackupId();</b>
+<i class="no-highlight">508</i>&nbsp;
+<b class="nc"><i class="no-highlight">509</i>&nbsp;        final String backupName =</b>
+<i class="no-highlight">510</i>&nbsp;            (networkRestore ?
+<i class="no-highlight">511</i>&nbsp;             FileProtector.NETWORK_RESTORE_NAME :
+<i class="no-highlight">512</i>&nbsp;             FileProtector.BACKUP_NAME) +
+<i class="no-highlight">513</i>&nbsp;            &quot;-&quot; + backupId;
+<i class="no-highlight">514</i>&nbsp;
+<b class="nc"><i class="no-highlight">515</i>&nbsp;        final int nReservedFiles = networkRestore ? 2 : 0;</b>
+<i class="no-highlight">516</i>&nbsp;
+<i class="no-highlight">517</i>&nbsp;        /*
+<i class="no-highlight">518</i>&nbsp;         * Protect all files from deletion momentarily, while determining the
+<i class="no-highlight">519</i>&nbsp;         * last file and protecting the active files.
+<i class="no-highlight">520</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">521</i>&nbsp;        final ProtectedFileRange allFilesProtected =</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;            fileProtector.protectFileRange(backupName + &quot;-init&quot;, 0);</b>
+<i class="no-highlight">523</i>&nbsp;
+<i class="no-highlight">524</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">525</i>&nbsp;            if (envIsReadOnly) {</b>
+<i class="no-highlight">526</i>&nbsp;                /*
+<i class="no-highlight">527</i>&nbsp;                 * All files are currently immutable, so the backup list is the
+<i class="no-highlight">528</i>&nbsp;                 * current set of files. However, we can&#39;t add a marker to the
+<i class="no-highlight">529</i>&nbsp;                 * last file in list, and therefore it will not be immutable
+<i class="no-highlight">530</i>&nbsp;                 * after being restored to a read-write directory (unless the
+<i class="no-highlight">531</i>&nbsp;                 * user sets ENV_RECOVERY_FORCE_NEW_FILE after restoring).
+<i class="no-highlight">532</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">533</i>&nbsp;                lastFileInBackup = envImpl.getFileManager().getLastFileNum();</b>
+<i class="no-highlight">534</i>&nbsp;            } else {
+<i class="no-highlight">535</i>&nbsp;                /*
+<i class="no-highlight">536</i>&nbsp;                 * Flip the log so that all files in the backup list are
+<i class="no-highlight">537</i>&nbsp;                 * immutable. But first, write an &quot;immutable file&quot; marker in
+<i class="no-highlight">538</i>&nbsp;                 * the last file in the backup, so it cannot be modified after
+<i class="no-highlight">539</i>&nbsp;                 * it is restored. Recovery enforces this rule.
+<i class="no-highlight">540</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">541</i>&nbsp;                LogEntry marker = new SingleItemEntry&lt;&gt;(</b>
+<i class="no-highlight">542</i>&nbsp;                    LogEntryType.LOG_IMMUTABLE_FILE, new EmptyLogEntry());
+<i class="no-highlight">543</i>&nbsp;
+<b class="nc"><i class="no-highlight">544</i>&nbsp;                long markerLsn = envImpl.getLogManager().log(</b>
+<i class="no-highlight">545</i>&nbsp;                    marker, ReplicationContext.NO_REPLICATE);
+<i class="no-highlight">546</i>&nbsp;
+<b class="nc"><i class="no-highlight">547</i>&nbsp;                envImpl.forceLogFileFlip();</b>
+<b class="nc"><i class="no-highlight">548</i>&nbsp;                lastFileInBackup = DbLsn.getFileNumber(markerLsn);</b>
+<i class="no-highlight">549</i>&nbsp;            }
+<i class="no-highlight">550</i>&nbsp;
+<i class="no-highlight">551</i>&nbsp;            /*
+<i class="no-highlight">552</i>&nbsp;             * Protect all active files from deletion. This includes files
+<i class="no-highlight">553</i>&nbsp;             * prior to firstFileInBackup, in order to get a snapshot of all
+<i class="no-highlight">554</i>&nbsp;             * active files. New files do not need protection, since the backup
+<i class="no-highlight">555</i>&nbsp;             * set does not include them. lastFileInBackup will be protected by
+<i class="no-highlight">556</i>&nbsp;             * protectActiveFiles because it is not the last file in the env.
+<i class="no-highlight">557</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">558</i>&nbsp;            protectedFileSet = fileProtector.protectActiveFiles(</b>
+<i class="no-highlight">559</i>&nbsp;                backupName, nReservedFiles, false /*protectNewFiles*/);
+<i class="no-highlight">560</i>&nbsp;
+<i class="no-highlight">561</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">562</i>&nbsp;            fileProtector.removeFileProtection(allFilesProtected);</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;        }</b>
+<i class="no-highlight">564</i>&nbsp;
+<i class="no-highlight">565</i>&nbsp;        /* At this point, endBackup must be called to undo file protection. */
+<b class="nc"><i class="no-highlight">566</i>&nbsp;        backupStarted = true;</b>
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;        /* Files after lastFileInBackup do not need protection. */
+<b class="nc"><i class="no-highlight">569</i>&nbsp;        protectedFileSet.truncateTail(lastFileInBackup);</b>
+<i class="no-highlight">570</i>&nbsp;
+<i class="no-highlight">571</i>&nbsp;        /* Snapshot the complete backup file set. */
+<b class="nc"><i class="no-highlight">572</i>&nbsp;        snapshotFiles = protectedFileSet.getProtectedFiles();</b>
+<i class="no-highlight">573</i>&nbsp;
+<i class="no-highlight">574</i>&nbsp;        /*
+<i class="no-highlight">575</i>&nbsp;         * Now that we have the snapshot, files before firstFileInBackup do not
+<i class="no-highlight">576</i>&nbsp;         * need protection.
+<i class="no-highlight">577</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">578</i>&nbsp;        protectedFileSet.truncateHead(firstFileInBackup);</b>
+<i class="no-highlight">579</i>&nbsp;    }
+<i class="no-highlight">580</i>&nbsp;
+<i class="no-highlight">581</i>&nbsp;    /**
+<i class="no-highlight">582</i>&nbsp;     * End backup mode, thereby re-enabling normal deletion of log files by the
+<i class="no-highlight">583</i>&nbsp;     * JE log cleaner.
+<i class="no-highlight">584</i>&nbsp;     *
+<i class="no-highlight">585</i>&nbsp;     * @throws com.sleepycat.je.rep.LogOverwriteException if a replication
+<i class="no-highlight">586</i>&nbsp;     * operation has overwritten log files. Any copied files should be
+<i class="no-highlight">587</i>&nbsp;     * considered invalid and discarded.  The backup may be attempted at a
+<i class="no-highlight">588</i>&nbsp;     * later time.
+<i class="no-highlight">589</i>&nbsp;     *
+<i class="no-highlight">590</i>&nbsp;     * @throws com.sleepycat.je.EnvironmentFailureException if an unexpected,
+<i class="no-highlight">591</i>&nbsp;     * internal or environment-wide failure occurs.
+<i class="no-highlight">592</i>&nbsp;     *
+<i class="no-highlight">593</i>&nbsp;     * @throws IllegalStateException if a backup has not been started.
+<i class="no-highlight">594</i>&nbsp;     */
+<i class="no-highlight">595</i>&nbsp;    public synchronized void endBackup() {
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        checkBackupStarted();</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;        backupStarted = false;</b>
+<i class="no-highlight">598</i>&nbsp;
+<b class="nc"><i class="no-highlight">599</i>&nbsp;        assert TestHookExecute.doHookIfSet(testHook);</b>
+<i class="no-highlight">600</i>&nbsp;
+<b class="nc"><i class="no-highlight">601</i>&nbsp;        envImpl.getFileProtector().removeFileProtection(protectedFileSet);</b>
+<i class="no-highlight">602</i>&nbsp;
+<b class="nc"><i class="no-highlight">603</i>&nbsp;        envImpl.removeDbBackup(this);</b>
+<i class="no-highlight">604</i>&nbsp;
+<i class="no-highlight">605</i>&nbsp;        /* If this back up is invalid, throw a LogOverwriteException. */
+<b class="nc"><i class="no-highlight">606</i>&nbsp;        if (invalid) {</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            invalid = false;</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            throw envImpl.createLogOverwriteException</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;                (&quot;A replication operation has overwritten log files from &quot; +</b>
+<i class="no-highlight">610</i>&nbsp;                 &quot;file &quot; + rollbackStartedFileNumber + &quot;. Any copied files &quot; +
+<i class="no-highlight">611</i>&nbsp;                 &quot;should be considered invalid and discarded. The backup &quot; +
+<i class="no-highlight">612</i>&nbsp;                 &quot;may be attempted at a later time.&quot;);
+<i class="no-highlight">613</i>&nbsp;        }
+<i class="no-highlight">614</i>&nbsp;    }
+<i class="no-highlight">615</i>&nbsp;
+<i class="no-highlight">616</i>&nbsp;    /**
+<i class="no-highlight">617</i>&nbsp;     * Can only be called in backup mode, after startBackup() has been called.
+<i class="no-highlight">618</i>&nbsp;     *
+<i class="no-highlight">619</i>&nbsp;     * @return the file number of the last file in the current backup set.
+<i class="no-highlight">620</i>&nbsp;     * Save this value to reduce the number of files that must be copied at
+<i class="no-highlight">621</i>&nbsp;     * the next backup session.
+<i class="no-highlight">622</i>&nbsp;     *
+<i class="no-highlight">623</i>&nbsp;     * @throws IllegalStateException if a backup has not been started.
+<i class="no-highlight">624</i>&nbsp;     */
+<i class="no-highlight">625</i>&nbsp;    public synchronized long getLastFileInBackupSet() {
+<b class="nc"><i class="no-highlight">626</i>&nbsp;        checkBackupStarted();</b>
+<b class="nc"><i class="no-highlight">627</i>&nbsp;        return lastFileInBackup;</b>
+<i class="no-highlight">628</i>&nbsp;    }
+<i class="no-highlight">629</i>&nbsp;
+<i class="no-highlight">630</i>&nbsp;    /**
+<i class="no-highlight">631</i>&nbsp;     * Get the minimum list of files that must be copied for this backup. When
+<i class="no-highlight">632</i>&nbsp;     * performing an incremental backup, this consists of the set of active
+<i class="no-highlight">633</i>&nbsp;     * files that are greater than the last file copied in the previous backup
+<i class="no-highlight">634</i>&nbsp;     * session.  When performing a full backup, this consists of the set of all
+<i class="no-highlight">635</i>&nbsp;     * active files. Can only be called in backup mode, after startBackup() has
+<i class="no-highlight">636</i>&nbsp;     * been called.
+<i class="no-highlight">637</i>&nbsp;     *
+<i class="no-highlight">638</i>&nbsp;     * &lt;p&gt;The file numbers returned are in the range from the constructor
+<i class="no-highlight">639</i>&nbsp;     * parameter {@code lastFileInPrevBackup + 1} to the last log file at the
+<i class="no-highlight">640</i>&nbsp;     * time that {@link #startBackup} was called.&lt;/p&gt;
+<i class="no-highlight">641</i>&nbsp;     *
+<i class="no-highlight">642</i>&nbsp;     * @return the names of all files to be copied, sorted in alphabetical
+<i class="no-highlight">643</i>&nbsp;     * order.  The return values are generally simple file names, not full
+<i class="no-highlight">644</i>&nbsp;     * paths.  However, if multiple data directories are being used (i.e. the
+<i class="no-highlight">645</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#LOG_N_DATA_DIRECTORIES&quot;&gt;
+<i class="no-highlight">646</i>&nbsp;     * je.log.nDataDirectories&lt;/a&gt;} parameter is non-0), then the file names are
+<i class="no-highlight">647</i>&nbsp;     * prepended with the associated &quot;dataNNN/&quot; prefix, where &quot;dataNNN/&quot; is
+<i class="no-highlight">648</i>&nbsp;     * the data directory name within the environment home directory and &quot;/&quot;
+<i class="no-highlight">649</i>&nbsp;     * is the relevant file separator for the platform.
+<i class="no-highlight">650</i>&nbsp;     *
+<i class="no-highlight">651</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">652</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">653</i>&nbsp;     *
+<i class="no-highlight">654</i>&nbsp;     * @throws IllegalStateException if a backup has not been started.
+<i class="no-highlight">655</i>&nbsp;     */
+<i class="no-highlight">656</i>&nbsp;    public synchronized String[] getLogFilesInBackupSet() {
+<b class="nc"><i class="no-highlight">657</i>&nbsp;        checkBackupStarted();</b>
+<b class="nc"><i class="no-highlight">658</i>&nbsp;        return getFileNames(snapshotFiles.tailSet(firstFileInBackup, true));</b>
+<i class="no-highlight">659</i>&nbsp;    }
+<i class="no-highlight">660</i>&nbsp;
+<i class="no-highlight">661</i>&nbsp;    /**
+<i class="no-highlight">662</i>&nbsp;     * Get the minimum list of files that must be copied for this backup. This
+<i class="no-highlight">663</i>&nbsp;     * consists of the set of active files that are greater than the last file
+<i class="no-highlight">664</i>&nbsp;     * copied in the previous backup session.  Can only be called in backup
+<i class="no-highlight">665</i>&nbsp;     * mode, after startBackup() has been called.
+<i class="no-highlight">666</i>&nbsp;     *
+<i class="no-highlight">667</i>&nbsp;     * @param lastFileInPrevBackup file number of last file copied in the last
+<i class="no-highlight">668</i>&nbsp;     * backup session, obtained from getLastFileInBackupSet().
+<i class="no-highlight">669</i>&nbsp;     *
+<i class="no-highlight">670</i>&nbsp;     * @return the names of all the files to be copied that come after
+<i class="no-highlight">671</i>&nbsp;     * lastFileInPrevBackup.
+<i class="no-highlight">672</i>&nbsp;     *
+<i class="no-highlight">673</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">674</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">675</i>&nbsp;     *
+<i class="no-highlight">676</i>&nbsp;     * @throws IllegalStateException if a backup has not been started.
+<i class="no-highlight">677</i>&nbsp;     *
+<i class="no-highlight">678</i>&nbsp;     * @deprecated replaced by {@link #getLogFilesInBackupSet()}; pass
+<i class="no-highlight">679</i>&nbsp;     * lastFileInPrevBackup to the {@link #DbBackup(Environment,long)}
+<i class="no-highlight">680</i>&nbsp;     * constructor.
+<i class="no-highlight">681</i>&nbsp;     */
+<i class="no-highlight">682</i>&nbsp;    @Deprecated
+<i class="no-highlight">683</i>&nbsp;    public synchronized String[] getLogFilesInBackupSet(
+<i class="no-highlight">684</i>&nbsp;        long lastFileInPrevBackup) {
+<i class="no-highlight">685</i>&nbsp;
+<b class="nc"><i class="no-highlight">686</i>&nbsp;        checkBackupStarted();</b>
+<i class="no-highlight">687</i>&nbsp;
+<b class="nc"><i class="no-highlight">688</i>&nbsp;        return getFileNames(</b>
+<b class="nc"><i class="no-highlight">689</i>&nbsp;            snapshotFiles.tailSet(lastFileInPrevBackup + 1, true));</b>
+<i class="no-highlight">690</i>&nbsp;    }
+<i class="no-highlight">691</i>&nbsp;
+<i class="no-highlight">692</i>&nbsp;    /**
+<i class="no-highlight">693</i>&nbsp;     * Get the list of all active files that are needed for the environment at
+<i class="no-highlight">694</i>&nbsp;     * the point of time when backup mode started, i.e., the current snapshot.
+<i class="no-highlight">695</i>&nbsp;     * Can only be called in backup mode, after startBackup() has been called.
+<i class="no-highlight">696</i>&nbsp;     *
+<i class="no-highlight">697</i>&nbsp;     * &lt;p&gt;When performing an incremental backup, this method is called to
+<i class="no-highlight">698</i>&nbsp;     * determine the files that would needed for a restore.  As described in
+<i class="no-highlight">699</i>&nbsp;     * the examples at the top of this class, this list can be used to avoid
+<i class="no-highlight">700</i>&nbsp;     * unused files after a restore, and may also be used to reduce the size of
+<i class="no-highlight">701</i>&nbsp;     * the backup set.&lt;/p&gt;
+<i class="no-highlight">702</i>&nbsp;     *
+<i class="no-highlight">703</i>&nbsp;     * &lt;p&gt;When performing a full backup this method is normally not needed,
+<i class="no-highlight">704</i>&nbsp;     * since in that case it returns the same set of files that is returned by
+<i class="no-highlight">705</i>&nbsp;     * {@link #getLogFilesInBackupSet()}.&lt;/p&gt;
+<i class="no-highlight">706</i>&nbsp;     *
+<i class="no-highlight">707</i>&nbsp;     * @return the names of all files in the snapshot, sorted in alphabetical
+<i class="no-highlight">708</i>&nbsp;     * order.  The return values are generally simple file names, not full
+<i class="no-highlight">709</i>&nbsp;     * paths.  However, if multiple data directories are being used (i.e. the
+<i class="no-highlight">710</i>&nbsp;     * {@link &lt;a href=&quot;../EnvironmentConfig.html#LOG_N_DATA_DIRECTORIES&quot;&gt;
+<i class="no-highlight">711</i>&nbsp;     * je.log.nDataDirectories&lt;/a&gt;} parameter is non-0), then the file names are
+<i class="no-highlight">712</i>&nbsp;     * prepended with the associated &quot;dataNNN/&quot; prefix, where &quot;dataNNN/&quot; is
+<i class="no-highlight">713</i>&nbsp;     * the data directory name within the environment home directory and &quot;/&quot;
+<i class="no-highlight">714</i>&nbsp;     * is the relevant file separator for the platform.
+<i class="no-highlight">715</i>&nbsp;     *
+<i class="no-highlight">716</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">717</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">718</i>&nbsp;     *
+<i class="no-highlight">719</i>&nbsp;     * @throws IllegalStateException if a backup has not been started.
+<i class="no-highlight">720</i>&nbsp;     */
+<i class="no-highlight">721</i>&nbsp;    public synchronized String[] getLogFilesInSnapshot() {
+<b class="nc"><i class="no-highlight">722</i>&nbsp;        checkBackupStarted();</b>
+<i class="no-highlight">723</i>&nbsp;
+<b class="nc"><i class="no-highlight">724</i>&nbsp;        return getFileNames(snapshotFiles);</b>
+<i class="no-highlight">725</i>&nbsp;    }
+<i class="no-highlight">726</i>&nbsp;
+<i class="no-highlight">727</i>&nbsp;    private String[] getFileNames(NavigableSet&lt;Long&gt; fileSet) {
+<i class="no-highlight">728</i>&nbsp;
+<b class="nc"><i class="no-highlight">729</i>&nbsp;        final FileManager fileManager = envImpl.getFileManager();</b>
+<b class="nc"><i class="no-highlight">730</i>&nbsp;        final String[] names = new String[fileSet.size()];</b>
+<b class="nc"><i class="no-highlight">731</i>&nbsp;        int i = 0;</b>
+<i class="no-highlight">732</i>&nbsp;
+<b class="nc"><i class="no-highlight">733</i>&nbsp;        for (Long file : fileSet) {</b>
+<b class="nc"><i class="no-highlight">734</i>&nbsp;            names[i] = fileManager.getPartialFileName(file);</b>
+<b class="nc"><i class="no-highlight">735</i>&nbsp;            i += 1;</b>
+<b class="nc"><i class="no-highlight">736</i>&nbsp;        }</b>
+<i class="no-highlight">737</i>&nbsp;
+<b class="nc"><i class="no-highlight">738</i>&nbsp;        return names;</b>
+<i class="no-highlight">739</i>&nbsp;    }
+<i class="no-highlight">740</i>&nbsp;
+<i class="no-highlight">741</i>&nbsp;    /**
+<i class="no-highlight">742</i>&nbsp;     * Removes protection for a file in the backup set. This method should be
+<i class="no-highlight">743</i>&nbsp;     * called after copying a file, so that it may be deleted to avoid
+<i class="no-highlight">744</i>&nbsp;     * exceeding disk usage limits.
+<i class="no-highlight">745</i>&nbsp;     *
+<i class="no-highlight">746</i>&nbsp;     * @param fileName a file name that has already been copied, in the format
+<i class="no-highlight">747</i>&nbsp;     * returned by {@link #getLogFilesInBackupSet} .
+<i class="no-highlight">748</i>&nbsp;     *
+<i class="no-highlight">749</i>&nbsp;     * @since 7.5
+<i class="no-highlight">750</i>&nbsp;     */
+<i class="no-highlight">751</i>&nbsp;    public synchronized void removeFileProtection(String fileName) {
+<b class="nc"><i class="no-highlight">752</i>&nbsp;        checkBackupStarted();</b>
+<i class="no-highlight">753</i>&nbsp;
+<b class="nc"><i class="no-highlight">754</i>&nbsp;        protectedFileSet.removeFile(</b>
+<b class="nc"><i class="no-highlight">755</i>&nbsp;            envImpl.getFileManager().getNumFromName(fileName));</b>
+<i class="no-highlight">756</i>&nbsp;    }
+<i class="no-highlight">757</i>&nbsp;
+<i class="no-highlight">758</i>&nbsp;    private void checkBackupStarted() {
+<b class="nc"><i class="no-highlight">759</i>&nbsp;        if (!backupStarted) {</b>
+<b class="nc"><i class="no-highlight">760</i>&nbsp;            throw new IllegalStateException(&quot;startBackup was not called&quot;);</b>
+<i class="no-highlight">761</i>&nbsp;        }
+<i class="no-highlight">762</i>&nbsp;    }
+<i class="no-highlight">763</i>&nbsp;
+<i class="no-highlight">764</i>&nbsp;    /**
+<i class="no-highlight">765</i>&nbsp;     * For internal use only.
+<i class="no-highlight">766</i>&nbsp;     * @hidden
+<i class="no-highlight">767</i>&nbsp;     * Returns true if a backup has been started and is in progress.
+<i class="no-highlight">768</i>&nbsp;     */
+<i class="no-highlight">769</i>&nbsp;    public synchronized boolean backupIsOpen() {
+<b class="nc"><i class="no-highlight">770</i>&nbsp;        return backupStarted;</b>
+<i class="no-highlight">771</i>&nbsp;    }
+<i class="no-highlight">772</i>&nbsp;
+<i class="no-highlight">773</i>&nbsp;    /**
+<i class="no-highlight">774</i>&nbsp;     * For internal use only.
+<i class="no-highlight">775</i>&nbsp;     * @hidden
+<i class="no-highlight">776</i>&nbsp;     *
+<i class="no-highlight">777</i>&nbsp;     * Invalidate this backup if replication overwrites the log.
+<i class="no-highlight">778</i>&nbsp;     */
+<i class="no-highlight">779</i>&nbsp;    public void invalidate(long fileNumber) {
+<b class="nc"><i class="no-highlight">780</i>&nbsp;        invalid = true;</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;        this.rollbackStartedFileNumber = fileNumber;</b>
+<i class="no-highlight">782</i>&nbsp;    }
+<i class="no-highlight">783</i>&nbsp;
+<i class="no-highlight">784</i>&nbsp;    /**
+<i class="no-highlight">785</i>&nbsp;     * For internal use only.
+<i class="no-highlight">786</i>&nbsp;     * @hidden
+<i class="no-highlight">787</i>&nbsp;     *
+<i class="no-highlight">788</i>&nbsp;     * Marks this backup as a network restore. Causes the protected file set
+<i class="no-highlight">789</i>&nbsp;     * name/id to be set specially, and two reserved files to be included.
+<i class="no-highlight">790</i>&nbsp;     * See {@link #startBackup()}.
+<i class="no-highlight">791</i>&nbsp;     *
+<i class="no-highlight">792</i>&nbsp;     * Another approach (for future consideration) is to factor out the part
+<i class="no-highlight">793</i>&nbsp;     * of DbBackup that is needed by network restore into utility methods,
+<i class="no-highlight">794</i>&nbsp;     * so that special code for network restore can be removed from DbBackup.
+<i class="no-highlight">795</i>&nbsp;     * The shared portion should be just the startBackup code.
+<i class="no-highlight">796</i>&nbsp;     */
+<i class="no-highlight">797</i>&nbsp;    public void setNetworkRestore() {
+<b class="nc"><i class="no-highlight">798</i>&nbsp;        networkRestore = true;</b>
+<i class="no-highlight">799</i>&nbsp;    }
+<i class="no-highlight">800</i>&nbsp;
+<i class="no-highlight">801</i>&nbsp;    /**
+<i class="no-highlight">802</i>&nbsp;     * For internal use only.
+<i class="no-highlight">803</i>&nbsp;     * @hidden
+<i class="no-highlight">804</i>&nbsp;     *
+<i class="no-highlight">805</i>&nbsp;     * A test entry point used to simulate the environment is now rolling back,
+<i class="no-highlight">806</i>&nbsp;     * and this TestHook would invalidate the in progress DbBackups.
+<i class="no-highlight">807</i>&nbsp;     */
+<i class="no-highlight">808</i>&nbsp;    public void setTestHook(TestHook testHook) {
+<b class="nc"><i class="no-highlight">809</i>&nbsp;        this.testHook = testHook;</b>
+<i class="no-highlight">810</i>&nbsp;    }
+<i class="no-highlight">811</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

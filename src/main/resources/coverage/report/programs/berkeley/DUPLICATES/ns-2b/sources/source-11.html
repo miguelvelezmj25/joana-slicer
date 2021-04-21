@@ -1,0 +1,1277 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LN</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.tree</a>
+</div>
+
+<h1>Coverage Summary for Class: LN (com.sleepycat.je.tree)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LN</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50.8%
+  </span>
+  <span class="absValue">
+    (31/61)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    43.3%
+  </span>
+  <span class="absValue">
+    (141/326)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.tree;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">18</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">19</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.INList;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.log.LogItem;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.log.LogParams;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.log.LogUtils;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.log.Loggable;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.log.Provisional;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.log.VersionedWriteLoggable;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.txn.LockGrantType;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.txn.LockResult;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.txn.LockType;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.txn.WriteLockInfo;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.utilint.SizeofMarker;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">48</i>&nbsp;
+<i class="no-highlight">49</i>&nbsp;/**
+<i class="no-highlight">50</i>&nbsp; * An LN represents a Leaf Node in the JE tree.
+<i class="no-highlight">51</i>&nbsp; */
+<b class="fc"><i class="no-highlight">52</i>&nbsp;public class LN extends Node implements VersionedWriteLoggable {</b>
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    private static final String BEGIN_TAG = &quot;&lt;ln&gt;&quot;;
+<i class="no-highlight">55</i>&nbsp;    private static final String END_TAG = &quot;&lt;/ln&gt;&quot;;
+<i class="no-highlight">56</i>&nbsp;
+<i class="no-highlight">57</i>&nbsp;    /**
+<i class="no-highlight">58</i>&nbsp;     * The log version of the most recent format change for this loggable.
+<i class="no-highlight">59</i>&nbsp;     *
+<i class="no-highlight">60</i>&nbsp;     * @see #getLastFormatChange
+<i class="no-highlight">61</i>&nbsp;     */
+<i class="no-highlight">62</i>&nbsp;    private static final int LAST_FORMAT_CHANGE = 8;
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;    private byte[] data;
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /*
+<i class="no-highlight">67</i>&nbsp;     * Flags: bit fields
+<i class="no-highlight">68</i>&nbsp;     *
+<i class="no-highlight">69</i>&nbsp;     * -Dirty means that the in-memory version is not present on disk.
+<i class="no-highlight">70</i>&nbsp;     */
+<i class="no-highlight">71</i>&nbsp;    private static final int DIRTY_BIT = 0x80000000;
+<i class="no-highlight">72</i>&nbsp;    private static final int CLEAR_DIRTY_BIT = ~DIRTY_BIT;
+<i class="no-highlight">73</i>&nbsp;    private static final int FETCHED_COLD_BIT = 0x40000000;
+<i class="no-highlight">74</i>&nbsp;    private int flags; // not persistent
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /**
+<i class="no-highlight">77</i>&nbsp;     * Create an empty LN, to be filled in from the log.  If VLSNs are
+<i class="no-highlight">78</i>&nbsp;     * preserved for this environment, a VersionedLN will be created instead.
+<i class="no-highlight">79</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">80</i>&nbsp;    public LN() {</b>
+<b class="fc"><i class="no-highlight">81</i>&nbsp;        this.data = null;</b>
+<b class="fc"><i class="no-highlight">82</i>&nbsp;    }</b>
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    /**
+<i class="no-highlight">85</i>&nbsp;     * Create a new LN from a byte array.  Pass a null byte array to create a
+<i class="no-highlight">86</i>&nbsp;     * deleted LN.
+<i class="no-highlight">87</i>&nbsp;     *
+<i class="no-highlight">88</i>&nbsp;     * Does NOT copy the byte array, so after calling this method the array is
+<i class="no-highlight">89</i>&nbsp;     * &quot;owned&quot; by the Btree and should not be modified.
+<i class="no-highlight">90</i>&nbsp;     */
+<i class="no-highlight">91</i>&nbsp;    public static LN makeLN(EnvironmentImpl envImpl, byte[] dataParam) {
+<b class="fc"><i class="no-highlight">92</i>&nbsp;        if (envImpl.getPreserveVLSN()) {</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;            return new VersionedLN(dataParam);</b>
+<i class="no-highlight">94</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">95</i>&nbsp;        return new LN(dataParam);</b>
+<i class="no-highlight">96</i>&nbsp;    }
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * Create a new LN from a DatabaseEntry. Makes a copy of the byte array.
+<i class="no-highlight">100</i>&nbsp;     */
+<i class="no-highlight">101</i>&nbsp;    public static LN makeLN(EnvironmentImpl envImpl, DatabaseEntry dbt) {
+<b class="fc"><i class="no-highlight">102</i>&nbsp;        if (envImpl.getPreserveVLSN()) {</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            return new VersionedLN(dbt);</b>
+<i class="no-highlight">104</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">105</i>&nbsp;        return new LN(dbt);</b>
+<i class="no-highlight">106</i>&nbsp;    }
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    /**
+<i class="no-highlight">109</i>&nbsp;     * Does NOT copy the byte array, so after calling this method the array is
+<i class="no-highlight">110</i>&nbsp;     * &quot;owned&quot; by the Btree and should not be modified.
+<i class="no-highlight">111</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">112</i>&nbsp;    LN(final byte[] data) {</b>
+<i class="no-highlight">113</i>&nbsp;
+<b class="fc"><i class="no-highlight">114</i>&nbsp;        if (data == null) {</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;            this.data = null;</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;        } else if (data.length == 0) {</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;            this.data = LogUtils.ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">118</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">119</i>&nbsp;            this.data = data;</b>
+<i class="no-highlight">120</i>&nbsp;        }
+<i class="no-highlight">121</i>&nbsp;
+<b class="fc"><i class="no-highlight">122</i>&nbsp;        setDirty();</b>
+<b class="fc"><i class="no-highlight">123</i>&nbsp;    }</b>
+<i class="no-highlight">124</i>&nbsp;
+<i class="no-highlight">125</i>&nbsp;    /**
+<i class="no-highlight">126</i>&nbsp;     * Makes a copy of the byte array.
+<i class="no-highlight">127</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">128</i>&nbsp;    LN(DatabaseEntry dbt) {</b>
+<b class="fc"><i class="no-highlight">129</i>&nbsp;        byte[] dat = dbt.getData();</b>
+<b class="fc"><i class="no-highlight">130</i>&nbsp;        if (dat == null) {</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;            data = null;</b>
+<b class="fc"><i class="no-highlight">132</i>&nbsp;        } else if (dbt.getPartial()) {</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;            init(dat,</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;                 dbt.getOffset(),</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;                 dbt.getPartialOffset() + dbt.getSize(),</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;                 dbt.getPartialOffset(),</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;                 dbt.getSize());</b>
+<i class="no-highlight">138</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">139</i>&nbsp;            init(dat, dbt.getOffset(), dbt.getSize());</b>
+<i class="no-highlight">140</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">141</i>&nbsp;        setDirty();</b>
+<b class="fc"><i class="no-highlight">142</i>&nbsp;    }</b>
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    /** For Sizeof. */
+<i class="no-highlight">145</i>&nbsp;    public LN(SizeofMarker marker, DatabaseEntry dbt) {
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        this(dbt);</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;    }</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    private void init(byte[] data, int off, int len, int doff, int dlen) {
+<b class="fc"><i class="no-highlight">150</i>&nbsp;        if (len == 0) {</b>
+<b class="fc"><i class="no-highlight">151</i>&nbsp;            this.data = LogUtils.ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">152</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">153</i>&nbsp;            this.data = new byte[len];</b>
+<b class="fc"><i class="no-highlight">154</i>&nbsp;            System.arraycopy(data, off, this.data, doff, dlen);</b>
+<i class="no-highlight">155</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">156</i>&nbsp;    }</b>
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    private void init(byte[] data, int off, int len) {
+<b class="fc"><i class="no-highlight">159</i>&nbsp;        init(data, off, len, 0, len);</b>
+<b class="fc"><i class="no-highlight">160</i>&nbsp;    }</b>
+<i class="no-highlight">161</i>&nbsp;
+<i class="no-highlight">162</i>&nbsp;    public byte[] getData() {
+<b class="fc"><i class="no-highlight">163</i>&nbsp;        return data;</b>
+<i class="no-highlight">164</i>&nbsp;    }
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;    public boolean isDeleted() {
+<b class="fc"><i class="no-highlight">167</i>&nbsp;        return (data == null);</b>
+<i class="no-highlight">168</i>&nbsp;    }
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    @Override
+<i class="no-highlight">171</i>&nbsp;    public boolean isLN() {
+<b class="fc"><i class="no-highlight">172</i>&nbsp;        return true;</b>
+<i class="no-highlight">173</i>&nbsp;    }
+<i class="no-highlight">174</i>&nbsp;
+<i class="no-highlight">175</i>&nbsp;    void makeDeleted() {
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        data = null;</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;    }</b>
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;    public boolean isDirty() {
+<b class="fc"><i class="no-highlight">180</i>&nbsp;        return ((flags &amp; DIRTY_BIT) != 0);</b>
+<i class="no-highlight">181</i>&nbsp;    }
+<i class="no-highlight">182</i>&nbsp;
+<i class="no-highlight">183</i>&nbsp;    public void setDirty() {
+<b class="fc"><i class="no-highlight">184</i>&nbsp;        flags |= DIRTY_BIT;</b>
+<b class="fc"><i class="no-highlight">185</i>&nbsp;    }</b>
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    public void clearDirty() { // TODO make private
+<b class="fc"><i class="no-highlight">188</i>&nbsp;        flags &amp;= CLEAR_DIRTY_BIT;</b>
+<b class="fc"><i class="no-highlight">189</i>&nbsp;    }</b>
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    public boolean getFetchedCold() {
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        return ((flags &amp; FETCHED_COLD_BIT) != 0);</b>
+<i class="no-highlight">193</i>&nbsp;    }
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    public void setFetchedCold(boolean val) {
+<b class="fc"><i class="no-highlight">196</i>&nbsp;        if (val) {</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;            flags |= FETCHED_COLD_BIT;</b>
+<i class="no-highlight">198</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">199</i>&nbsp;            flags &amp;= ~FETCHED_COLD_BIT;</b>
+<i class="no-highlight">200</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">201</i>&nbsp;    }</b>
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    @Override
+<i class="no-highlight">204</i>&nbsp;    public void postFetchInit(DatabaseImpl db, long sourceLsn) {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        super.postFetchInit(db, sourceLsn);</b>
+<i class="no-highlight">206</i>&nbsp;
+<i class="no-highlight">207</i>&nbsp;        /*
+<i class="no-highlight">208</i>&nbsp;         * This flag is initially true for a fetched LN, and will be set to
+<i class="no-highlight">209</i>&nbsp;         * false if the LN is accessed with any CacheMode other than UNCHANGED.
+<i class="no-highlight">210</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        setFetchedCold(true);</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;    }</b>
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;    /**
+<i class="no-highlight">215</i>&nbsp;     * Called by CursorImpl to get the record version.
+<i class="no-highlight">216</i>&nbsp;     *
+<i class="no-highlight">217</i>&nbsp;     * If VLSNs are not preserved for this environment, returns -1 which is the
+<i class="no-highlight">218</i>&nbsp;     * sequence for VLSN.NULL_VLSN.
+<i class="no-highlight">219</i>&nbsp;     *
+<i class="no-highlight">220</i>&nbsp;     * If VLSNs are preserved for this environment, this method is overridden
+<i class="no-highlight">221</i>&nbsp;     * by VersionedLN which returns the VLSN sequence.
+<i class="no-highlight">222</i>&nbsp;     */
+<i class="no-highlight">223</i>&nbsp;    public long getVLSNSequence() {
+<b class="fc"><i class="no-highlight">224</i>&nbsp;        return VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">225</i>&nbsp;    }
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * Called by LogManager after writing an LN with a newly assigned VLSN, and
+<i class="no-highlight">229</i>&nbsp;     * called by LNLogEntry after reading the LN with the VLSN from the log
+<i class="no-highlight">230</i>&nbsp;     * entry header.
+<i class="no-highlight">231</i>&nbsp;     *
+<i class="no-highlight">232</i>&nbsp;     * If VLSNs are not preserved for this environment, does nothing.
+<i class="no-highlight">233</i>&nbsp;     *
+<i class="no-highlight">234</i>&nbsp;     * If VLSNs are preserved for this environment, this method is overridden
+<i class="no-highlight">235</i>&nbsp;     * by VersionedLN which stores the VLSN sequence.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    public void setVLSNSequence(long seq) {
+<i class="no-highlight">238</i>&nbsp;        /* Do nothing. */
+<b class="nc"><i class="no-highlight">239</i>&nbsp;    }</b>
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    /*
+<i class="no-highlight">242</i>&nbsp;     * If you get to an LN, this subtree isn&#39;t valid for delete. True, the LN
+<i class="no-highlight">243</i>&nbsp;     * may have been deleted, but you can&#39;t be sure without taking a lock, and
+<i class="no-highlight">244</i>&nbsp;     * the validate -subtree-for-delete process assumes that bin compressing
+<i class="no-highlight">245</i>&nbsp;     * has happened and there are no committed, deleted LNS hanging off the
+<i class="no-highlight">246</i>&nbsp;     * BIN.
+<i class="no-highlight">247</i>&nbsp;     */
+<i class="no-highlight">248</i>&nbsp;    @Override
+<i class="no-highlight">249</i>&nbsp;    boolean isValidForDelete() {
+<b class="nc"><i class="no-highlight">250</i>&nbsp;        return false;</b>
+<i class="no-highlight">251</i>&nbsp;    }
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;    /**
+<i class="no-highlight">254</i>&nbsp;     * Returns true by default, but is overridden by MapLN to prevent eviction
+<i class="no-highlight">255</i>&nbsp;     * of open databases.  This method is meant to be a guaranteed check and is
+<i class="no-highlight">256</i>&nbsp;     * used after a BIN has been selected for LN stripping but before actually
+<i class="no-highlight">257</i>&nbsp;     * stripping an LN. [#13415]
+<i class="no-highlight">258</i>&nbsp;     * @throws DatabaseException from subclasses.
+<i class="no-highlight">259</i>&nbsp;     */
+<i class="no-highlight">260</i>&nbsp;    boolean isEvictable(long lsn)
+<i class="no-highlight">261</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">262</i>&nbsp;
+<b class="fc"><i class="no-highlight">263</i>&nbsp;        return true;</b>
+<i class="no-highlight">264</i>&nbsp;    }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;    public void delete() {
+<b class="nc"><i class="no-highlight">267</i>&nbsp;        makeDeleted();</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        setDirty();</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;    }</b>
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;    public void modify(byte[] newData) {
+<b class="fc"><i class="no-highlight">272</i>&nbsp;        data = newData;</b>
+<b class="fc"><i class="no-highlight">273</i>&nbsp;        setDirty();</b>
+<b class="fc"><i class="no-highlight">274</i>&nbsp;    }</b>
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    /**
+<i class="no-highlight">277</i>&nbsp;     * Sets data to empty and returns old data.  Called when converting an old
+<i class="no-highlight">278</i>&nbsp;     * format LN in a duplicates DB.
+<i class="no-highlight">279</i>&nbsp;     */
+<i class="no-highlight">280</i>&nbsp;    public byte[] setEmpty() {
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        final byte[] retVal = data;</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;        data = Key.EMPTY_KEY;</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;        return retVal;</b>
+<i class="no-highlight">284</i>&nbsp;    }
+<i class="no-highlight">285</i>&nbsp;
+<i class="no-highlight">286</i>&nbsp;    /**
+<i class="no-highlight">287</i>&nbsp;     * Add yourself to the in memory list if you&#39;re a type of node that should
+<i class="no-highlight">288</i>&nbsp;     * belong.
+<i class="no-highlight">289</i>&nbsp;     */
+<i class="no-highlight">290</i>&nbsp;    @Override
+<i class="no-highlight">291</i>&nbsp;    void rebuildINList(INList inList) {
+<i class="no-highlight">292</i>&nbsp;        /*
+<i class="no-highlight">293</i>&nbsp;         * Don&#39;t add, LNs don&#39;t belong on the list.
+<i class="no-highlight">294</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">295</i>&nbsp;    }</b>
+<i class="no-highlight">296</i>&nbsp;
+<i class="no-highlight">297</i>&nbsp;    /**
+<i class="no-highlight">298</i>&nbsp;     * Compute the approximate size of this node in memory for evictor
+<i class="no-highlight">299</i>&nbsp;     * invocation purposes.
+<i class="no-highlight">300</i>&nbsp;     */
+<i class="no-highlight">301</i>&nbsp;    @Override
+<i class="no-highlight">302</i>&nbsp;    public long getMemorySizeIncludedByParent() {
+<b class="fc"><i class="no-highlight">303</i>&nbsp;        int size = MemoryBudget.LN_OVERHEAD;</b>
+<b class="fc"><i class="no-highlight">304</i>&nbsp;        if (data != null) {</b>
+<b class="fc"><i class="no-highlight">305</i>&nbsp;            size += MemoryBudget.byteArraySize(data.length);</b>
+<i class="no-highlight">306</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">307</i>&nbsp;        return size;</b>
+<i class="no-highlight">308</i>&nbsp;    }
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;    /**
+<i class="no-highlight">311</i>&nbsp;     * Release the memory budget for any objects referenced by this
+<i class="no-highlight">312</i>&nbsp;     * LN. For now, only release treeAdmin memory, because treeMemory
+<i class="no-highlight">313</i>&nbsp;     * is handled in aggregate at the IN level. Over time, transition
+<i class="no-highlight">314</i>&nbsp;     * all of the LN&#39;s memory budget to this, so we update the memory
+<i class="no-highlight">315</i>&nbsp;     * budget counters more locally. Called when we are releasing a LN
+<i class="no-highlight">316</i>&nbsp;     * for garbage collection.
+<i class="no-highlight">317</i>&nbsp;     */
+<i class="no-highlight">318</i>&nbsp;    public void releaseMemoryBudget() {
+<i class="no-highlight">319</i>&nbsp;        // nothing to do for now, no treeAdmin memory
+<b class="fc"><i class="no-highlight">320</i>&nbsp;    }</b>
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;    public long getTreeAdminMemory() {
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        return 0;</b>
+<i class="no-highlight">324</i>&nbsp;    }
+<i class="no-highlight">325</i>&nbsp;
+<i class="no-highlight">326</i>&nbsp;    /*
+<i class="no-highlight">327</i>&nbsp;     * Dumping
+<i class="no-highlight">328</i>&nbsp;     */
+<i class="no-highlight">329</i>&nbsp;
+<i class="no-highlight">330</i>&nbsp;    public String beginTag() {
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        return BEGIN_TAG;</b>
+<i class="no-highlight">332</i>&nbsp;    }
+<i class="no-highlight">333</i>&nbsp;
+<i class="no-highlight">334</i>&nbsp;    public String endTag() {
+<b class="nc"><i class="no-highlight">335</i>&nbsp;        return END_TAG;</b>
+<i class="no-highlight">336</i>&nbsp;    }
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;    @Override
+<i class="no-highlight">339</i>&nbsp;    public String dumpString(int nSpaces, boolean dumpTags) {
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        StringBuilder self = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        if (dumpTags) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            self.append(TreeUtils.indent(nSpaces));</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            self.append(beginTag());</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;            self.append(&#39;\n&#39;);</b>
+<i class="no-highlight">345</i>&nbsp;        }
+<i class="no-highlight">346</i>&nbsp;
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        self.append(super.dumpString(nSpaces + 2, true));</b>
+<b class="nc"><i class="no-highlight">348</i>&nbsp;        self.append(&#39;\n&#39;);</b>
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        if (data != null) {</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;            self.append(TreeUtils.indent(nSpaces+2));</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            self.append(&quot;&lt;data&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;            self.append(Key.DUMP_TYPE.dumpByteArray(data));</b>
+<b class="nc"><i class="no-highlight">353</i>&nbsp;            self.append(&quot;&lt;/data&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">354</i>&nbsp;            self.append(&#39;\n&#39;);</b>
+<i class="no-highlight">355</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        if (dumpTags) {</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;            self.append(TreeUtils.indent(nSpaces));</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;            self.append(endTag());</b>
+<i class="no-highlight">359</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">360</i>&nbsp;        return self.toString();</b>
+<i class="no-highlight">361</i>&nbsp;    }
+<i class="no-highlight">362</i>&nbsp;
+<i class="no-highlight">363</i>&nbsp;    /*
+<i class="no-highlight">364</i>&nbsp;     * Logging Support
+<i class="no-highlight">365</i>&nbsp;     */
+<i class="no-highlight">366</i>&nbsp;
+<i class="no-highlight">367</i>&nbsp;    /**
+<i class="no-highlight">368</i>&nbsp;     * Convenience logging method.  See logInternal.
+<i class="no-highlight">369</i>&nbsp;     *
+<i class="no-highlight">370</i>&nbsp;     * For a deferred-write database, the logging will not actually occur and
+<i class="no-highlight">371</i>&nbsp;     * a transient LSN will be created and returned if the currLsn is NULL;
+<i class="no-highlight">372</i>&nbsp;     * otherwise the currLsn is returned. 
+<i class="no-highlight">373</i>&nbsp;     *
+<i class="no-highlight">374</i>&nbsp;     * However, if the embeddedness of the LN changes, we must create a real
+<i class="no-highlight">375</i>&nbsp;     * logrec for the op. The following scenario is an example of what can
+<i class="no-highlight">376</i>&nbsp;     * go wrong if we don&#39;t log embeddedness changes:
+<i class="no-highlight">377</i>&nbsp;     *
+<i class="no-highlight">378</i>&nbsp;     * - R1 exists before DB is opened in DW mode.
+<i class="no-highlight">379</i>&nbsp;     * - R1 is embedded, so its on-disk image has been counted obsolete and
+<i class="no-highlight">380</i>&nbsp;     *   might have been deleted already.
+<i class="no-highlight">381</i>&nbsp;     * - R1 is updated in DW mode, and its new version, R2, is not embedded
+<i class="no-highlight">382</i>&nbsp;     *   (and not logged). Furthermore, the slot LSN points to R1 still.
+<i class="no-highlight">383</i>&nbsp;     * - R2 gets evicted and logged. As a result, R1 will be counted as
+<i class="no-highlight">384</i>&nbsp;     *   obsolete again, because the slot points to R1 and says R1 is not
+<i class="no-highlight">385</i>&nbsp;     *   embedded. 
+<i class="no-highlight">386</i>&nbsp;     *
+<i class="no-highlight">387</i>&nbsp;     * If we do log embeddedness changes, then in the above scenario, R2 will
+<i class="no-highlight">388</i>&nbsp;     * be logged and this logging will not count R1 as obsolete, because the
+<i class="no-highlight">389</i>&nbsp;     * embedded flag in the slot still says that R1 is embedded. After R2 is
+<i class="no-highlight">390</i>&nbsp;     * logged, the slot is updated (both the slot LSN and the embedded flag).
+<i class="no-highlight">391</i>&nbsp;     *
+<i class="no-highlight">392</i>&nbsp;     * In general, the embedded flag in the slot must be in accord with the
+<i class="no-highlight">393</i>&nbsp;     * embedded flag in the last logged version of a record, even if multiple
+<i class="no-highlight">394</i>&nbsp;     * updates were done on the record since the last time it was logged and
+<i class="no-highlight">395</i>&nbsp;     * the current logging event. 
+<i class="no-highlight">396</i>&nbsp;     */
+<i class="no-highlight">397</i>&nbsp;    public LogItem optionalLog(
+<i class="no-highlight">398</i>&nbsp;        EnvironmentImpl envImpl,
+<i class="no-highlight">399</i>&nbsp;        DatabaseImpl dbImpl,
+<i class="no-highlight">400</i>&nbsp;        Locker locker,
+<i class="no-highlight">401</i>&nbsp;        WriteLockInfo writeLockInfo,
+<i class="no-highlight">402</i>&nbsp;        boolean newEmbeddedLN,
+<i class="no-highlight">403</i>&nbsp;        byte[] newKey,
+<i class="no-highlight">404</i>&nbsp;        int newExpiration,
+<i class="no-highlight">405</i>&nbsp;        boolean newExpirationInHours,
+<i class="no-highlight">406</i>&nbsp;        boolean currEmbeddedLN,
+<i class="no-highlight">407</i>&nbsp;        long currLsn,
+<i class="no-highlight">408</i>&nbsp;        int currSize,
+<i class="no-highlight">409</i>&nbsp;        boolean isInsertion,
+<i class="no-highlight">410</i>&nbsp;        ReplicationContext repContext)
+<i class="no-highlight">411</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">412</i>&nbsp;
+<b class="fc"><i class="no-highlight">413</i>&nbsp;        if (dbImpl.isDeferredWriteMode() &amp;&amp; currEmbeddedLN == newEmbeddedLN) {</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            final LogItem item = new LogItem();</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;            item.lsn = assignTransientLsn(envImpl, dbImpl, currLsn, locker);</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;            item.size = -1;</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            return item;</b>
+<i class="no-highlight">418</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">419</i>&nbsp;            return logInternal(</b>
+<i class="no-highlight">420</i>&nbsp;                envImpl, dbImpl, locker, writeLockInfo,
+<i class="no-highlight">421</i>&nbsp;                newEmbeddedLN, newKey, newExpiration, newExpirationInHours,
+<i class="no-highlight">422</i>&nbsp;                currEmbeddedLN, currLsn, currSize,
+<i class="no-highlight">423</i>&nbsp;                isInsertion, false /*backgroundIO*/, repContext);
+<i class="no-highlight">424</i>&nbsp;        }
+<i class="no-highlight">425</i>&nbsp;    }
+<i class="no-highlight">426</i>&nbsp;
+<i class="no-highlight">427</i>&nbsp;    /**
+<i class="no-highlight">428</i>&nbsp;     * Convenience logging method, used to migrate an LN during cleaning.
+<i class="no-highlight">429</i>&nbsp;     * See logInternal.
+<i class="no-highlight">430</i>&nbsp;     */
+<i class="no-highlight">431</i>&nbsp;    public LogItem log(
+<i class="no-highlight">432</i>&nbsp;        EnvironmentImpl envImpl,
+<i class="no-highlight">433</i>&nbsp;        DatabaseImpl dbImpl,
+<i class="no-highlight">434</i>&nbsp;        Locker locker,
+<i class="no-highlight">435</i>&nbsp;        WriteLockInfo writeLockInfo,
+<i class="no-highlight">436</i>&nbsp;        boolean newEmbeddedLN,
+<i class="no-highlight">437</i>&nbsp;        byte[] newKey,
+<i class="no-highlight">438</i>&nbsp;        int newExpiration,
+<i class="no-highlight">439</i>&nbsp;        boolean newExpirationInHours,
+<i class="no-highlight">440</i>&nbsp;        boolean currEmbeddedLN,
+<i class="no-highlight">441</i>&nbsp;        long currLsn,
+<i class="no-highlight">442</i>&nbsp;        int currSize,
+<i class="no-highlight">443</i>&nbsp;        boolean isInsertion,
+<i class="no-highlight">444</i>&nbsp;        boolean backgroundIO,
+<i class="no-highlight">445</i>&nbsp;        ReplicationContext repContext)
+<i class="no-highlight">446</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">447</i>&nbsp;
+<b class="nc"><i class="no-highlight">448</i>&nbsp;        return logInternal(</b>
+<i class="no-highlight">449</i>&nbsp;            envImpl, dbImpl, locker, writeLockInfo,
+<i class="no-highlight">450</i>&nbsp;            newEmbeddedLN, newKey, newExpiration, newExpirationInHours,
+<i class="no-highlight">451</i>&nbsp;            currEmbeddedLN, currLsn, currSize,
+<i class="no-highlight">452</i>&nbsp;            isInsertion, backgroundIO, repContext);
+<i class="no-highlight">453</i>&nbsp;    }
+<i class="no-highlight">454</i>&nbsp;
+<i class="no-highlight">455</i>&nbsp;    /**
+<i class="no-highlight">456</i>&nbsp;     * Generate and write to the log a logrec describing an operation O that
+<i class="no-highlight">457</i>&nbsp;     * is being performed on a record R with key K. O may be an insertion,
+<i class="no-highlight">458</i>&nbsp;     * update, deletion, migration, or in the case of a DW DB, an eviction
+<i class="no-highlight">459</i>&nbsp;     * or checkpoint of a dirty LN.
+<i class="no-highlight">460</i>&nbsp;     *
+<i class="no-highlight">461</i>&nbsp;     * Let T be the locker performing O. T is null in case of DW eviction/ckpt.
+<i class="no-highlight">462</i>&nbsp;     * Otherwise, T holds a lock on R and it will keep that lock until it
+<i class="no-highlight">463</i>&nbsp;     * terminates. In case of a CUD op, the lock is an exclusive one; in 
+<i class="no-highlight">464</i>&nbsp;     * case of LN migration, it&#39;s a shared one (and T is non-transactional).
+<i class="no-highlight">465</i>&nbsp;     *
+<i class="no-highlight">466</i>&nbsp;     * - Let Rc be the current version of R (before O). The absence of R from
+<i class="no-highlight">467</i>&nbsp;     *   the DB is considered as a special &quot;deleted&quot; version. Rc may be the
+<i class="no-highlight">468</i>&nbsp;     *   deleted version.
+<i class="no-highlight">469</i>&nbsp;     * - If T is a Txn, let Ra be the version of R before T write-locked R. Ra
+<i class="no-highlight">470</i>&nbsp;     *   may be the deleted version. Ra and Rc will be the same if O is the
+<i class="no-highlight">471</i>&nbsp;     *   very 1st op on R by T.
+<i class="no-highlight">472</i>&nbsp;     * - Let Rn be R&#39;s new version (after O). Rc and Rn will be the same if O
+<i class="no-highlight">473</i>&nbsp;     *   is migration or DW eviction/ckpt.
+<i class="no-highlight">474</i>&nbsp;     *
+<i class="no-highlight">475</i>&nbsp;     * - Let Ln be the LSN of the logrec that will be generated here to
+<i class="no-highlight">476</i>&nbsp;     *   describe O.
+<i class="no-highlight">477</i>&nbsp;     * - Let Lc be the current LSN value in R&#39;s slot, or NULL if no such slot
+<i class="no-highlight">478</i>&nbsp;     *   exists currently. If an R slot exists, then for a non-DW DB, Lc points
+<i class="no-highlight">479</i>&nbsp;     *   to Rc, or may be NULL if Rc is the deleted version. But for a DW DB,
+<i class="no-highlight">480</i>&nbsp;     *   Lc may point to an older version than Rc, or it may be transient.
+<i class="no-highlight">481</i>&nbsp;     * - If T is a Txn, let La be the LSN value in R&#39;s slot at the time T 
+<i class="no-highlight">482</i>&nbsp;     *   write-locked R, or NULL if no such slot existed at that time. 
+<i class="no-highlight">483</i>&nbsp;     *
+<i class="no-highlight">484</i>&nbsp;     * @param isInsertion Whether this CUDop is an insertion (possibly with
+<i class="no-highlight">485</i>&nbsp;     * slot reuse.
+<i class="no-highlight">486</i>&nbsp;     *
+<i class="no-highlight">487</i>&nbsp;     * @param locker The locker T. If non-null, a write lock will be acquired
+<i class="no-highlight">488</i>&nbsp;     * by T on Ln&#39;s LSN.
+<i class="no-highlight">489</i>&nbsp;     *
+<i class="no-highlight">490</i>&nbsp;     * WARNING: Be sure to pass null for the locker param if the new LSN should
+<i class="no-highlight">491</i>&nbsp;     * not be locked.
+<i class="no-highlight">492</i>&nbsp;     *
+<i class="no-highlight">493</i>&nbsp;     * @param writeLockInfo It is non-null if and only if T is a Txn. It
+<i class="no-highlight">494</i>&nbsp;     * contains info that must be included in Ln to make it undoable if T
+<i class="no-highlight">495</i>&nbsp;     * aborts. Specifically, it contains:
+<i class="no-highlight">496</i>&nbsp;     *
+<i class="no-highlight">497</i>&nbsp;     * - abortKD   : True if Ra is the deleted version; false otherwise.
+<i class="no-highlight">498</i>&nbsp;     * - abortLSN  : The La LSN as defined above.
+<i class="no-highlight">499</i>&nbsp;     * - abortKey  : The key of Ra, if Ra was embedded in the parent BIN and
+<i class="no-highlight">500</i>&nbsp;     *               the containing DB allows key updates.
+<i class="no-highlight">501</i>&nbsp;     * - abortData : The data of Ra, if Ra was embedded in the parent BIN.
+<i class="no-highlight">502</i>&nbsp;     *
+<i class="no-highlight">503</i>&nbsp;     * When the new LSN is write-locked, a new WriteLockInfo is created and
+<i class="no-highlight">504</i>&nbsp;     * the above info is copied into it. Normally this parameter should be
+<i class="no-highlight">505</i>&nbsp;     * obtained from the prepareForInsert or prepareForUpdate method of
+<i class="no-highlight">506</i>&nbsp;     * CursorImpl.LockStanding.
+<i class="no-highlight">507</i>&nbsp;     *
+<i class="no-highlight">508</i>&nbsp;     * @param newEmbeddedLN Whether Rn will be embedded into the parent BIN.
+<i class="no-highlight">509</i>&nbsp;     * If true, Ln will be counted as an &quot;immediately obsolete&quot; logrec.
+<i class="no-highlight">510</i>&nbsp;     *
+<i class="no-highlight">511</i>&nbsp;     * @param newKey Rn&#39;s key. Note: Rn&#39;s data is not passed as a parameter to
+<i class="no-highlight">512</i>&nbsp;     * this method because it is stored in this LN. Rn (key and data) will be
+<i class="no-highlight">513</i>&nbsp;     * stored in Ln. Rn&#39;s key will also be stored in the parent BIN, and if
+<i class="no-highlight">514</i>&nbsp;     * newEmbeddedLN is true, Rn&#39;s data too will be stored there.
+<i class="no-highlight">515</i>&nbsp;     *
+<i class="no-highlight">516</i>&nbsp;     * @param newExpiration the new expiration time in days or hours.
+<i class="no-highlight">517</i>&nbsp;     *
+<i class="no-highlight">518</i>&nbsp;     * @param newExpirationInHours whether the new expiration time is in hours.
+<i class="no-highlight">519</i>&nbsp;     *
+<i class="no-highlight">520</i>&nbsp;     * @param currEmbeddedLN Whether Rc&#39;s data is embedded into the parent
+<i class="no-highlight">521</i>&nbsp;     * BIN. If true, Lc has already been counted obsolete.
+<i class="no-highlight">522</i>&nbsp;     *
+<i class="no-highlight">523</i>&nbsp;     * @param currLsn The Lc LSN as defined above. Is given as a param to this
+<i class="no-highlight">524</i>&nbsp;     * method to count the associated logrec as obsolete (which must done under
+<i class="no-highlight">525</i>&nbsp;     * the LWL), if it has not been counted already.
+<i class="no-highlight">526</i>&nbsp;     *
+<i class="no-highlight">527</i>&nbsp;     * @param currSize The size of Lc (needed for obsolete counting).
+<i class="no-highlight">528</i>&nbsp;     *
+<i class="no-highlight">529</i>&nbsp;     * @param isInsertion True if the operation is an insertion (including
+<i class="no-highlight">530</i>&nbsp;     * slot reuse). False otherwise.
+<i class="no-highlight">531</i>&nbsp;     */
+<i class="no-highlight">532</i>&nbsp;    private LogItem logInternal(
+<i class="no-highlight">533</i>&nbsp;        final EnvironmentImpl envImpl,
+<i class="no-highlight">534</i>&nbsp;        final DatabaseImpl dbImpl,
+<i class="no-highlight">535</i>&nbsp;        final Locker locker,
+<i class="no-highlight">536</i>&nbsp;        final WriteLockInfo writeLockInfo,
+<i class="no-highlight">537</i>&nbsp;        final boolean newEmbeddedLN,
+<i class="no-highlight">538</i>&nbsp;        final byte[] newKey,
+<i class="no-highlight">539</i>&nbsp;        final int newExpiration,
+<i class="no-highlight">540</i>&nbsp;        final boolean newExpirationInHours,
+<i class="no-highlight">541</i>&nbsp;        final boolean currEmbeddedLN,
+<i class="no-highlight">542</i>&nbsp;        final long currLsn,
+<i class="no-highlight">543</i>&nbsp;        final int currSize,
+<i class="no-highlight">544</i>&nbsp;        final boolean isInsertion,
+<i class="no-highlight">545</i>&nbsp;        final boolean backgroundIO,
+<i class="no-highlight">546</i>&nbsp;        final ReplicationContext repContext)
+<i class="no-highlight">547</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">548</i>&nbsp;
+<b class="fc"><i class="no-highlight">549</i>&nbsp;        assert(getClass() == LN.class ||</b>
+<b class="nc"><i class="no-highlight">550</i>&nbsp;               getClass() == VersionedLN.class ||</b>
+<i class="no-highlight">551</i>&nbsp;               !newEmbeddedLN);
+<i class="no-highlight">552</i>&nbsp;
+<b class="fc"><i class="no-highlight">553</i>&nbsp;        if (envImpl.isReadOnly()) {</b>
+<i class="no-highlight">554</i>&nbsp;            /* Returning a NULL_LSN will not allow locking. */
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">556</i>&nbsp;                &quot;Cannot log LNs in read-only env.&quot;);
+<i class="no-highlight">557</i>&nbsp;        }
+<i class="no-highlight">558</i>&nbsp;
+<i class="no-highlight">559</i>&nbsp;        /*
+<i class="no-highlight">560</i>&nbsp;         * Check that a replicated txn is used for writing to a replicated DB,
+<i class="no-highlight">561</i>&nbsp;         * and a non-replicated locker is used for writing to a
+<i class="no-highlight">562</i>&nbsp;         * non-replicated DB. This is critical for avoiding corruption when HA
+<i class="no-highlight">563</i>&nbsp;         * failover occurs [#23234] [#23330].
+<i class="no-highlight">564</i>&nbsp;         *
+<i class="no-highlight">565</i>&nbsp;         * Two cases are exempt from this rule:
+<i class="no-highlight">566</i>&nbsp;         *
+<i class="no-highlight">567</i>&nbsp;         *  - The locker is null only when performing internal logging (not a
+<i class="no-highlight">568</i>&nbsp;         *    user operation), such as cleaner migration and deferred-write
+<i class="no-highlight">569</i>&nbsp;         *    logging.  This is always non-transactional and non-replicated, so
+<i class="no-highlight">570</i>&nbsp;         *    we can skip this check.  Note that the cleaner may migrate an LN
+<i class="no-highlight">571</i>&nbsp;         *    in a replicated DB, but this is not part ot the rep stream.
+<i class="no-highlight">572</i>&nbsp;         *
+<i class="no-highlight">573</i>&nbsp;         *  - Only NameLNs that identify replicated DBs are replicated, not
+<i class="no-highlight">574</i>&nbsp;         *    all NameLNs in the naming DB, so the naming DB is exempt.
+<i class="no-highlight">575</i>&nbsp;         *
+<i class="no-highlight">576</i>&nbsp;         * This guard should never fire because of two checks made prior to
+<i class="no-highlight">577</i>&nbsp;         * logging:
+<i class="no-highlight">578</i>&nbsp;         *
+<i class="no-highlight">579</i>&nbsp;         *  - When a user txn in a replicated environment is not configured for
+<i class="no-highlight">580</i>&nbsp;         *    local-write and a write operation is attempted (or when the
+<i class="no-highlight">581</i>&nbsp;         *    opposite is true), the Cursor class will throw
+<i class="no-highlight">582</i>&nbsp;         *    UnsupportedOperationException. See Locker.isLocalWrite.
+<i class="no-highlight">583</i>&nbsp;         *
+<i class="no-highlight">584</i>&nbsp;         *  - On a replica, writes to replicated DBs are disallowed even when
+<i class="no-highlight">585</i>&nbsp;         *    local-write is false.  This is enforced by the ReadonlyTxn class
+<i class="no-highlight">586</i>&nbsp;         *    which throws ReplicaWriteException in this case.
+<i class="no-highlight">587</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">588</i>&nbsp;        final boolean isNamingDB = dbImpl.getId().equals(DbTree.NAME_DB_ID);</b>
+<i class="no-highlight">589</i>&nbsp;
+<b class="fc"><i class="no-highlight">590</i>&nbsp;        if (!isNamingDB &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">591</i>&nbsp;            envImpl.isReplicated() &amp;&amp;</b>
+<i class="no-highlight">592</i>&nbsp;            locker != null &amp;&amp;
+<b class="nc"><i class="no-highlight">593</i>&nbsp;            dbImpl.isReplicated() != locker.isReplicated()) {</b>
+<i class="no-highlight">594</i>&nbsp;
+<b class="nc"><i class="no-highlight">595</i>&nbsp;            throw EnvironmentFailureException.unexpectedState(</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                (locker.isReplicated() ?</b>
+<i class="no-highlight">597</i>&nbsp;                    &quot;Rep txn used to write to non-rep DB&quot; :
+<i class="no-highlight">598</i>&nbsp;                    &quot;Non-rep txn used to write to rep DB&quot;) +
+<b class="nc"><i class="no-highlight">599</i>&nbsp;                &quot;, class = &quot; + locker.getClass().getName() +</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                &quot;, txnId = &quot; + locker.getId() +</b>
+<b class="nc"><i class="no-highlight">601</i>&nbsp;                &quot;, dbName = &quot; + dbImpl.getDebugName());</b>
+<i class="no-highlight">602</i>&nbsp;        }
+<i class="no-highlight">603</i>&nbsp;
+<i class="no-highlight">604</i>&nbsp;        /*
+<i class="no-highlight">605</i>&nbsp;         * As an additional safeguard, check that a replicated txn is used when
+<i class="no-highlight">606</i>&nbsp;         * the operation is part of the rep stream, and that the inverse is
+<i class="no-highlight">607</i>&nbsp;         * also true. The naming DB is exempt for the same reason as above.
+<i class="no-highlight">608</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">609</i>&nbsp;        if (!isNamingDB) {</b>
+<i class="no-highlight">610</i>&nbsp;
+<b class="fc"><i class="no-highlight">611</i>&nbsp;            boolean isRepLocker = (locker != null) &amp;&amp; locker.isReplicated();</b>
+<i class="no-highlight">612</i>&nbsp;
+<b class="fc"><i class="no-highlight">613</i>&nbsp;            if (repContext.inReplicationStream() != isRepLocker) {</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;                throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">615</i>&nbsp;                    (isRepLocker ?
+<i class="no-highlight">616</i>&nbsp;                        &quot;Rep txn used to write outside of rep stream&quot; :
+<i class="no-highlight">617</i>&nbsp;                        &quot;Non-rep txn used to write in rep stream&quot;) +
+<i class="no-highlight">618</i>&nbsp;                    ((locker != null) ?
+<b class="nc"><i class="no-highlight">619</i>&nbsp;                        (&quot;, class = &quot; + locker.getClass().getName() +</b>
+<b class="nc"><i class="no-highlight">620</i>&nbsp;                         &quot;, txnId = &quot; + locker.getId()) :</b>
+<i class="no-highlight">621</i>&nbsp;                        &quot;, null locker&quot;) +
+<b class="nc"><i class="no-highlight">622</i>&nbsp;                    &quot;, dbName = &quot; + dbImpl.getDebugName());</b>
+<i class="no-highlight">623</i>&nbsp;            }
+<i class="no-highlight">624</i>&nbsp;        }
+<i class="no-highlight">625</i>&nbsp;
+<i class="no-highlight">626</i>&nbsp;        LogEntryType entryType;
+<b class="fc"><i class="no-highlight">627</i>&nbsp;        Txn txn = null;</b>
+<b class="fc"><i class="no-highlight">628</i>&nbsp;        long abortLsn = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">629</i>&nbsp;        boolean abortKD = false;</b>
+<b class="fc"><i class="no-highlight">630</i>&nbsp;        byte[] abortKey = null;</b>
+<b class="fc"><i class="no-highlight">631</i>&nbsp;        byte[] abortData = null;</b>
+<b class="fc"><i class="no-highlight">632</i>&nbsp;        long abortVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<b class="fc"><i class="no-highlight">633</i>&nbsp;        int abortExpiration = 0;</b>
+<b class="fc"><i class="no-highlight">634</i>&nbsp;        boolean abortExpirationInHours = false;</b>
+<i class="no-highlight">635</i>&nbsp;
+<b class="fc"><i class="no-highlight">636</i>&nbsp;        LogParams params = new LogParams();</b>
+<i class="no-highlight">637</i>&nbsp;
+<b class="fc"><i class="no-highlight">638</i>&nbsp;        if (locker != null &amp;&amp; locker.isTransactional()) {</b>
+<i class="no-highlight">639</i>&nbsp;
+<b class="fc"><i class="no-highlight">640</i>&nbsp;            entryType = getLogType(isInsertion, true, dbImpl);</b>
+<i class="no-highlight">641</i>&nbsp;
+<b class="fc"><i class="no-highlight">642</i>&nbsp;            txn = locker.getTxnLocker();</b>
+<b class="fc"><i class="no-highlight">643</i>&nbsp;            assert(txn != null);</b>
+<i class="no-highlight">644</i>&nbsp;
+<b class="fc"><i class="no-highlight">645</i>&nbsp;            abortLsn = writeLockInfo.getAbortLsn();</b>
+<b class="fc"><i class="no-highlight">646</i>&nbsp;            abortKD = writeLockInfo.getAbortKnownDeleted();</b>
+<b class="fc"><i class="no-highlight">647</i>&nbsp;            abortKey = writeLockInfo.getAbortKey();</b>
+<b class="fc"><i class="no-highlight">648</i>&nbsp;            abortData = writeLockInfo.getAbortData();</b>
+<b class="fc"><i class="no-highlight">649</i>&nbsp;            abortVLSN = writeLockInfo.getAbortVLSN();</b>
+<b class="fc"><i class="no-highlight">650</i>&nbsp;            abortExpiration = writeLockInfo.getAbortExpiration();</b>
+<b class="fc"><i class="no-highlight">651</i>&nbsp;            abortExpirationInHours = writeLockInfo.isAbortExpirationInHours();</b>
+<i class="no-highlight">652</i>&nbsp;
+<b class="fc"><i class="no-highlight">653</i>&nbsp;            params.obsoleteDupsAllowed = locker.isRolledBack();</b>
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">656</i>&nbsp;            entryType = getLogType(isInsertion, false, dbImpl);</b>
+<i class="no-highlight">657</i>&nbsp;        }
+<i class="no-highlight">658</i>&nbsp;
+<b class="fc"><i class="no-highlight">659</i>&nbsp;        params.entry = createLogEntry(</b>
+<i class="no-highlight">660</i>&nbsp;            entryType, dbImpl, txn,
+<i class="no-highlight">661</i>&nbsp;            abortLsn, abortKD, abortKey, abortData, abortVLSN,
+<i class="no-highlight">662</i>&nbsp;            abortExpiration, abortExpirationInHours,
+<i class="no-highlight">663</i>&nbsp;            newKey, newEmbeddedLN, newExpiration, newExpirationInHours,
+<i class="no-highlight">664</i>&nbsp;            repContext);
+<i class="no-highlight">665</i>&nbsp;
+<i class="no-highlight">666</i>&nbsp;        /*
+<i class="no-highlight">667</i>&nbsp;         * Always log temporary DB LNs as provisional.  This prevents the
+<i class="no-highlight">668</i>&nbsp;         * possibility of a FileNotFoundException during recovery, since
+<i class="no-highlight">669</i>&nbsp;         * temporary DBs are not checkpointed.  And it speeds recovery --
+<i class="no-highlight">670</i>&nbsp;         * temporary DBs are removed during recovery anyway.
+<i class="no-highlight">671</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">672</i>&nbsp;        params.provisional =</b>
+<b class="fc"><i class="no-highlight">673</i>&nbsp;            (dbImpl.isTemporary() ? Provisional.YES : Provisional.NO);</b>
+<i class="no-highlight">674</i>&nbsp;
+<i class="no-highlight">675</i>&nbsp;        /*
+<i class="no-highlight">676</i>&nbsp;         * Dedice whether to count the current record version as obsolete.
+<i class="no-highlight">677</i>&nbsp;         * Rc should not be counted as obsolete if:
+<i class="no-highlight">678</i>&nbsp;         * (a) Rc == Ra; Ra (i.e. abortLsn) will be counted obsolete during
+<i class="no-highlight">679</i>&nbsp;         * commit, or
+<i class="no-highlight">680</i>&nbsp;         * (b) Rc was counted earlier as an &quot;immediately obsolete&quot; logrec.
+<i class="no-highlight">681</i>&nbsp;         * This includes the cases where the DB is a dups DB, or the current
+<i class="no-highlight">682</i>&nbsp;         * op is an insertion (which implies Rc is a deletion and as such has
+<i class="no-highlight">683</i>&nbsp;         * been counted already) or Rc is embedded.
+<i class="no-highlight">684</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">685</i>&nbsp;        if (currLsn != abortLsn &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">686</i>&nbsp;            !dbImpl.isLNImmediatelyObsolete() &amp;&amp;</b>
+<i class="no-highlight">687</i>&nbsp;            !isInsertion &amp;&amp;
+<i class="no-highlight">688</i>&nbsp;            !currEmbeddedLN) {
+<i class="no-highlight">689</i>&nbsp;
+<b class="fc"><i class="no-highlight">690</i>&nbsp;            params.oldLsn = currLsn;</b>
+<b class="fc"><i class="no-highlight">691</i>&nbsp;            params.oldSize = currSize;</b>
+<i class="no-highlight">692</i>&nbsp;        }
+<i class="no-highlight">693</i>&nbsp;
+<b class="fc"><i class="no-highlight">694</i>&nbsp;        params.repContext = repContext;</b>
+<b class="fc"><i class="no-highlight">695</i>&nbsp;        params.backgroundIO = backgroundIO;</b>
+<b class="fc"><i class="no-highlight">696</i>&nbsp;        params.nodeDb = dbImpl;</b>
+<i class="no-highlight">697</i>&nbsp;
+<i class="no-highlight">698</i>&nbsp;        /* Save obsolete size information to be used during commit. */
+<b class="fc"><i class="no-highlight">699</i>&nbsp;        if (txn != null &amp;&amp; currLsn == abortLsn) {</b>
+<b class="fc"><i class="no-highlight">700</i>&nbsp;            writeLockInfo.setAbortLogSize(currSize);</b>
+<i class="no-highlight">701</i>&nbsp;        }
+<i class="no-highlight">702</i>&nbsp;
+<i class="no-highlight">703</i>&nbsp;        LogItem item;
+<i class="no-highlight">704</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">705</i>&nbsp;            if (txn != null) {</b>
+<i class="no-highlight">706</i>&nbsp;
+<i class="no-highlight">707</i>&nbsp;                /*
+<i class="no-highlight">708</i>&nbsp;                 * Writing an LN_TX entry requires looking at the Txn&#39;s
+<i class="no-highlight">709</i>&nbsp;                 * lastLoggedTxn.  The Txn may be used by multiple threads so
+<i class="no-highlight">710</i>&nbsp;                 * ensure that the view we get is consistent. [#17204]
+<i class="no-highlight">711</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">712</i>&nbsp;                synchronized (txn) {</b>
+<b class="fc"><i class="no-highlight">713</i>&nbsp;                    item = envImpl.getLogManager().log(params);</b>
+<b class="fc"><i class="no-highlight">714</i>&nbsp;                }</b>
+<i class="no-highlight">715</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">716</i>&nbsp;                item = envImpl.getLogManager().log(params);</b>
+<i class="no-highlight">717</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">718</i>&nbsp;        } catch (Throwable e) {</b>
+<i class="no-highlight">719</i>&nbsp;            /*
+<i class="no-highlight">720</i>&nbsp;             * If any exception occurs while logging an LN, ensure that the
+<i class="no-highlight">721</i>&nbsp;             * environment is invalidated. This will also ensure that the txn
+<i class="no-highlight">722</i>&nbsp;             * cannot be committed.
+<i class="no-highlight">723</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">724</i>&nbsp;            if (envImpl.isValid()) {</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                throw new EnvironmentFailureException(</b>
+<i class="no-highlight">726</i>&nbsp;                    envImpl, EnvironmentFailureReason.LOG_INCOMPLETE,
+<i class="no-highlight">727</i>&nbsp;                    &quot;LN could not be logged&quot;, e);
+<i class="no-highlight">728</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">729</i>&nbsp;                throw e;</b>
+<i class="no-highlight">730</i>&nbsp;            }
+<i class="no-highlight">731</i>&nbsp;        } finally {
+<i class="no-highlight">732</i>&nbsp;
+<i class="no-highlight">733</i>&nbsp;            /*
+<i class="no-highlight">734</i>&nbsp;             * Guarantee that if logging fails, we won&#39;t have a dirty LN in
+<i class="no-highlight">735</i>&nbsp;             * the Btree.  This avoids incorrect assertions in other threads.
+<i class="no-highlight">736</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">737</i>&nbsp;            clearDirty();</b>
+<b class="fc"><i class="no-highlight">738</i>&nbsp;        }</b>
+<i class="no-highlight">739</i>&nbsp;
+<i class="no-highlight">740</i>&nbsp;        /**
+<i class="no-highlight">741</i>&nbsp;         * Lock the new LSN immediately after logging, with the BIN latched.
+<i class="no-highlight">742</i>&nbsp;         * Lock non-blocking, since no contention is possible on the new LSN.
+<i class="no-highlight">743</i>&nbsp;         * If the locker is transactional, a new WriteLockInfo is created for
+<i class="no-highlight">744</i>&nbsp;         * the new LSN and stored in the locker. lockResult points to that
+<i class="no-highlight">745</i>&nbsp;         * WriteLockInfo. Since this new WriteLockInfo and the WriteLockInfo
+<i class="no-highlight">746</i>&nbsp;         * given as input to this method refer to the same logical record,
+<i class="no-highlight">747</i>&nbsp;         * the info from the given WriteLockInfo is copied to the new one.
+<i class="no-highlight">748</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">749</i>&nbsp;        if (locker != null) {</b>
+<b class="fc"><i class="no-highlight">750</i>&nbsp;            final long newLsn = item.lsn;</b>
+<i class="no-highlight">751</i>&nbsp;
+<b class="fc"><i class="no-highlight">752</i>&nbsp;            final LockResult lockResult = locker.nonBlockingLock(</b>
+<i class="no-highlight">753</i>&nbsp;                newLsn, LockType.WRITE, false /*jumpAheadOfWaiters*/, dbImpl);
+<i class="no-highlight">754</i>&nbsp;
+<b class="fc"><i class="no-highlight">755</i>&nbsp;            assert lockResult.getLockGrant() != LockGrantType.DENIED :</b>
+<b class="nc"><i class="no-highlight">756</i>&nbsp;                   DbLsn.getNoFormatString(newLsn);</b>
+<i class="no-highlight">757</i>&nbsp;
+<b class="fc"><i class="no-highlight">758</i>&nbsp;            lockResult.copyWriteLockInfo(writeLockInfo);</b>
+<i class="no-highlight">759</i>&nbsp;        }
+<i class="no-highlight">760</i>&nbsp;
+<i class="no-highlight">761</i>&nbsp;        /* In a dup DB, do not expect embedded LNs or non-empty data. */
+<b class="fc"><i class="no-highlight">762</i>&nbsp;        if (dbImpl.getSortedDuplicates() &amp;&amp;</b>
+<i class="no-highlight">763</i>&nbsp;            (newEmbeddedLN || (data != null &amp;&amp; data.length &gt; 0))) {
+<i class="no-highlight">764</i>&nbsp;
+<b class="nc"><i class="no-highlight">765</i>&nbsp;            throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">766</i>&nbsp;                envImpl,
+<i class="no-highlight">767</i>&nbsp;                &quot;[#25288] emb=&quot; + newEmbeddedLN +
+<b class="nc"><i class="no-highlight">768</i>&nbsp;                &quot; key=&quot; + Key.getNoFormatString(newKey) +</b>
+<b class="nc"><i class="no-highlight">769</i>&nbsp;                &quot; data=&quot; + Key.getNoFormatString(data) +</b>
+<b class="nc"><i class="no-highlight">770</i>&nbsp;                &quot; vlsn=&quot; + item.header.getVLSN() +</b>
+<b class="nc"><i class="no-highlight">771</i>&nbsp;                &quot; lsn=&quot; + DbLsn.getNoFormatString(currLsn));</b>
+<i class="no-highlight">772</i>&nbsp;        }
+<i class="no-highlight">773</i>&nbsp;
+<b class="fc"><i class="no-highlight">774</i>&nbsp;        return item;</b>
+<i class="no-highlight">775</i>&nbsp;    }
+<i class="no-highlight">776</i>&nbsp;
+<i class="no-highlight">777</i>&nbsp;    /*
+<i class="no-highlight">778</i>&nbsp;     * Each LN knows what kind of log entry it uses to log itself. Overridden
+<i class="no-highlight">779</i>&nbsp;     * by subclasses.
+<i class="no-highlight">780</i>&nbsp;     */
+<i class="no-highlight">781</i>&nbsp;    LNLogEntry&lt;?&gt; createLogEntry(
+<i class="no-highlight">782</i>&nbsp;        LogEntryType entryType,
+<i class="no-highlight">783</i>&nbsp;        DatabaseImpl dbImpl,
+<i class="no-highlight">784</i>&nbsp;        Txn txn,
+<i class="no-highlight">785</i>&nbsp;        long abortLsn,
+<i class="no-highlight">786</i>&nbsp;        boolean abortKD,
+<i class="no-highlight">787</i>&nbsp;        byte[] abortKey,
+<i class="no-highlight">788</i>&nbsp;        byte[] abortData,
+<i class="no-highlight">789</i>&nbsp;        long abortVLSN,
+<i class="no-highlight">790</i>&nbsp;        int abortExpiration,
+<i class="no-highlight">791</i>&nbsp;        boolean abortExpirationInHours,
+<i class="no-highlight">792</i>&nbsp;        byte[] newKey,
+<i class="no-highlight">793</i>&nbsp;        boolean newEmbeddedLN,
+<i class="no-highlight">794</i>&nbsp;        int newExpiration,
+<i class="no-highlight">795</i>&nbsp;        boolean newExpirationInHours,
+<i class="no-highlight">796</i>&nbsp;        ReplicationContext repContext) {
+<i class="no-highlight">797</i>&nbsp;
+<b class="fc"><i class="no-highlight">798</i>&nbsp;        return new LNLogEntry&lt;LN&gt;(</b>
+<b class="fc"><i class="no-highlight">799</i>&nbsp;            entryType, dbImpl.getId(), txn,</b>
+<i class="no-highlight">800</i>&nbsp;            abortLsn, abortKD, abortKey, abortData, abortVLSN,
+<i class="no-highlight">801</i>&nbsp;            abortExpiration, abortExpirationInHours,
+<i class="no-highlight">802</i>&nbsp;            newKey, this, newEmbeddedLN, newExpiration, newExpirationInHours);
+<i class="no-highlight">803</i>&nbsp;    }
+<i class="no-highlight">804</i>&nbsp;
+<i class="no-highlight">805</i>&nbsp;    /**
+<i class="no-highlight">806</i>&nbsp;     * @see Node#incFetchStats
+<i class="no-highlight">807</i>&nbsp;     */
+<i class="no-highlight">808</i>&nbsp;    @Override
+<i class="no-highlight">809</i>&nbsp;    void incFetchStats(EnvironmentImpl envImpl, boolean isMiss) {
+<b class="fc"><i class="no-highlight">810</i>&nbsp;        envImpl.getEvictor().incLNFetchStats(isMiss);</b>
+<b class="fc"><i class="no-highlight">811</i>&nbsp;    }</b>
+<i class="no-highlight">812</i>&nbsp;
+<i class="no-highlight">813</i>&nbsp;    /**
+<i class="no-highlight">814</i>&nbsp;     * @see Node#getGenericLogType
+<i class="no-highlight">815</i>&nbsp;     */
+<i class="no-highlight">816</i>&nbsp;    @Override
+<i class="no-highlight">817</i>&nbsp;    public LogEntryType getGenericLogType() {
+<b class="nc"><i class="no-highlight">818</i>&nbsp;        return getLogType(true, false, null);</b>
+<i class="no-highlight">819</i>&nbsp;    }
+<i class="no-highlight">820</i>&nbsp;
+<i class="no-highlight">821</i>&nbsp;    protected LogEntryType getLogType(
+<i class="no-highlight">822</i>&nbsp;        boolean isInsert,
+<i class="no-highlight">823</i>&nbsp;        boolean isTransactional,
+<i class="no-highlight">824</i>&nbsp;        DatabaseImpl db) {
+<i class="no-highlight">825</i>&nbsp;
+<b class="fc"><i class="no-highlight">826</i>&nbsp;        if (db != null) {</b>
+<b class="fc"><i class="no-highlight">827</i>&nbsp;            LogEntryType type = db.getDbType().getLogType();</b>
+<b class="fc"><i class="no-highlight">828</i>&nbsp;            if (type != null) {</b>
+<b class="nc"><i class="no-highlight">829</i>&nbsp;                return type;</b>
+<i class="no-highlight">830</i>&nbsp;            }
+<i class="no-highlight">831</i>&nbsp;        }
+<i class="no-highlight">832</i>&nbsp;
+<b class="fc"><i class="no-highlight">833</i>&nbsp;        if (isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">834</i>&nbsp;            assert !isInsert;</b>
+<b class="nc"><i class="no-highlight">835</i>&nbsp;            return isTransactional ?</b>
+<i class="no-highlight">836</i>&nbsp;                   LogEntryType.LOG_DEL_LN_TRANSACTIONAL :
+<i class="no-highlight">837</i>&nbsp;                   LogEntryType.LOG_DEL_LN;
+<i class="no-highlight">838</i>&nbsp;        }
+<i class="no-highlight">839</i>&nbsp;
+<b class="fc"><i class="no-highlight">840</i>&nbsp;        if (isInsert) {</b>
+<b class="fc"><i class="no-highlight">841</i>&nbsp;            return isTransactional ?</b>
+<i class="no-highlight">842</i>&nbsp;                LogEntryType.LOG_INS_LN_TRANSACTIONAL :
+<i class="no-highlight">843</i>&nbsp;                LogEntryType.LOG_INS_LN;
+<i class="no-highlight">844</i>&nbsp;        }
+<i class="no-highlight">845</i>&nbsp;
+<b class="fc"><i class="no-highlight">846</i>&nbsp;        return isTransactional ?</b>
+<i class="no-highlight">847</i>&nbsp;            LogEntryType.LOG_UPD_LN_TRANSACTIONAL :
+<i class="no-highlight">848</i>&nbsp;            LogEntryType.LOG_UPD_LN;
+<i class="no-highlight">849</i>&nbsp;    }
+<i class="no-highlight">850</i>&nbsp;
+<i class="no-highlight">851</i>&nbsp;    /**
+<i class="no-highlight">852</i>&nbsp;     * The first time we optionally-log an LN in a DeferredWrite database,
+<i class="no-highlight">853</i>&nbsp;     * oldLsn will be NULL_LSN and we&#39;ll assign a new transient LSN.  When we
+<i class="no-highlight">854</i>&nbsp;     * do subsequent optional-log operations, the old LSN will be non-null and
+<i class="no-highlight">855</i>&nbsp;     * to conserve transient LSNs we&#39;ll continue to use the previously assigned
+<i class="no-highlight">856</i>&nbsp;     * LSN rather than assigning a new one.  And of course, when old LSN is
+<i class="no-highlight">857</i>&nbsp;     * persistent we&#39;ll continue to use it.
+<i class="no-highlight">858</i>&nbsp;     *
+<i class="no-highlight">859</i>&nbsp;     * If locker is non-null, this method write-locks the new LSN, whether it
+<i class="no-highlight">860</i>&nbsp;     * has been assigned by this method or not.
+<i class="no-highlight">861</i>&nbsp;     */
+<i class="no-highlight">862</i>&nbsp;    private long assignTransientLsn(EnvironmentImpl envImpl,
+<i class="no-highlight">863</i>&nbsp;                                    DatabaseImpl dbImpl,
+<i class="no-highlight">864</i>&nbsp;                                    long oldLsn,
+<i class="no-highlight">865</i>&nbsp;                                    Locker locker) {
+<i class="no-highlight">866</i>&nbsp;        final long newLsn;
+<b class="nc"><i class="no-highlight">867</i>&nbsp;        if (oldLsn != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">868</i>&nbsp;            newLsn = oldLsn;</b>
+<i class="no-highlight">869</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">870</i>&nbsp;            newLsn = envImpl.getNodeSequence().getNextTransientLsn();</b>
+<i class="no-highlight">871</i>&nbsp;        }
+<i class="no-highlight">872</i>&nbsp;
+<i class="no-highlight">873</i>&nbsp;        /**
+<i class="no-highlight">874</i>&nbsp;         * Lock immediately after assigning a new LSN, with the BIN latched.
+<i class="no-highlight">875</i>&nbsp;         * Lock non-blocking, since no contention is possible on the new LSN.
+<i class="no-highlight">876</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">877</i>&nbsp;        if (locker != null) {</b>
+<b class="nc"><i class="no-highlight">878</i>&nbsp;            final LockResult lockResult = locker.nonBlockingLock(</b>
+<i class="no-highlight">879</i>&nbsp;                newLsn, LockType.WRITE, false /*jumpAheadOfWaiters*/, dbImpl);
+<i class="no-highlight">880</i>&nbsp;
+<b class="nc"><i class="no-highlight">881</i>&nbsp;            assert lockResult.getLockGrant() != LockGrantType.DENIED :</b>
+<b class="nc"><i class="no-highlight">882</i>&nbsp;                   DbLsn.getNoFormatString(newLsn);</b>
+<i class="no-highlight">883</i>&nbsp;        }
+<i class="no-highlight">884</i>&nbsp;
+<b class="nc"><i class="no-highlight">885</i>&nbsp;        return newLsn;</b>
+<i class="no-highlight">886</i>&nbsp;    }
+<i class="no-highlight">887</i>&nbsp;
+<i class="no-highlight">888</i>&nbsp;    /**
+<i class="no-highlight">889</i>&nbsp;     * @see VersionedWriteLoggable#getLastFormatChange
+<i class="no-highlight">890</i>&nbsp;     */
+<i class="no-highlight">891</i>&nbsp;    @Override
+<i class="no-highlight">892</i>&nbsp;    public int getLastFormatChange() {
+<b class="nc"><i class="no-highlight">893</i>&nbsp;        return LAST_FORMAT_CHANGE;</b>
+<i class="no-highlight">894</i>&nbsp;    }
+<i class="no-highlight">895</i>&nbsp;
+<i class="no-highlight">896</i>&nbsp;    @Override
+<i class="no-highlight">897</i>&nbsp;    public Collection&lt;VersionedWriteLoggable&gt; getEmbeddedLoggables() {
+<b class="nc"><i class="no-highlight">898</i>&nbsp;        return Collections.emptyList();</b>
+<i class="no-highlight">899</i>&nbsp;    }
+<i class="no-highlight">900</i>&nbsp;
+<i class="no-highlight">901</i>&nbsp;    @Override
+<i class="no-highlight">902</i>&nbsp;    public int getLogSize() {
+<b class="nc"><i class="no-highlight">903</i>&nbsp;        return getLogSize(LogEntryType.LOG_VERSION, false /*forReplication*/);</b>
+<i class="no-highlight">904</i>&nbsp;    }
+<i class="no-highlight">905</i>&nbsp;
+<i class="no-highlight">906</i>&nbsp;    @Override
+<i class="no-highlight">907</i>&nbsp;    public void writeToLog(final ByteBuffer logBuffer) {
+<b class="nc"><i class="no-highlight">908</i>&nbsp;        writeToLog(</b>
+<i class="no-highlight">909</i>&nbsp;            logBuffer, LogEntryType.LOG_VERSION, false /*forReplication*/);
+<b class="nc"><i class="no-highlight">910</i>&nbsp;    }</b>
+<i class="no-highlight">911</i>&nbsp;
+<i class="no-highlight">912</i>&nbsp;    @Override
+<i class="no-highlight">913</i>&nbsp;    public int getLogSize(final int logVersion, final boolean forReplication) {
+<b class="fc"><i class="no-highlight">914</i>&nbsp;        return calcLogSize(isDeleted() ? -1 : data.length);</b>
+<i class="no-highlight">915</i>&nbsp;    }
+<i class="no-highlight">916</i>&nbsp;
+<i class="no-highlight">917</i>&nbsp;    /**
+<i class="no-highlight">918</i>&nbsp;     * Calculates log size based on given dataLen, which is negative to
+<i class="no-highlight">919</i>&nbsp;     * calculate the size of a deleted LN.
+<i class="no-highlight">920</i>&nbsp;     */
+<i class="no-highlight">921</i>&nbsp;    private int calcLogSize(int dataLen) {
+<i class="no-highlight">922</i>&nbsp;
+<b class="fc"><i class="no-highlight">923</i>&nbsp;        int size = 0;</b>
+<i class="no-highlight">924</i>&nbsp;
+<b class="fc"><i class="no-highlight">925</i>&nbsp;        if (dataLen &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">926</i>&nbsp;            size += LogUtils.getPackedIntLogSize(-1);</b>
+<i class="no-highlight">927</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">928</i>&nbsp;            size += LogUtils.getPackedIntLogSize(dataLen);</b>
+<b class="fc"><i class="no-highlight">929</i>&nbsp;            size += dataLen;</b>
+<i class="no-highlight">930</i>&nbsp;        }
+<i class="no-highlight">931</i>&nbsp;
+<b class="fc"><i class="no-highlight">932</i>&nbsp;        return size;</b>
+<i class="no-highlight">933</i>&nbsp;    }
+<i class="no-highlight">934</i>&nbsp;
+<i class="no-highlight">935</i>&nbsp;    @Override
+<i class="no-highlight">936</i>&nbsp;    public void writeToLog(final ByteBuffer logBuffer,
+<i class="no-highlight">937</i>&nbsp;                           final int logVersion,
+<i class="no-highlight">938</i>&nbsp;                           final boolean forReplication) {
+<i class="no-highlight">939</i>&nbsp;
+<b class="fc"><i class="no-highlight">940</i>&nbsp;        if (isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">941</i>&nbsp;            LogUtils.writePackedInt(logBuffer, -1);</b>
+<i class="no-highlight">942</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">943</i>&nbsp;            LogUtils.writePackedInt(logBuffer, data.length);</b>
+<b class="fc"><i class="no-highlight">944</i>&nbsp;            LogUtils.writeBytesNoLength(logBuffer, data);</b>
+<i class="no-highlight">945</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">946</i>&nbsp;    }</b>
+<i class="no-highlight">947</i>&nbsp;
+<i class="no-highlight">948</i>&nbsp;    @Override
+<i class="no-highlight">949</i>&nbsp;    public void readFromLog(ByteBuffer itemBuffer, int entryVersion) {
+<i class="no-highlight">950</i>&nbsp;
+<b class="fc"><i class="no-highlight">951</i>&nbsp;        if (entryVersion &lt; 8) {</b>
+<i class="no-highlight">952</i>&nbsp;            /* Discard node ID from older version entry. */
+<b class="nc"><i class="no-highlight">953</i>&nbsp;            LogUtils.readLong(itemBuffer, entryVersion &lt; 6 /*unpacked*/);</b>
+<i class="no-highlight">954</i>&nbsp;        }
+<i class="no-highlight">955</i>&nbsp;
+<b class="fc"><i class="no-highlight">956</i>&nbsp;        if (entryVersion &lt; 6) {</b>
+<b class="nc"><i class="no-highlight">957</i>&nbsp;            boolean dataExists = LogUtils.readBoolean(itemBuffer);</b>
+<b class="nc"><i class="no-highlight">958</i>&nbsp;            if (dataExists) {</b>
+<b class="nc"><i class="no-highlight">959</i>&nbsp;                data = LogUtils.readByteArray(itemBuffer, true/*unpacked*/);</b>
+<i class="no-highlight">960</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">961</i>&nbsp;        } else {</b>
+<b class="fc"><i class="no-highlight">962</i>&nbsp;            int size = LogUtils.readInt(itemBuffer, false/*unpacked*/);</b>
+<b class="fc"><i class="no-highlight">963</i>&nbsp;            if (size &gt;= 0) {</b>
+<b class="fc"><i class="no-highlight">964</i>&nbsp;                data = LogUtils.readBytesNoLength(itemBuffer, size);</b>
+<i class="no-highlight">965</i>&nbsp;            }
+<i class="no-highlight">966</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">967</i>&nbsp;    }</b>
+<i class="no-highlight">968</i>&nbsp;
+<i class="no-highlight">969</i>&nbsp;    @Override
+<i class="no-highlight">970</i>&nbsp;    public boolean hasReplicationFormat() {
+<b class="nc"><i class="no-highlight">971</i>&nbsp;        return false;</b>
+<i class="no-highlight">972</i>&nbsp;    }
+<i class="no-highlight">973</i>&nbsp;
+<i class="no-highlight">974</i>&nbsp;    @Override
+<i class="no-highlight">975</i>&nbsp;    public boolean isReplicationFormatWorthwhile(final ByteBuffer logBuffer,
+<i class="no-highlight">976</i>&nbsp;                                                 final int srcVersion,
+<i class="no-highlight">977</i>&nbsp;                                                 final int destVersion) {
+<b class="nc"><i class="no-highlight">978</i>&nbsp;        return false;</b>
+<i class="no-highlight">979</i>&nbsp;    }
+<i class="no-highlight">980</i>&nbsp;
+<i class="no-highlight">981</i>&nbsp;    public boolean logicalEquals(Loggable other) {
+<i class="no-highlight">982</i>&nbsp;
+<b class="nc"><i class="no-highlight">983</i>&nbsp;        if (!(other instanceof LN)) {</b>
+<b class="nc"><i class="no-highlight">984</i>&nbsp;            return false;</b>
+<i class="no-highlight">985</i>&nbsp;        }
+<i class="no-highlight">986</i>&nbsp;
+<b class="nc"><i class="no-highlight">987</i>&nbsp;        LN otherLN = (LN) other;</b>
+<i class="no-highlight">988</i>&nbsp;
+<b class="nc"><i class="no-highlight">989</i>&nbsp;        if (!Arrays.equals(getData(), otherLN.getData())) {</b>
+<b class="nc"><i class="no-highlight">990</i>&nbsp;            return false;</b>
+<i class="no-highlight">991</i>&nbsp;        }
+<i class="no-highlight">992</i>&nbsp;
+<b class="nc"><i class="no-highlight">993</i>&nbsp;        return true;</b>
+<i class="no-highlight">994</i>&nbsp;    }
+<i class="no-highlight">995</i>&nbsp;
+<i class="no-highlight">996</i>&nbsp;    @Override
+<i class="no-highlight">997</i>&nbsp;    public void dumpLog(StringBuilder sb, boolean verbose) {
+<b class="nc"><i class="no-highlight">998</i>&nbsp;        sb.append(beginTag());</b>
+<i class="no-highlight">999</i>&nbsp;
+<b class="nc"><i class="no-highlight">1000</i>&nbsp;        if (data != null) {</b>
+<b class="nc"><i class="no-highlight">1001</i>&nbsp;            sb.append(&quot;&lt;data&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">1002</i>&nbsp;            if (verbose) {</b>
+<b class="nc"><i class="no-highlight">1003</i>&nbsp;                sb.append(Key.DUMP_TYPE.dumpByteArray(data));</b>
+<i class="no-highlight">1004</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;                sb.append(&quot;hidden&quot;);</b>
+<i class="no-highlight">1006</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1007</i>&nbsp;            sb.append(&quot;&lt;/data&gt;&quot;);</b>
+<i class="no-highlight">1008</i>&nbsp;        }
+<i class="no-highlight">1009</i>&nbsp;
+<b class="nc"><i class="no-highlight">1010</i>&nbsp;        dumpLogAdditional(sb, verbose);</b>
+<i class="no-highlight">1011</i>&nbsp;
+<b class="nc"><i class="no-highlight">1012</i>&nbsp;        sb.append(endTag());</b>
+<b class="nc"><i class="no-highlight">1013</i>&nbsp;    }</b>
+<i class="no-highlight">1014</i>&nbsp;
+<i class="no-highlight">1015</i>&nbsp;    public void dumpKey(StringBuilder sb, byte[] key) {
+<b class="nc"><i class="no-highlight">1016</i>&nbsp;        sb.append(Key.dumpString(key, 0));</b>
+<b class="nc"><i class="no-highlight">1017</i>&nbsp;    }</b>
+<i class="no-highlight">1018</i>&nbsp;
+<i class="no-highlight">1019</i>&nbsp;    /*
+<i class="no-highlight">1020</i>&nbsp;     * Allows subclasses to add additional fields before the end tag.
+<i class="no-highlight">1021</i>&nbsp;     */
+<i class="no-highlight">1022</i>&nbsp;    protected void dumpLogAdditional(StringBuilder sb,
+<i class="no-highlight">1023</i>&nbsp;                                     @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">1024</i>&nbsp;                                     boolean verbose) {
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;    }</b>
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;    /**
+<i class="no-highlight">1028</i>&nbsp;     * Account for FileSummaryLN&#39;s extra marshaled memory. [#17462]
+<i class="no-highlight">1029</i>&nbsp;     */
+<i class="no-highlight">1030</i>&nbsp;    public void addExtraMarshaledMemorySize(BIN parentBIN) {
+<i class="no-highlight">1031</i>&nbsp;        /* Do nothing here.  Overwridden in FileSummaryLN. */
+<b class="fc"><i class="no-highlight">1032</i>&nbsp;    }</b>
+<i class="no-highlight">1033</i>&nbsp;
+<i class="no-highlight">1034</i>&nbsp;    /*
+<i class="no-highlight">1035</i>&nbsp;     * DatabaseEntry utilities
+<i class="no-highlight">1036</i>&nbsp;     */
+<i class="no-highlight">1037</i>&nbsp;
+<i class="no-highlight">1038</i>&nbsp;    /**
+<i class="no-highlight">1039</i>&nbsp;     * Copies the non-deleted LN&#39;s byte array to the entry.  Does not support
+<i class="no-highlight">1040</i>&nbsp;     * partial data.
+<i class="no-highlight">1041</i>&nbsp;     */
+<i class="no-highlight">1042</i>&nbsp;    public void setEntry(DatabaseEntry entry) {
+<b class="nc"><i class="no-highlight">1043</i>&nbsp;        assert !isDeleted();</b>
+<b class="nc"><i class="no-highlight">1044</i>&nbsp;        int len = data.length;</b>
+<b class="nc"><i class="no-highlight">1045</i>&nbsp;        byte[] bytes = new byte[len];</b>
+<b class="nc"><i class="no-highlight">1046</i>&nbsp;        System.arraycopy(data, 0, bytes, 0, len);</b>
+<b class="nc"><i class="no-highlight">1047</i>&nbsp;        entry.setData(bytes);</b>
+<b class="nc"><i class="no-highlight">1048</i>&nbsp;    }</b>
+<i class="no-highlight">1049</i>&nbsp;
+<i class="no-highlight">1050</i>&nbsp;    /**
+<i class="no-highlight">1051</i>&nbsp;     * Copies the given byte array to the given destination entry, copying only
+<i class="no-highlight">1052</i>&nbsp;     * partial data if the entry is specified to be partial.  If the byte array
+<i class="no-highlight">1053</i>&nbsp;     * is null, clears the entry.
+<i class="no-highlight">1054</i>&nbsp;     */
+<i class="no-highlight">1055</i>&nbsp;    public static void setEntry(DatabaseEntry dest, byte[] bytes) {
+<i class="no-highlight">1056</i>&nbsp;
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;        if (bytes != null) {</b>
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;            boolean partial = dest.getPartial();</b>
+<b class="nc"><i class="no-highlight">1059</i>&nbsp;            int off = partial ? dest.getPartialOffset() : 0;</b>
+<b class="nc"><i class="no-highlight">1060</i>&nbsp;            int len = partial ? dest.getPartialLength() : bytes.length;</b>
+<b class="nc"><i class="no-highlight">1061</i>&nbsp;            if (off + len &gt; bytes.length) {</b>
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;                len = (off &gt; bytes.length) ? 0 : bytes.length  - off;</b>
+<i class="no-highlight">1063</i>&nbsp;            }
+<i class="no-highlight">1064</i>&nbsp;
+<b class="nc"><i class="no-highlight">1065</i>&nbsp;            byte[] newdata = null;</b>
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;            if (len == 0) {</b>
+<b class="nc"><i class="no-highlight">1067</i>&nbsp;                newdata = LogUtils.ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">1068</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;                newdata = new byte[len];</b>
+<b class="nc"><i class="no-highlight">1070</i>&nbsp;                System.arraycopy(bytes, off, newdata, 0, len);</b>
+<i class="no-highlight">1071</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1072</i>&nbsp;            dest.setData(newdata);</b>
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;            dest.setOffset(0);</b>
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;            dest.setSize(len);</b>
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">1076</i>&nbsp;            dest.setData(null);</b>
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;            dest.setOffset(0);</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;            dest.setSize(0);</b>
+<i class="no-highlight">1079</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1080</i>&nbsp;    }</b>
+<i class="no-highlight">1081</i>&nbsp;
+<i class="no-highlight">1082</i>&nbsp;
+<i class="no-highlight">1083</i>&nbsp;    /**
+<i class="no-highlight">1084</i>&nbsp;     * Copies the given source entry to the given destination entry, copying
+<i class="no-highlight">1085</i>&nbsp;     * only partial data if the destination entry is specified to be partial. 
+<i class="no-highlight">1086</i>&nbsp;     */
+<i class="no-highlight">1087</i>&nbsp;    public static void setEntry(DatabaseEntry dest, DatabaseEntry src) {
+<i class="no-highlight">1088</i>&nbsp;
+<b class="nc"><i class="no-highlight">1089</i>&nbsp;        if (src.getData() != null) {</b>
+<b class="nc"><i class="no-highlight">1090</i>&nbsp;            byte[] srcBytes = src.getData();</b>
+<b class="nc"><i class="no-highlight">1091</i>&nbsp;            boolean partial = dest.getPartial();</b>
+<b class="nc"><i class="no-highlight">1092</i>&nbsp;            int off = partial ? dest.getPartialOffset() : 0;</b>
+<b class="nc"><i class="no-highlight">1093</i>&nbsp;            int len = partial ? dest.getPartialLength() : srcBytes.length;</b>
+<b class="nc"><i class="no-highlight">1094</i>&nbsp;            if (off + len &gt; srcBytes.length) {</b>
+<b class="nc"><i class="no-highlight">1095</i>&nbsp;                len = (off &gt; srcBytes.length) ? 0 : srcBytes.length  - off;</b>
+<i class="no-highlight">1096</i>&nbsp;            }
+<i class="no-highlight">1097</i>&nbsp;
+<b class="nc"><i class="no-highlight">1098</i>&nbsp;            byte[] newdata = null;</b>
+<b class="nc"><i class="no-highlight">1099</i>&nbsp;            if (len == 0) {</b>
+<b class="nc"><i class="no-highlight">1100</i>&nbsp;                newdata = LogUtils.ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">1101</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1102</i>&nbsp;                newdata = new byte[len];</b>
+<b class="nc"><i class="no-highlight">1103</i>&nbsp;                System.arraycopy(srcBytes, off, newdata, 0, len);</b>
+<i class="no-highlight">1104</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;            dest.setData(newdata);</b>
+<b class="nc"><i class="no-highlight">1106</i>&nbsp;            dest.setOffset(0);</b>
+<b class="nc"><i class="no-highlight">1107</i>&nbsp;            dest.setSize(len);</b>
+<b class="nc"><i class="no-highlight">1108</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">1109</i>&nbsp;            dest.setData(null);</b>
+<b class="nc"><i class="no-highlight">1110</i>&nbsp;            dest.setOffset(0);</b>
+<b class="nc"><i class="no-highlight">1111</i>&nbsp;            dest.setSize(0);</b>
+<i class="no-highlight">1112</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1113</i>&nbsp;    }</b>
+<i class="no-highlight">1114</i>&nbsp;
+<i class="no-highlight">1115</i>&nbsp;    /**
+<i class="no-highlight">1116</i>&nbsp;     * Returns a byte array that is a complete copy of the data in a
+<i class="no-highlight">1117</i>&nbsp;     * non-partial entry.
+<i class="no-highlight">1118</i>&nbsp;     */
+<i class="no-highlight">1119</i>&nbsp;    public static byte[] copyEntryData(DatabaseEntry entry) {
+<b class="fc"><i class="no-highlight">1120</i>&nbsp;        assert !entry.getPartial();</b>
+<b class="fc"><i class="no-highlight">1121</i>&nbsp;        int len = entry.getSize();</b>
+<b class="fc"><i class="no-highlight">1122</i>&nbsp;        final byte[] newData =</b>
+<i class="no-highlight">1123</i>&nbsp;            (len == 0) ? LogUtils.ZERO_LENGTH_BYTE_ARRAY : (new byte[len]);
+<b class="fc"><i class="no-highlight">1124</i>&nbsp;        System.arraycopy(entry.getData(), entry.getOffset(),</b>
+<i class="no-highlight">1125</i>&nbsp;                         newData, 0, len);
+<b class="fc"><i class="no-highlight">1126</i>&nbsp;        return newData;</b>
+<i class="no-highlight">1127</i>&nbsp;    }
+<i class="no-highlight">1128</i>&nbsp;
+<i class="no-highlight">1129</i>&nbsp;    /**
+<i class="no-highlight">1130</i>&nbsp;     * Merges the partial entry with the given byte array, effectively applying
+<i class="no-highlight">1131</i>&nbsp;     * a partial entry to an existing record, and returns a enw byte array.
+<i class="no-highlight">1132</i>&nbsp;     */
+<i class="no-highlight">1133</i>&nbsp;    public static byte[] resolvePartialEntry(DatabaseEntry entry,
+<i class="no-highlight">1134</i>&nbsp;                                             byte[] foundDataBytes ) {
+<b class="nc"><i class="no-highlight">1135</i>&nbsp;        assert foundDataBytes != null;</b>
+<b class="nc"><i class="no-highlight">1136</i>&nbsp;        final int dlen = entry.getPartialLength();</b>
+<b class="nc"><i class="no-highlight">1137</i>&nbsp;        final int doff = entry.getPartialOffset();</b>
+<b class="nc"><i class="no-highlight">1138</i>&nbsp;        final int origlen = foundDataBytes.length;</b>
+<b class="nc"><i class="no-highlight">1139</i>&nbsp;        final int oldlen = (doff + dlen &gt; origlen) ? (doff + dlen) : origlen;</b>
+<b class="nc"><i class="no-highlight">1140</i>&nbsp;        final int len = oldlen - dlen + entry.getSize();</b>
+<i class="no-highlight">1141</i>&nbsp;
+<i class="no-highlight">1142</i>&nbsp;        final byte[] newData;
+<b class="nc"><i class="no-highlight">1143</i>&nbsp;        if (len == 0) {</b>
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;            newData = LogUtils.ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">1145</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1146</i>&nbsp;            newData = new byte[len];</b>
+<i class="no-highlight">1147</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1148</i>&nbsp;        int pos = 0;</b>
+<i class="no-highlight">1149</i>&nbsp;
+<i class="no-highlight">1150</i>&nbsp;        /* Keep 0..doff of the old data (truncating if doff &gt; length). */
+<b class="nc"><i class="no-highlight">1151</i>&nbsp;        int slicelen = (doff &lt; origlen) ? doff : origlen;</b>
+<b class="nc"><i class="no-highlight">1152</i>&nbsp;        if (slicelen &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1153</i>&nbsp;            System.arraycopy(foundDataBytes, 0, newData, pos, slicelen);</b>
+<i class="no-highlight">1154</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1155</i>&nbsp;        pos += doff;</b>
+<i class="no-highlight">1156</i>&nbsp;
+<i class="no-highlight">1157</i>&nbsp;        /* Copy in the new data. */
+<b class="nc"><i class="no-highlight">1158</i>&nbsp;        slicelen = entry.getSize();</b>
+<b class="nc"><i class="no-highlight">1159</i>&nbsp;        System.arraycopy(entry.getData(), entry.getOffset(), newData, pos,</b>
+<i class="no-highlight">1160</i>&nbsp;                         slicelen);
+<b class="nc"><i class="no-highlight">1161</i>&nbsp;        pos += slicelen;</b>
+<i class="no-highlight">1162</i>&nbsp;
+<i class="no-highlight">1163</i>&nbsp;        /* Append the rest of the old data (if any). */
+<b class="nc"><i class="no-highlight">1164</i>&nbsp;        slicelen = origlen - (doff + dlen);</b>
+<b class="nc"><i class="no-highlight">1165</i>&nbsp;        if (slicelen &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1166</i>&nbsp;            System.arraycopy(foundDataBytes, doff + dlen, newData, pos,</b>
+<i class="no-highlight">1167</i>&nbsp;                             slicelen);
+<i class="no-highlight">1168</i>&nbsp;        }
+<i class="no-highlight">1169</i>&nbsp;
+<b class="nc"><i class="no-highlight">1170</i>&nbsp;        return newData;</b>
+<i class="no-highlight">1171</i>&nbsp;    }
+<i class="no-highlight">1172</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

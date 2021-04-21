@@ -1,0 +1,381 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SimpleCatalog</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.persist.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: SimpleCatalog (com.sleepycat.persist.impl)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">SimpleCatalog</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/22)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/119)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.persist.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">18</i>&nbsp;import java.util.IdentityHashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.List;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;import java.util.NoSuchElementException;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.compat.DbCompat;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.persist.raw.RawObject;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.util.ClassResolver;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;/**
+<i class="no-highlight">28</i>&nbsp; * A static catalog containing simple types only.  Once created, this catalog
+<i class="no-highlight">29</i>&nbsp; * is immutable.
+<i class="no-highlight">30</i>&nbsp; *
+<i class="no-highlight">31</i>&nbsp; * For bindings accessed by a PersistComparator during recovery, the
+<i class="no-highlight">32</i>&nbsp; * SimpleCatalog provides formats for all simple types.  To reduce redundant
+<i class="no-highlight">33</i>&nbsp; * format objects, the SimpleCatalog&#39;s formats are copied when creating a
+<i class="no-highlight">34</i>&nbsp; * regular PersistCatalog.
+<i class="no-highlight">35</i>&nbsp; *
+<i class="no-highlight">36</i>&nbsp; * This class also contains utility methods for dealing with primitives.
+<i class="no-highlight">37</i>&nbsp; *
+<i class="no-highlight">38</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">39</i>&nbsp; */
+<b class="nc"><i class="no-highlight">40</i>&nbsp;public class SimpleCatalog implements Catalog {</b>
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;    private static final Map&lt;String, Class&gt; keywordToPrimitive;
+<i class="no-highlight">43</i>&nbsp;    static {
+<b class="nc"><i class="no-highlight">44</i>&nbsp;        keywordToPrimitive = new HashMap&lt;String, Class&gt;(8);</b>
+<b class="nc"><i class="no-highlight">45</i>&nbsp;        keywordToPrimitive.put(&quot;boolean&quot;, Boolean.TYPE);</b>
+<b class="nc"><i class="no-highlight">46</i>&nbsp;        keywordToPrimitive.put(&quot;char&quot;, Character.TYPE);</b>
+<b class="nc"><i class="no-highlight">47</i>&nbsp;        keywordToPrimitive.put(&quot;byte&quot;, Byte.TYPE);</b>
+<b class="nc"><i class="no-highlight">48</i>&nbsp;        keywordToPrimitive.put(&quot;short&quot;, Short.TYPE);</b>
+<b class="nc"><i class="no-highlight">49</i>&nbsp;        keywordToPrimitive.put(&quot;int&quot;, Integer.TYPE);</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        keywordToPrimitive.put(&quot;long&quot;, Long.TYPE);</b>
+<b class="nc"><i class="no-highlight">51</i>&nbsp;        keywordToPrimitive.put(&quot;float&quot;, Float.TYPE);</b>
+<b class="nc"><i class="no-highlight">52</i>&nbsp;        keywordToPrimitive.put(&quot;double&quot;, Double.TYPE);</b>
+<i class="no-highlight">53</i>&nbsp;    }
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    private static final Map&lt;Class, Class&gt; primitiveTypeToWrapper;
+<i class="no-highlight">56</i>&nbsp;    static {
+<b class="nc"><i class="no-highlight">57</i>&nbsp;        primitiveTypeToWrapper = new HashMap&lt;Class, Class&gt;(8);</b>
+<b class="nc"><i class="no-highlight">58</i>&nbsp;        primitiveTypeToWrapper.put(Boolean.TYPE, Boolean.class);</b>
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        primitiveTypeToWrapper.put(Character.TYPE, Character.class);</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;        primitiveTypeToWrapper.put(Byte.TYPE, Byte.class);</b>
+<b class="nc"><i class="no-highlight">61</i>&nbsp;        primitiveTypeToWrapper.put(Short.TYPE, Short.class);</b>
+<b class="nc"><i class="no-highlight">62</i>&nbsp;        primitiveTypeToWrapper.put(Integer.TYPE, Integer.class);</b>
+<b class="nc"><i class="no-highlight">63</i>&nbsp;        primitiveTypeToWrapper.put(Long.TYPE, Long.class);</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;        primitiveTypeToWrapper.put(Float.TYPE, Float.class);</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;        primitiveTypeToWrapper.put(Double.TYPE, Double.class);</b>
+<i class="no-highlight">66</i>&nbsp;    }
+<i class="no-highlight">67</i>&nbsp;
+<b class="nc"><i class="no-highlight">68</i>&nbsp;    private static final SimpleCatalog instance = new SimpleCatalog(null);</b>
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    static boolean isSimpleType(Class type) {
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        return instance.formatMap.containsKey(type.getName());</b>
+<i class="no-highlight">72</i>&nbsp;    }
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    static Class primitiveToWrapper(Class type) {
+<b class="nc"><i class="no-highlight">75</i>&nbsp;        Class cls = primitiveTypeToWrapper.get(type);</b>
+<b class="nc"><i class="no-highlight">76</i>&nbsp;        if (cls == null) {</b>
+<b class="nc"><i class="no-highlight">77</i>&nbsp;            throw DbCompat.unexpectedState(type.getName());</b>
+<i class="no-highlight">78</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">79</i>&nbsp;        return cls;</b>
+<i class="no-highlight">80</i>&nbsp;    }
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    public static Class resolveClass(String className, ClassLoader loader)
+<i class="no-highlight">83</i>&nbsp;        throws ClassNotFoundException {
+<i class="no-highlight">84</i>&nbsp;
+<b class="nc"><i class="no-highlight">85</i>&nbsp;        Class cls = keywordToPrimitive.get(className);</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        if (cls == null) {</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;            cls = ClassResolver.resolveClass(className, loader);</b>
+<i class="no-highlight">88</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        return cls;</b>
+<i class="no-highlight">90</i>&nbsp;    }
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;    public static Class resolveKeyClass(String className, ClassLoader loader) {
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        Class cls = keywordToPrimitive.get(className);</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;        if (cls != null) {</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;            cls = primitiveTypeToWrapper.get(cls);</b>
+<i class="no-highlight">96</i>&nbsp;        } else {
+<i class="no-highlight">97</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                cls = ClassResolver.resolveClass(className, loader);</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;            } catch (ClassNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">100</i>&nbsp;                throw new IllegalArgumentException</b>
+<i class="no-highlight">101</i>&nbsp;                    (&quot;Key class not found: &quot; + className);
+<b class="nc"><i class="no-highlight">102</i>&nbsp;            }</b>
+<i class="no-highlight">103</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        return cls;</b>
+<i class="no-highlight">105</i>&nbsp;    }
+<i class="no-highlight">106</i>&nbsp;
+<i class="no-highlight">107</i>&nbsp;    public static String keyClassName(String className) {
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        Class cls = keywordToPrimitive.get(className);</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        if (cls != null) {</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;            cls = primitiveTypeToWrapper.get(cls);</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;            return cls.getName();</b>
+<i class="no-highlight">112</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">113</i>&nbsp;            return className;</b>
+<i class="no-highlight">114</i>&nbsp;        }
+<i class="no-highlight">115</i>&nbsp;    }
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    static List&lt;Format&gt; getAllSimpleFormats(ClassLoader loader) {
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        return new ArrayList&lt;Format&gt;(new SimpleCatalog(loader).formatList);</b>
+<i class="no-highlight">119</i>&nbsp;    }
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    static boolean addMissingSimpleFormats(ClassLoader loader,
+<i class="no-highlight">122</i>&nbsp;                                           List&lt;Format&gt; copyToList) {
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        boolean anyCopied = false;</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        SimpleCatalog tempCatalog = null;</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        for (int i = 0; i &lt;= Format.ID_PREDEFINED; i += 1) {</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;            final Format thisFormat = instance.formatList.get(i);</b>
+<b class="nc"><i class="no-highlight">127</i>&nbsp;            final Format otherFormat = copyToList.get(i);</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;            if (thisFormat != null &amp;&amp; otherFormat == null) {</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;                assert thisFormat.getWrapperFormat() == null;</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;                if (tempCatalog == null) {</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;                    tempCatalog = new SimpleCatalog(loader);</b>
+<i class="no-highlight">132</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">133</i>&nbsp;                copyToList.set(i, tempCatalog.formatList.get(i));</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;                anyCopied = true;</b>
+<i class="no-highlight">135</i>&nbsp;            }
+<i class="no-highlight">136</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        return anyCopied;</b>
+<i class="no-highlight">138</i>&nbsp;    }
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    private final ClassLoader classLoader;
+<i class="no-highlight">141</i>&nbsp;    private final List&lt;SimpleFormat&gt; formatList;
+<i class="no-highlight">142</i>&nbsp;    private final Map&lt;String, SimpleFormat&gt; formatMap;
+<i class="no-highlight">143</i>&nbsp;
+<b class="nc"><i class="no-highlight">144</i>&nbsp;    SimpleCatalog(final ClassLoader classLoader) {</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;        this.classLoader = classLoader;</b>
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;        /*
+<i class="no-highlight">148</i>&nbsp;         * Reserve slots for all predefined IDs, so that that next ID assigned
+<i class="no-highlight">149</i>&nbsp;         * will be Format.ID_PREDEFINED plus one.
+<i class="no-highlight">150</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        int initCapacity = Format.ID_PREDEFINED * 2;</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        formatList = new ArrayList&lt;SimpleFormat&gt;(initCapacity);</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        formatMap = new HashMap&lt;String, SimpleFormat&gt;(initCapacity);</b>
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        for (int i = 0; i &lt;= Format.ID_PREDEFINED; i += 1) {</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;            formatList.add(null);</b>
+<i class="no-highlight">157</i>&nbsp;        }
+<i class="no-highlight">158</i>&nbsp;
+<i class="no-highlight">159</i>&nbsp;        /* Initialize all predefined formats.  */
+<b class="nc"><i class="no-highlight">160</i>&nbsp;        setFormat(Format.ID_BOOL,     new SimpleFormat.FBool(this, true));</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        setFormat(Format.ID_BOOL_W,   new SimpleFormat.FBool(this, false));</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        setFormat(Format.ID_BYTE,     new SimpleFormat.FByte(this, true));</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;        setFormat(Format.ID_BYTE_W,   new SimpleFormat.FByte(this, false));</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        setFormat(Format.ID_SHORT,    new SimpleFormat.FShort(this, true));</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        setFormat(Format.ID_SHORT_W,  new SimpleFormat.FShort(this, false));</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;        setFormat(Format.ID_INT,      new SimpleFormat.FInt(this, true));</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        setFormat(Format.ID_INT_W,    new SimpleFormat.FInt(this, false));</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        setFormat(Format.ID_LONG,     new SimpleFormat.FLong(this, true));</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;        setFormat(Format.ID_LONG_W,   new SimpleFormat.FLong(this, false));</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        setFormat(Format.ID_FLOAT,    new SimpleFormat.FFloat(this, true));</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        setFormat(Format.ID_FLOAT_W,  new SimpleFormat.FFloat(this, false));</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        setFormat(Format.ID_DOUBLE,   new SimpleFormat.FDouble(this, true));</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        setFormat(Format.ID_DOUBLE_W, new SimpleFormat.FDouble(this, false));</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        setFormat(Format.ID_CHAR,     new SimpleFormat.FChar(this, true));</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;        setFormat(Format.ID_CHAR_W,   new SimpleFormat.FChar(this, false));</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        setFormat(Format.ID_STRING,   new SimpleFormat.FString(this));</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        setFormat(Format.ID_BIGINT,   new SimpleFormat.FBigInt(this));</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;        setFormat(Format.ID_BIGDEC,   new SimpleFormat.FBigDec(this));</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        setFormat(Format.ID_DATE,     new SimpleFormat.FDate(this));</b>
+<i class="no-highlight">180</i>&nbsp;
+<i class="no-highlight">181</i>&nbsp;        /* Tell primitives about their wrapper class. */
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        setWrapper(Format.ID_BOOL, Format.ID_BOOL_W);</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        setWrapper(Format.ID_BYTE, Format.ID_BYTE_W);</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        setWrapper(Format.ID_SHORT, Format.ID_SHORT_W);</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        setWrapper(Format.ID_INT, Format.ID_INT_W);</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;        setWrapper(Format.ID_LONG, Format.ID_LONG_W);</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        setWrapper(Format.ID_FLOAT, Format.ID_FLOAT_W);</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        setWrapper(Format.ID_DOUBLE, Format.ID_DOUBLE_W);</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        setWrapper(Format.ID_CHAR, Format.ID_CHAR_W);</b>
+<i class="no-highlight">190</i>&nbsp;    }
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;    /**
+<i class="no-highlight">193</i>&nbsp;     * Sets a format for which space in the formatList has been preallocated,
+<i class="no-highlight">194</i>&nbsp;     * and makes it the current format for the class.
+<i class="no-highlight">195</i>&nbsp;     */
+<i class="no-highlight">196</i>&nbsp;    private void setFormat(int id, SimpleFormat format) {
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        format.setId(id);</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        format.initializeIfNeeded(this, null /*model*/);</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        formatList.set(id, format);</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        formatMap.put(format.getClassName(), format);</b>
+<i class="no-highlight">201</i>&nbsp;    }
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    /**
+<i class="no-highlight">204</i>&nbsp;     * Tells a primitive format about the format for its corresponding
+<i class="no-highlight">205</i>&nbsp;     * primitive wrapper class.
+<i class="no-highlight">206</i>&nbsp;     */
+<i class="no-highlight">207</i>&nbsp;    private void setWrapper(int primitiveId, int wrapperId) {
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        SimpleFormat primitiveFormat = formatList.get(primitiveId);</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        SimpleFormat wrapperFormat = formatList.get(wrapperId);</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        primitiveFormat.setWrapperFormat(wrapperFormat);</b>
+<i class="no-highlight">211</i>&nbsp;    }
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;    public int getInitVersion(Format format, boolean forReader) {
+<b class="nc"><i class="no-highlight">214</i>&nbsp;        return Catalog.CURRENT_VERSION;</b>
+<i class="no-highlight">215</i>&nbsp;    }
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    public Format getFormat(int formatId, boolean expectStored) {
+<i class="no-highlight">218</i>&nbsp;        Format format;
+<i class="no-highlight">219</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">220</i>&nbsp;            format = formatList.get(formatId);</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            if (format == null) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;                throw DbCompat.unexpectedState</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;                    (&quot;Not a simple type: &quot; + formatId);</b>
+<i class="no-highlight">224</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            return format;</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        } catch (NoSuchElementException e) {</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            throw DbCompat.unexpectedState</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;                (&quot;Not a simple type: &quot; + formatId);</b>
+<i class="no-highlight">229</i>&nbsp;        }
+<i class="no-highlight">230</i>&nbsp;    }
+<i class="no-highlight">231</i>&nbsp;
+<i class="no-highlight">232</i>&nbsp;    public Format getFormat(Class cls, boolean checkEntitySubclassIndexes) {
+<b class="nc"><i class="no-highlight">233</i>&nbsp;        Format format = formatMap.get(cls.getName());</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        if (format == null) {</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;            throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                (&quot;Not a simple type: &quot; + cls.getName());</b>
+<i class="no-highlight">237</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        return format;</b>
+<i class="no-highlight">239</i>&nbsp;    }
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    public Format getFormat(String className) {
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        return formatMap.get(className);</b>
+<i class="no-highlight">243</i>&nbsp;    }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    public Format createFormat(String clsName,
+<i class="no-highlight">246</i>&nbsp;                               Map&lt;String, Format&gt; newFormats) {
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        throw DbCompat.unexpectedState();</b>
+<i class="no-highlight">248</i>&nbsp;    }
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    public Format createFormat(Class type, Map&lt;String, Format&gt; newFormats) {
+<b class="nc"><i class="no-highlight">251</i>&nbsp;        throw DbCompat.unexpectedState();</b>
+<i class="no-highlight">252</i>&nbsp;    }
+<i class="no-highlight">253</i>&nbsp;
+<i class="no-highlight">254</i>&nbsp;    public boolean isRawAccess() {
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        return false;</b>
+<i class="no-highlight">256</i>&nbsp;    }
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;    public Object convertRawObject(RawObject o, IdentityHashMap converted) {
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        throw DbCompat.unexpectedState();</b>
+<i class="no-highlight">260</i>&nbsp;    }
+<i class="no-highlight">261</i>&nbsp;
+<i class="no-highlight">262</i>&nbsp;    public Class resolveClass(String clsName)
+<i class="no-highlight">263</i>&nbsp;        throws ClassNotFoundException {
+<i class="no-highlight">264</i>&nbsp;
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        return SimpleCatalog.resolveClass(clsName, classLoader);</b>
+<i class="no-highlight">266</i>&nbsp;    }
+<i class="no-highlight">267</i>&nbsp;
+<i class="no-highlight">268</i>&nbsp;    public Class resolveKeyClass(String clsName) {
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        return SimpleCatalog.resolveKeyClass(clsName, classLoader);</b>
+<i class="no-highlight">270</i>&nbsp;    }
+<i class="no-highlight">271</i>&nbsp;    
+<i class="no-highlight">272</i>&nbsp;    /* Registering proxy is not allowed for SimpleType. */
+<i class="no-highlight">273</i>&nbsp;    public static boolean allowRegisterProxy(Class type) {
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        return !isSimpleType(type);</b>
+<i class="no-highlight">275</i>&nbsp;    }
+<i class="no-highlight">276</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

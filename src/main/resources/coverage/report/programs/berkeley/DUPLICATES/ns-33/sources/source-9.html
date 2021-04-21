@@ -1,0 +1,878 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Evolver</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.persist.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: Evolver (com.sleepycat.persist.impl)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Evolver</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/30)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/307)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.persist.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.IdentityHashMap;
+<i class="no-highlight">18</i>&nbsp;import java.util.List;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">20</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">21</i>&nbsp;import java.util.Map;
+<i class="no-highlight">22</i>&nbsp;import java.util.Set;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.compat.DbCompat;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.persist.evolve.Converter;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.persist.evolve.Deleter;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.persist.evolve.Mutation;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.persist.evolve.Mutations;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.persist.evolve.Renamer;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.persist.model.SecondaryKeyMetadata;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;/**
+<i class="no-highlight">35</i>&nbsp; * Evolves each old format that is still relevant if necessary, using Mutations
+<i class="no-highlight">36</i>&nbsp; * to configure deleters, renamers, and converters.
+<i class="no-highlight">37</i>&nbsp; *
+<i class="no-highlight">38</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">39</i>&nbsp; */
+<b class="nc"><i class="no-highlight">40</i>&nbsp;class Evolver {</b>
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;    static final int EVOLVE_NONE = 0;
+<i class="no-highlight">43</i>&nbsp;    static final int EVOLVE_NEEDED = 1;
+<i class="no-highlight">44</i>&nbsp;    static final int EVOLVE_FAILURE = 2;
+<i class="no-highlight">45</i>&nbsp;
+<i class="no-highlight">46</i>&nbsp;    private PersistCatalog catalog;
+<i class="no-highlight">47</i>&nbsp;    private String storePrefix;
+<i class="no-highlight">48</i>&nbsp;    private Mutations mutations;
+<i class="no-highlight">49</i>&nbsp;    private Map&lt;String, Format&gt; newFormats;
+<i class="no-highlight">50</i>&nbsp;    private boolean forceEvolution;
+<i class="no-highlight">51</i>&nbsp;    private boolean disallowClassChanges;
+<i class="no-highlight">52</i>&nbsp;    private boolean nestedFormatsChanged;
+<i class="no-highlight">53</i>&nbsp;    private Map&lt;Format, Format&gt; changedFormats;
+<i class="no-highlight">54</i>&nbsp;    private StringBuilder errors;
+<i class="no-highlight">55</i>&nbsp;    private Set&lt;String&gt; deleteDbs;
+<i class="no-highlight">56</i>&nbsp;    private Map&lt;String, String&gt; renameDbs;
+<i class="no-highlight">57</i>&nbsp;    private Map&lt;Format, Format&gt; renameFormats;
+<i class="no-highlight">58</i>&nbsp;    private Map&lt;Integer, Boolean&gt; evolvedFormats;
+<i class="no-highlight">59</i>&nbsp;    private List&lt;Format&gt; unprocessedFormats;
+<i class="no-highlight">60</i>&nbsp;    private Map&lt;Format, Set&lt;Format&gt;&gt; subclassMap;
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    Evolver(PersistCatalog catalog,
+<i class="no-highlight">63</i>&nbsp;            String storePrefix,
+<i class="no-highlight">64</i>&nbsp;            Mutations mutations,
+<i class="no-highlight">65</i>&nbsp;            Map&lt;String, Format&gt; newFormats,
+<i class="no-highlight">66</i>&nbsp;            boolean forceEvolution,
+<b class="nc"><i class="no-highlight">67</i>&nbsp;            boolean disallowClassChanges) {</b>
+<b class="nc"><i class="no-highlight">68</i>&nbsp;        this.catalog = catalog;</b>
+<b class="nc"><i class="no-highlight">69</i>&nbsp;        this.storePrefix = storePrefix;</b>
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        this.mutations = mutations;</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        this.newFormats = newFormats;</b>
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        this.forceEvolution = forceEvolution;</b>
+<b class="nc"><i class="no-highlight">73</i>&nbsp;        this.disallowClassChanges = disallowClassChanges;</b>
+<b class="nc"><i class="no-highlight">74</i>&nbsp;        changedFormats = new IdentityHashMap&lt;Format, Format&gt;();</b>
+<b class="nc"><i class="no-highlight">75</i>&nbsp;        errors = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">76</i>&nbsp;        deleteDbs = new HashSet&lt;String&gt;();</b>
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        renameDbs = new HashMap&lt;String, String&gt;();</b>
+<b class="nc"><i class="no-highlight">78</i>&nbsp;        renameFormats = new IdentityHashMap&lt;Format, Format&gt;();</b>
+<b class="nc"><i class="no-highlight">79</i>&nbsp;        evolvedFormats = new HashMap&lt;Integer, Boolean&gt;();</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;        unprocessedFormats = new ArrayList&lt;Format&gt;();</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;        subclassMap = catalog.getSubclassMap();</b>
+<i class="no-highlight">82</i>&nbsp;    }
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    final Mutations getMutations() {
+<b class="nc"><i class="no-highlight">85</i>&nbsp;        return mutations;</b>
+<i class="no-highlight">86</i>&nbsp;    }
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /**
+<i class="no-highlight">89</i>&nbsp;     * Returns whether any formats were changed during evolution, and therefore
+<i class="no-highlight">90</i>&nbsp;     * need to be stored in the catalog.
+<i class="no-highlight">91</i>&nbsp;     */
+<i class="no-highlight">92</i>&nbsp;    boolean areFormatsChanged() {
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        return !changedFormats.isEmpty();</b>
+<i class="no-highlight">94</i>&nbsp;    }
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    /**
+<i class="no-highlight">97</i>&nbsp;     * Returns whether the given format was changed during evolution.
+<i class="no-highlight">98</i>&nbsp;     */
+<i class="no-highlight">99</i>&nbsp;    boolean isFormatChanged(Format format) {
+<b class="nc"><i class="no-highlight">100</i>&nbsp;        return changedFormats.containsKey(format);</b>
+<i class="no-highlight">101</i>&nbsp;    }
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    private void setFormatsChanged(Format oldFormat) {
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        checkClassChangesAllowed(oldFormat);</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        changedFormats.put(oldFormat, oldFormat);</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        nestedFormatsChanged = true;</b>
+<i class="no-highlight">107</i>&nbsp;        /* PersistCatalog.expectNoClassChanges is true in unit tests only. */
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        if (PersistCatalog.expectNoClassChanges) {</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;            throw new IllegalStateException(&quot;expectNoClassChanges&quot;);</b>
+<i class="no-highlight">110</i>&nbsp;        }
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    private void checkClassChangesAllowed(Format oldFormat) {
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        if (disallowClassChanges) {</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">116</i>&nbsp;                (&quot;When performing an upgrade changes are not allowed &quot; +
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                 &quot;but were made to: &quot; + oldFormat.getClassName());</b>
+<i class="no-highlight">118</i>&nbsp;        }
+<i class="no-highlight">119</i>&nbsp;    }
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /**
+<i class="no-highlight">122</i>&nbsp;     * Returns the set of formats for a specific superclass format, or null if
+<i class="no-highlight">123</i>&nbsp;     * the superclass is not a complex type or has not subclasses.
+<i class="no-highlight">124</i>&nbsp;     */
+<i class="no-highlight">125</i>&nbsp;    Set&lt;Format&gt; getSubclassFormats(Format superFormat) {
+<b class="nc"><i class="no-highlight">126</i>&nbsp;        return subclassMap.get(superFormat);</b>
+<i class="no-highlight">127</i>&nbsp;    }
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;    /**
+<i class="no-highlight">130</i>&nbsp;     * Returns an error string if any mutations are invalid or missing, or
+<i class="no-highlight">131</i>&nbsp;     * returns null otherwise.  If non-null is returned, the store may not be
+<i class="no-highlight">132</i>&nbsp;     * opened.
+<i class="no-highlight">133</i>&nbsp;     */
+<i class="no-highlight">134</i>&nbsp;    String getErrors() {
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        if (errors.length() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;            return errors.toString() + &quot;\n---\n&quot; +</b>
+<i class="no-highlight">137</i>&nbsp;               &quot;(Note that when upgrading an application in a replicated &quot; +
+<i class="no-highlight">138</i>&nbsp;               &quot;environment, this exception may indicate that the Master &quot; +
+<i class="no-highlight">139</i>&nbsp;               &quot;was mistakenly upgraded before this Replica could be &quot; +
+<i class="no-highlight">140</i>&nbsp;               &quot;upgraded, and the solution is to upgrade this Replica.)&quot;;
+<i class="no-highlight">141</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            return null;</b>
+<i class="no-highlight">143</i>&nbsp;        }
+<i class="no-highlight">144</i>&nbsp;    }
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    /**
+<i class="no-highlight">147</i>&nbsp;     * Adds a newline and the given error.
+<i class="no-highlight">148</i>&nbsp;     */
+<i class="no-highlight">149</i>&nbsp;    private void addError(String error) {
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        if (errors.length() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;            errors.append(&quot;\n---\n&quot;);</b>
+<i class="no-highlight">152</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        errors.append(error);</b>
+<i class="no-highlight">154</i>&nbsp;    }
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;    private String getClassVersionLabel(Format format, String prefix) {
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        if (format != null) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            return prefix +</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;                   &quot; class: &quot; + format.getClassName() +</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                   &quot; version: &quot; + format.getVersion();</b>
+<i class="no-highlight">161</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            return &quot;&quot;;</b>
+<i class="no-highlight">163</i>&nbsp;        }
+<i class="no-highlight">164</i>&nbsp;    }
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;    /**
+<i class="no-highlight">167</i>&nbsp;     * Adds a specified error when no specific mutation is involved.
+<i class="no-highlight">168</i>&nbsp;     */
+<i class="no-highlight">169</i>&nbsp;    void addEvolveError(Format oldFormat,
+<i class="no-highlight">170</i>&nbsp;                        Format newFormat,
+<i class="no-highlight">171</i>&nbsp;                        String scenario,
+<i class="no-highlight">172</i>&nbsp;                        String error) {
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        checkClassChangesAllowed(oldFormat);</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        if (scenario == null) {</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            scenario = &quot;Error&quot;;</b>
+<i class="no-highlight">176</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        addError(scenario + &quot; when evolving&quot; +</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;                 getClassVersionLabel(oldFormat, &quot;&quot;) +</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                 getClassVersionLabel(newFormat, &quot; to&quot;) +</b>
+<i class="no-highlight">180</i>&nbsp;                 &quot; Error: &quot; + error);
+<i class="no-highlight">181</i>&nbsp;    }
+<i class="no-highlight">182</i>&nbsp;
+<i class="no-highlight">183</i>&nbsp;    /**
+<i class="no-highlight">184</i>&nbsp;     * Adds an error for an invalid mutation.
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    void addInvalidMutation(Format oldFormat,
+<i class="no-highlight">187</i>&nbsp;                            Format newFormat,
+<i class="no-highlight">188</i>&nbsp;                            Mutation mutation,
+<i class="no-highlight">189</i>&nbsp;                            String error) {
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        checkClassChangesAllowed(oldFormat);</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        addError(&quot;Invalid mutation: &quot; + mutation +</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;                 getClassVersionLabel(oldFormat, &quot; For&quot;) +</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;                 getClassVersionLabel(newFormat, &quot; New&quot;) +</b>
+<i class="no-highlight">194</i>&nbsp;                 &quot; Error: &quot; + error);
+<i class="no-highlight">195</i>&nbsp;    }
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    /**
+<i class="no-highlight">198</i>&nbsp;     * Adds an error for a missing mutation.
+<i class="no-highlight">199</i>&nbsp;     */
+<i class="no-highlight">200</i>&nbsp;    void addMissingMutation(Format oldFormat,
+<i class="no-highlight">201</i>&nbsp;                            Format newFormat,
+<i class="no-highlight">202</i>&nbsp;                            String error) {
+<b class="nc"><i class="no-highlight">203</i>&nbsp;        checkClassChangesAllowed(oldFormat);</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;        addError(&quot;Mutation is missing to evolve&quot; +</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                 getClassVersionLabel(oldFormat, &quot;&quot;) +</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                 getClassVersionLabel(newFormat, &quot; to&quot;) +</b>
+<i class="no-highlight">207</i>&nbsp;                 &quot; Error: &quot; + error);
+<i class="no-highlight">208</i>&nbsp;    }
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;    /**
+<i class="no-highlight">211</i>&nbsp;     * Called by PersistCatalog for all non-entity formats.
+<i class="no-highlight">212</i>&nbsp;     */
+<i class="no-highlight">213</i>&nbsp;    void addNonEntityFormat(Format oldFormat) {
+<b class="nc"><i class="no-highlight">214</i>&nbsp;        unprocessedFormats.add(oldFormat);</b>
+<i class="no-highlight">215</i>&nbsp;    }
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    /**
+<i class="no-highlight">218</i>&nbsp;     * Called by PersistCatalog after calling evolveFormat or
+<i class="no-highlight">219</i>&nbsp;     * addNonEntityFormat for all old formats.
+<i class="no-highlight">220</i>&nbsp;     *
+<i class="no-highlight">221</i>&nbsp;     * We do not require deletion of an unreferenced class for two
+<i class="no-highlight">222</i>&nbsp;     * reasons: 1) built-in proxy classes may not be referenced, 2) the
+<i class="no-highlight">223</i>&nbsp;     * user may wish to declare persistent classes that are not yet used.
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    void finishEvolution() {
+<i class="no-highlight">226</i>&nbsp;        /* Process unreferenced classes. */
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        for (Format oldFormat : unprocessedFormats) {</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;            oldFormat.setUnused(true);</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;            evolveFormat(oldFormat);</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;        }</b>
+<i class="no-highlight">231</i>&nbsp;    }
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;    /**
+<i class="no-highlight">234</i>&nbsp;     * Called by PersistCatalog for all entity formats, and by Format.evolve
+<i class="no-highlight">235</i>&nbsp;     * methods for all potentially referenced non-entity formats.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    boolean evolveFormat(Format oldFormat) {
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        if (oldFormat.isNew()) {</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            return true;</b>
+<i class="no-highlight">240</i>&nbsp;        }
+<i class="no-highlight">241</i>&nbsp;        boolean result;
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        Format oldEntityFormat = oldFormat.getEntityFormat();</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        boolean trackEntityChanges = oldEntityFormat != null;</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        boolean saveNestedFormatsChanged = nestedFormatsChanged;</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        if (trackEntityChanges) {</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            nestedFormatsChanged = false;</b>
+<i class="no-highlight">247</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        Integer oldFormatId = oldFormat.getId();</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        if (evolvedFormats.containsKey(oldFormatId)) {</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            result = evolvedFormats.get(oldFormatId);</b>
+<i class="no-highlight">251</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">252</i>&nbsp;            evolvedFormats.put(oldFormatId, true);</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;            result = evolveFormatInternal(oldFormat);</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            evolvedFormats.put(oldFormatId, result);</b>
+<i class="no-highlight">255</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        if (oldFormat.getLatestVersion().isNew()) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            nestedFormatsChanged = true;</b>
+<i class="no-highlight">258</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        if (trackEntityChanges) {</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            if (nestedFormatsChanged) {</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                Format latest = oldEntityFormat.getLatestVersion();</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;                if (latest != null) {</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;                    latest.setEvolveNeeded(true);</b>
+<i class="no-highlight">264</i>&nbsp;                }
+<i class="no-highlight">265</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">266</i>&nbsp;            nestedFormatsChanged = saveNestedFormatsChanged;</b>
+<i class="no-highlight">267</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        return result;</b>
+<i class="no-highlight">269</i>&nbsp;    }
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;    /**
+<i class="no-highlight">272</i>&nbsp;     * Tries to evolve a given existing format to the current version of the
+<i class="no-highlight">273</i>&nbsp;     * class and returns false if an invalid mutation is encountered or the
+<i class="no-highlight">274</i>&nbsp;     * configured mutations are not sufficient.
+<i class="no-highlight">275</i>&nbsp;     */
+<i class="no-highlight">276</i>&nbsp;    private boolean evolveFormatInternal(Format oldFormat) {
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;        /* Predefined formats and deleted classes never need evolving. */
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        if (Format.isPredefined(oldFormat) || oldFormat.isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;            return true;</b>
+<i class="no-highlight">281</i>&nbsp;        }
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;        /* Get class mutations. */
+<b class="nc"><i class="no-highlight">284</i>&nbsp;        String oldName = oldFormat.getClassName();</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        int oldVersion = oldFormat.getVersion();</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        Renamer renamer = mutations.getRenamer(oldName, oldVersion, null);</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        Deleter deleter = mutations.getDeleter(oldName, oldVersion, null);</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        Converter converter =</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            mutations.getConverter(oldName, oldVersion, null);</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        if (deleter != null &amp;&amp; (converter != null || renamer != null)) {</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                (oldFormat, null, deleter,</b>
+<i class="no-highlight">293</i>&nbsp;                 &quot;Class Deleter not allowed along with a Renamer or &quot; +
+<i class="no-highlight">294</i>&nbsp;                 &quot;Converter for the same class&quot;);
+<b class="nc"><i class="no-highlight">295</i>&nbsp;            return false;</b>
+<i class="no-highlight">296</i>&nbsp;        }
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;        /*
+<i class="no-highlight">299</i>&nbsp;         * For determining the new name, arrays get special treatment.  The
+<i class="no-highlight">300</i>&nbsp;         * component format is evolved in the process, and we disallow muations
+<i class="no-highlight">301</i>&nbsp;         * for arrays.
+<i class="no-highlight">302</i>&nbsp;         */
+<i class="no-highlight">303</i>&nbsp;        String newName;
+<b class="nc"><i class="no-highlight">304</i>&nbsp;        if (oldFormat.isArray()) {</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            if (deleter != null || converter != null || renamer != null) {</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;                Mutation mutation = (deleter != null) ? deleter :</b>
+<i class="no-highlight">307</i>&nbsp;                    ((converter != null) ? converter : renamer);
+<b class="nc"><i class="no-highlight">308</i>&nbsp;                addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;                    (oldFormat, null, mutation,</b>
+<i class="no-highlight">310</i>&nbsp;                     &quot;Mutations not allowed for an array&quot;);
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                return false;</b>
+<i class="no-highlight">312</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">313</i>&nbsp;            Format compFormat = oldFormat.getComponentType();</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;            if (!evolveFormat(compFormat)) {</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;                return false;</b>
+<i class="no-highlight">316</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            Format latest = compFormat.getLatestVersion();</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            if (latest != compFormat) {</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;                newName = (latest.isArray() ? &quot;[&quot; : &quot;[L&quot;) +</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;                           latest.getClassName() + &#39;;&#39;;</b>
+<i class="no-highlight">321</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">322</i>&nbsp;                newName = oldName;</b>
+<i class="no-highlight">323</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">324</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            newName = (renamer != null) ? renamer.getNewName() : oldName;</b>
+<i class="no-highlight">326</i>&nbsp;        }
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;        /* Try to get the new class format.  Save exception for later. */
+<i class="no-highlight">329</i>&nbsp;        Format newFormat;
+<i class="no-highlight">330</i>&nbsp;        String newFormatException;
+<i class="no-highlight">331</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">332</i>&nbsp;            Class newClass = catalog.resolveClass(newName);</b>
+<i class="no-highlight">333</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">334</i>&nbsp;                newFormat = catalog.createFormat(newClass, newFormats);</b>
+<b class="nc"><i class="no-highlight">335</i>&nbsp;                assert newFormat != oldFormat : newFormat.getClassName();</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;                newFormatException = null;</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;                newFormat = null;</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;                newFormatException = e.toString();</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        } catch (ClassNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            newFormat = null;</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            newFormatException = e.toString();</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;        }</b>
+<i class="no-highlight">345</i>&nbsp;
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        if (newFormat != null) {</b>
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;            /*
+<i class="no-highlight">349</i>&nbsp;             * If the old format is not the existing latest version and the new
+<i class="no-highlight">350</i>&nbsp;             * format is not an existing format, then we must evolve the latest
+<i class="no-highlight">351</i>&nbsp;             * old version to the new format first.  We cannot evolve old
+<i class="no-highlight">352</i>&nbsp;             * format to a new format that may be discarded because it is equal
+<i class="no-highlight">353</i>&nbsp;             * to the latest existing format (which will remain the current
+<i class="no-highlight">354</i>&nbsp;             * version).
+<i class="no-highlight">355</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            if (oldFormat != oldFormat.getLatestVersion() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;                newFormat.getPreviousVersion() == null) {</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;                assert newFormats.containsValue(newFormat);</b>
+<b class="nc"><i class="no-highlight">359</i>&nbsp;                Format oldLatestFormat = oldFormat.getLatestVersion();</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;                if (!evolveFormat(oldLatestFormat)) {</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;                    return false;</b>
+<i class="no-highlight">362</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">363</i>&nbsp;                if (oldLatestFormat == oldLatestFormat.getLatestVersion()) {</b>
+<i class="no-highlight">364</i>&nbsp;                    /* newFormat is no longer relevant [#21869]. */
+<b class="nc"><i class="no-highlight">365</i>&nbsp;                    newFormats.remove(newFormat.getClassName());</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                    newFormat = oldLatestFormat;</b>
+<i class="no-highlight">367</i>&nbsp;                }
+<i class="no-highlight">368</i>&nbsp;            }
+<i class="no-highlight">369</i>&nbsp;
+<i class="no-highlight">370</i>&nbsp;            /*
+<i class="no-highlight">371</i>&nbsp;             * If the old format was previously evolved to the new format
+<i class="no-highlight">372</i>&nbsp;             * (which means the new format is actually an existing format),
+<i class="no-highlight">373</i>&nbsp;             * then there is nothing to do.  This is the case where no class
+<i class="no-highlight">374</i>&nbsp;             * changes were made.
+<i class="no-highlight">375</i>&nbsp;             *
+<i class="no-highlight">376</i>&nbsp;             * However, if mutations were specified when opening the catalog
+<i class="no-highlight">377</i>&nbsp;             * that are different than the mutations last used, then we must
+<i class="no-highlight">378</i>&nbsp;             * force the re-evolution of all old formats.
+<i class="no-highlight">379</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">380</i>&nbsp;            if (!forceEvolution &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">381</i>&nbsp;                newFormat == oldFormat.getLatestVersion()) {</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;                return true;</b>
+<i class="no-highlight">383</i>&nbsp;            }
+<i class="no-highlight">384</i>&nbsp;        }
+<i class="no-highlight">385</i>&nbsp;
+<i class="no-highlight">386</i>&nbsp;        /* Apply class Renamer and continue if successful. */
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        if (renamer != null) {</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            if (!applyClassRenamer(renamer, oldFormat, newFormat)) {</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;                return false;</b>
+<i class="no-highlight">390</i>&nbsp;            }
+<i class="no-highlight">391</i>&nbsp;        }
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;        /* Apply class Converter and return. */
+<b class="nc"><i class="no-highlight">394</i>&nbsp;        if (converter != null) {</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;            if (oldFormat.isEntity()) {</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                if (newFormat == null || !newFormat.isEntity()) {</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;                    addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">398</i>&nbsp;                        (oldFormat, newFormat, converter,</b>
+<i class="no-highlight">399</i>&nbsp;                         &quot;Class converter not allowed for an entity class &quot; +
+<i class="no-highlight">400</i>&nbsp;                         &quot;that is no longer present or not having an &quot; +
+<i class="no-highlight">401</i>&nbsp;                         &quot;@Entity annotation&quot;);
+<b class="nc"><i class="no-highlight">402</i>&nbsp;                    return false;</b>
+<i class="no-highlight">403</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">404</i>&nbsp;                if (!oldFormat.evolveMetadata(newFormat, converter, this)) {</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;                    return false;</b>
+<i class="no-highlight">406</i>&nbsp;                }
+<i class="no-highlight">407</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">408</i>&nbsp;            return applyConverter(converter, oldFormat, newFormat);</b>
+<i class="no-highlight">409</i>&nbsp;        }
+<i class="no-highlight">410</i>&nbsp;
+<i class="no-highlight">411</i>&nbsp;        /* Apply class Deleter and return. */
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        boolean needDeleter =</b>
+<i class="no-highlight">413</i>&nbsp;            (newFormat == null) ||
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            (newFormat.isEntity() != oldFormat.isEntity());</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        if (deleter != null) {</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;            if (!needDeleter) {</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;                addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;                    (oldFormat, newFormat, deleter,</b>
+<i class="no-highlight">419</i>&nbsp;                     &quot;Class deleter not allowed when the class and its &quot; +
+<i class="no-highlight">420</i>&nbsp;                     &quot;@Entity or @Persistent annotation is still present&quot;);
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                return false;</b>
+<i class="no-highlight">422</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">423</i>&nbsp;            return applyClassDeleter(deleter, oldFormat, newFormat);</b>
+<i class="no-highlight">424</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">425</i>&nbsp;            if (needDeleter) {</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;                if (newFormat == null) {</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;                    assert newFormatException != null;</b>
+<i class="no-highlight">428</i>&nbsp;                    /* FindBugs newFormat known to be null excluded. */
+<b class="nc"><i class="no-highlight">429</i>&nbsp;                    addMissingMutation</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                        (oldFormat, newFormat, newFormatException);</b>
+<i class="no-highlight">431</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">432</i>&nbsp;                    addMissingMutation</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                        (oldFormat, newFormat,</b>
+<i class="no-highlight">434</i>&nbsp;                         &quot;@Entity switched to/from @Persistent&quot;);
+<i class="no-highlight">435</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">436</i>&nbsp;                return false;</b>
+<i class="no-highlight">437</i>&nbsp;            }
+<i class="no-highlight">438</i>&nbsp;        }
+<i class="no-highlight">439</i>&nbsp;
+<i class="no-highlight">440</i>&nbsp;        /*
+<i class="no-highlight">441</i>&nbsp;         * Class-level mutations have been applied.  Now apply field mutations
+<i class="no-highlight">442</i>&nbsp;         * (for complex classes) or special conversions (enum conversions, for
+<i class="no-highlight">443</i>&nbsp;         * example) by calling the old format&#39;s evolve method.
+<i class="no-highlight">444</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">445</i>&nbsp;        return oldFormat.evolve(newFormat, this);</b>
+<i class="no-highlight">446</i>&nbsp;    }
+<i class="no-highlight">447</i>&nbsp;
+<i class="no-highlight">448</i>&nbsp;    /**
+<i class="no-highlight">449</i>&nbsp;     * Use the old format and discard the new format.  Called by
+<i class="no-highlight">450</i>&nbsp;     * Format.evolve when the old and new formats are identical.
+<i class="no-highlight">451</i>&nbsp;     */
+<i class="no-highlight">452</i>&nbsp;    void useOldFormat(Format oldFormat, Format newFormat) {
+<b class="nc"><i class="no-highlight">453</i>&nbsp;        Format renamedFormat = renameFormats.get(oldFormat);</b>
+<b class="nc"><i class="no-highlight">454</i>&nbsp;        if (renamedFormat != null) {</b>
+<i class="no-highlight">455</i>&nbsp;
+<i class="no-highlight">456</i>&nbsp;            /*
+<i class="no-highlight">457</i>&nbsp;             * The format was renamed but, because this method is called, we
+<i class="no-highlight">458</i>&nbsp;             * know that no other class changes were made.  Use the new/renamed
+<i class="no-highlight">459</i>&nbsp;             * format as the reader.
+<i class="no-highlight">460</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">461</i>&nbsp;            assert renamedFormat == newFormat;</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;            useEvolvedFormat(oldFormat, renamedFormat, renamedFormat);</b>
+<b class="nc"><i class="no-highlight">463</i>&nbsp;        } else if (newFormat != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">464</i>&nbsp;                   (oldFormat.getVersion() != newFormat.getVersion() ||</b>
+<b class="nc"><i class="no-highlight">465</i>&nbsp;                    !oldFormat.isCurrentVersion())) {</b>
+<i class="no-highlight">466</i>&nbsp;
+<i class="no-highlight">467</i>&nbsp;            /*
+<i class="no-highlight">468</i>&nbsp;             * If the user wants a new version number, but ther are no other
+<i class="no-highlight">469</i>&nbsp;             * changes, we will oblige.  Or, if an attempt is being made to
+<i class="no-highlight">470</i>&nbsp;             * use an old version, then the following events happened and we
+<i class="no-highlight">471</i>&nbsp;             * must evolve the old format:
+<i class="no-highlight">472</i>&nbsp;             * 1) The (previously) latest version of the format was evolved
+<i class="no-highlight">473</i>&nbsp;             * because it is not equal to the live class version.  Note that
+<i class="no-highlight">474</i>&nbsp;             * evolveFormatInternal always evolves the latest version first.
+<i class="no-highlight">475</i>&nbsp;             * 2) We are now attempting to evolve an older version of the same
+<i class="no-highlight">476</i>&nbsp;             * format, and it happens to be equal to the live class version.
+<i class="no-highlight">477</i>&nbsp;             * However, we&#39;re already committed to the new format, and we must
+<i class="no-highlight">478</i>&nbsp;             * evolve all versions.
+<i class="no-highlight">479</i>&nbsp;             * [#16467]
+<i class="no-highlight">480</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">481</i>&nbsp;            useEvolvedFormat(oldFormat, newFormat, newFormat);</b>
+<i class="no-highlight">482</i>&nbsp;        } else {
+<i class="no-highlight">483</i>&nbsp;            /* The new format is discarded. */
+<b class="nc"><i class="no-highlight">484</i>&nbsp;            catalog.useExistingFormat(oldFormat);</b>
+<b class="nc"><i class="no-highlight">485</i>&nbsp;            if (newFormat != null) {</b>
+<b class="nc"><i class="no-highlight">486</i>&nbsp;                newFormats.remove(newFormat.getClassName());</b>
+<i class="no-highlight">487</i>&nbsp;            }
+<i class="no-highlight">488</i>&nbsp;        }
+<i class="no-highlight">489</i>&nbsp;    }
+<i class="no-highlight">490</i>&nbsp;
+<i class="no-highlight">491</i>&nbsp;    /**
+<i class="no-highlight">492</i>&nbsp;     * Install an evolver Reader in the old format.  Called by Format.evolve
+<i class="no-highlight">493</i>&nbsp;     * when the old and new formats are not identical.
+<i class="no-highlight">494</i>&nbsp;     */
+<i class="no-highlight">495</i>&nbsp;    void useEvolvedFormat(Format oldFormat,
+<i class="no-highlight">496</i>&nbsp;                          Reader evolveReader,
+<i class="no-highlight">497</i>&nbsp;                          Format newFormat) {
+<b class="nc"><i class="no-highlight">498</i>&nbsp;        oldFormat.setReader(evolveReader);</b>
+<b class="nc"><i class="no-highlight">499</i>&nbsp;        if (newFormat != null) {</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;            oldFormat.setLatestVersion(newFormat);</b>
+<i class="no-highlight">501</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">502</i>&nbsp;        setFormatsChanged(oldFormat);</b>
+<i class="no-highlight">503</i>&nbsp;    }
+<i class="no-highlight">504</i>&nbsp;
+<i class="no-highlight">505</i>&nbsp;    private boolean applyClassRenamer(Renamer renamer,
+<i class="no-highlight">506</i>&nbsp;                                      Format oldFormat,
+<i class="no-highlight">507</i>&nbsp;                                      Format newFormat) {
+<b class="nc"><i class="no-highlight">508</i>&nbsp;        if (!checkUpdatedVersion(renamer, oldFormat, newFormat)) {</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;            return false;</b>
+<i class="no-highlight">510</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">511</i>&nbsp;        if (oldFormat.isEntity() &amp;&amp; oldFormat.isCurrentVersion()) {</b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;            String newClassName = newFormat.getClassName();</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;            String oldClassName = oldFormat.getClassName();</b>
+<i class="no-highlight">514</i>&nbsp;            /* Queue the renaming of the primary and secondary databases. */
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            renameDbs.put</b>
+<b class="nc"><i class="no-highlight">516</i>&nbsp;                (Store.makePriDbName(storePrefix, oldClassName),</b>
+<b class="nc"><i class="no-highlight">517</i>&nbsp;                 Store.makePriDbName(storePrefix, newClassName));</b>
+<i class="no-highlight">518</i>&nbsp;            for (SecondaryKeyMetadata keyMeta :
+<b class="nc"><i class="no-highlight">519</i>&nbsp;                 oldFormat.getEntityMetadata().getSecondaryKeys().values()) {</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;                String keyName = keyMeta.getKeyName();</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;                renameDbs.put</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;                    (Store.makeSecDbName(storePrefix, oldClassName, keyName),</b>
+<b class="nc"><i class="no-highlight">523</i>&nbsp;                     Store.makeSecDbName(storePrefix, newClassName, keyName));</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;            }</b>
+<i class="no-highlight">525</i>&nbsp;        }
+<i class="no-highlight">526</i>&nbsp;
+<i class="no-highlight">527</i>&nbsp;        /*
+<i class="no-highlight">528</i>&nbsp;         * Link the old format to the renamed format so that we can detect the
+<i class="no-highlight">529</i>&nbsp;         * rename in useOldFormat.
+<i class="no-highlight">530</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">531</i>&nbsp;        renameFormats.put(oldFormat, newFormat);</b>
+<i class="no-highlight">532</i>&nbsp;
+<b class="nc"><i class="no-highlight">533</i>&nbsp;        setFormatsChanged(oldFormat);</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;        return true;</b>
+<i class="no-highlight">535</i>&nbsp;    }
+<i class="no-highlight">536</i>&nbsp;
+<i class="no-highlight">537</i>&nbsp;    /**
+<i class="no-highlight">538</i>&nbsp;     * Called by ComplexFormat when a secondary key name is changed.
+<i class="no-highlight">539</i>&nbsp;     */
+<i class="no-highlight">540</i>&nbsp;    void renameSecondaryDatabase(String oldEntityClass,
+<i class="no-highlight">541</i>&nbsp;                                 String newEntityClass,
+<i class="no-highlight">542</i>&nbsp;                                 String oldKeyName,
+<i class="no-highlight">543</i>&nbsp;                                 String newKeyName) {
+<b class="nc"><i class="no-highlight">544</i>&nbsp;        renameDbs.put</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;            (Store.makeSecDbName(storePrefix, oldEntityClass, oldKeyName),</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;             Store.makeSecDbName(storePrefix, newEntityClass, newKeyName));</b>
+<i class="no-highlight">547</i>&nbsp;    }
+<i class="no-highlight">548</i>&nbsp;
+<i class="no-highlight">549</i>&nbsp;    private boolean applyClassDeleter(Deleter deleter,
+<i class="no-highlight">550</i>&nbsp;                                      Format oldFormat,
+<i class="no-highlight">551</i>&nbsp;                                      Format newFormat) {
+<b class="nc"><i class="no-highlight">552</i>&nbsp;        if (!checkUpdatedVersion(deleter, oldFormat, newFormat)) {</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            return false;</b>
+<i class="no-highlight">554</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">555</i>&nbsp;        if (oldFormat.isEntity() &amp;&amp; oldFormat.isCurrentVersion()) {</b>
+<i class="no-highlight">556</i>&nbsp;            /* Queue the deletion of the primary and secondary databases. */
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            String className = oldFormat.getClassName();</b>
+<b class="nc"><i class="no-highlight">558</i>&nbsp;            deleteDbs.add(Store.makePriDbName(storePrefix, className));</b>
+<i class="no-highlight">559</i>&nbsp;            for (SecondaryKeyMetadata keyMeta :
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                 oldFormat.getEntityMetadata().getSecondaryKeys().values()) {</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;                deleteDbs.add(Store.makeSecDbName</b>
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                    (storePrefix, className, keyMeta.getKeyName()));</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;            }</b>
+<i class="no-highlight">564</i>&nbsp;        }
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;        /*
+<i class="no-highlight">567</i>&nbsp;         * Set the format to deleted last, so that the above test using
+<i class="no-highlight">568</i>&nbsp;         * isCurrentVersion works properly.
+<i class="no-highlight">569</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">570</i>&nbsp;        oldFormat.setDeleted(true);</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;        if (newFormat != null) {</b>
+<b class="nc"><i class="no-highlight">572</i>&nbsp;            oldFormat.setLatestVersion(newFormat);</b>
+<i class="no-highlight">573</i>&nbsp;        }
+<i class="no-highlight">574</i>&nbsp;
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        setFormatsChanged(oldFormat);</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;        return true;</b>
+<i class="no-highlight">577</i>&nbsp;    }
+<i class="no-highlight">578</i>&nbsp;
+<i class="no-highlight">579</i>&nbsp;    /**
+<i class="no-highlight">580</i>&nbsp;     * Called by ComplexFormat when a secondary key is dropped.
+<i class="no-highlight">581</i>&nbsp;     */
+<i class="no-highlight">582</i>&nbsp;    void deleteSecondaryDatabase(String oldEntityClass, String keyName) {
+<b class="nc"><i class="no-highlight">583</i>&nbsp;        deleteDbs.add(Store.makeSecDbName</b>
+<b class="nc"><i class="no-highlight">584</i>&nbsp;            (storePrefix, oldEntityClass, keyName));</b>
+<i class="no-highlight">585</i>&nbsp;    }
+<i class="no-highlight">586</i>&nbsp;
+<i class="no-highlight">587</i>&nbsp;    private boolean applyConverter(Converter converter,
+<i class="no-highlight">588</i>&nbsp;                                   Format oldFormat,
+<i class="no-highlight">589</i>&nbsp;                                   Format newFormat) {
+<b class="nc"><i class="no-highlight">590</i>&nbsp;        if (!checkUpdatedVersion(converter, oldFormat, newFormat)) {</b>
+<b class="nc"><i class="no-highlight">591</i>&nbsp;            return false;</b>
+<i class="no-highlight">592</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">593</i>&nbsp;        Reader reader = new ConverterReader(converter);</b>
+<b class="nc"><i class="no-highlight">594</i>&nbsp;        useEvolvedFormat(oldFormat, reader, newFormat);</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;        return true;</b>
+<i class="no-highlight">596</i>&nbsp;    }
+<i class="no-highlight">597</i>&nbsp;
+<i class="no-highlight">598</i>&nbsp;    boolean isClassConverted(Format format) {
+<b class="nc"><i class="no-highlight">599</i>&nbsp;        return format.getReader() instanceof ConverterReader;</b>
+<i class="no-highlight">600</i>&nbsp;    }
+<i class="no-highlight">601</i>&nbsp;
+<i class="no-highlight">602</i>&nbsp;    private boolean checkUpdatedVersion(Mutation mutation,
+<i class="no-highlight">603</i>&nbsp;                                        Format oldFormat,
+<i class="no-highlight">604</i>&nbsp;                                        Format newFormat) {
+<b class="nc"><i class="no-highlight">605</i>&nbsp;        if (newFormat != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">606</i>&nbsp;            !oldFormat.isEnum() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            newFormat.getVersion() &lt;= oldFormat.getVersion()) {</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;                (oldFormat, newFormat, mutation,</b>
+<i class="no-highlight">610</i>&nbsp;                 &quot;A new higher version number must be assigned&quot;);
+<b class="nc"><i class="no-highlight">611</i>&nbsp;            return false;</b>
+<i class="no-highlight">612</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">613</i>&nbsp;            return true;</b>
+<i class="no-highlight">614</i>&nbsp;        }
+<i class="no-highlight">615</i>&nbsp;    }
+<i class="no-highlight">616</i>&nbsp;
+<i class="no-highlight">617</i>&nbsp;    boolean checkUpdatedVersion(String scenario,
+<i class="no-highlight">618</i>&nbsp;                                Format oldFormat,
+<i class="no-highlight">619</i>&nbsp;                                Format newFormat) {
+<b class="nc"><i class="no-highlight">620</i>&nbsp;        if (newFormat != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">621</i>&nbsp;            !oldFormat.isEnum() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;            newFormat.getVersion() &lt;= oldFormat.getVersion()) {</b>
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            addEvolveError</b>
+<b class="nc"><i class="no-highlight">624</i>&nbsp;                (oldFormat, newFormat, scenario,</b>
+<i class="no-highlight">625</i>&nbsp;                 &quot;A new higher version number must be assigned&quot;);
+<b class="nc"><i class="no-highlight">626</i>&nbsp;            return false;</b>
+<i class="no-highlight">627</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">628</i>&nbsp;            return true;</b>
+<i class="no-highlight">629</i>&nbsp;        }
+<i class="no-highlight">630</i>&nbsp;    }
+<i class="no-highlight">631</i>&nbsp;
+<i class="no-highlight">632</i>&nbsp;    void renameAndRemoveDatabases(Store store, Transaction txn)
+<i class="no-highlight">633</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">634</i>&nbsp;
+<b class="nc"><i class="no-highlight">635</i>&nbsp;        for (String dbName : deleteDbs) {</b>
+<b class="nc"><i class="no-highlight">636</i>&nbsp;            String[] fileAndDbNames = store.parseDbName(dbName);</b>
+<i class="no-highlight">637</i>&nbsp;            /* Do nothing if database does not exist. */
+<b class="nc"><i class="no-highlight">638</i>&nbsp;            DbCompat.removeDatabase</b>
+<b class="nc"><i class="no-highlight">639</i>&nbsp;                (store.getEnvironment(), txn,</b>
+<i class="no-highlight">640</i>&nbsp;                 fileAndDbNames[0], fileAndDbNames[1]);
+<b class="nc"><i class="no-highlight">641</i>&nbsp;        }</b>
+<i class="no-highlight">642</i>&nbsp;
+<i class="no-highlight">643</i>&nbsp;        /*
+<i class="no-highlight">644</i>&nbsp;         * An importunate locker must be used to rename databases, since rename
+<i class="no-highlight">645</i>&nbsp;         * with Database handles open is not currently possible.  This is the
+<i class="no-highlight">646</i>&nbsp;         * same sort of operation as performed by the HA replayer.  If the
+<i class="no-highlight">647</i>&nbsp;         * evolution (and rename here) occurs in a replication group upgrade,
+<i class="no-highlight">648</i>&nbsp;         * this will cause DatabasePreemptedException the next time the
+<i class="no-highlight">649</i>&nbsp;         * database is accessed (via the store or otherwise).  In a standalone
+<i class="no-highlight">650</i>&nbsp;         * environment, this won&#39;t happen because the database won&#39;t be open;
+<i class="no-highlight">651</i>&nbsp;         * evolve occurs before opening the database in this case.  [#16655]
+<i class="no-highlight">652</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">653</i>&nbsp;        boolean saveImportunate = false;</b>
+<b class="nc"><i class="no-highlight">654</i>&nbsp;        if (txn != null) {</b>
+<b class="nc"><i class="no-highlight">655</i>&nbsp;            saveImportunate = DbCompat.setImportunate(txn, true);</b>
+<i class="no-highlight">656</i>&nbsp;        }
+<i class="no-highlight">657</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">658</i>&nbsp;            for (Map.Entry&lt;String, String&gt; entry : renameDbs.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">659</i>&nbsp;                String oldName = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">660</i>&nbsp;                String newName = entry.getValue();</b>
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                String[] oldFileAndDbNames = store.parseDbName(oldName);</b>
+<b class="nc"><i class="no-highlight">662</i>&nbsp;                String[] newFileAndDbNames = store.parseDbName(newName);</b>
+<i class="no-highlight">663</i>&nbsp;                /* Do nothing if database does not exist. */
+<b class="nc"><i class="no-highlight">664</i>&nbsp;                DbCompat.renameDatabase</b>
+<b class="nc"><i class="no-highlight">665</i>&nbsp;                    (store.getEnvironment(), txn,</b>
+<i class="no-highlight">666</i>&nbsp;                     oldFileAndDbNames[0], oldFileAndDbNames[1],
+<i class="no-highlight">667</i>&nbsp;                     newFileAndDbNames[0], newFileAndDbNames[1]);
+<b class="nc"><i class="no-highlight">668</i>&nbsp;            }</b>
+<i class="no-highlight">669</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">670</i>&nbsp;            if (txn != null) {</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                DbCompat.setImportunate(txn, saveImportunate);</b>
+<i class="no-highlight">672</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">673</i>&nbsp;        }</b>
+<i class="no-highlight">674</i>&nbsp;    }
+<i class="no-highlight">675</i>&nbsp;
+<i class="no-highlight">676</i>&nbsp;    /**
+<i class="no-highlight">677</i>&nbsp;     * Evolves a primary key field or composite key field.
+<i class="no-highlight">678</i>&nbsp;     */
+<i class="no-highlight">679</i>&nbsp;    int evolveRequiredKeyField(Format oldParent,
+<i class="no-highlight">680</i>&nbsp;                               Format newParent,
+<i class="no-highlight">681</i>&nbsp;                               FieldInfo oldField,
+<i class="no-highlight">682</i>&nbsp;                               FieldInfo newField) {
+<b class="nc"><i class="no-highlight">683</i>&nbsp;        int result = EVOLVE_NONE;</b>
+<b class="nc"><i class="no-highlight">684</i>&nbsp;        String oldName = oldField.getName();</b>
+<b class="nc"><i class="no-highlight">685</i>&nbsp;        final String FIELD_KIND =</b>
+<i class="no-highlight">686</i>&nbsp;            &quot;primary key field or composite key class field&quot;;
+<b class="nc"><i class="no-highlight">687</i>&nbsp;        final String FIELD_LABEL =</b>
+<i class="no-highlight">688</i>&nbsp;            FIELD_KIND + &quot;: &quot; + oldName;
+<i class="no-highlight">689</i>&nbsp;
+<b class="nc"><i class="no-highlight">690</i>&nbsp;        if (newField == null) {</b>
+<b class="nc"><i class="no-highlight">691</i>&nbsp;            addMissingMutation</b>
+<b class="nc"><i class="no-highlight">692</i>&nbsp;                (oldParent, newParent,</b>
+<i class="no-highlight">693</i>&nbsp;                 &quot;Field is missing and deletion is not allowed for a &quot; +
+<i class="no-highlight">694</i>&nbsp;                 FIELD_LABEL);
+<b class="nc"><i class="no-highlight">695</i>&nbsp;            return EVOLVE_FAILURE;</b>
+<i class="no-highlight">696</i>&nbsp;        }
+<i class="no-highlight">697</i>&nbsp;
+<i class="no-highlight">698</i>&nbsp;        /* Check field mutations.  Only a Renamer is allowed. */
+<b class="nc"><i class="no-highlight">699</i>&nbsp;        Deleter deleter = mutations.getDeleter</b>
+<b class="nc"><i class="no-highlight">700</i>&nbsp;            (oldParent.getClassName(), oldParent.getVersion(), oldName);</b>
+<b class="nc"><i class="no-highlight">701</i>&nbsp;        if (deleter != null) {</b>
+<b class="nc"><i class="no-highlight">702</i>&nbsp;            addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">703</i>&nbsp;                (oldParent, newParent, deleter,</b>
+<i class="no-highlight">704</i>&nbsp;                 &quot;Deleter is not allowed for a &quot; + FIELD_LABEL);
+<b class="nc"><i class="no-highlight">705</i>&nbsp;            return EVOLVE_FAILURE;</b>
+<i class="no-highlight">706</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">707</i>&nbsp;        Converter converter = mutations.getConverter</b>
+<b class="nc"><i class="no-highlight">708</i>&nbsp;            (oldParent.getClassName(), oldParent.getVersion(), oldName);</b>
+<b class="nc"><i class="no-highlight">709</i>&nbsp;        if (converter != null) {</b>
+<b class="nc"><i class="no-highlight">710</i>&nbsp;            addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">711</i>&nbsp;                (oldParent, newParent, converter,</b>
+<i class="no-highlight">712</i>&nbsp;                 &quot;Converter is not allowed for a &quot; + FIELD_LABEL);
+<b class="nc"><i class="no-highlight">713</i>&nbsp;            return EVOLVE_FAILURE;</b>
+<i class="no-highlight">714</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">715</i>&nbsp;        Renamer renamer = mutations.getRenamer</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            (oldParent.getClassName(), oldParent.getVersion(), oldName);</b>
+<b class="nc"><i class="no-highlight">717</i>&nbsp;        String newName = newField.getName();</b>
+<b class="nc"><i class="no-highlight">718</i>&nbsp;        if (renamer != null) {</b>
+<b class="nc"><i class="no-highlight">719</i>&nbsp;            if (!renamer.getNewName().equals(newName)) {</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;                addInvalidMutation</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;                    (oldParent, newParent, converter,</b>
+<i class="no-highlight">722</i>&nbsp;                     &quot;Converter is not allowed for a &quot; + FIELD_LABEL);
+<b class="nc"><i class="no-highlight">723</i>&nbsp;                return EVOLVE_FAILURE;</b>
+<i class="no-highlight">724</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">725</i>&nbsp;            result = EVOLVE_NEEDED;</b>
+<i class="no-highlight">726</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">727</i>&nbsp;            if (!oldName.equals(newName)) {</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                addMissingMutation</b>
+<b class="nc"><i class="no-highlight">729</i>&nbsp;                    (oldParent, newParent,</b>
+<i class="no-highlight">730</i>&nbsp;                     &quot;Renamer is required when field name is changed from: &quot; +
+<i class="no-highlight">731</i>&nbsp;                     oldName + &quot; to: &quot; + newName);
+<b class="nc"><i class="no-highlight">732</i>&nbsp;                return EVOLVE_FAILURE;</b>
+<i class="no-highlight">733</i>&nbsp;            }
+<i class="no-highlight">734</i>&nbsp;        }
+<i class="no-highlight">735</i>&nbsp;
+<i class="no-highlight">736</i>&nbsp;        /*
+<i class="no-highlight">737</i>&nbsp;         * Evolve the declared version of the field format.
+<i class="no-highlight">738</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">739</i>&nbsp;        Format oldFieldFormat = oldField.getType();</b>
+<b class="nc"><i class="no-highlight">740</i>&nbsp;        if (!evolveFormat(oldFieldFormat)) {</b>
+<b class="nc"><i class="no-highlight">741</i>&nbsp;            return EVOLVE_FAILURE;</b>
+<i class="no-highlight">742</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">743</i>&nbsp;        Format oldLatestFormat = oldFieldFormat.getLatestVersion();</b>
+<b class="nc"><i class="no-highlight">744</i>&nbsp;        if (oldFieldFormat != oldLatestFormat) {</b>
+<b class="nc"><i class="no-highlight">745</i>&nbsp;            result = EVOLVE_NEEDED;</b>
+<i class="no-highlight">746</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">747</i>&nbsp;        Format newFieldFormat = newField.getType();</b>
+<i class="no-highlight">748</i>&nbsp;
+<b class="nc"><i class="no-highlight">749</i>&nbsp;        if (oldLatestFormat.getClassName().equals</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;                (newFieldFormat.getClassName())) {</b>
+<i class="no-highlight">751</i>&nbsp;            /* Formats are identical. */
+<b class="nc"><i class="no-highlight">752</i>&nbsp;            return result;</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;        } else if ((oldLatestFormat.getWrapperFormat() != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">754</i>&nbsp;                    oldLatestFormat.getWrapperFormat().getId() ==</b>
+<b class="nc"><i class="no-highlight">755</i>&nbsp;                    newFieldFormat.getId()) ||</b>
+<b class="nc"><i class="no-highlight">756</i>&nbsp;                   (newFieldFormat.getWrapperFormat() != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">757</i>&nbsp;                    newFieldFormat.getWrapperFormat().getId() ==</b>
+<b class="nc"><i class="no-highlight">758</i>&nbsp;                    oldLatestFormat.getId())) {</b>
+<i class="no-highlight">759</i>&nbsp;            /* Primitive &lt;-&gt; primitive wrapper type change. */
+<b class="nc"><i class="no-highlight">760</i>&nbsp;            return EVOLVE_NEEDED;</b>
+<i class="no-highlight">761</i>&nbsp;        } else {
+<i class="no-highlight">762</i>&nbsp;            /* Type was changed incompatibly. */
+<b class="nc"><i class="no-highlight">763</i>&nbsp;            addEvolveError</b>
+<b class="nc"><i class="no-highlight">764</i>&nbsp;                (oldParent, newParent,</b>
+<i class="no-highlight">765</i>&nbsp;                 &quot;Type may not be changed for a &quot; + FIELD_KIND,
+<b class="nc"><i class="no-highlight">766</i>&nbsp;                 &quot;Old field type: &quot; + oldLatestFormat.getClassName() +</b>
+<i class="no-highlight">767</i>&nbsp;                 &quot; is not compatible with the new type: &quot; +
+<b class="nc"><i class="no-highlight">768</i>&nbsp;                 newFieldFormat.getClassName() +</b>
+<i class="no-highlight">769</i>&nbsp;                 &quot; for field: &quot; + oldName);
+<b class="nc"><i class="no-highlight">770</i>&nbsp;            return EVOLVE_FAILURE;</b>
+<i class="no-highlight">771</i>&nbsp;        }
+<i class="no-highlight">772</i>&nbsp;    }
+<i class="no-highlight">773</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

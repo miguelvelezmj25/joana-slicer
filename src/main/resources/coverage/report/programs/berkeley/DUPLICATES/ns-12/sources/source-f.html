@@ -1,0 +1,1424 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FileReader</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: FileReader (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FileReader</td>
+<td class="coverageStat">
+  <span class="percent">
+    60.7%
+  </span>
+  <span class="absValue">
+    (17/28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    39.5%
+  </span>
+  <span class="absValue">
+    (107/271)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">FileReader$EOFException</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (1/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (2/4)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">FileReader$ReadWindow</td>
+<td class="coverageStat">
+  <span class="percent">
+    63.6%
+  </span>
+  <span class="absValue">
+    (14/22)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    47.2%
+  </span>
+  <span class="absValue">
+    (51/108)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    61.5%
+  </span>
+  <span class="absValue">
+    (32/52)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    41.8%
+  </span>
+  <span class="absValue">
+    (160/383)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.FileNotFoundException;
+<i class="no-highlight">17</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">18</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">28</i>&nbsp;
+<i class="no-highlight">29</i>&nbsp;/**
+<i class="no-highlight">30</i>&nbsp; * A FileReader is an abstract class that traverses the log files, reading-in
+<i class="no-highlight">31</i>&nbsp; * chunks of the file at a time. The class provides a iterator interface, via
+<i class="no-highlight">32</i>&nbsp; * its readNextEntry() method. Concrete subclasses must (a) provide the public
+<i class="no-highlight">33</i>&nbsp; * methods that allow their users to examine the contents of the logrec that
+<i class="no-highlight">34</i>&nbsp; * the iterator is currently positioned at, and (b) implement the (non-public)
+<i class="no-highlight">35</i>&nbsp; * isTarget() and processEntry() methods that may filter-out logrecs that do
+<i class="no-highlight">36</i>&nbsp; * not need to be seen by the caller of readNextEntry(), or perform specific
+<i class="no-highlight">37</i>&nbsp; * actions before each logrec is &quot;returned&quot; to the caller of readNextEntry().
+<i class="no-highlight">38</i>&nbsp; */
+<b class="fc"><i class="no-highlight">39</i>&nbsp;public abstract class FileReader {</b>
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;    protected final EnvironmentImpl envImpl;
+<i class="no-highlight">42</i>&nbsp;
+<i class="no-highlight">43</i>&nbsp;    protected final FileManager fileManager;
+<i class="no-highlight">44</i>&nbsp;
+<i class="no-highlight">45</i>&nbsp;    /*
+<i class="no-highlight">46</i>&nbsp;     * The ReadWindow is a data buffer that acts as a sliding window view
+<i class="no-highlight">47</i>&nbsp;     * of the log. It is positioned against the log and filled up with data.
+<i class="no-highlight">48</i>&nbsp;     */
+<i class="no-highlight">49</i>&nbsp;    protected final ReadWindow window;
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    /* 
+<i class="no-highlight">52</i>&nbsp;     * For piecing together a log entry that is read from multiple read buffer
+<i class="no-highlight">53</i>&nbsp;     * calls.
+<i class="no-highlight">54</i>&nbsp;     */
+<i class="no-highlight">55</i>&nbsp;    private ByteBuffer saveBuffer;   
+<i class="no-highlight">56</i>&nbsp;
+<i class="no-highlight">57</i>&nbsp;    private final boolean singleFile;// if true, do not read across files
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /*
+<i class="no-highlight">60</i>&nbsp;     * true if at end of the log.
+<i class="no-highlight">61</i>&nbsp;     * TODO: assess whether this is redundant  with the EOFException, and
+<i class="no-highlight">62</i>&nbsp;     * could be streamlined.
+<i class="no-highlight">63</i>&nbsp;     */
+<i class="no-highlight">64</i>&nbsp;    protected boolean eof;
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /* if true, we&#39;re reading forward; otherwise backwards */
+<i class="no-highlight">67</i>&nbsp;    protected final boolean forward;   
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /* num entries we&#39;ve seen */
+<i class="no-highlight">70</i>&nbsp;    private int nRead;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    /* The log entry header for the entry that was just read. */
+<i class="no-highlight">73</i>&nbsp;    protected LogEntryHeader currentEntryHeader;
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    /*
+<i class="no-highlight">76</i>&nbsp;     * The log entry before the current entry. In general,
+<i class="no-highlight">77</i>&nbsp;     * currentEntryPrevOffset is the same as
+<i class="no-highlight">78</i>&nbsp;     * currentEntryHeader.getPrevOffset(), but it&#39;s initialized and used before
+<i class="no-highlight">79</i>&nbsp;     * a header is read. Only used for backward scanning.
+<i class="no-highlight">80</i>&nbsp;     */
+<i class="no-highlight">81</i>&nbsp;    protected long currentEntryPrevOffset;
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;    /*
+<i class="no-highlight">84</i>&nbsp;     * nextEntryOffset is used to set the currentEntryOffset after we&#39;ve read
+<i class="no-highlight">85</i>&nbsp;     * an entry. Only used for forward scanning.
+<i class="no-highlight">86</i>&nbsp;     */
+<i class="no-highlight">87</i>&nbsp;    protected long currentEntryOffset;
+<i class="no-highlight">88</i>&nbsp;    protected long nextEntryOffset;
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;    protected long startLsn;  // We start reading from this LSN.
+<i class="no-highlight">91</i>&nbsp;    private final long finishLsn; // If going backwards, read up to this LSN.
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /* For checking checksum on the read. */
+<i class="no-highlight">94</i>&nbsp;    protected ChecksumValidator cksumValidator;
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    private boolean doChecksumOnRead;       // Validate checksums
+<i class="no-highlight">97</i>&nbsp;    private boolean alwaysValidateChecksum; // Validate for all entry types
+<i class="no-highlight">98</i>&nbsp;
+<i class="no-highlight">99</i>&nbsp;    protected final Logger logger;
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    /**
+<i class="no-highlight">102</i>&nbsp;     * A FileReader just needs to know what size chunks to read in.
+<i class="no-highlight">103</i>&nbsp;     * @param endOfFileLsn indicates the end of the log file
+<i class="no-highlight">104</i>&nbsp;     */
+<i class="no-highlight">105</i>&nbsp;    public FileReader(EnvironmentImpl envImpl,
+<i class="no-highlight">106</i>&nbsp;                      int readBufferSize,
+<i class="no-highlight">107</i>&nbsp;                      boolean forward,
+<i class="no-highlight">108</i>&nbsp;                      long startLsn,
+<i class="no-highlight">109</i>&nbsp;                      Long singleFileNumber,
+<i class="no-highlight">110</i>&nbsp;                      long endOfFileLsn,
+<i class="no-highlight">111</i>&nbsp;                      long finishLsn)
+<b class="fc"><i class="no-highlight">112</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">113</i>&nbsp;
+<b class="fc"><i class="no-highlight">114</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">115</i>&nbsp;        this.fileManager = envImpl.getFileManager();</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;        this.singleFile = (singleFileNumber != null);</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;        this.forward = forward;</b>
+<i class="no-highlight">118</i>&nbsp;
+<b class="fc"><i class="no-highlight">119</i>&nbsp;        this.doChecksumOnRead = envImpl.getLogManager().getChecksumOnRead();</b>
+<b class="fc"><i class="no-highlight">120</i>&nbsp;        if (this.doChecksumOnRead) {</b>
+<b class="fc"><i class="no-highlight">121</i>&nbsp;            cksumValidator = new ChecksumValidator();</b>
+<i class="no-highlight">122</i>&nbsp;        }
+<i class="no-highlight">123</i>&nbsp;
+<b class="fc"><i class="no-highlight">124</i>&nbsp;        window = makeWindow(readBufferSize);</b>
+<b class="fc"><i class="no-highlight">125</i>&nbsp;        saveBuffer = ByteBuffer.allocate(readBufferSize);</b>
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;        /* stats */
+<b class="fc"><i class="no-highlight">128</i>&nbsp;        nRead = 0;</b>
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;        /* Determine the starting position. */
+<b class="fc"><i class="no-highlight">131</i>&nbsp;        this.startLsn = startLsn;</b>
+<b class="fc"><i class="no-highlight">132</i>&nbsp;        this.finishLsn = finishLsn;</b>
+<i class="no-highlight">133</i>&nbsp;
+<b class="fc"><i class="no-highlight">134</i>&nbsp;        logger = envImpl.getLogger();</b>
+<i class="no-highlight">135</i>&nbsp;
+<b class="fc"><i class="no-highlight">136</i>&nbsp;        initStartingPosition(endOfFileLsn, singleFileNumber);</b>
+<b class="fc"><i class="no-highlight">137</i>&nbsp;    }</b>
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    /**
+<i class="no-highlight">140</i>&nbsp;     * May be overridden by other FileReaders.
+<i class="no-highlight">141</i>&nbsp;     * @throws DatabaseException 
+<i class="no-highlight">142</i>&nbsp;     */
+<i class="no-highlight">143</i>&nbsp;    protected ReadWindow makeWindow(int readBufferSize) 
+<i class="no-highlight">144</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">145</i>&nbsp;        
+<b class="fc"><i class="no-highlight">146</i>&nbsp;        return new ReadWindow(readBufferSize, envImpl);</b>
+<i class="no-highlight">147</i>&nbsp;    }
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /**
+<i class="no-highlight">150</i>&nbsp;     * Helper for determining the starting position and opening up a file at
+<i class="no-highlight">151</i>&nbsp;     * the desired location.
+<i class="no-highlight">152</i>&nbsp;     */
+<i class="no-highlight">153</i>&nbsp;    protected void initStartingPosition(long endOfFileLsn,
+<i class="no-highlight">154</i>&nbsp;                                        Long ignoreSingleFileNumber) {
+<b class="fc"><i class="no-highlight">155</i>&nbsp;        eof = false;</b>
+<b class="fc"><i class="no-highlight">156</i>&nbsp;        if (forward) {</b>
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;            /*
+<i class="no-highlight">159</i>&nbsp;             * Start off at the startLsn. If that&#39;s null, start at the
+<i class="no-highlight">160</i>&nbsp;             * beginning of the log. If there are no log files, set eof.
+<i class="no-highlight">161</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">162</i>&nbsp;            if (startLsn != DbLsn.NULL_LSN) {</b>
+<b class="fc"><i class="no-highlight">163</i>&nbsp;                window.initAtFileStart(startLsn);</b>
+<i class="no-highlight">164</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">165</i>&nbsp;                Long firstNum = fileManager.getFirstFileNum();</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                if (firstNum == null) {</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                    eof = true;</b>
+<i class="no-highlight">168</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">169</i>&nbsp;                    window.initAtFileStart(DbLsn.makeLsn(firstNum, 0));</b>
+<i class="no-highlight">170</i>&nbsp;                }
+<i class="no-highlight">171</i>&nbsp;            }
+<i class="no-highlight">172</i>&nbsp;
+<i class="no-highlight">173</i>&nbsp;            /*
+<i class="no-highlight">174</i>&nbsp;             * After we read the first entry, the currentEntry will point here.
+<i class="no-highlight">175</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">176</i>&nbsp;            nextEntryOffset = window.getEndOffset();</b>
+<i class="no-highlight">177</i>&nbsp;        } else {
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;            /*
+<i class="no-highlight">180</i>&nbsp;             * Make the read buffer look like it&#39;s positioned off the end of
+<i class="no-highlight">181</i>&nbsp;             * the file. Initialize the first LSN we want to read. When
+<i class="no-highlight">182</i>&nbsp;             * traversing the log backwards, we always start at the very end.
+<i class="no-highlight">183</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            assert startLsn != DbLsn.NULL_LSN;</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;            window.initAtFileStart(endOfFileLsn);</b>
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;            /*
+<i class="no-highlight">188</i>&nbsp;             * currentEntryPrevOffset points to the entry we want to start out
+<i class="no-highlight">189</i>&nbsp;             * reading when going backwards. If it&#39;s 0, the entry we want to
+<i class="no-highlight">190</i>&nbsp;             * read is in a different file.
+<i class="no-highlight">191</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">192</i>&nbsp;            if (DbLsn.getFileNumber(startLsn) ==</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;                DbLsn.getFileNumber(endOfFileLsn)) {</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;                currentEntryPrevOffset = DbLsn.getFileOffset(startLsn);</b>
+<i class="no-highlight">195</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">196</i>&nbsp;                currentEntryPrevOffset = 0;</b>
+<i class="no-highlight">197</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">198</i>&nbsp;            currentEntryOffset = DbLsn.getFileOffset(endOfFileLsn);</b>
+<i class="no-highlight">199</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">200</i>&nbsp;    }</b>
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /**
+<i class="no-highlight">203</i>&nbsp;     * Whether to always validate the checksum, even for non-target entries.
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    public void setAlwaysValidateChecksum(boolean validate) {
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        alwaysValidateChecksum = validate;</b>
+<b class="fc"><i class="no-highlight">207</i>&nbsp;    }</b>
+<i class="no-highlight">208</i>&nbsp;
+<i class="no-highlight">209</i>&nbsp;    /**
+<i class="no-highlight">210</i>&nbsp;     * @return the number of entries processed by this reader.
+<i class="no-highlight">211</i>&nbsp;     */
+<i class="no-highlight">212</i>&nbsp;    public int getNumRead() {
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        return nRead;</b>
+<i class="no-highlight">214</i>&nbsp;    }
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;    public long getNRepeatIteratorReads() {
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        return window.getNRepeatIteratorReads();</b>
+<i class="no-highlight">218</i>&nbsp;    }
+<i class="no-highlight">219</i>&nbsp;
+<i class="no-highlight">220</i>&nbsp;    /**
+<i class="no-highlight">221</i>&nbsp;     * Get LSN of the last entry read.
+<i class="no-highlight">222</i>&nbsp;     */
+<i class="no-highlight">223</i>&nbsp;    public long getLastLsn() {
+<b class="fc"><i class="no-highlight">224</i>&nbsp;        return DbLsn.makeLsn(window.currentFileNum(), currentEntryOffset);</b>
+<i class="no-highlight">225</i>&nbsp;    }
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * Returns the total size (including header) of the last entry read.
+<i class="no-highlight">229</i>&nbsp;     */
+<i class="no-highlight">230</i>&nbsp;    public int getLastEntrySize() {
+<b class="fc"><i class="no-highlight">231</i>&nbsp;        return currentEntryHeader.getEntrySize();</b>
+<i class="no-highlight">232</i>&nbsp;    }
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /**
+<i class="no-highlight">235</i>&nbsp;     * Scans the log files until either it has reached the end of the log or
+<i class="no-highlight">236</i>&nbsp;     * has hit an invalid portion.
+<i class="no-highlight">237</i>&nbsp;     *
+<i class="no-highlight">238</i>&nbsp;     * @return true if an element has been read, false at end-of-log.
+<i class="no-highlight">239</i>&nbsp;     *
+<i class="no-highlight">240</i>&nbsp;     * @throws EnvironmentFailureException if a ChecksumException,
+<i class="no-highlight">241</i>&nbsp;     * FileNotFoundException, or another internal problem occurs.
+<i class="no-highlight">242</i>&nbsp;     */
+<i class="no-highlight">243</i>&nbsp;    public boolean readNextEntry() {
+<i class="no-highlight">244</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            return readNextEntryAllowExceptions();</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        } catch (FileNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            throw new EnvironmentFailureException(</b>
+<i class="no-highlight">248</i>&nbsp;                envImpl, EnvironmentFailureReason.LOG_FILE_NOT_FOUND, e);
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        } catch (ChecksumException e) {</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            throw new EnvironmentFailureException(</b>
+<i class="no-highlight">251</i>&nbsp;                envImpl, EnvironmentFailureReason.LOG_CHECKSUM, e);
+<i class="no-highlight">252</i>&nbsp;        }
+<i class="no-highlight">253</i>&nbsp;    }
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * Variant of readNextEntry that throws FileNotFoundException and
+<i class="no-highlight">257</i>&nbsp;     * ChecksumException, rather than wrapping them in an
+<i class="no-highlight">258</i>&nbsp;     * EnvironmentFailureException and invalidating the enviornment.  This
+<i class="no-highlight">259</i>&nbsp;     * allows users of this class (see cleaner.FileProcessor), and subclasses
+<i class="no-highlight">260</i>&nbsp;     * that override readNextEntry (see ScavengerFileReader and
+<i class="no-highlight">261</i>&nbsp;     * LastFileReader), to handle these exceptions specially.
+<i class="no-highlight">262</i>&nbsp;     */
+<i class="no-highlight">263</i>&nbsp;    public final boolean readNextEntryAllowExceptions()
+<i class="no-highlight">264</i>&nbsp;        throws FileNotFoundException, ChecksumException {
+<i class="no-highlight">265</i>&nbsp;
+<b class="fc"><i class="no-highlight">266</i>&nbsp;        boolean foundEntry = false;</b>
+<b class="fc"><i class="no-highlight">267</i>&nbsp;        long savedCurrentEntryOffset = currentEntryOffset;</b>
+<b class="fc"><i class="no-highlight">268</i>&nbsp;        long savedNextEntryOffset = nextEntryOffset;</b>
+<i class="no-highlight">269</i>&nbsp;
+<i class="no-highlight">270</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">271</i>&nbsp;            while ((!eof) &amp;&amp; (!foundEntry)) {</b>
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;                /* Read the invariant portion of the next header. */
+<b class="fc"><i class="no-highlight">274</i>&nbsp;                getLogEntryInReadBuffer();</b>
+<b class="fc"><i class="no-highlight">275</i>&nbsp;                ByteBuffer dataBuffer =</b>
+<b class="fc"><i class="no-highlight">276</i>&nbsp;                    readData(LogEntryHeader.MIN_HEADER_SIZE,</b>
+<i class="no-highlight">277</i>&nbsp;                             true); // collectData
+<i class="no-highlight">278</i>&nbsp;
+<b class="fc"><i class="no-highlight">279</i>&nbsp;                readBasicHeader(dataBuffer);</b>
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;                boolean isTarget;
+<i class="no-highlight">282</i>&nbsp;                boolean isChecksumTarget;
+<i class="no-highlight">283</i>&nbsp;                boolean collectData;
+<i class="no-highlight">284</i>&nbsp;
+<b class="fc"><i class="no-highlight">285</i>&nbsp;                if (currentEntryHeader.isVariableLength()) {</b>
+<i class="no-highlight">286</i>&nbsp;
+<i class="no-highlight">287</i>&nbsp;                    /*
+<i class="no-highlight">288</i>&nbsp;                     * For all variable length entries, init the checksum w/the
+<i class="no-highlight">289</i>&nbsp;                     * invariant portion of the header, before we know whether
+<i class="no-highlight">290</i>&nbsp;                     * the entry is a target for this reader.  This has
+<i class="no-highlight">291</i>&nbsp;                     * to be done before we read the variable portion of the
+<i class="no-highlight">292</i>&nbsp;                     * header, because readData() only guarantees that it
+<i class="no-highlight">293</i>&nbsp;                     * returns a dataBuffer that contains the next bytes that
+<i class="no-highlight">294</i>&nbsp;                     * are needed, and has no guarantee that it holds any bytes
+<i class="no-highlight">295</i>&nbsp;                     * that were previously read. The act of calling
+<i class="no-highlight">296</i>&nbsp;                     * readData() to obtain the optional portion may reset the
+<i class="no-highlight">297</i>&nbsp;                     * dataBuffer, and nudge the invariant part of the header
+<i class="no-highlight">298</i>&nbsp;                     * out of the buffer returned by readData()
+<i class="no-highlight">299</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">300</i>&nbsp;                    startChecksum(dataBuffer);</b>
+<i class="no-highlight">301</i>&nbsp;
+<b class="nc"><i class="no-highlight">302</i>&nbsp;                    int optionalPortionLen =</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;                        currentEntryHeader.getVariablePortionSize();</b>
+<i class="no-highlight">304</i>&nbsp;
+<i class="no-highlight">305</i>&nbsp;                    /* Load the optional part of the header into a buffer. */
+<b class="nc"><i class="no-highlight">306</i>&nbsp;                    dataBuffer = readData(optionalPortionLen, true);</b>
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;                    /*
+<i class="no-highlight">309</i>&nbsp;                     * Add to checksum while the buffer is positioned at
+<i class="no-highlight">310</i>&nbsp;                     * the start of the new bytes.
+<i class="no-highlight">311</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">312</i>&nbsp;                    addToChecksum(dataBuffer, optionalPortionLen);</b>
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;                    /* Now read the optional bytes. */
+<b class="nc"><i class="no-highlight">315</i>&nbsp;                    currentEntryHeader.readVariablePortion(dataBuffer);</b>
+<i class="no-highlight">316</i>&nbsp;                }
+<i class="no-highlight">317</i>&nbsp;
+<i class="no-highlight">318</i>&nbsp;                /*
+<i class="no-highlight">319</i>&nbsp;                 * We&#39;ve read the header of the next logrec. Move up our
+<i class="no-highlight">320</i>&nbsp;                 * offsets if we&#39;re moving forward. If we&#39;re moving
+<i class="no-highlight">321</i>&nbsp;                 * backwards, we set our offset before we read the header,
+<i class="no-highlight">322</i>&nbsp;                 * because we knew where the entry started.
+<i class="no-highlight">323</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">324</i>&nbsp;                if (forward) {</b>
+<b class="fc"><i class="no-highlight">325</i>&nbsp;                    currentEntryOffset = nextEntryOffset;</b>
+<b class="fc"><i class="no-highlight">326</i>&nbsp;                    nextEntryOffset +=</b>
+<b class="fc"><i class="no-highlight">327</i>&nbsp;                        currentEntryHeader.getSize() +    // header size</b>
+<b class="fc"><i class="no-highlight">328</i>&nbsp;                        currentEntryHeader.getItemSize(); // item size</b>
+<i class="no-highlight">329</i>&nbsp;                }
+<i class="no-highlight">330</i>&nbsp;                
+<i class="no-highlight">331</i>&nbsp;                try {
+<b class="fc"><i class="no-highlight">332</i>&nbsp;                    isTarget = isTargetEntry();</b>
+<i class="no-highlight">333</i>&nbsp;
+<b class="fc"><i class="no-highlight">334</i>&nbsp;                    isChecksumTarget = (isTarget || alwaysValidateChecksum);</b>
+<i class="no-highlight">335</i>&nbsp;
+<b class="fc"><i class="no-highlight">336</i>&nbsp;                    if (!currentEntryHeader.isVariableLength()) {</b>
+<b class="fc"><i class="no-highlight">337</i>&nbsp;                        startChecksum(dataBuffer, isChecksumTarget);</b>
+<i class="no-highlight">338</i>&nbsp;                    }
+<i class="no-highlight">339</i>&nbsp;
+<b class="fc"><i class="no-highlight">340</i>&nbsp;                    collectData =</b>
+<i class="no-highlight">341</i>&nbsp;                        (isChecksumTarget &amp;&amp; doChecksumOnRead) || isTarget;
+<i class="no-highlight">342</i>&nbsp;
+<i class="no-highlight">343</i>&nbsp;                    /*
+<i class="no-highlight">344</i>&nbsp;                     * Read in the body of the next entry. Note that even if
+<i class="no-highlight">345</i>&nbsp;                     * this isn&#39;t a targeted entry, we have to move the buffer
+<i class="no-highlight">346</i>&nbsp;                     * position along.
+<i class="no-highlight">347</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">348</i>&nbsp;                    dataBuffer = readData(currentEntryHeader.getItemSize(),</b>
+<i class="no-highlight">349</i>&nbsp;                                          collectData);
+<b class="nc"><i class="no-highlight">350</i>&nbsp;                } catch (Throwable e) {</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;                    if (forward) {</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;                        currentEntryOffset = savedCurrentEntryOffset;</b>
+<b class="nc"><i class="no-highlight">353</i>&nbsp;                        nextEntryOffset = savedNextEntryOffset;</b>
+<i class="no-highlight">354</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">355</i>&nbsp;                    throw e;</b>
+<b class="fc"><i class="no-highlight">356</i>&nbsp;                }</b>
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;                /* Validate the log entry checksum. */
+<b class="fc"><i class="no-highlight">359</i>&nbsp;                validateChecksum(dataBuffer, isChecksumTarget);</b>
+<i class="no-highlight">360</i>&nbsp;                
+<b class="fc"><i class="no-highlight">361</i>&nbsp;                if (isTarget) {</b>
+<i class="no-highlight">362</i>&nbsp;
+<i class="no-highlight">363</i>&nbsp;                    /*
+<i class="no-highlight">364</i>&nbsp;                     * For a target entry, call the subclass reader&#39;s
+<i class="no-highlight">365</i>&nbsp;                     * processEntry method to do whatever we need with the
+<i class="no-highlight">366</i>&nbsp;                     * entry.  It returns true if this entry is one that should
+<i class="no-highlight">367</i>&nbsp;                     * be returned.  Note that some entries, although targeted
+<i class="no-highlight">368</i>&nbsp;                     * and read, are not returned.
+<i class="no-highlight">369</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">370</i>&nbsp;                    if (processEntry(dataBuffer)) {</b>
+<b class="fc"><i class="no-highlight">371</i>&nbsp;                        foundEntry = true;</b>
+<b class="fc"><i class="no-highlight">372</i>&nbsp;                        nRead++;</b>
+<i class="no-highlight">373</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">374</i>&nbsp;                } else if (collectData) {</b>
+<i class="no-highlight">375</i>&nbsp;
+<i class="no-highlight">376</i>&nbsp;                    /*
+<i class="no-highlight">377</i>&nbsp;                     * For a non-target entry that was validated, the buffer is
+<i class="no-highlight">378</i>&nbsp;                     * positioned at the start of the entry; skip over it.
+<i class="no-highlight">379</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">380</i>&nbsp;                    skipEntry(dataBuffer);</b>
+<i class="no-highlight">381</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">382</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">383</i>&nbsp;        } catch (EOFException e) {</b>
+<b class="fc"><i class="no-highlight">384</i>&nbsp;            eof = true;</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            eof = true;</b>
+<i class="no-highlight">387</i>&nbsp;            /* Report on error. */
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            reportProblem(e);</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;            throw e;</b>
+<b class="fc"><i class="no-highlight">390</i>&nbsp;        }</b>
+<i class="no-highlight">391</i>&nbsp;
+<b class="fc"><i class="no-highlight">392</i>&nbsp;        return foundEntry;</b>
+<i class="no-highlight">393</i>&nbsp;    }
+<i class="no-highlight">394</i>&nbsp;
+<i class="no-highlight">395</i>&nbsp;    /**
+<i class="no-highlight">396</i>&nbsp;     * May be called by processEntry when it determines that the entry does not
+<i class="no-highlight">397</i>&nbsp;     * need to be read/de-serialized.
+<i class="no-highlight">398</i>&nbsp;     */
+<i class="no-highlight">399</i>&nbsp;    protected void skipEntry(ByteBuffer entryBuffer) {
+<b class="fc"><i class="no-highlight">400</i>&nbsp;        entryBuffer.position(</b>
+<b class="fc"><i class="no-highlight">401</i>&nbsp;            entryBuffer.position() +</b>
+<b class="fc"><i class="no-highlight">402</i>&nbsp;            currentEntryHeader.getItemSize());</b>
+<b class="fc"><i class="no-highlight">403</i>&nbsp;    }</b>
+<i class="no-highlight">404</i>&nbsp;
+<i class="no-highlight">405</i>&nbsp;    private void reportProblem(Exception e) {
+<i class="no-highlight">406</i>&nbsp;
+<b class="nc"><i class="no-highlight">407</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;        sb.append(&quot;Halted log file reading at file 0x&quot;).</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            append(Long.toHexString(window.currentFileNum())).</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            append(&quot; offset 0x&quot;).</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;            append(Long.toHexString(nextEntryOffset)).</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            append(&quot; offset(decimal)=&quot;).</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;            append(nextEntryOffset).</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            append(&quot; prev=0x&quot;).</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;            append(Long.toHexString(currentEntryPrevOffset));</b>
+<i class="no-highlight">416</i>&nbsp;
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            if (currentEntryHeader != null) {</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;                LogEntryType problemType =</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;                    LogEntryType.findType(currentEntryHeader.getType());</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            sb.append(&quot;:\nentry=&quot;).</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                append(problemType).</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;                append(&quot;type=&quot;).</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;                append(currentEntryHeader.getType()).</b>
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                append(&quot;,version=&quot;).</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;                append(currentEntryHeader.getVersion()).</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;                append(&quot;)\nprev=0x&quot;).</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;                append(Long.toHexString(currentEntryPrevOffset)).</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;                append(&quot;\nsize=&quot;).</b>
+<b class="nc"><i class="no-highlight">429</i>&nbsp;                append(currentEntryHeader.getItemSize()).</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                append(&quot;\nNext entry should be at 0x&quot;).</b>
+<b class="nc"><i class="no-highlight">431</i>&nbsp;                append(Long.toHexString(nextEntryOffset +</b>
+<b class="nc"><i class="no-highlight">432</i>&nbsp;                                               currentEntryHeader.getSize() +</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                                        currentEntryHeader.getItemSize()));</b>
+<i class="no-highlight">434</i>&nbsp;        }
+<i class="no-highlight">435</i>&nbsp;
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        LoggerUtils.traceAndLogException</b>
+<b class="nc"><i class="no-highlight">437</i>&nbsp;            (envImpl, &quot;FileReader&quot;, &quot;readNextEntry&quot;, sb.toString(), e);</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;    }</b>
+<i class="no-highlight">439</i>&nbsp;
+<i class="no-highlight">440</i>&nbsp;    /**
+<i class="no-highlight">441</i>&nbsp;     * Make sure that the start of the target log entry is in the header. 
+<i class="no-highlight">442</i>&nbsp;     */
+<i class="no-highlight">443</i>&nbsp;    private void getLogEntryInReadBuffer()
+<i class="no-highlight">444</i>&nbsp;        throws ChecksumException,
+<i class="no-highlight">445</i>&nbsp;               EOFException,
+<i class="no-highlight">446</i>&nbsp;               FileNotFoundException,
+<i class="no-highlight">447</i>&nbsp;               DatabaseException {
+<i class="no-highlight">448</i>&nbsp;
+<i class="no-highlight">449</i>&nbsp;        /*
+<i class="no-highlight">450</i>&nbsp;         * If we&#39;re going forward, because we read every byte sequentially,
+<i class="no-highlight">451</i>&nbsp;         * we&#39;re always sure the read buffer is positioned at the right spot.
+<i class="no-highlight">452</i>&nbsp;         * If we go backwards, we need to jump the buffer position. These
+<i class="no-highlight">453</i>&nbsp;         * methods may be overridden by subclasses.
+<i class="no-highlight">454</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">455</i>&nbsp;        if (forward) {</b>
+<b class="fc"><i class="no-highlight">456</i>&nbsp;            setForwardPosition();</b>
+<i class="no-highlight">457</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">458</i>&nbsp;            setBackwardPosition();</b>
+<i class="no-highlight">459</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">460</i>&nbsp;    }</b>
+<i class="no-highlight">461</i>&nbsp;
+<i class="no-highlight">462</i>&nbsp;    /**
+<i class="no-highlight">463</i>&nbsp;     * Ensure that the next target is in the window. The default behavior is
+<i class="no-highlight">464</i>&nbsp;     * that the next target is the next, following entry, so we can assume that
+<i class="no-highlight">465</i>&nbsp;     * it&#39;s in the window.  All we have to do is to check if we&#39;ve gone past
+<i class="no-highlight">466</i>&nbsp;     * the specified end point.
+<i class="no-highlight">467</i>&nbsp;     * @throws DatabaseException 
+<i class="no-highlight">468</i>&nbsp;     * @throws FileNotFoundException 
+<i class="no-highlight">469</i>&nbsp;     * @throws ChecksumException 
+<i class="no-highlight">470</i>&nbsp;     */
+<i class="no-highlight">471</i>&nbsp;    protected void setForwardPosition() 
+<i class="no-highlight">472</i>&nbsp;        throws EOFException,
+<i class="no-highlight">473</i>&nbsp;               DatabaseException, 
+<i class="no-highlight">474</i>&nbsp;               ChecksumException, 
+<i class="no-highlight">475</i>&nbsp;               FileNotFoundException {
+<i class="no-highlight">476</i>&nbsp;
+<b class="fc"><i class="no-highlight">477</i>&nbsp;        if (finishLsn != DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">478</i>&nbsp;            /* The next log entry has passed the end LSN. */
+<b class="nc"><i class="no-highlight">479</i>&nbsp;            long nextLsn = DbLsn.makeLsn(window.currentFileNum(),</b>
+<i class="no-highlight">480</i>&nbsp;                                         nextEntryOffset);
+<b class="nc"><i class="no-highlight">481</i>&nbsp;            if (DbLsn.compareTo(nextLsn, finishLsn) &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                throw new EOFException();</b>
+<i class="no-highlight">483</i>&nbsp;            }
+<i class="no-highlight">484</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">485</i>&nbsp;    }</b>
+<i class="no-highlight">486</i>&nbsp;
+<i class="no-highlight">487</i>&nbsp;    /**
+<i class="no-highlight">488</i>&nbsp;     * Ensure that the next target is in the window. The default behavior is
+<i class="no-highlight">489</i>&nbsp;     * that the next target is the next previous entry.
+<i class="no-highlight">490</i>&nbsp;     * @throws DatabaseException 
+<i class="no-highlight">491</i>&nbsp;     */
+<i class="no-highlight">492</i>&nbsp;    protected void setBackwardPosition() 
+<i class="no-highlight">493</i>&nbsp;        throws ChecksumException,
+<i class="no-highlight">494</i>&nbsp;               FileNotFoundException,
+<i class="no-highlight">495</i>&nbsp;               EOFException,
+<i class="no-highlight">496</i>&nbsp;               DatabaseException {
+<i class="no-highlight">497</i>&nbsp;
+<i class="no-highlight">498</i>&nbsp;        /*
+<i class="no-highlight">499</i>&nbsp;         * currentEntryPrevOffset is the entry before the current entry.
+<i class="no-highlight">500</i>&nbsp;         * currentEntryOffset is the entry we just read (or the end of the
+<i class="no-highlight">501</i>&nbsp;         * file if we&#39;re starting out.
+<i class="no-highlight">502</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        if ((currentEntryPrevOffset != 0) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;            window.containsOffset(currentEntryPrevOffset)) {</b>
+<i class="no-highlight">505</i>&nbsp;
+<i class="no-highlight">506</i>&nbsp;            /* The next log entry has passed the start LSN. */
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            long nextLsn = DbLsn.makeLsn(window.currentFileNum(),</b>
+<i class="no-highlight">508</i>&nbsp;                                         currentEntryPrevOffset);
+<b class="nc"><i class="no-highlight">509</i>&nbsp;            if (finishLsn != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                if (DbLsn.compareTo(nextLsn, finishLsn) == -1) {</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                    throw new EOFException(&quot;finish=&quot; + </b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;                                           DbLsn.getNoFormatString(finishLsn) +</b>
+<i class="no-highlight">513</i>&nbsp;                                           &quot;next=&quot; + 
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                                           DbLsn.getNoFormatString(nextLsn));</b>
+<i class="no-highlight">515</i>&nbsp;                }
+<i class="no-highlight">516</i>&nbsp;            }
+<i class="no-highlight">517</i>&nbsp;
+<i class="no-highlight">518</i>&nbsp;            /* This log entry starts in this buffer, just reposition. */
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            window.positionBuffer(currentEntryPrevOffset);</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;        } else {</b>
+<i class="no-highlight">521</i>&nbsp;
+<i class="no-highlight">522</i>&nbsp;            /*
+<i class="no-highlight">523</i>&nbsp;             * The start of the log entry is not in this read buffer so
+<i class="no-highlight">524</i>&nbsp;             * we must fill the buffer again. 
+<i class="no-highlight">525</i>&nbsp;             *
+<i class="no-highlight">526</i>&nbsp;             * 1) The target log entry is in a different file from the
+<i class="no-highlight">527</i>&nbsp;             * current window&#39;s file. Move the window to the previous
+<i class="no-highlight">528</i>&nbsp;             * file and start the read from the target LSN.
+<i class="no-highlight">529</i>&nbsp;             *
+<i class="no-highlight">530</i>&nbsp;             * 2) The target log entry is the same file but the log entry
+<i class="no-highlight">531</i>&nbsp;             * is larger than the read chunk size. Start the next read
+<i class="no-highlight">532</i>&nbsp;             * buffer from the target LSN. It&#39;s going to take multiple
+<i class="no-highlight">533</i>&nbsp;             * reads to get the log entry, and we might as well get as
+<i class="no-highlight">534</i>&nbsp;             * much as possible.
+<i class="no-highlight">535</i>&nbsp;             *
+<i class="no-highlight">536</i>&nbsp;             * 3) In the same file, and the log entry fits within one
+<i class="no-highlight">537</i>&nbsp;             * read buffer. Try to position the next buffer chunk so the
+<i class="no-highlight">538</i>&nbsp;             * target entry is held within the buffer, all the way at the
+<i class="no-highlight">539</i>&nbsp;             * end. That way, since we&#39;re reading backwards, there will be
+<i class="no-highlight">540</i>&nbsp;             * more buffered data available for following reads.
+<i class="no-highlight">541</i>&nbsp;             */
+<i class="no-highlight">542</i>&nbsp;            long nextFile;
+<i class="no-highlight">543</i>&nbsp;            long nextWindowStart;
+<i class="no-highlight">544</i>&nbsp;            long nextTarget;
+<i class="no-highlight">545</i>&nbsp;
+<b class="nc"><i class="no-highlight">546</i>&nbsp;            if (currentEntryPrevOffset == 0) {</b>
+<i class="no-highlight">547</i>&nbsp;                /* Case 1: Go to another file. */
+<b class="nc"><i class="no-highlight">548</i>&nbsp;                currentEntryPrevOffset = fileManager.getFileHeaderPrevOffset</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;                    (window.currentFileNum());</b>
+<i class="no-highlight">550</i>&nbsp;
+<b class="nc"><i class="no-highlight">551</i>&nbsp;                Long prevFileNum =</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;                    fileManager.getFollowingFileNum(window.currentFileNum(),</b>
+<i class="no-highlight">553</i>&nbsp;                                                    false);
+<b class="nc"><i class="no-highlight">554</i>&nbsp;                if (prevFileNum == null) {</b>
+<b class="nc"><i class="no-highlight">555</i>&nbsp;                    throw new EOFException(&quot;No file following &quot; +</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;                                           window.currentFileNum());</b>
+<i class="no-highlight">557</i>&nbsp;                }
+<i class="no-highlight">558</i>&nbsp;
+<i class="no-highlight">559</i>&nbsp;                /*
+<i class="no-highlight">560</i>&nbsp;                 *  Check finishLSN  before proceeding, in case we should stop
+<i class="no-highlight">561</i>&nbsp;                 *  the search before attempting to set the file reader to a
+<i class="no-highlight">562</i>&nbsp;                 *  position in the previous file. In  [#22407] we threw a
+<i class="no-highlight">563</i>&nbsp;                 *  spurious EFE complaining that we cannot read backwards over
+<i class="no-highlight">564</i>&nbsp;                 *  a cleaned file because the previous file had  been cleaned
+<i class="no-highlight">565</i>&nbsp;                 *  away.
+<i class="no-highlight">566</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">567</i>&nbsp;                if (finishLsn != DbLsn.NULL_LSN &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;                    prevFileNum &lt; DbLsn.getFileNumber(finishLsn)) {</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                    throw new EOFException(</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;                        &quot;finish=&quot; + DbLsn.getNoFormatString(finishLsn) +</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                        &quot; nextFile=0x&quot; + Long.toHexString(prevFileNum));</b>
+<i class="no-highlight">572</i>&nbsp;                }
+<i class="no-highlight">573</i>&nbsp;
+<b class="nc"><i class="no-highlight">574</i>&nbsp;                if (window.currentFileNum() - prevFileNum.longValue() != 1) {</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                    handleGapInBackwardsScan(prevFileNum);</b>
+<i class="no-highlight">576</i>&nbsp;                }
+<i class="no-highlight">577</i>&nbsp;
+<b class="nc"><i class="no-highlight">578</i>&nbsp;                nextFile = prevFileNum;</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;                nextWindowStart = currentEntryPrevOffset;</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;                nextTarget = currentEntryPrevOffset;</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;            } else if ((currentEntryOffset - currentEntryPrevOffset) &gt;</b>
+<b class="nc"><i class="no-highlight">582</i>&nbsp;                       window.capacity()) {</b>
+<i class="no-highlight">583</i>&nbsp;
+<i class="no-highlight">584</i>&nbsp;                /*
+<i class="no-highlight">585</i>&nbsp;                 * Case 2: The entry is in the same file, but is bigger
+<i class="no-highlight">586</i>&nbsp;                 * than one buffer. Position it at the front of the buffer.
+<i class="no-highlight">587</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">588</i>&nbsp;                nextFile = window.currentFileNum();</b>
+<b class="nc"><i class="no-highlight">589</i>&nbsp;                nextWindowStart = currentEntryPrevOffset;</b>
+<b class="nc"><i class="no-highlight">590</i>&nbsp;                nextTarget = currentEntryPrevOffset;</b>
+<i class="no-highlight">591</i>&nbsp;            } else {
+<i class="no-highlight">592</i>&nbsp;
+<i class="no-highlight">593</i>&nbsp;                /* 
+<i class="no-highlight">594</i>&nbsp;                 * Case 3: In same file, but not in this buffer. The target
+<i class="no-highlight">595</i>&nbsp;                 * entry will fit in one buffer.
+<i class="no-highlight">596</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">597</i>&nbsp;                nextFile = window.currentFileNum();</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;                long newPosition = currentEntryOffset -</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;                    window.capacity();</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                nextWindowStart = (newPosition &lt; 0) ? 0 : newPosition;</b>
+<b class="nc"><i class="no-highlight">601</i>&nbsp;                nextTarget = currentEntryPrevOffset;</b>
+<i class="no-highlight">602</i>&nbsp;            }
+<i class="no-highlight">603</i>&nbsp;
+<i class="no-highlight">604</i>&nbsp;            /* The next log entry has passed the start LSN. */
+<b class="nc"><i class="no-highlight">605</i>&nbsp;            long nextLsn = DbLsn.makeLsn(nextFile,</b>
+<i class="no-highlight">606</i>&nbsp;                                         currentEntryPrevOffset);
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            if (finishLsn != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;                if (DbLsn.compareTo(nextLsn, finishLsn) == -1) {</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;                    throw new EOFException(&quot;finish=&quot; + </b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;                                           DbLsn.getNoFormatString(finishLsn) +</b>
+<i class="no-highlight">611</i>&nbsp;                                           &quot; next=&quot; +
+<b class="nc"><i class="no-highlight">612</i>&nbsp;                                           DbLsn.getNoFormatString(nextLsn));</b>
+<i class="no-highlight">613</i>&nbsp;                }
+<i class="no-highlight">614</i>&nbsp;            }
+<i class="no-highlight">615</i>&nbsp;
+<b class="nc"><i class="no-highlight">616</i>&nbsp;            window.slideAndFill</b>
+<b class="nc"><i class="no-highlight">617</i>&nbsp;                (nextFile, nextWindowStart, nextTarget, forward);</b>
+<i class="no-highlight">618</i>&nbsp;        }
+<i class="no-highlight">619</i>&nbsp;
+<i class="no-highlight">620</i>&nbsp;        /* The current entry will start at this offset. */
+<b class="nc"><i class="no-highlight">621</i>&nbsp;        currentEntryOffset = currentEntryPrevOffset;</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;    }</b>
+<i class="no-highlight">623</i>&nbsp;
+<i class="no-highlight">624</i>&nbsp;    /**
+<i class="no-highlight">625</i>&nbsp;     * Read the basic log entry header, leaving the buffer mark at the
+<i class="no-highlight">626</i>&nbsp;     * beginning of the checksummed header data.
+<i class="no-highlight">627</i>&nbsp;     */
+<i class="no-highlight">628</i>&nbsp;    private void readBasicHeader(ByteBuffer dataBuffer)
+<i class="no-highlight">629</i>&nbsp;        throws ChecksumException, DatabaseException  {
+<i class="no-highlight">630</i>&nbsp;
+<i class="no-highlight">631</i>&nbsp;        /* Read the header for this entry. */
+<b class="fc"><i class="no-highlight">632</i>&nbsp;        currentEntryHeader = new LogEntryHeader(</b>
+<b class="fc"><i class="no-highlight">633</i>&nbsp;            dataBuffer, window.logVersion, window.getCurrentLsn());</b>
+<i class="no-highlight">634</i>&nbsp;
+<i class="no-highlight">635</i>&nbsp;        /*
+<i class="no-highlight">636</i>&nbsp;         * currentEntryPrevOffset is a separate field, and is not obtained
+<i class="no-highlight">637</i>&nbsp;         * directly from the currentEntryHeader, because it is initialized and
+<i class="no-highlight">638</i>&nbsp;         * used before any log entry was read.
+<i class="no-highlight">639</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">640</i>&nbsp;        currentEntryPrevOffset = currentEntryHeader.getPrevOffset();</b>
+<b class="fc"><i class="no-highlight">641</i>&nbsp;    }</b>
+<i class="no-highlight">642</i>&nbsp;
+<i class="no-highlight">643</i>&nbsp;    /**
+<i class="no-highlight">644</i>&nbsp;     * Reset the checksum validator and add the new header bytes. Assumes that
+<i class="no-highlight">645</i>&nbsp;     * the data buffer is positioned just past the end of the invariant
+<i class="no-highlight">646</i>&nbsp;     * portion of the log entry header.
+<i class="no-highlight">647</i>&nbsp;     * @throws DatabaseException 
+<i class="no-highlight">648</i>&nbsp;     */
+<i class="no-highlight">649</i>&nbsp;    private void startChecksum(ByteBuffer dataBuffer) 
+<i class="no-highlight">650</i>&nbsp;        throws ChecksumException {
+<i class="no-highlight">651</i>&nbsp;
+<b class="nc"><i class="no-highlight">652</i>&nbsp;        startChecksum(dataBuffer, true  /* isChecksumTarget */);</b>
+<b class="nc"><i class="no-highlight">653</i>&nbsp;    }</b>
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;    private void startChecksum(ByteBuffer dataBuffer, 
+<i class="no-highlight">656</i>&nbsp;                               boolean isChecksumTarget)
+<i class="no-highlight">657</i>&nbsp;        throws ChecksumException {
+<i class="no-highlight">658</i>&nbsp;
+<b class="fc"><i class="no-highlight">659</i>&nbsp;        if (!doChecksumOnRead) {</b>
+<b class="nc"><i class="no-highlight">660</i>&nbsp;            return;</b>
+<i class="no-highlight">661</i>&nbsp;        }
+<i class="no-highlight">662</i>&nbsp;
+<b class="fc"><i class="no-highlight">663</i>&nbsp;        if (!isChecksumTarget) {</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;            return;</b>
+<i class="no-highlight">665</i>&nbsp;        }
+<i class="no-highlight">666</i>&nbsp;
+<i class="no-highlight">667</i>&nbsp;        /* Clear out any previous data. */
+<b class="fc"><i class="no-highlight">668</i>&nbsp;        cksumValidator.reset();</b>
+<i class="no-highlight">669</i>&nbsp;
+<b class="fc"><i class="no-highlight">670</i>&nbsp;        int originalPosition = dataBuffer.position();</b>
+<b class="fc"><i class="no-highlight">671</i>&nbsp;        if (currentEntryHeader.isInvisible()) {</b>
+<i class="no-highlight">672</i>&nbsp;
+<i class="no-highlight">673</i>&nbsp;            /* 
+<i class="no-highlight">674</i>&nbsp;             * Turn off invisibility so that the checksum will succeed. When
+<i class="no-highlight">675</i>&nbsp;             * entries are made invisible, the checksum is not adjusted. Note
+<i class="no-highlight">676</i>&nbsp;             * that the dataBuffer can leave the invisible bit transformed,
+<i class="no-highlight">677</i>&nbsp;             * because the header has already been initialized, and this data
+<i class="no-highlight">678</i>&nbsp;             * will never be read again.
+<i class="no-highlight">679</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">680</i>&nbsp;            LogEntryHeader.turnOffInvisible(dataBuffer, originalPosition -</b>
+<i class="no-highlight">681</i>&nbsp;                                            LogEntryHeader.MIN_HEADER_SIZE);
+<i class="no-highlight">682</i>&nbsp;        }
+<i class="no-highlight">683</i>&nbsp;
+<i class="no-highlight">684</i>&nbsp;        /* Position the buffer at the start of the data, after the checksum. */
+<b class="fc"><i class="no-highlight">685</i>&nbsp;        int headerSizeMinusChecksum =</b>
+<b class="fc"><i class="no-highlight">686</i>&nbsp;            currentEntryHeader.getInvariantSizeMinusChecksum();</b>
+<b class="fc"><i class="no-highlight">687</i>&nbsp;        int entryTypeStart = originalPosition - headerSizeMinusChecksum;</b>
+<b class="fc"><i class="no-highlight">688</i>&nbsp;        dataBuffer.position(entryTypeStart);</b>
+<i class="no-highlight">689</i>&nbsp;
+<i class="no-highlight">690</i>&nbsp;        /* Load the validate with the header bytes. */
+<b class="fc"><i class="no-highlight">691</i>&nbsp;        cksumValidator.update(dataBuffer, headerSizeMinusChecksum);</b>
+<i class="no-highlight">692</i>&nbsp;
+<i class="no-highlight">693</i>&nbsp;        /* Move the data buffer back to the original position. */
+<b class="fc"><i class="no-highlight">694</i>&nbsp;        dataBuffer.position(originalPosition);</b>
+<b class="fc"><i class="no-highlight">695</i>&nbsp;    }</b>
+<i class="no-highlight">696</i>&nbsp;
+<i class="no-highlight">697</i>&nbsp;    private void addToChecksum(ByteBuffer dataBuffer, int length) 
+<i class="no-highlight">698</i>&nbsp;        throws ChecksumException {
+<i class="no-highlight">699</i>&nbsp;
+<b class="nc"><i class="no-highlight">700</i>&nbsp;        if (!doChecksumOnRead) {</b>
+<b class="nc"><i class="no-highlight">701</i>&nbsp;            return;</b>
+<i class="no-highlight">702</i>&nbsp;        }
+<i class="no-highlight">703</i>&nbsp;
+<b class="nc"><i class="no-highlight">704</i>&nbsp;        cksumValidator.update(dataBuffer, length);</b>
+<b class="nc"><i class="no-highlight">705</i>&nbsp;    }</b>
+<i class="no-highlight">706</i>&nbsp;
+<i class="no-highlight">707</i>&nbsp;    /**
+<i class="no-highlight">708</i>&nbsp;     * Add the entry bytes to the checksum and check the value.  This method
+<i class="no-highlight">709</i>&nbsp;     * must be called with the buffer positioned at the start of the entry.
+<i class="no-highlight">710</i>&nbsp;     */
+<i class="no-highlight">711</i>&nbsp;    private void validateChecksum(ByteBuffer dataBuffer, 
+<i class="no-highlight">712</i>&nbsp;                                  boolean isChecksumTarget)
+<i class="no-highlight">713</i>&nbsp;        throws ChecksumException {
+<i class="no-highlight">714</i>&nbsp;
+<b class="fc"><i class="no-highlight">715</i>&nbsp;        if (!doChecksumOnRead) {</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            return;</b>
+<i class="no-highlight">717</i>&nbsp;        }
+<i class="no-highlight">718</i>&nbsp;
+<b class="fc"><i class="no-highlight">719</i>&nbsp;        if (!isChecksumTarget) {</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;            return;</b>
+<i class="no-highlight">721</i>&nbsp;        }
+<i class="no-highlight">722</i>&nbsp;
+<b class="fc"><i class="no-highlight">723</i>&nbsp;        cksumValidator.update(dataBuffer, currentEntryHeader.getItemSize());</b>
+<b class="fc"><i class="no-highlight">724</i>&nbsp;        cksumValidator.validate(currentEntryHeader.getChecksum(),</b>
+<b class="fc"><i class="no-highlight">725</i>&nbsp;                                window.currentFileNum(),</b>
+<i class="no-highlight">726</i>&nbsp;                                currentEntryOffset);
+<b class="fc"><i class="no-highlight">727</i>&nbsp;    }</b>
+<i class="no-highlight">728</i>&nbsp;
+<i class="no-highlight">729</i>&nbsp;    /**
+<i class="no-highlight">730</i>&nbsp;     * Try to read a specified number of bytes.
+<i class="no-highlight">731</i>&nbsp;     * @param amountToRead is the number of bytes we need
+<i class="no-highlight">732</i>&nbsp;     * @param collectData is true if we need to actually look at the data.
+<i class="no-highlight">733</i>&nbsp;     *  If false, we know we&#39;re skipping this entry, and all we need to
+<i class="no-highlight">734</i>&nbsp;     *  do is to count until we get to the right spot.
+<i class="no-highlight">735</i>&nbsp;     * @return a byte buffer positioned at the head of the desired portion,
+<i class="no-highlight">736</i>&nbsp;     * or null if we reached eof.
+<i class="no-highlight">737</i>&nbsp;     */
+<i class="no-highlight">738</i>&nbsp;    private ByteBuffer readData(int amountToRead, boolean collectData)
+<i class="no-highlight">739</i>&nbsp;        throws ChecksumException,
+<i class="no-highlight">740</i>&nbsp;               EOFException,
+<i class="no-highlight">741</i>&nbsp;               FileNotFoundException,
+<i class="no-highlight">742</i>&nbsp;               DatabaseException {
+<i class="no-highlight">743</i>&nbsp;
+<b class="fc"><i class="no-highlight">744</i>&nbsp;        int alreadyRead = 0;</b>
+<b class="fc"><i class="no-highlight">745</i>&nbsp;        ByteBuffer completeBuffer = null;</b>
+<b class="fc"><i class="no-highlight">746</i>&nbsp;        saveBuffer.clear();</b>
+<i class="no-highlight">747</i>&nbsp;
+<b class="fc"><i class="no-highlight">748</i>&nbsp;        while ((alreadyRead &lt; amountToRead) &amp;&amp; !eof) {</b>
+<i class="no-highlight">749</i>&nbsp;
+<b class="fc"><i class="no-highlight">750</i>&nbsp;            int bytesNeeded = amountToRead - alreadyRead;</b>
+<b class="fc"><i class="no-highlight">751</i>&nbsp;            if (window.hasRemaining()) {</b>
+<i class="no-highlight">752</i>&nbsp;
+<i class="no-highlight">753</i>&nbsp;                /* There&#39;s data in the window, process it. */
+<b class="fc"><i class="no-highlight">754</i>&nbsp;                if (collectData) {</b>
+<i class="no-highlight">755</i>&nbsp;
+<i class="no-highlight">756</i>&nbsp;                    /*
+<i class="no-highlight">757</i>&nbsp;                     * Save data in a buffer for processing.
+<i class="no-highlight">758</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">759</i>&nbsp;                    if ((alreadyRead &gt; 0) ||</b>
+<b class="fc"><i class="no-highlight">760</i>&nbsp;                        (window.remaining() &lt; bytesNeeded)) {</b>
+<i class="no-highlight">761</i>&nbsp;
+<i class="no-highlight">762</i>&nbsp;                        /* We need to piece an entry together. */
+<b class="nc"><i class="no-highlight">763</i>&nbsp;                        copyToSaveBuffer(bytesNeeded);</b>
+<b class="nc"><i class="no-highlight">764</i>&nbsp;                        alreadyRead = saveBuffer.position();</b>
+<b class="nc"><i class="no-highlight">765</i>&nbsp;                        completeBuffer = saveBuffer;</b>
+<i class="no-highlight">766</i>&nbsp;                    } else {
+<i class="no-highlight">767</i>&nbsp;
+<i class="no-highlight">768</i>&nbsp;                        /* A complete entry is available in this buffer. */
+<b class="fc"><i class="no-highlight">769</i>&nbsp;                        completeBuffer = window.getBuffer();</b>
+<b class="fc"><i class="no-highlight">770</i>&nbsp;                        alreadyRead = amountToRead;</b>
+<i class="no-highlight">771</i>&nbsp;                    }
+<i class="no-highlight">772</i>&nbsp;                } else {
+<i class="no-highlight">773</i>&nbsp;
+<i class="no-highlight">774</i>&nbsp;                    /*
+<i class="no-highlight">775</i>&nbsp;                     * We&#39;re not processing the data, so need to save it. just
+<i class="no-highlight">776</i>&nbsp;                     * move buffer positions.
+<i class="no-highlight">777</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">778</i>&nbsp;                    int positionIncrement =</b>
+<b class="nc"><i class="no-highlight">779</i>&nbsp;                        (window.remaining() &gt; bytesNeeded) ?</b>
+<b class="nc"><i class="no-highlight">780</i>&nbsp;                        bytesNeeded : window.remaining();</b>
+<i class="no-highlight">781</i>&nbsp;
+<b class="nc"><i class="no-highlight">782</i>&nbsp;                    alreadyRead += positionIncrement;</b>
+<b class="nc"><i class="no-highlight">783</i>&nbsp;                    window.incrementBufferPosition(positionIncrement);</b>
+<b class="nc"><i class="no-highlight">784</i>&nbsp;                    completeBuffer = window.getBuffer();</b>
+<b class="nc"><i class="no-highlight">785</i>&nbsp;                }</b>
+<i class="no-highlight">786</i>&nbsp;            } else {
+<i class="no-highlight">787</i>&nbsp;
+<i class="no-highlight">788</i>&nbsp;                /*
+<i class="no-highlight">789</i>&nbsp;                 * Look for more data.
+<i class="no-highlight">790</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">791</i>&nbsp;                if (window.fillNext(singleFile, bytesNeeded)) {</b>
+<i class="no-highlight">792</i>&nbsp;                    /* This call to fillNext slid the window to a new file. */
+<b class="nc"><i class="no-highlight">793</i>&nbsp;                    nextEntryOffset = 0;</b>
+<i class="no-highlight">794</i>&nbsp;                }
+<i class="no-highlight">795</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">796</i>&nbsp;        }</b>
+<i class="no-highlight">797</i>&nbsp;
+<i class="no-highlight">798</i>&nbsp;        /* Flip the save buffer just in case we&#39;ve been accumulating in it. */
+<b class="fc"><i class="no-highlight">799</i>&nbsp;        saveBuffer.flip();</b>
+<i class="no-highlight">800</i>&nbsp;
+<b class="fc"><i class="no-highlight">801</i>&nbsp;        return completeBuffer;</b>
+<i class="no-highlight">802</i>&nbsp;    }
+<i class="no-highlight">803</i>&nbsp;    
+<i class="no-highlight">804</i>&nbsp;    /* Try to skip over a specified number of bytes. */
+<i class="no-highlight">805</i>&nbsp;    public void skipData(int amountToSkip) 
+<i class="no-highlight">806</i>&nbsp;        throws ChecksumException,
+<i class="no-highlight">807</i>&nbsp;               EOFException,
+<i class="no-highlight">808</i>&nbsp;               FileNotFoundException,
+<i class="no-highlight">809</i>&nbsp;               DatabaseException {
+<i class="no-highlight">810</i>&nbsp;               
+<i class="no-highlight">811</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">812</i>&nbsp;            readData(amountToSkip, false);</b>
+<b class="nc"><i class="no-highlight">813</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">814</i>&nbsp;            reportProblem(e);</b>
+<b class="nc"><i class="no-highlight">815</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">816</i>&nbsp;        }    </b>
+<b class="nc"><i class="no-highlight">817</i>&nbsp;    }</b>
+<i class="no-highlight">818</i>&nbsp;
+<i class="no-highlight">819</i>&nbsp;    /**
+<i class="no-highlight">820</i>&nbsp;     * Copy the required number of bytes into the save buffer.
+<i class="no-highlight">821</i>&nbsp;     */
+<i class="no-highlight">822</i>&nbsp;    private void copyToSaveBuffer(int bytesNeeded) {
+<i class="no-highlight">823</i>&nbsp;        /* How much can we get from this current read buffer? */
+<i class="no-highlight">824</i>&nbsp;        int bytesFromThisBuffer;
+<i class="no-highlight">825</i>&nbsp;
+<b class="nc"><i class="no-highlight">826</i>&nbsp;        if (bytesNeeded &lt;= window.remaining()) {</b>
+<b class="nc"><i class="no-highlight">827</i>&nbsp;            bytesFromThisBuffer = bytesNeeded;</b>
+<i class="no-highlight">828</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">829</i>&nbsp;            bytesFromThisBuffer = window.remaining();</b>
+<i class="no-highlight">830</i>&nbsp;        }
+<i class="no-highlight">831</i>&nbsp;
+<i class="no-highlight">832</i>&nbsp;        /* Gather it all into this save buffer. */
+<i class="no-highlight">833</i>&nbsp;        ByteBuffer temp;
+<i class="no-highlight">834</i>&nbsp;
+<i class="no-highlight">835</i>&nbsp;        /* Make sure the save buffer is big enough. */
+<b class="nc"><i class="no-highlight">836</i>&nbsp;        if (saveBuffer.capacity() - saveBuffer.position() &lt;</b>
+<i class="no-highlight">837</i>&nbsp;            bytesFromThisBuffer) {
+<i class="no-highlight">838</i>&nbsp;            /* Grow the save buffer. */
+<b class="nc"><i class="no-highlight">839</i>&nbsp;            temp = ByteBuffer.allocate(saveBuffer.capacity() +</b>
+<i class="no-highlight">840</i>&nbsp;                                       bytesFromThisBuffer);
+<b class="nc"><i class="no-highlight">841</i>&nbsp;            saveBuffer.flip();</b>
+<b class="nc"><i class="no-highlight">842</i>&nbsp;            temp.put(saveBuffer);</b>
+<b class="nc"><i class="no-highlight">843</i>&nbsp;            saveBuffer = temp;</b>
+<i class="no-highlight">844</i>&nbsp;        }
+<i class="no-highlight">845</i>&nbsp;
+<i class="no-highlight">846</i>&nbsp;        /*
+<i class="no-highlight">847</i>&nbsp;         * Bulk copy only the required section from the read buffer into the
+<i class="no-highlight">848</i>&nbsp;         * save buffer. We need from readBuffer.position() to
+<i class="no-highlight">849</i>&nbsp;         * readBuffer.position() + bytesFromThisBuffer
+<i class="no-highlight">850</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">851</i>&nbsp;        temp = window.getBuffer().slice();</b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;        temp.limit(bytesFromThisBuffer);</b>
+<b class="nc"><i class="no-highlight">853</i>&nbsp;        saveBuffer.put(temp);</b>
+<b class="nc"><i class="no-highlight">854</i>&nbsp;        window.incrementBufferPosition(bytesFromThisBuffer);</b>
+<b class="nc"><i class="no-highlight">855</i>&nbsp;    }</b>
+<i class="no-highlight">856</i>&nbsp;
+<i class="no-highlight">857</i>&nbsp;    /**
+<i class="no-highlight">858</i>&nbsp;     * Returns the number of reads since the last time this method was called.
+<i class="no-highlight">859</i>&nbsp;     */
+<i class="no-highlight">860</i>&nbsp;    public int getAndResetNReads() {
+<b class="fc"><i class="no-highlight">861</i>&nbsp;        return window.getAndResetNReads();</b>
+<i class="no-highlight">862</i>&nbsp;    }
+<i class="no-highlight">863</i>&nbsp;
+<i class="no-highlight">864</i>&nbsp;    /**
+<i class="no-highlight">865</i>&nbsp;     * This method is called by readNextEntry() after the header of the current
+<i class="no-highlight">866</i>&nbsp;     * logrec has been de-serialized, but not the body. Based on header info
+<i class="no-highlight">867</i>&nbsp;     * only, it may perform some actions and then decide whether the rest of
+<i class="no-highlight">868</i>&nbsp;     * the logrec should be de-serialized or just skipped.
+<i class="no-highlight">869</i>&nbsp;     * 
+<i class="no-highlight">870</i>&nbsp;     * @return true if this reader should process the current logrec further,
+<i class="no-highlight">871</i>&nbsp;     * via the processEntry() method. A logrec must be passed to processEntry
+<i class="no-highlight">872</i>&nbsp;     * if the full logrec (not just the header) must be de-serialized for
+<i class="no-highlight">873</i>&nbsp;     * further processing. Return false if no further processing is needed,
+<i class="no-highlight">874</i>&nbsp;     * in which case the current logrec will be skipped (i.e, not returned
+<i class="no-highlight">875</i>&nbsp;     * to the caller of readNextEntry().
+<i class="no-highlight">876</i>&nbsp;     *
+<i class="no-highlight">877</i>&nbsp;     * @throws DatabaseException from subclasses.
+<i class="no-highlight">878</i>&nbsp;     */
+<i class="no-highlight">879</i>&nbsp;    protected boolean isTargetEntry()
+<i class="no-highlight">880</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">881</i>&nbsp;
+<b class="fc"><i class="no-highlight">882</i>&nbsp;        return true;</b>
+<i class="no-highlight">883</i>&nbsp;    }
+<i class="no-highlight">884</i>&nbsp;
+<i class="no-highlight">885</i>&nbsp;    /**
+<i class="no-highlight">886</i>&nbsp;     * Each file reader implements this method to process the entry data.
+<i class="no-highlight">887</i>&nbsp;     *
+<i class="no-highlight">888</i>&nbsp;     * @param entryBuffer A ByteBuffer that the logrec data and is positioned
+<i class="no-highlight">889</i>&nbsp;     * at the start of the logrec body (i.e., just after the logrec header).
+<i class="no-highlight">890</i>&nbsp;     *
+<i class="no-highlight">891</i>&nbsp;     * @return true if this entry should be returned to the caller of
+<i class="no-highlight">892</i>&nbsp;     * readNextEntry().
+<i class="no-highlight">893</i>&nbsp;     */
+<i class="no-highlight">894</i>&nbsp;    protected abstract boolean processEntry(ByteBuffer entryBuffer)
+<i class="no-highlight">895</i>&nbsp;        throws DatabaseException;
+<i class="no-highlight">896</i>&nbsp;
+<i class="no-highlight">897</i>&nbsp;    /**
+<i class="no-highlight">898</i>&nbsp;     * Never seen by user, used to indicate that the file reader should stop.
+<i class="no-highlight">899</i>&nbsp;     */
+<i class="no-highlight">900</i>&nbsp;    @SuppressWarnings(&quot;serial&quot;)
+<i class="no-highlight">901</i>&nbsp;    public static class EOFException extends Exception {
+<i class="no-highlight">902</i>&nbsp;        public EOFException() {
+<b class="nc"><i class="no-highlight">903</i>&nbsp;            super();</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;        }</b>
+<i class="no-highlight">905</i>&nbsp;
+<i class="no-highlight">906</i>&nbsp;        /* 
+<i class="no-highlight">907</i>&nbsp;         * @param message The message is used to hold debugging 
+<i class="no-highlight">908</i>&nbsp;         * information.
+<i class="no-highlight">909</i>&nbsp;         */
+<i class="no-highlight">910</i>&nbsp;        public EOFException(String message) {
+<b class="fc"><i class="no-highlight">911</i>&nbsp;            super(message);</b>
+<b class="fc"><i class="no-highlight">912</i>&nbsp;        }</b>
+<i class="no-highlight">913</i>&nbsp;    }
+<i class="no-highlight">914</i>&nbsp;
+<i class="no-highlight">915</i>&nbsp;    /**
+<i class="no-highlight">916</i>&nbsp;     * @return true if the current entry is part of replication stream.
+<i class="no-highlight">917</i>&nbsp;     */
+<i class="no-highlight">918</i>&nbsp;    public boolean entryIsReplicated() {
+<i class="no-highlight">919</i>&nbsp;
+<b class="nc"><i class="no-highlight">920</i>&nbsp;        if (currentEntryHeader == null) {</b>
+<b class="nc"><i class="no-highlight">921</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">922</i>&nbsp;                (&quot;entryIsReplicated should not be used before reader is &quot; +</b>
+<i class="no-highlight">923</i>&nbsp;                 &quot;initialized&quot;);
+<i class="no-highlight">924</i>&nbsp;        } 
+<b class="nc"><i class="no-highlight">925</i>&nbsp;        return currentEntryHeader.getReplicated();</b>
+<i class="no-highlight">926</i>&nbsp;    }
+<i class="no-highlight">927</i>&nbsp;
+<i class="no-highlight">928</i>&nbsp;    /**
+<i class="no-highlight">929</i>&nbsp;     * TBW
+<i class="no-highlight">930</i>&nbsp;     */
+<i class="no-highlight">931</i>&nbsp;    protected void handleGapInBackwardsScan(long prevFileNum) {
+<b class="nc"><i class="no-highlight">932</i>&nbsp;        throw new EnvironmentFailureException</b>
+<i class="no-highlight">933</i>&nbsp;            (envImpl,
+<i class="no-highlight">934</i>&nbsp;             EnvironmentFailureReason.LOG_INTEGRITY,
+<i class="no-highlight">935</i>&nbsp;             &quot;Cannot read backward over cleaned file&quot; +
+<b class="nc"><i class="no-highlight">936</i>&nbsp;             &quot; from 0x&quot; + Long.toHexString(window.currentFileNum()) +</b>
+<b class="nc"><i class="no-highlight">937</i>&nbsp;             &quot; to 0x&quot; + Long.toHexString(prevFileNum));</b>
+<i class="no-highlight">938</i>&nbsp;    }
+<i class="no-highlight">939</i>&nbsp;
+<i class="no-highlight">940</i>&nbsp;    /**
+<i class="no-highlight">941</i>&nbsp;     * A ReadWindow provides a swath of data read from the JE log. 
+<i class="no-highlight">942</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">943</i>&nbsp;    protected static class ReadWindow {</b>
+<i class="no-highlight">944</i>&nbsp;
+<i class="no-highlight">945</i>&nbsp;        /*
+<i class="no-highlight">946</i>&nbsp;         * fileNum, startOffset and endOffset indicate how the read buffer maps
+<i class="no-highlight">947</i>&nbsp;         * to the JE log. For example, if the read buffer size is 200 and the
+<i class="no-highlight">948</i>&nbsp;         * read buffer was filled from file 9, starting at byte 100, then:
+<i class="no-highlight">949</i>&nbsp;         *          fileNum = 9
+<i class="no-highlight">950</i>&nbsp;         *          startOffset = 100
+<i class="no-highlight">951</i>&nbsp;         *          endOffset = 300
+<i class="no-highlight">952</i>&nbsp;         * Note that the end point is not inclusive; endOffset is &gt; the
+<i class="no-highlight">953</i>&nbsp;         * readBuffer&#39;s end.
+<i class="no-highlight">954</i>&nbsp;         */
+<i class="no-highlight">955</i>&nbsp;        private long fileNum;      // file number we&#39;re pointing to
+<i class="no-highlight">956</i>&nbsp;        private int logVersion;    // log version for fileNum/readBuffer
+<i class="no-highlight">957</i>&nbsp;        protected long startOffset;// file offset that maps to buf start
+<i class="no-highlight">958</i>&nbsp;        protected long endOffset;  // file offset that maps to buf end
+<i class="no-highlight">959</i>&nbsp;        protected ByteBuffer readBuffer;   // buffer for reading from the file
+<i class="no-highlight">960</i>&nbsp;
+<i class="no-highlight">961</i>&nbsp;        /* read buffer can&#39;t grow larger than this */
+<i class="no-highlight">962</i>&nbsp;        private final int maxReadBufferSize;   
+<i class="no-highlight">963</i>&nbsp;
+<i class="no-highlight">964</i>&nbsp;        protected final EnvironmentImpl envImpl;
+<i class="no-highlight">965</i>&nbsp;        protected final FileManager fileManager;
+<i class="no-highlight">966</i>&nbsp;
+<i class="no-highlight">967</i>&nbsp;        /*
+<i class="no-highlight">968</i>&nbsp;         * The number of times we&#39;ve tried to read in a log entry that was too
+<i class="no-highlight">969</i>&nbsp;         * large for the read buffer.
+<i class="no-highlight">970</i>&nbsp;         */
+<i class="no-highlight">971</i>&nbsp;        private long nRepeatIteratorReads;
+<i class="no-highlight">972</i>&nbsp;
+<i class="no-highlight">973</i>&nbsp;        /* Number of reads since the last time getAndResetNReads was called. */
+<i class="no-highlight">974</i>&nbsp;        private int nReadOperations;
+<i class="no-highlight">975</i>&nbsp;
+<b class="fc"><i class="no-highlight">976</i>&nbsp;        protected ReadWindow(int readBufferSize, EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">977</i>&nbsp;            DbConfigManager configManager = envImpl.getConfigManager();</b>
+<b class="fc"><i class="no-highlight">978</i>&nbsp;            maxReadBufferSize =</b>
+<b class="fc"><i class="no-highlight">979</i>&nbsp;                configManager.getInt(EnvironmentParams.LOG_ITERATOR_MAX_SIZE);</b>
+<b class="fc"><i class="no-highlight">980</i>&nbsp;            this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">981</i>&nbsp;            fileManager = envImpl.getFileManager();</b>
+<i class="no-highlight">982</i>&nbsp;
+<b class="fc"><i class="no-highlight">983</i>&nbsp;            readBuffer = ByteBuffer.allocate(readBufferSize);</b>
+<b class="fc"><i class="no-highlight">984</i>&nbsp;            readBuffer.flip();</b>
+<b class="fc"><i class="no-highlight">985</i>&nbsp;        }</b>
+<i class="no-highlight">986</i>&nbsp;
+<i class="no-highlight">987</i>&nbsp;        /* 
+<i class="no-highlight">988</i>&nbsp;         * Position this window at this LSN, but leave it empty, it has no data
+<i class="no-highlight">989</i>&nbsp;         * yet.
+<i class="no-highlight">990</i>&nbsp;         */
+<i class="no-highlight">991</i>&nbsp;        public void initAtFileStart(long startLsn) {
+<b class="fc"><i class="no-highlight">992</i>&nbsp;            setFileNum(DbLsn.getFileNumber(startLsn),</b>
+<i class="no-highlight">993</i>&nbsp;                       LogEntryType.UNKNOWN_FILE_HEADER_VERSION);
+<b class="fc"><i class="no-highlight">994</i>&nbsp;            startOffset = DbLsn.getFileOffset(startLsn);</b>
+<b class="fc"><i class="no-highlight">995</i>&nbsp;            endOffset = startOffset;</b>
+<b class="fc"><i class="no-highlight">996</i>&nbsp;        }</b>
+<i class="no-highlight">997</i>&nbsp;
+<i class="no-highlight">998</i>&nbsp;        public long getEndOffset() {
+<b class="fc"><i class="no-highlight">999</i>&nbsp;            return endOffset;</b>
+<i class="no-highlight">1000</i>&nbsp;        }        
+<i class="no-highlight">1001</i>&nbsp;
+<i class="no-highlight">1002</i>&nbsp;        /**
+<i class="no-highlight">1003</i>&nbsp;         * Ensure that whenever we change the fileNum, the logVersion is also
+<i class="no-highlight">1004</i>&nbsp;         * updated.  The fileNum and logVersion fields should be kept private.
+<i class="no-highlight">1005</i>&nbsp;         */
+<i class="no-highlight">1006</i>&nbsp;        protected void setFileNum(final long fileNum, final int logVersion) {
+<b class="fc"><i class="no-highlight">1007</i>&nbsp;            this.fileNum = fileNum;</b>
+<b class="fc"><i class="no-highlight">1008</i>&nbsp;            this.logVersion = logVersion;</b>
+<b class="fc"><i class="no-highlight">1009</i>&nbsp;        }</b>
+<i class="no-highlight">1010</i>&nbsp;
+<i class="no-highlight">1011</i>&nbsp;        public long currentFileNum() {
+<b class="fc"><i class="no-highlight">1012</i>&nbsp;            return fileNum;</b>
+<i class="no-highlight">1013</i>&nbsp;        }
+<i class="no-highlight">1014</i>&nbsp;
+<i class="no-highlight">1015</i>&nbsp;        /* Return true if this offset is contained with the readBuffer. */
+<i class="no-highlight">1016</i>&nbsp;        boolean containsOffset(long targetOffset) {
+<b class="nc"><i class="no-highlight">1017</i>&nbsp;            return (targetOffset &gt;= startOffset) &amp;&amp;</b>
+<i class="no-highlight">1018</i>&nbsp;                (targetOffset &lt; endOffset);
+<i class="no-highlight">1019</i>&nbsp;        }
+<i class="no-highlight">1020</i>&nbsp;
+<i class="no-highlight">1021</i>&nbsp;        /* Return true if this lsn  is contained with the readBuffer. */
+<i class="no-highlight">1022</i>&nbsp;        public boolean containsLsn(long targetFileNumber, long targetOffset) {
+<b class="nc"><i class="no-highlight">1023</i>&nbsp;            return ((fileNum == targetFileNumber) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1024</i>&nbsp;                    containsOffset(targetOffset));</b>
+<i class="no-highlight">1025</i>&nbsp;        }
+<i class="no-highlight">1026</i>&nbsp;
+<i class="no-highlight">1027</i>&nbsp;        /* Position the readBuffer to the targetOffset. */
+<i class="no-highlight">1028</i>&nbsp;        public void positionBuffer(long targetOffset) {
+<i class="no-highlight">1029</i>&nbsp;
+<b class="nc"><i class="no-highlight">1030</i>&nbsp;            assert containsOffset(targetOffset) : this + &quot; doesn&#39;t contain &quot; +</b>
+<b class="nc"><i class="no-highlight">1031</i>&nbsp;                DbLsn.getNoFormatString(targetOffset);</b>
+<i class="no-highlight">1032</i>&nbsp;
+<b class="nc"><i class="no-highlight">1033</i>&nbsp;            readBuffer.position((int) (targetOffset - startOffset));</b>
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;        }</b>
+<i class="no-highlight">1035</i>&nbsp;
+<i class="no-highlight">1036</i>&nbsp;        /* Move the readBuffer position up by the given increment. */
+<i class="no-highlight">1037</i>&nbsp;        void incrementBufferPosition(int increment) {
+<b class="nc"><i class="no-highlight">1038</i>&nbsp;            int currentPosition = readBuffer.position();</b>
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;            readBuffer.position(currentPosition + increment);</b>
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;        }</b>
+<i class="no-highlight">1041</i>&nbsp;
+<i class="no-highlight">1042</i>&nbsp;        /* 
+<i class="no-highlight">1043</i>&nbsp;         * Reposition to the specified file, and fill starting at
+<i class="no-highlight">1044</i>&nbsp;         * startOffset. Position the window&#39;s buffer to point at the log entry
+<i class="no-highlight">1045</i>&nbsp;         * indicated by targetOffset
+<i class="no-highlight">1046</i>&nbsp;         */
+<i class="no-highlight">1047</i>&nbsp;        public void slideAndFill(long windowfileNum, 
+<i class="no-highlight">1048</i>&nbsp;                                 long windowStartOffset, 
+<i class="no-highlight">1049</i>&nbsp;                                 long targetOffset,
+<i class="no-highlight">1050</i>&nbsp;                                 boolean forward)
+<i class="no-highlight">1051</i>&nbsp;            throws ChecksumException,
+<i class="no-highlight">1052</i>&nbsp;                   FileNotFoundException,
+<i class="no-highlight">1053</i>&nbsp;                   DatabaseException {
+<i class="no-highlight">1054</i>&nbsp;
+<b class="nc"><i class="no-highlight">1055</i>&nbsp;            FileHandle fileHandle = fileManager.getFileHandle(windowfileNum);</b>
+<i class="no-highlight">1056</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;                startOffset = windowStartOffset;</b>
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;                setFileNum(windowfileNum, fileHandle.getLogVersion());</b>
+<b class="nc"><i class="no-highlight">1059</i>&nbsp;                boolean foundData = fillFromFile(fileHandle, targetOffset);</b>
+<i class="no-highlight">1060</i>&nbsp;
+<i class="no-highlight">1061</i>&nbsp;                /*
+<i class="no-highlight">1062</i>&nbsp;                 * When reading backwards, we need to guarantee there is no log
+<i class="no-highlight">1063</i>&nbsp;                 * gap, throws out an EnvironmentFailreException if it exists.
+<i class="no-highlight">1064</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1065</i>&nbsp;                if (!foundData &amp;&amp; !forward) {</b>
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1067</i>&nbsp;                        (&quot;Detected a log file gap when reading backwards. &quot; + </b>
+<i class="no-highlight">1068</i>&nbsp;                         &quot;Target position = &quot; + DbLsn.getNoFormatString
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;                         (DbLsn.makeLsn(windowfileNum, targetOffset)) +</b>
+<i class="no-highlight">1070</i>&nbsp;                         &quot; starting position = &quot; + DbLsn.getNoFormatString
+<b class="nc"><i class="no-highlight">1071</i>&nbsp;                         (DbLsn.makeLsn(windowfileNum, windowStartOffset)) +</b>
+<i class="no-highlight">1072</i>&nbsp;                         &quot; end position = &quot; + DbLsn.getNoFormatString
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;                         (DbLsn.makeLsn(windowfileNum, endOffset)));</b>
+<i class="no-highlight">1074</i>&nbsp;                }
+<i class="no-highlight">1075</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">1076</i>&nbsp;                fileHandle.release();</b>
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;        }</b>
+<i class="no-highlight">1079</i>&nbsp;
+<i class="no-highlight">1080</i>&nbsp;        /**
+<i class="no-highlight">1081</i>&nbsp;         * Fill up the read buffer with more data, moving along to the
+<i class="no-highlight">1082</i>&nbsp;         * following file (next largest number) if needed.
+<i class="no-highlight">1083</i>&nbsp;         * @return true if the fill moved us to a new file.
+<i class="no-highlight">1084</i>&nbsp;         */
+<i class="no-highlight">1085</i>&nbsp;        protected boolean fillNext(boolean singleFile, int bytesNeeded)
+<i class="no-highlight">1086</i>&nbsp;            throws ChecksumException,
+<i class="no-highlight">1087</i>&nbsp;                   FileNotFoundException,
+<i class="no-highlight">1088</i>&nbsp;                   EOFException,
+<i class="no-highlight">1089</i>&nbsp;                   DatabaseException {
+<i class="no-highlight">1090</i>&nbsp;
+<b class="fc"><i class="no-highlight">1091</i>&nbsp;            adjustReadBufferSize(bytesNeeded);</b>
+<i class="no-highlight">1092</i>&nbsp;
+<b class="fc"><i class="no-highlight">1093</i>&nbsp;            FileHandle fileHandle = null;</b>
+<i class="no-highlight">1094</i>&nbsp;            try {
+<i class="no-highlight">1095</i>&nbsp;                /* Get a file handle to read in more log. */
+<b class="fc"><i class="no-highlight">1096</i>&nbsp;                fileHandle = fileManager.getFileHandle(fileNum);</b>
+<i class="no-highlight">1097</i>&nbsp;
+<i class="no-highlight">1098</i>&nbsp;                /*
+<i class="no-highlight">1099</i>&nbsp;                 * Check to see if we&#39;ve come to the end of the file.  If so,
+<i class="no-highlight">1100</i>&nbsp;                 * get the next file.
+<i class="no-highlight">1101</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">1102</i>&nbsp;                startOffset = endOffset;</b>
+<b class="fc"><i class="no-highlight">1103</i>&nbsp;                if (fillFromFile(fileHandle, startOffset)) {</b>
+<i class="no-highlight">1104</i>&nbsp;                    /* 
+<i class="no-highlight">1105</i>&nbsp;                     * Successfully filled the read buffer, but didn&#39;t move to 
+<i class="no-highlight">1106</i>&nbsp;                     * a new file. 
+<i class="no-highlight">1107</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">1108</i>&nbsp;                    return false; </b>
+<i class="no-highlight">1109</i>&nbsp;                }
+<i class="no-highlight">1110</i>&nbsp;
+<i class="no-highlight">1111</i>&nbsp;                /* This file is done -- can we read in the next file? */
+<b class="fc"><i class="no-highlight">1112</i>&nbsp;                if (singleFile) {</b>
+<b class="fc"><i class="no-highlight">1113</i>&nbsp;                    throw new EOFException(&quot;Single file only&quot;);</b>
+<i class="no-highlight">1114</i>&nbsp;                }
+<i class="no-highlight">1115</i>&nbsp;
+<b class="nc"><i class="no-highlight">1116</i>&nbsp;                Long nextFile = </b>
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;                    fileManager.getFollowingFileNum(fileNum, </b>
+<i class="no-highlight">1118</i>&nbsp;                                                    true /* forward */);
+<i class="no-highlight">1119</i>&nbsp;
+<b class="nc"><i class="no-highlight">1120</i>&nbsp;                if (nextFile == null) {</b>
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;                    throw new EOFException();</b>
+<i class="no-highlight">1122</i>&nbsp;                }
+<i class="no-highlight">1123</i>&nbsp;                    
+<b class="nc"><i class="no-highlight">1124</i>&nbsp;                fileHandle.release();</b>
+<b class="nc"><i class="no-highlight">1125</i>&nbsp;                fileHandle = null;</b>
+<b class="nc"><i class="no-highlight">1126</i>&nbsp;                fileHandle = fileManager.getFileHandle(nextFile);</b>
+<b class="nc"><i class="no-highlight">1127</i>&nbsp;                setFileNum(nextFile, fileHandle.getLogVersion());</b>
+<b class="nc"><i class="no-highlight">1128</i>&nbsp;                startOffset = 0;</b>
+<b class="nc"><i class="no-highlight">1129</i>&nbsp;                fillFromFile(fileHandle, 0);</b>
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;                return true;</b>
+<i class="no-highlight">1131</i>&nbsp;            } finally {
+<b class="fc"><i class="no-highlight">1132</i>&nbsp;                if (fileHandle != null) {</b>
+<b class="fc"><i class="no-highlight">1133</i>&nbsp;                    fileHandle.release();</b>
+<i class="no-highlight">1134</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">1135</i>&nbsp;            }</b>
+<i class="no-highlight">1136</i>&nbsp;        }
+<i class="no-highlight">1137</i>&nbsp;
+<i class="no-highlight">1138</i>&nbsp;        /* 
+<i class="no-highlight">1139</i>&nbsp;         * Assume that the window is properly positioned. Try to fill the read
+<i class="no-highlight">1140</i>&nbsp;         * buffer with data from this file handle, starting at the location
+<i class="no-highlight">1141</i>&nbsp;         * indicated by the starting offset field. If this file contains more
+<i class="no-highlight">1142</i>&nbsp;         * data, return true. If this file doesn&#39;t contain more data, return
+<i class="no-highlight">1143</i>&nbsp;         * false.
+<i class="no-highlight">1144</i>&nbsp;         *
+<i class="no-highlight">1145</i>&nbsp;         * In all cases, leave the the read buffer pointing at the target
+<i class="no-highlight">1146</i>&nbsp;         * offset and in a state that&#39;s ready to support reads, even if there
+<i class="no-highlight">1147</i>&nbsp;         * is nothing in the buffer. Note that the target offset, which may not
+<i class="no-highlight">1148</i>&nbsp;         * be the same as starting offset.
+<i class="no-highlight">1149</i>&nbsp;         * @return true if more data was read, false if not.         
+<i class="no-highlight">1150</i>&nbsp;         */
+<i class="no-highlight">1151</i>&nbsp;        protected boolean fillFromFile(FileHandle fileHandle, 
+<i class="no-highlight">1152</i>&nbsp;                                       long targetOffset) 
+<i class="no-highlight">1153</i>&nbsp;            throws DatabaseException {
+<i class="no-highlight">1154</i>&nbsp;
+<b class="fc"><i class="no-highlight">1155</i>&nbsp;            boolean foundData = false;</b>
+<b class="fc"><i class="no-highlight">1156</i>&nbsp;            readBuffer.clear();</b>
+<b class="fc"><i class="no-highlight">1157</i>&nbsp;            if (fileManager.readFromFile(fileHandle.getFile(), </b>
+<i class="no-highlight">1158</i>&nbsp;                                         readBuffer,
+<i class="no-highlight">1159</i>&nbsp;                                         startOffset,
+<b class="fc"><i class="no-highlight">1160</i>&nbsp;                                         fileHandle.getFileNum(),</b>
+<i class="no-highlight">1161</i>&nbsp;                                         false /* dataKnownToBeInFile */)) {
+<b class="fc"><i class="no-highlight">1162</i>&nbsp;                foundData = true;</b>
+<b class="fc"><i class="no-highlight">1163</i>&nbsp;                nReadOperations += 1;</b>
+<i class="no-highlight">1164</i>&nbsp;                /*
+<i class="no-highlight">1165</i>&nbsp;                 * Ensure that fileNum and logVersion are in sync.  setFileNum
+<i class="no-highlight">1166</i>&nbsp;                 * handles changes in the file number.  But we must also update
+<i class="no-highlight">1167</i>&nbsp;                 * the logVersion here to handle the first read after we
+<i class="no-highlight">1168</i>&nbsp;                 * initialize fileNum and logVersion is unknown.
+<i class="no-highlight">1169</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">1170</i>&nbsp;                logVersion = fileHandle.getLogVersion();</b>
+<i class="no-highlight">1171</i>&nbsp;            }
+<i class="no-highlight">1172</i>&nbsp;
+<i class="no-highlight">1173</i>&nbsp;            /* 
+<i class="no-highlight">1174</i>&nbsp;             * In all cases, setup read buffer for valid reading. If the buffer
+<i class="no-highlight">1175</i>&nbsp;             * has no data, it will be positioned at the beginning, and will be
+<i class="no-highlight">1176</i>&nbsp;             * able to correctly return the fact that there is no data present.
+<i class="no-highlight">1177</i>&nbsp;             */
+<i class="no-highlight">1178</i>&nbsp;
+<b class="fc"><i class="no-highlight">1179</i>&nbsp;            endOffset = startOffset + readBuffer.position();</b>
+<b class="fc"><i class="no-highlight">1180</i>&nbsp;            readBuffer.flip();</b>
+<b class="fc"><i class="no-highlight">1181</i>&nbsp;            readBuffer.position((int) (targetOffset - startOffset));</b>
+<b class="fc"><i class="no-highlight">1182</i>&nbsp;            return foundData;</b>
+<i class="no-highlight">1183</i>&nbsp;        }
+<i class="no-highlight">1184</i>&nbsp;
+<i class="no-highlight">1185</i>&nbsp;        /**
+<i class="no-highlight">1186</i>&nbsp;         * Change the read buffer size if we start hitting large log entries so
+<i class="no-highlight">1187</i>&nbsp;         * we don&#39;t get into an expensive cycle of multiple reads and piecing
+<i class="no-highlight">1188</i>&nbsp;         * together of log entries.  
+<i class="no-highlight">1189</i>&nbsp;         */
+<i class="no-highlight">1190</i>&nbsp;        protected void adjustReadBufferSize(int amountToRead) {
+<i class="no-highlight">1191</i>&nbsp;
+<b class="fc"><i class="no-highlight">1192</i>&nbsp;            int readBufferSize = readBuffer.capacity();</b>
+<i class="no-highlight">1193</i>&nbsp;
+<i class="no-highlight">1194</i>&nbsp;            /* 
+<i class="no-highlight">1195</i>&nbsp;             * We need to read something larger than the current buffer
+<i class="no-highlight">1196</i>&nbsp;             * size. 
+<i class="no-highlight">1197</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">1198</i>&nbsp;            if (amountToRead &gt; readBufferSize) {</b>
+<i class="no-highlight">1199</i>&nbsp;
+<i class="no-highlight">1200</i>&nbsp;                /* We&#39;re not at the max yet. */
+<b class="nc"><i class="no-highlight">1201</i>&nbsp;                if (readBufferSize &lt; maxReadBufferSize) {</b>
+<i class="no-highlight">1202</i>&nbsp;
+<i class="no-highlight">1203</i>&nbsp;                    /*
+<i class="no-highlight">1204</i>&nbsp;                     * Make the buffer the minimum of amountToRead or a
+<i class="no-highlight">1205</i>&nbsp;                     * maxReadBufferSize.
+<i class="no-highlight">1206</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1207</i>&nbsp;                    if (amountToRead &lt; maxReadBufferSize) {</b>
+<b class="nc"><i class="no-highlight">1208</i>&nbsp;                        readBufferSize = amountToRead;</b>
+<i class="no-highlight">1209</i>&nbsp;                        /* Make it a multiple of 1K. */
+<b class="nc"><i class="no-highlight">1210</i>&nbsp;                        int remainder = readBufferSize % 1024;</b>
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;                        readBufferSize += 1024 - remainder;</b>
+<b class="nc"><i class="no-highlight">1212</i>&nbsp;                        readBufferSize = Math.min(readBufferSize,</b>
+<i class="no-highlight">1213</i>&nbsp;                                                  maxReadBufferSize);
+<b class="nc"><i class="no-highlight">1214</i>&nbsp;                    } else {</b>
+<b class="nc"><i class="no-highlight">1215</i>&nbsp;                        readBufferSize = maxReadBufferSize;</b>
+<i class="no-highlight">1216</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1217</i>&nbsp;                    readBuffer = ByteBuffer.allocate(readBufferSize);</b>
+<i class="no-highlight">1218</i>&nbsp;                }
+<i class="no-highlight">1219</i>&nbsp;
+<b class="nc"><i class="no-highlight">1220</i>&nbsp;                if (amountToRead &gt; readBuffer.capacity()) {</b>
+<b class="nc"><i class="no-highlight">1221</i>&nbsp;                    nRepeatIteratorReads++;</b>
+<i class="no-highlight">1222</i>&nbsp;                }
+<i class="no-highlight">1223</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">1224</i>&nbsp;        }</b>
+<i class="no-highlight">1225</i>&nbsp;
+<i class="no-highlight">1226</i>&nbsp;        int capacity() {
+<b class="nc"><i class="no-highlight">1227</i>&nbsp;            return readBuffer.capacity();</b>
+<i class="no-highlight">1228</i>&nbsp;        }
+<i class="no-highlight">1229</i>&nbsp;
+<i class="no-highlight">1230</i>&nbsp;        int remaining() {
+<b class="fc"><i class="no-highlight">1231</i>&nbsp;            return readBuffer.remaining();</b>
+<i class="no-highlight">1232</i>&nbsp;        }
+<i class="no-highlight">1233</i>&nbsp;
+<i class="no-highlight">1234</i>&nbsp;        boolean hasRemaining() {
+<b class="fc"><i class="no-highlight">1235</i>&nbsp;            return readBuffer.hasRemaining();</b>
+<i class="no-highlight">1236</i>&nbsp;        }
+<i class="no-highlight">1237</i>&nbsp;
+<i class="no-highlight">1238</i>&nbsp;        ByteBuffer getBuffer() {
+<b class="fc"><i class="no-highlight">1239</i>&nbsp;            return readBuffer;</b>
+<i class="no-highlight">1240</i>&nbsp;        }
+<i class="no-highlight">1241</i>&nbsp;
+<i class="no-highlight">1242</i>&nbsp;        /**
+<i class="no-highlight">1243</i>&nbsp;         * Returns the number of reads since the last time this method was
+<i class="no-highlight">1244</i>&nbsp;         * called.
+<i class="no-highlight">1245</i>&nbsp;         */
+<i class="no-highlight">1246</i>&nbsp;        int getAndResetNReads() {
+<b class="fc"><i class="no-highlight">1247</i>&nbsp;            int tmp = nReadOperations;</b>
+<b class="fc"><i class="no-highlight">1248</i>&nbsp;            nReadOperations = 0;</b>
+<b class="fc"><i class="no-highlight">1249</i>&nbsp;            return tmp;</b>
+<i class="no-highlight">1250</i>&nbsp;        }
+<i class="no-highlight">1251</i>&nbsp;
+<i class="no-highlight">1252</i>&nbsp;        long getNRepeatIteratorReads() {
+<b class="nc"><i class="no-highlight">1253</i>&nbsp;            return nRepeatIteratorReads;</b>
+<i class="no-highlight">1254</i>&nbsp;        }
+<i class="no-highlight">1255</i>&nbsp;
+<i class="no-highlight">1256</i>&nbsp;        @Override
+<i class="no-highlight">1257</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">1258</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1259</i>&nbsp;            long start = DbLsn.makeLsn(fileNum, startOffset);</b>
+<b class="nc"><i class="no-highlight">1260</i>&nbsp;            long end = DbLsn.makeLsn(fileNum, endOffset);</b>
+<b class="nc"><i class="no-highlight">1261</i>&nbsp;            sb.append(&quot;window covers &quot;);</b>
+<b class="nc"><i class="no-highlight">1262</i>&nbsp;            sb.append(DbLsn.getNoFormatString(start)).append(&quot; to &quot;);</b>
+<b class="nc"><i class="no-highlight">1263</i>&nbsp;            sb.append(DbLsn.getNoFormatString(end));</b>
+<b class="nc"><i class="no-highlight">1264</i>&nbsp;            sb.append(&quot; positioned at &quot;);</b>
+<b class="nc"><i class="no-highlight">1265</i>&nbsp;            long target = getCurrentLsn();</b>
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;            sb.append(DbLsn.getNoFormatString(target));</b>
+<b class="nc"><i class="no-highlight">1267</i>&nbsp;            return sb.toString();</b>
+<i class="no-highlight">1268</i>&nbsp;        }
+<i class="no-highlight">1269</i>&nbsp;
+<i class="no-highlight">1270</i>&nbsp;        long getCurrentLsn() {
+<b class="fc"><i class="no-highlight">1271</i>&nbsp;            return DbLsn.makeLsn(fileNum, startOffset + readBuffer.position());</b>
+<i class="no-highlight">1272</i>&nbsp;        }
+<i class="no-highlight">1273</i>&nbsp;    }
+<i class="no-highlight">1274</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

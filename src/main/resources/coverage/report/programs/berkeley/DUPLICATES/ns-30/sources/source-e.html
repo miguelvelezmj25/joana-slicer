@@ -1,0 +1,457 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > CronScheduleParser</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: CronScheduleParser (com.sleepycat.je.utilint)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">CronScheduleParser</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/116)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Calendar;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;/**
+<i class="no-highlight">21</i>&nbsp; * This class aims to parser {@link EnvironmentConfig#VERIFY_SCHEDULE} which
+<i class="no-highlight">22</i>&nbsp; * is a cron-style expression.
+<i class="no-highlight">23</i>&nbsp; * 
+<i class="no-highlight">24</i>&nbsp; * &lt;p&gt;The cron-style expression can be very complicate, for example containing
+<i class="no-highlight">25</i>&nbsp; * *, ?, / and so on. But now we only handle the simplest situation. We will
+<i class="no-highlight">26</i>&nbsp; * continually add the code to handle more complicated situations if needed
+<i class="no-highlight">27</i>&nbsp; * in the future.&lt;/p&gt;
+<i class="no-highlight">28</i>&nbsp; *
+<i class="no-highlight">29</i>&nbsp; * &lt;p&gt;Constraint for current version:
+<i class="no-highlight">30</i>&nbsp; * &lt;li&gt;The standard string should be &quot;* * * * *&quot;, i.e. there are 5 fields and
+<i class="no-highlight">31</i>&nbsp; *     4 blank space
+<i class="no-highlight">32</i>&nbsp; * &lt;li&gt;Each filed can only be an int value or *.
+<i class="no-highlight">33</i>&nbsp; * &lt;li&gt;Can not specify dayOfMonth and dayOfWeek simultaneously
+<i class="no-highlight">34</i>&nbsp; * &lt;li&gt;Can not specify dayOfMonth or month. Because if so, we will need to
+<i class="no-highlight">35</i>&nbsp; *     consider the days of that month and furthermore whether that year is
+<i class="no-highlight">36</i>&nbsp; *     leap year for February. The difference of the number of days for
+<i class="no-highlight">37</i>&nbsp; *     each month make it complicate to calculate the delay and the interval.
+<i class="no-highlight">38</i>&nbsp; * &lt;li&gt;If the field is an int value, then the value should be in
+<i class="no-highlight">39</i>&nbsp; *     the correct range, i.e. minute(0-59), hour(0-23), dayOfWeek(0-6),
+<i class="no-highlight">40</i>&nbsp; *     where dayOfMonth(1-31) and month(1-12) can not be specified.
+<i class="no-highlight">41</i>&nbsp; * &lt;li&gt;If dayOfWeek is a concrete value, then minute or hour can not be &#39;*&#39;.
+<i class="no-highlight">42</i>&nbsp; *      For example, we can not use &quot;0 * * * 5&quot;, i.e. we can not specify that
+<i class="no-highlight">43</i>&nbsp; *      we want the verifier to run every hour only on Friday. Because it may
+<i class="no-highlight">44</i>&nbsp; *      be complicate to calculate the stop time point and at least we need
+<i class="no-highlight">45</i>&nbsp; *      to add a variable.
+<i class="no-highlight">46</i>&nbsp; * &lt;li&gt;The same reason, if hour is a concrete value, minute can not be &#39;*&#39;.
+<i class="no-highlight">47</i>&nbsp; * &lt;/p&gt;
+<i class="no-highlight">48</i>&nbsp; */
+<b class="nc"><i class="no-highlight">49</i>&nbsp;public class CronScheduleParser {</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;    private static String errorMess =</b>
+<i class="no-highlight">51</i>&nbsp;        &quot;The style of &quot; + EnvironmentConfig.VERIFY_SCHEDULE +
+<i class="no-highlight">52</i>&nbsp;        &quot; is not right. &quot;;
+<b class="nc"><i class="no-highlight">53</i>&nbsp;    private static int spaceNum = 4;</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;    private static int fieldNum = 5;</b>
+<i class="no-highlight">55</i>&nbsp;
+<b class="nc"><i class="no-highlight">56</i>&nbsp;    public static String nullCons = &quot;The argument should not be null.&quot;;</b>
+<b class="nc"><i class="no-highlight">57</i>&nbsp;    public static String cons1 =</b>
+<i class="no-highlight">58</i>&nbsp;        &quot;The standard string should be &#39;* * * * *&#39;, i.e. there are &quot; +
+<i class="no-highlight">59</i>&nbsp;        fieldNum + &quot;fields and &quot; + spaceNum + &quot;blank space.&quot;;
+<b class="nc"><i class="no-highlight">60</i>&nbsp;    public static String cons2 = &quot;Each filed can only be a int value or *.&quot;;</b>
+<b class="nc"><i class="no-highlight">61</i>&nbsp;    public static String cons3 =</b>
+<i class="no-highlight">62</i>&nbsp;        &quot;Can not specify dayOfWeek and dayOfMonth simultaneously.&quot;;
+<b class="nc"><i class="no-highlight">63</i>&nbsp;    public static String cons4 = &quot;Can not specify dayOfMonth or month.&quot;;</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;    public static String cons5 = &quot;Range Error: &quot;;</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;    public static String cons6 =</b>
+<i class="no-highlight">66</i>&nbsp;        &quot;If the day of the week is a concrete day, then the minute and the&quot; +
+<i class="no-highlight">67</i>&nbsp;        &quot;hour should also be concrete.&quot;;
+<b class="nc"><i class="no-highlight">68</i>&nbsp;    public static String cons7 =</b>
+<i class="no-highlight">69</i>&nbsp;        &quot;If the hour is a concrete day, then minute should also be concrete&quot;;
+<i class="no-highlight">70</i>&nbsp;
+<b class="nc"><i class="no-highlight">71</i>&nbsp;    private static long millsOneDay = 24 * 60 * 60 * 1000;</b>
+<b class="nc"><i class="no-highlight">72</i>&nbsp;    private static long millsOneHour = 60 * 60 * 1000;</b>
+<b class="nc"><i class="no-highlight">73</i>&nbsp;    private static long millsOneMinute = 60 * 1000;</b>
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    private long delay;
+<i class="no-highlight">76</i>&nbsp;    private long interval;
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    public static Calendar curCal;
+<i class="no-highlight">79</i>&nbsp;    public static TestHook&lt;Void&gt; setCurCalHook;
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /**
+<i class="no-highlight">82</i>&nbsp;     * The construction function will first validate the cron-style string
+<i class="no-highlight">83</i>&nbsp;     * and then parser the string to get the interval of the cron-style task
+<i class="no-highlight">84</i>&nbsp;     * represented by the string and to get the wait-time(delay) to first
+<i class="no-highlight">85</i>&nbsp;     * time start the cron-style task.
+<i class="no-highlight">86</i>&nbsp;     *  
+<i class="no-highlight">87</i>&nbsp;     * @param cronSchedule The cron-style string.
+<i class="no-highlight">88</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">89</i>&nbsp;    public CronScheduleParser(String cronSchedule) {</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        validate(cronSchedule);</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        parser(cronSchedule);</b>
+<i class="no-highlight">92</i>&nbsp;    }
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /**
+<i class="no-highlight">95</i>&nbsp;     * Check whether two cron-style strings are same, i.e. both are null or
+<i class="no-highlight">96</i>&nbsp;     * the content of the two strings are same.
+<i class="no-highlight">97</i>&nbsp;     *
+<i class="no-highlight">98</i>&nbsp;     * @param cronvSchedule1 The first cron-style string.
+<i class="no-highlight">99</i>&nbsp;     * @param cronSchedule2 The second cron-style string.
+<i class="no-highlight">100</i>&nbsp;     *
+<i class="no-highlight">101</i>&nbsp;     * @return true if the two cron-style strings are same.
+<i class="no-highlight">102</i>&nbsp;     */
+<i class="no-highlight">103</i>&nbsp;    public static boolean checkSame(
+<i class="no-highlight">104</i>&nbsp;        final String cronvSchedule1,
+<i class="no-highlight">105</i>&nbsp;        final String cronSchedule2) {
+<i class="no-highlight">106</i>&nbsp;
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        if (cronvSchedule1 == null &amp;&amp; cronSchedule2 ==null) {</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;            return true;</b>
+<i class="no-highlight">109</i>&nbsp;        }
+<i class="no-highlight">110</i>&nbsp;
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        if (cronvSchedule1 == null || cronSchedule2 ==null) {</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;            return false;</b>
+<i class="no-highlight">113</i>&nbsp;        }
+<i class="no-highlight">114</i>&nbsp;
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        if (cronvSchedule1.equals(cronSchedule2)) {</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;            return true;</b>
+<i class="no-highlight">117</i>&nbsp;        }
+<i class="no-highlight">118</i>&nbsp;
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        return false;</b>
+<i class="no-highlight">120</i>&nbsp;    }
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;    /**
+<i class="no-highlight">123</i>&nbsp;     * @return delay The wait-time to first time start the cron-style task
+<i class="no-highlight">124</i>&nbsp;     *               represented by the cron-style string.
+<i class="no-highlight">125</i>&nbsp;     */
+<i class="no-highlight">126</i>&nbsp;    public long getDelayTime() {
+<b class="nc"><i class="no-highlight">127</i>&nbsp;        return delay;</b>
+<i class="no-highlight">128</i>&nbsp;    }
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    /**
+<i class="no-highlight">131</i>&nbsp;     * @return interval The interval of the cron-style task represented by the
+<i class="no-highlight">132</i>&nbsp;     *                  cron-style string.
+<i class="no-highlight">133</i>&nbsp;     */
+<i class="no-highlight">134</i>&nbsp;    public long getInterval() {
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        return interval;</b>
+<i class="no-highlight">136</i>&nbsp;    }
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    private void assertDelay() {
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        assert delay &gt;= 0 :</b>
+<i class="no-highlight">140</i>&nbsp;            &quot;Delay is: &quot; + delay + &quot;; interval is: &quot; + interval;
+<i class="no-highlight">141</i>&nbsp;    }
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    private void parser(final String cronSchedule) {
+<i class="no-highlight">144</i>&nbsp;        /* Get or Set the current calendar. */
+<b class="nc"><i class="no-highlight">145</i>&nbsp;        curCal = Calendar.getInstance();</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        curCal.set(Calendar.SECOND, 0);</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        curCal.set(Calendar.MILLISECOND, 0);</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        if (setCurCalHook != null) {</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;            setCurCalHook.doHook();</b>
+<i class="no-highlight">150</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        int curDayOfWeek = curCal.get(Calendar.DAY_OF_WEEK);</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        int curHour = curCal.get(Calendar.HOUR_OF_DAY);</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        int curMinute = curCal.get(Calendar.MINUTE);</b>
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;        /*
+<i class="no-highlight">156</i>&nbsp;         * Previously, we use Calendar.getInstance() to initialize scheduleCal,
+<i class="no-highlight">157</i>&nbsp;         * which aims to let scheduleCal have some similar/same attributes
+<i class="no-highlight">158</i>&nbsp;         * with curCal, such as the day of the week. But we may use
+<i class="no-highlight">159</i>&nbsp;         * setCurCalHook.doHook to set curCal to be a future week, now
+<i class="no-highlight">160</i>&nbsp;         * using Calendar.getInstance() can not achieve the original purpose.
+<i class="no-highlight">161</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        Calendar scheduleCal = (Calendar) curCal.clone();</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;        scheduleCal.set(Calendar.SECOND, 0);</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        scheduleCal.set(Calendar.MILLISECOND, 0);</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        String[] timeArray = cronSchedule.split(&quot; &quot;);</b>
+<i class="no-highlight">166</i>&nbsp;
+<i class="no-highlight">167</i>&nbsp;        /* dayofWeek is a concrete value. */
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        if (!timeArray[4].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;            interval = 7 * millsOneDay;</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;            int tmpDayOfWeek = Integer.valueOf(timeArray[4]) + 1;</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            int tmpHour = Integer.valueOf(timeArray[1]);</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;            int tmpMinute = Integer.valueOf(timeArray[0]);</b>
+<i class="no-highlight">173</i>&nbsp;
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            scheduleCal.set(Calendar.DAY_OF_WEEK, tmpDayOfWeek);</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            scheduleCal.set(Calendar.HOUR_OF_DAY, tmpHour);</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            scheduleCal.set(Calendar.MINUTE, tmpMinute);</b>
+<i class="no-highlight">177</i>&nbsp;
+<b class="nc"><i class="no-highlight">178</i>&nbsp;            if (tmpDayOfWeek &lt; curDayOfWeek ||</b>
+<i class="no-highlight">179</i>&nbsp;                (tmpDayOfWeek == curDayOfWeek &amp;&amp; tmpHour &lt; curHour) ||
+<i class="no-highlight">180</i>&nbsp;                (tmpDayOfWeek == curDayOfWeek &amp;&amp; tmpHour == curHour &amp;&amp;
+<i class="no-highlight">181</i>&nbsp;                tmpMinute &lt; curMinute)) {
+<i class="no-highlight">182</i>&nbsp;                /* add 7 days to set next week */
+<b class="nc"><i class="no-highlight">183</i>&nbsp;                scheduleCal.add(Calendar.DATE, 7);</b>
+<i class="no-highlight">184</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">185</i>&nbsp;            delay = scheduleCal.getTimeInMillis() - curCal.getTimeInMillis();</b>
+<i class="no-highlight">186</i>&nbsp;
+<b class="nc"><i class="no-highlight">187</i>&nbsp;            assertDelay();</b>
+<i class="no-highlight">188</i>&nbsp;            return;
+<i class="no-highlight">189</i>&nbsp;        }
+<i class="no-highlight">190</i>&nbsp;
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        if (!timeArray[1].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;            interval = millsOneDay;</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            int tmpHour = Integer.valueOf(timeArray[1]);</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            int tmpMinute = Integer.valueOf(timeArray[0]);</b>
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;            /*
+<i class="no-highlight">197</i>&nbsp;             * Guarantee that both dayOfWeek is same when dayOfWeek is * in
+<i class="no-highlight">198</i>&nbsp;             * cronSchedule.
+<i class="no-highlight">199</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            scheduleCal.set(Calendar.DAY_OF_WEEK, curDayOfWeek);</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;            scheduleCal.set(Calendar.HOUR_OF_DAY, tmpHour);</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;            scheduleCal.set(Calendar.MINUTE, tmpMinute);</b>
+<i class="no-highlight">203</i>&nbsp;
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            if (tmpHour &lt; curHour ||</b>
+<i class="no-highlight">205</i>&nbsp;                (tmpHour == curHour &amp;&amp; tmpMinute &lt; curMinute)) {
+<i class="no-highlight">206</i>&nbsp;                /* to set next day */
+<b class="nc"><i class="no-highlight">207</i>&nbsp;                scheduleCal.add(Calendar.DATE, 1);</b>
+<i class="no-highlight">208</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">209</i>&nbsp;            delay = scheduleCal.getTimeInMillis() - curCal.getTimeInMillis();</b>
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;            assertDelay();</b>
+<i class="no-highlight">212</i>&nbsp;            return;
+<i class="no-highlight">213</i>&nbsp;        }
+<i class="no-highlight">214</i>&nbsp;
+<b class="nc"><i class="no-highlight">215</i>&nbsp;        if (!timeArray[0].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;            interval = millsOneHour;</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            int tmpMinute = Integer.valueOf(timeArray[0]);</b>
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;            /*
+<i class="no-highlight">220</i>&nbsp;             * Guarantee that both dayOfWeek and both hour are same whe
+<i class="no-highlight">221</i>&nbsp;             * dayOfWeek and hour are * in cronSchedule.
+<i class="no-highlight">222</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            scheduleCal.set(Calendar.DAY_OF_WEEK, curDayOfWeek);</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;            scheduleCal.set(Calendar.HOUR_OF_DAY, curHour);</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            scheduleCal.set(Calendar.MINUTE, tmpMinute);</b>
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            if (tmpMinute &lt; curMinute) {</b>
+<i class="no-highlight">228</i>&nbsp;                /* to set next hour */
+<b class="nc"><i class="no-highlight">229</i>&nbsp;                scheduleCal.add(Calendar.HOUR, 1);</b>
+<i class="no-highlight">230</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">231</i>&nbsp;            delay = scheduleCal.getTimeInMillis() - curCal.getTimeInMillis();</b>
+<i class="no-highlight">232</i>&nbsp;
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            assertDelay();</b>
+<i class="no-highlight">234</i>&nbsp;            return;
+<i class="no-highlight">235</i>&nbsp;        }
+<i class="no-highlight">236</i>&nbsp;
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        if (timeArray[0].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            interval = millsOneMinute;</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            delay = 0;</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;            assertDelay();</b>
+<i class="no-highlight">241</i>&nbsp;            return;
+<i class="no-highlight">242</i>&nbsp;        }
+<i class="no-highlight">243</i>&nbsp;    }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    private void validate(final String cronSchedule) {
+<i class="no-highlight">246</i>&nbsp;
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        if (cronSchedule == null) {</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;            throw new IllegalArgumentException(errorMess + nullCons);</b>
+<i class="no-highlight">249</i>&nbsp;        }
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;        /*
+<i class="no-highlight">252</i>&nbsp;         * Constraint 1: The standard string should be &quot;* * * * *&quot;, i.e.
+<i class="no-highlight">253</i>&nbsp;         * there are 5 fields and 4 blank space.
+<i class="no-highlight">254</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        int spaceCount = 0;</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        for (int i = 0; i &lt; cronSchedule.length(); i++) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            char c = cronSchedule.charAt(i);</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            if (c == 32 ) {  /* The ASCII value of &#39; &#39; is 32. */</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;                spaceCount++;</b>
+<i class="no-highlight">260</i>&nbsp;            }
+<i class="no-highlight">261</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">262</i>&nbsp;        if (spaceCount != spaceNum ||</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;            cronSchedule.split(&quot; &quot;).length != fieldNum) {</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;            throw new IllegalArgumentException(errorMess + cons1);</b>
+<i class="no-highlight">265</i>&nbsp;        }
+<i class="no-highlight">266</i>&nbsp;
+<b class="nc"><i class="no-highlight">267</i>&nbsp;        String[] timeArray = cronSchedule.split(&quot; &quot;);</b>
+<i class="no-highlight">268</i>&nbsp;        /*
+<i class="no-highlight">269</i>&nbsp;         * Constraint 2: Each filed can only be an int value or *.
+<i class="no-highlight">270</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">271</i>&nbsp;        for (String str : timeArray) {</b>
+<i class="no-highlight">272</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                Integer.valueOf(str);</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            } catch (NumberFormatException e) {</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;                if (!str.equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;                    throw new IllegalArgumentException(errorMess + cons2);</b>
+<i class="no-highlight">277</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">278</i>&nbsp;            }</b>
+<i class="no-highlight">279</i>&nbsp;        }
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;        /*
+<i class="no-highlight">282</i>&nbsp;         * Constraint 3: Can not specify dayOfMonth and dayOfWeek
+<i class="no-highlight">283</i>&nbsp;         * simultaneously.
+<i class="no-highlight">284</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        if (!timeArray[2].equals(&quot;*&quot;) &amp;&amp; !timeArray[4].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;            throw new IllegalArgumentException(errorMess + cons3);            </b>
+<i class="no-highlight">287</i>&nbsp;        }
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;        /*
+<i class="no-highlight">290</i>&nbsp;         * Constraint 4: Can not specify dayOfMonth or month.
+<i class="no-highlight">291</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">292</i>&nbsp;        if (!timeArray[2].equals(&quot;*&quot;) || !timeArray[3].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;            throw new IllegalArgumentException(errorMess + cons4);             </b>
+<i class="no-highlight">294</i>&nbsp;        }
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;        /*
+<i class="no-highlight">297</i>&nbsp;         * Constraint 5: If the field is a int value, then the value should
+<i class="no-highlight">298</i>&nbsp;         * be in the correct range.
+<i class="no-highlight">299</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        if (!timeArray[0].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;            int min = Integer.valueOf(timeArray[0]);</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            if (min &lt; 0 || min &gt; 59) {</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;                throw new IllegalArgumentException</b>
+<i class="no-highlight">304</i>&nbsp;                    (errorMess + cons5 + &quot;The minute should be (0-59).&quot;);
+<i class="no-highlight">305</i>&nbsp;            }
+<i class="no-highlight">306</i>&nbsp;        }
+<i class="no-highlight">307</i>&nbsp;
+<b class="nc"><i class="no-highlight">308</i>&nbsp;        if (!timeArray[1].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            int hour = Integer.valueOf(timeArray[1]);</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;            if (hour &lt; 0 || hour &gt; 23) {</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                throw new IllegalArgumentException</b>
+<i class="no-highlight">312</i>&nbsp;                    (errorMess + cons5 + &quot;The hour should be (0-23).&quot;);
+<i class="no-highlight">313</i>&nbsp;            }
+<i class="no-highlight">314</i>&nbsp;        }
+<i class="no-highlight">315</i>&nbsp;
+<b class="nc"><i class="no-highlight">316</i>&nbsp;        if (!timeArray[4].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            int dayOfWeek = Integer.valueOf(timeArray[4]);</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;            if (dayOfWeek &lt; 0 || dayOfWeek &gt; 6) {</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;                throw new IllegalArgumentException</b>
+<i class="no-highlight">320</i>&nbsp;                    (errorMess + cons5 + &quot;The day of the week should&quot; +
+<i class="no-highlight">321</i>&nbsp;                    &quot;be (0-6).&quot;);
+<i class="no-highlight">322</i>&nbsp;            }
+<i class="no-highlight">323</i>&nbsp;        }
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;        /*
+<i class="no-highlight">326</i>&nbsp;         * Constraint 6: If dayOfWeek is a concrete value, then minute or
+<i class="no-highlight">327</i>&nbsp;         * hour can not be &#39;*&#39;.
+<i class="no-highlight">328</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        if (!timeArray[4].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;            if (timeArray[0].equals(&quot;*&quot;) || timeArray[1].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;                throw new IllegalArgumentException(errorMess + cons6);</b>
+<i class="no-highlight">332</i>&nbsp;            }
+<i class="no-highlight">333</i>&nbsp;        }
+<i class="no-highlight">334</i>&nbsp;
+<i class="no-highlight">335</i>&nbsp;        /*
+<i class="no-highlight">336</i>&nbsp;         * Constraint 7: If hour is a concrete value, minute can not be &#39;*&#39;.
+<i class="no-highlight">337</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        if (!timeArray[1].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            if (timeArray[0].equals(&quot;*&quot;)) {</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;                throw new IllegalArgumentException(errorMess + cons7);</b>
+<i class="no-highlight">341</i>&nbsp;            }
+<i class="no-highlight">342</i>&nbsp;        }
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;        /*
+<i class="no-highlight">345</i>&nbsp;        if (timeArray[0].equals(&quot;*&quot;)) {
+<i class="no-highlight">346</i>&nbsp;            throw new IllegalArgumentException
+<i class="no-highlight">347</i>&nbsp;                (errorMes + &quot;User specify the verifier to run every minute.&quot; +
+<i class="no-highlight">348</i>&nbsp;                &quot;This is too frequent.&quot;);
+<i class="no-highlight">349</i>&nbsp;        }
+<i class="no-highlight">350</i>&nbsp;        */
+<i class="no-highlight">351</i>&nbsp;    }
+<i class="no-highlight">352</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,311 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ActivityCounter</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: ActivityCounter (com.sleepycat.utilint)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ActivityCounter</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/25)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ActivityCounter$GetStackTraces</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/21)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/46)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Map;
+<i class="no-highlight">17</i>&nbsp;import java.util.concurrent.ExecutorService;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.Executors;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.atomic.AtomicBoolean;
+<i class="no-highlight">20</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">21</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;/**
+<i class="no-highlight">24</i>&nbsp; * Tracks the number of operations begun, as a way of measuring level of
+<i class="no-highlight">25</i>&nbsp; * activity. Is capable of displaying thread dumps if the activity level
+<i class="no-highlight">26</i>&nbsp; * reaches a specified ceiling
+<i class="no-highlight">27</i>&nbsp; */
+<b class="nc"><i class="no-highlight">28</i>&nbsp;public class ActivityCounter {</b>
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;    private final AtomicInteger activeCount;
+<i class="no-highlight">31</i>&nbsp;    private final AtomicBoolean threadDumpInProgress;
+<i class="no-highlight">32</i>&nbsp;    private volatile long lastThreadDumpTime;
+<i class="no-highlight">33</i>&nbsp;    private volatile int numCompletedDumps;
+<i class="no-highlight">34</i>&nbsp;    private final int activeThreshold;
+<i class="no-highlight">35</i>&nbsp;    private final int  maxNumDumps;
+<i class="no-highlight">36</i>&nbsp;    private final AtomicInteger maxActivity;
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;    /*
+<i class="no-highlight">39</i>&nbsp;     * Thread dumps can only happen this many milliseconds apart, to avoid
+<i class="no-highlight">40</i>&nbsp;     * overwhelming the system.
+<i class="no-highlight">41</i>&nbsp;     */
+<i class="no-highlight">42</i>&nbsp;    private final long requiredIntervalMillis;
+<i class="no-highlight">43</i>&nbsp;
+<i class="no-highlight">44</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">45</i>&nbsp;
+<i class="no-highlight">46</i>&nbsp;    private final ExecutorService dumper;
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    public ActivityCounter(int activeThreshold,
+<i class="no-highlight">49</i>&nbsp;                           long requiredIntervalMillis,
+<i class="no-highlight">50</i>&nbsp;                           int maxNumDumps,
+<b class="nc"><i class="no-highlight">51</i>&nbsp;                           Logger logger) {</b>
+<i class="no-highlight">52</i>&nbsp;
+<b class="nc"><i class="no-highlight">53</i>&nbsp;        activeCount = new AtomicInteger(0);</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;        threadDumpInProgress = new AtomicBoolean(false);</b>
+<b class="nc"><i class="no-highlight">55</i>&nbsp;        maxActivity = new AtomicInteger(0);</b>
+<i class="no-highlight">56</i>&nbsp;
+<b class="nc"><i class="no-highlight">57</i>&nbsp;        this.activeThreshold = activeThreshold;</b>
+<b class="nc"><i class="no-highlight">58</i>&nbsp;        this.requiredIntervalMillis = requiredIntervalMillis;</b>
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        this.maxNumDumps = maxNumDumps;</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;        this.logger = logger;</b>
+<i class="no-highlight">61</i>&nbsp;
+<b class="nc"><i class="no-highlight">62</i>&nbsp;        dumper = Executors.newSingleThreadExecutor();</b>
+<i class="no-highlight">63</i>&nbsp;    }
+<i class="no-highlight">64</i>&nbsp;
+<i class="no-highlight">65</i>&nbsp;    /* An operation has started. */
+<i class="no-highlight">66</i>&nbsp;    public void start() {
+<b class="nc"><i class="no-highlight">67</i>&nbsp;        int numActive = activeCount.incrementAndGet();</b>
+<b class="nc"><i class="no-highlight">68</i>&nbsp;        int max = maxActivity.get();</b>
+<b class="nc"><i class="no-highlight">69</i>&nbsp;        if (numActive &gt; max) {</b>
+<b class="nc"><i class="no-highlight">70</i>&nbsp;            maxActivity.compareAndSet(max, numActive);</b>
+<i class="no-highlight">71</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        check(numActive);</b>
+<i class="no-highlight">73</i>&nbsp;    }
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    /* An operation has finished. */
+<i class="no-highlight">76</i>&nbsp;    public void finish() {
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        activeCount.decrementAndGet();</b>
+<i class="no-highlight">78</i>&nbsp;    }
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    public int getAndClearMaxActivity() {
+<b class="nc"><i class="no-highlight">81</i>&nbsp;        return maxActivity.getAndSet(0);</b>
+<i class="no-highlight">82</i>&nbsp;    }
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    private boolean intervalIsTooShort() {
+<i class="no-highlight">85</i>&nbsp;        /* Don&#39;t do a thread dump if the last dump was too recent */
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        long interval = System.currentTimeMillis() - lastThreadDumpTime;</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;        return interval &lt; requiredIntervalMillis;</b>
+<i class="no-highlight">88</i>&nbsp;    }
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;    /**
+<i class="no-highlight">91</i>&nbsp;     * If the activity level is above a threshold, there is no other thread
+<i class="no-highlight">92</i>&nbsp;     * that is dumping now, and a dump hasn&#39;t happened for a while, dump
+<i class="no-highlight">93</i>&nbsp;     * thread stack traces.
+<i class="no-highlight">94</i>&nbsp;     */
+<i class="no-highlight">95</i>&nbsp;    private void check(int numActive) {
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;        /* Activity is low, no need to do any dumps. */
+<b class="nc"><i class="no-highlight">98</i>&nbsp;        if (numActive &lt;= activeThreshold) {</b>
+<i class="no-highlight">99</i>&nbsp;            return;
+<i class="no-highlight">100</i>&nbsp;        }
+<i class="no-highlight">101</i>&nbsp;
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        if (numCompletedDumps &gt;= maxNumDumps) {</b>
+<i class="no-highlight">103</i>&nbsp;            return;
+<i class="no-highlight">104</i>&nbsp;        }
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;        /* Don&#39;t do a thread dump if the last dump was too recent */
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        if (intervalIsTooShort()) {</b>
+<i class="no-highlight">108</i>&nbsp;            return;
+<i class="no-highlight">109</i>&nbsp;        }
+<i class="no-highlight">110</i>&nbsp;
+<i class="no-highlight">111</i>&nbsp;        /* There&#39;s one in progress. */
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        if (threadDumpInProgress.get()) {</b>
+<i class="no-highlight">113</i>&nbsp;            return;
+<i class="no-highlight">114</i>&nbsp;        }
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;        /*
+<i class="no-highlight">117</i>&nbsp;         * Let&#39;s do a dump. The ExecutorServices guarantees that all activity
+<i class="no-highlight">118</i>&nbsp;         * executes in a single thread, so further serialization and
+<i class="no-highlight">119</i>&nbsp;         * synchronization is handled there.
+<i class="no-highlight">120</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        dumper.execute(new GetStackTraces());</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /**
+<i class="no-highlight">125</i>&nbsp;     * For unit test support.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    public int getNumCompletedDumps() {
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        return numCompletedDumps;</b>
+<i class="no-highlight">129</i>&nbsp;    }
+<i class="no-highlight">130</i>&nbsp;
+<b class="nc"><i class="no-highlight">131</i>&nbsp;    private class GetStackTraces implements Runnable {</b>
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;        public void run() {
+<i class="no-highlight">134</i>&nbsp;
+<b class="nc"><i class="no-highlight">135</i>&nbsp;            if (intervalIsTooShort()) {</b>
+<i class="no-highlight">136</i>&nbsp;                return;
+<i class="no-highlight">137</i>&nbsp;            }
+<i class="no-highlight">138</i>&nbsp;
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            if (!threadDumpInProgress.compareAndSet(false, true)) {</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;                logger.warning(&quot;Unexpected: ActivityCounter stack trace &quot; +</b>
+<i class="no-highlight">141</i>&nbsp;                               &quot;dumper saw threadDumpInProgress flag set.&quot;);
+<i class="no-highlight">142</i>&nbsp;                return;
+<i class="no-highlight">143</i>&nbsp;            }
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">146</i>&nbsp;                lastThreadDumpTime = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;                dumpThreads();</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;                numCompletedDumps++;</b>
+<i class="no-highlight">149</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">150</i>&nbsp;                boolean reset = threadDumpInProgress.compareAndSet(true, false);</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;                assert reset : &quot;ThreadDump should have been in progress&quot;;</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;            }</b>
+<i class="no-highlight">153</i>&nbsp;        }
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;        private void dumpThreads() {
+<i class="no-highlight">156</i>&nbsp;
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            int whichDump = numCompletedDumps;</b>
+<i class="no-highlight">158</i>&nbsp;
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            logger.info(&quot;[Dump &quot; + whichDump +</b>
+<i class="no-highlight">160</i>&nbsp;                        &quot; --Dumping stack traces for all threads]&quot;);
+<i class="no-highlight">161</i>&nbsp;
+<i class="no-highlight">162</i>&nbsp;            Map&lt;Thread, StackTraceElement[]&gt; stackTraces =
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                Thread.getAllStackTraces();</b>
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;            for (Map.Entry&lt;Thread, StackTraceElement[]&gt; stme :
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                     stackTraces.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                if (stme.getKey() == Thread.currentThread()) {</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;                    continue;</b>
+<i class="no-highlight">169</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">170</i>&nbsp;                logger.info(stme.getKey().toString());</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                for (StackTraceElement ste : stme.getValue()) {</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                    logger.info(&quot;     &quot; + ste);</b>
+<i class="no-highlight">173</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            }</b>
+<i class="no-highlight">175</i>&nbsp;
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            logger.info(&quot;[Dump &quot; + whichDump + &quot; --Thread dump completed]&quot;);</b>
+<i class="no-highlight">177</i>&nbsp;        }
+<i class="no-highlight">178</i>&nbsp;    }
+<i class="no-highlight">179</i>&nbsp;}
+<i class="no-highlight">180</i>&nbsp;
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

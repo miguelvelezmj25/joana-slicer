@@ -1,0 +1,922 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > StoredMap</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.collections</a>
+</div>
+
+<h1>Coverage Summary for Class: StoredMap (com.sleepycat.collections)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">StoredMap</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/27)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/134)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.collections;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">18</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">19</i>&nbsp;import java.util.Map;
+<i class="no-highlight">20</i>&nbsp;import java.util.Set;
+<i class="no-highlight">21</i>&nbsp;import java.util.concurrent.ConcurrentMap;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.bind.EntityBinding;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.bind.EntryBinding;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">26</i>&nbsp;/* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException; // for javadoc
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.OperationFailureException; // for javadoc
+<i class="no-highlight">29</i>&nbsp;/* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.util.RuntimeExceptionWrapper;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.util.keyrange.KeyRangeException;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;/**
+<i class="no-highlight">35</i>&nbsp; * A Map view of a {@link Database}.
+<i class="no-highlight">36</i>&nbsp; *
+<i class="no-highlight">37</i>&nbsp; * &lt;p&gt;In addition to the standard Map methods, this class provides the
+<i class="no-highlight">38</i>&nbsp; * following methods for stored maps only.  Note that the use of these methods
+<i class="no-highlight">39</i>&nbsp; * is not compatible with the standard Java collections interface.&lt;/p&gt;
+<i class="no-highlight">40</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">41</i>&nbsp; * &lt;li&gt;{@link #duplicates}&lt;/li&gt;
+<i class="no-highlight">42</i>&nbsp; * &lt;li&gt;{@link #duplicatesMap}&lt;/li&gt;
+<i class="no-highlight">43</i>&nbsp; * &lt;li&gt;{@link #append}&lt;/li&gt;
+<i class="no-highlight">44</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">45</i>&nbsp; *
+<i class="no-highlight">46</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">47</i>&nbsp; */
+<i class="no-highlight">48</i>&nbsp;public class StoredMap&lt;K, V&gt; extends StoredContainer
+<i class="no-highlight">49</i>&nbsp;    implements ConcurrentMap&lt;K, V&gt; {
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    private StoredKeySet&lt;K&gt; keySet;
+<i class="no-highlight">52</i>&nbsp;    private StoredEntrySet&lt;K, V&gt; entrySet;
+<i class="no-highlight">53</i>&nbsp;    private StoredValueSet&lt;V&gt; valueSet;
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    /**
+<i class="no-highlight">56</i>&nbsp;     * Creates a map view of a {@link Database}.
+<i class="no-highlight">57</i>&nbsp;     *
+<i class="no-highlight">58</i>&nbsp;     * @param database is the Database underlying the new collection.
+<i class="no-highlight">59</i>&nbsp;     *
+<i class="no-highlight">60</i>&nbsp;     * @param keyBinding is the binding used to translate between key buffers
+<i class="no-highlight">61</i>&nbsp;     * and key objects.
+<i class="no-highlight">62</i>&nbsp;     *
+<i class="no-highlight">63</i>&nbsp;     * @param valueBinding is the binding used to translate between value
+<i class="no-highlight">64</i>&nbsp;     * buffers and value objects.
+<i class="no-highlight">65</i>&nbsp;     *
+<i class="no-highlight">66</i>&nbsp;     * @param writeAllowed is true to create a read-write collection or false
+<i class="no-highlight">67</i>&nbsp;     * to create a read-only collection.
+<i class="no-highlight">68</i>&nbsp;     *
+<i class="no-highlight">69</i>&nbsp;     * @throws IllegalArgumentException if formats are not consistently
+<i class="no-highlight">70</i>&nbsp;     * defined or a parameter is invalid.
+<i class="no-highlight">71</i>&nbsp;     *
+<i class="no-highlight">72</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">73</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">74</i>&nbsp;     */
+<i class="no-highlight">75</i>&nbsp;    public StoredMap(Database database,
+<i class="no-highlight">76</i>&nbsp;                     EntryBinding&lt;K&gt; keyBinding,
+<i class="no-highlight">77</i>&nbsp;                     EntryBinding&lt;V&gt; valueBinding,
+<i class="no-highlight">78</i>&nbsp;                     boolean writeAllowed) {
+<i class="no-highlight">79</i>&nbsp;
+<b class="nc"><i class="no-highlight">80</i>&nbsp;        super(new DataView(database, keyBinding, valueBinding, null,</b>
+<i class="no-highlight">81</i>&nbsp;                           writeAllowed, null));
+<b class="nc"><i class="no-highlight">82</i>&nbsp;        initView();</b>
+<i class="no-highlight">83</i>&nbsp;    }
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    /**
+<i class="no-highlight">86</i>&nbsp;     * Creates a map view of a {@link Database} with a {@link
+<i class="no-highlight">87</i>&nbsp;     * PrimaryKeyAssigner}.  Writing is allowed for the created map.
+<i class="no-highlight">88</i>&nbsp;     *
+<i class="no-highlight">89</i>&nbsp;     * @param database is the Database underlying the new collection.
+<i class="no-highlight">90</i>&nbsp;     *
+<i class="no-highlight">91</i>&nbsp;     * @param keyBinding is the binding used to translate between key buffers
+<i class="no-highlight">92</i>&nbsp;     * and key objects.
+<i class="no-highlight">93</i>&nbsp;     *
+<i class="no-highlight">94</i>&nbsp;     * @param valueBinding is the binding used to translate between value
+<i class="no-highlight">95</i>&nbsp;     * buffers and value objects.
+<i class="no-highlight">96</i>&nbsp;     *
+<i class="no-highlight">97</i>&nbsp;     * @param keyAssigner is used by the {@link #append} method to assign
+<i class="no-highlight">98</i>&nbsp;     * primary keys.
+<i class="no-highlight">99</i>&nbsp;     *
+<i class="no-highlight">100</i>&nbsp;     * @throws IllegalArgumentException if formats are not consistently
+<i class="no-highlight">101</i>&nbsp;     * defined or a parameter is invalid.
+<i class="no-highlight">102</i>&nbsp;     *
+<i class="no-highlight">103</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">104</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">105</i>&nbsp;     */
+<i class="no-highlight">106</i>&nbsp;    public StoredMap(Database database,
+<i class="no-highlight">107</i>&nbsp;                     EntryBinding&lt;K&gt; keyBinding,
+<i class="no-highlight">108</i>&nbsp;                     EntryBinding&lt;V&gt; valueBinding,
+<i class="no-highlight">109</i>&nbsp;                     PrimaryKeyAssigner keyAssigner) {
+<i class="no-highlight">110</i>&nbsp;
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        super(new DataView(database, keyBinding, valueBinding, null,</b>
+<i class="no-highlight">112</i>&nbsp;                           true, keyAssigner));
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        initView();</b>
+<i class="no-highlight">114</i>&nbsp;    }
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;    /**
+<i class="no-highlight">117</i>&nbsp;     * Creates a map entity view of a {@link Database}.
+<i class="no-highlight">118</i>&nbsp;     *
+<i class="no-highlight">119</i>&nbsp;     * @param database is the Database underlying the new collection.
+<i class="no-highlight">120</i>&nbsp;     *
+<i class="no-highlight">121</i>&nbsp;     * @param keyBinding is the binding used to translate between key buffers
+<i class="no-highlight">122</i>&nbsp;     * and key objects.
+<i class="no-highlight">123</i>&nbsp;     *
+<i class="no-highlight">124</i>&nbsp;     * @param valueEntityBinding is the binding used to translate between
+<i class="no-highlight">125</i>&nbsp;     * key/value buffers and entity value objects.
+<i class="no-highlight">126</i>&nbsp;     *
+<i class="no-highlight">127</i>&nbsp;     * @param writeAllowed is true to create a read-write collection or false
+<i class="no-highlight">128</i>&nbsp;     * to create a read-only collection.
+<i class="no-highlight">129</i>&nbsp;     *
+<i class="no-highlight">130</i>&nbsp;     * @throws IllegalArgumentException if formats are not consistently
+<i class="no-highlight">131</i>&nbsp;     * defined or a parameter is invalid.
+<i class="no-highlight">132</i>&nbsp;     *
+<i class="no-highlight">133</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">134</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">135</i>&nbsp;     */
+<i class="no-highlight">136</i>&nbsp;    public StoredMap(Database database,
+<i class="no-highlight">137</i>&nbsp;                     EntryBinding&lt;K&gt; keyBinding,
+<i class="no-highlight">138</i>&nbsp;                     EntityBinding&lt;V&gt; valueEntityBinding,
+<i class="no-highlight">139</i>&nbsp;                     boolean writeAllowed) {
+<i class="no-highlight">140</i>&nbsp;
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        super(new DataView(database, keyBinding, null, valueEntityBinding,</b>
+<i class="no-highlight">142</i>&nbsp;                           writeAllowed, null));
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        initView();</b>
+<i class="no-highlight">144</i>&nbsp;    }
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    /**
+<i class="no-highlight">147</i>&nbsp;     * Creates a map entity view of a {@link Database} with a {@link
+<i class="no-highlight">148</i>&nbsp;     * PrimaryKeyAssigner}.  Writing is allowed for the created map.
+<i class="no-highlight">149</i>&nbsp;     *
+<i class="no-highlight">150</i>&nbsp;     * @param database is the Database underlying the new collection.
+<i class="no-highlight">151</i>&nbsp;     *
+<i class="no-highlight">152</i>&nbsp;     * @param keyBinding is the binding used to translate between key buffers
+<i class="no-highlight">153</i>&nbsp;     * and key objects.
+<i class="no-highlight">154</i>&nbsp;     *
+<i class="no-highlight">155</i>&nbsp;     * @param valueEntityBinding is the binding used to translate between
+<i class="no-highlight">156</i>&nbsp;     * key/value buffers and entity value objects.
+<i class="no-highlight">157</i>&nbsp;     *
+<i class="no-highlight">158</i>&nbsp;     * @param keyAssigner is used by the {@link #append} method to assign
+<i class="no-highlight">159</i>&nbsp;     * primary keys.
+<i class="no-highlight">160</i>&nbsp;     *
+<i class="no-highlight">161</i>&nbsp;     * @throws IllegalArgumentException if formats are not consistently
+<i class="no-highlight">162</i>&nbsp;     * defined or a parameter is invalid.
+<i class="no-highlight">163</i>&nbsp;     *
+<i class="no-highlight">164</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">165</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">166</i>&nbsp;     */
+<i class="no-highlight">167</i>&nbsp;    public StoredMap(Database database,
+<i class="no-highlight">168</i>&nbsp;                     EntryBinding&lt;K&gt; keyBinding,
+<i class="no-highlight">169</i>&nbsp;                     EntityBinding&lt;V&gt; valueEntityBinding,
+<i class="no-highlight">170</i>&nbsp;                     PrimaryKeyAssigner keyAssigner) {
+<i class="no-highlight">171</i>&nbsp;
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        super(new DataView(database, keyBinding, null, valueEntityBinding,</b>
+<i class="no-highlight">173</i>&nbsp;                           true, keyAssigner));
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        initView();</b>
+<i class="no-highlight">175</i>&nbsp;    }
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    StoredMap(DataView view) {
+<i class="no-highlight">178</i>&nbsp;
+<b class="nc"><i class="no-highlight">179</i>&nbsp;        super(view);</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        initView();</b>
+<i class="no-highlight">181</i>&nbsp;    }
+<i class="no-highlight">182</i>&nbsp;
+<i class="no-highlight">183</i>&nbsp;    /**
+<i class="no-highlight">184</i>&nbsp;     * Override this method to initialize view-dependent fields.
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    void initAfterClone() {
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        initView();</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /**
+<i class="no-highlight">191</i>&nbsp;     * The keySet, entrySet and valueSet are created during Map construction
+<i class="no-highlight">192</i>&nbsp;     * rather than lazily when requested (as done with the java.util.Map
+<i class="no-highlight">193</i>&nbsp;     * implementations).  This is done to avoid synchronization every time they
+<i class="no-highlight">194</i>&nbsp;     * are requested.  Since they are requested often but a StoredMap is
+<i class="no-highlight">195</i>&nbsp;     * created infrequently, this gives the best performance.  The additional
+<i class="no-highlight">196</i>&nbsp;     * views are small objects and are cheap to construct.
+<i class="no-highlight">197</i>&nbsp;     */
+<i class="no-highlight">198</i>&nbsp;    private void initView() {
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;        /* entrySet */
+<b class="nc"><i class="no-highlight">201</i>&nbsp;        if (areKeyRangesAllowed()) {</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;            entrySet = new StoredSortedEntrySet&lt;K, V&gt;(view);</b>
+<i class="no-highlight">203</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            entrySet = new StoredEntrySet&lt;K, V&gt;(view);</b>
+<i class="no-highlight">205</i>&nbsp;        }
+<i class="no-highlight">206</i>&nbsp;
+<i class="no-highlight">207</i>&nbsp;        /* keySet */
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        DataView newView = view.keySetView();</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        if (areKeyRangesAllowed()) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            keySet = new StoredSortedKeySet&lt;K&gt;(newView);</b>
+<i class="no-highlight">211</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">212</i>&nbsp;            keySet = new StoredKeySet&lt;K&gt;(newView);</b>
+<i class="no-highlight">213</i>&nbsp;        }
+<i class="no-highlight">214</i>&nbsp;
+<i class="no-highlight">215</i>&nbsp;        /* valueSet */
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        newView = view.valueSetView();</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        if (areKeyRangesAllowed() &amp;&amp; newView.canDeriveKeyFromValue()) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            valueSet = new StoredSortedValueSet&lt;V&gt;(newView);</b>
+<i class="no-highlight">219</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">220</i>&nbsp;            valueSet = new StoredValueSet&lt;V&gt;(newView);</b>
+<i class="no-highlight">221</i>&nbsp;        }
+<i class="no-highlight">222</i>&nbsp;    }
+<i class="no-highlight">223</i>&nbsp;
+<i class="no-highlight">224</i>&nbsp;    /**
+<i class="no-highlight">225</i>&nbsp;     * Returns the value to which this map maps the specified key.  If
+<i class="no-highlight">226</i>&nbsp;     * duplicates are allowed, this method returns the first duplicate, in the
+<i class="no-highlight">227</i>&nbsp;     * order in which duplicates are configured, that maps to the specified
+<i class="no-highlight">228</i>&nbsp;     * key.
+<i class="no-highlight">229</i>&nbsp;     *
+<i class="no-highlight">230</i>&nbsp;     * This method conforms to the {@link Map#get} interface.
+<i class="no-highlight">231</i>&nbsp;     *
+<i class="no-highlight">232</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">233</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">234</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">235</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">236</i>&nbsp;     *
+<i class="no-highlight">237</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">238</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">239</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">240</i>&nbsp;     *
+<i class="no-highlight">241</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">242</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">243</i>&nbsp;     */
+<i class="no-highlight">244</i>&nbsp;    public V get(Object key) {
+<i class="no-highlight">245</i>&nbsp;
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        return (V) getValue(key);</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * Associates the specified value with the specified key in this map
+<i class="no-highlight">251</i>&nbsp;     * (optional operation).  If duplicates are allowed and the specified key
+<i class="no-highlight">252</i>&nbsp;     * is already mapped to a value, this method appends the new duplicate
+<i class="no-highlight">253</i>&nbsp;     * after the existing duplicates.  This method conforms to the {@link
+<i class="no-highlight">254</i>&nbsp;     * Map#put} interface.
+<i class="no-highlight">255</i>&nbsp;     *
+<i class="no-highlight">256</i>&nbsp;     * &lt;p&gt;The key parameter may be null if an entity binding is used and the
+<i class="no-highlight">257</i>&nbsp;     * key will be derived from the value (entity) parameter.  If an entity
+<i class="no-highlight">258</i>&nbsp;     * binding is used and the key parameter is non-null, then the key
+<i class="no-highlight">259</i>&nbsp;     * parameter must be equal to the key derived from the value parameter.&lt;/p&gt;
+<i class="no-highlight">260</i>&nbsp;     *
+<i class="no-highlight">261</i>&nbsp;     * @return the previous value associated with specified key, or null if
+<i class="no-highlight">262</i>&nbsp;     * there was no mapping for the key or if duplicates are allowed.
+<i class="no-highlight">263</i>&nbsp;     *
+<i class="no-highlight">264</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">265</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">266</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">267</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">268</i>&nbsp;     *
+<i class="no-highlight">269</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">270</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">271</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">272</i>&nbsp;     *
+<i class="no-highlight">273</i>&nbsp;     * @throws UnsupportedOperationException if the collection is indexed, or
+<i class="no-highlight">274</i>&nbsp;     * if the collection is read-only.
+<i class="no-highlight">275</i>&nbsp;     *
+<i class="no-highlight">276</i>&nbsp;     * @throws IllegalArgumentException if an entity value binding is used and
+<i class="no-highlight">277</i>&nbsp;     * the primary key of the value given is different than the existing stored
+<i class="no-highlight">278</i>&nbsp;     * primary key.
+<i class="no-highlight">279</i>&nbsp;     *
+<i class="no-highlight">280</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">281</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">282</i>&nbsp;     */
+<i class="no-highlight">283</i>&nbsp;    public V put(K key, V value) {
+<i class="no-highlight">284</i>&nbsp;
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        return (V) putKeyValue(key, value);</b>
+<i class="no-highlight">286</i>&nbsp;    }
+<i class="no-highlight">287</i>&nbsp;
+<i class="no-highlight">288</i>&nbsp;    /**
+<i class="no-highlight">289</i>&nbsp;     * Appends a given value returning the newly assigned key.  If a {@link
+<i class="no-highlight">290</i>&nbsp;     * PrimaryKeyAssigner} is associated with Store for this map, it will be
+<i class="no-highlight">291</i>&nbsp;     * used to assigned the returned key.  Otherwise the Store must be a QUEUE
+<i class="no-highlight">292</i>&nbsp;     * or RECNO database and the next available record number is assigned as
+<i class="no-highlight">293</i>&nbsp;     * the key.  This method does not exist in the standard {@link Map}
+<i class="no-highlight">294</i>&nbsp;     * interface.
+<i class="no-highlight">295</i>&nbsp;     *
+<i class="no-highlight">296</i>&nbsp;     * &lt;p&gt;Note that for the JE product, QUEUE and RECNO databases are not
+<i class="no-highlight">297</i>&nbsp;     * supported, and therefore a PrimaryKeyAssigner must be associated with
+<i class="no-highlight">298</i>&nbsp;     * the map in order to call this method.&lt;/p&gt;
+<i class="no-highlight">299</i>&nbsp;     *
+<i class="no-highlight">300</i>&nbsp;     * @param value the value to be appended.
+<i class="no-highlight">301</i>&nbsp;     *
+<i class="no-highlight">302</i>&nbsp;     * @return the assigned key.
+<i class="no-highlight">303</i>&nbsp;     *
+<i class="no-highlight">304</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">305</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">306</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">307</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">308</i>&nbsp;     *
+<i class="no-highlight">309</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">310</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">311</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">312</i>&nbsp;     *
+<i class="no-highlight">313</i>&nbsp;     * @throws UnsupportedOperationException if the collection is indexed, or
+<i class="no-highlight">314</i>&nbsp;     * if the collection is read-only, or if the Store has no {@link
+<i class="no-highlight">315</i>&nbsp;     * PrimaryKeyAssigner} and is not a QUEUE or RECNO database.
+<i class="no-highlight">316</i>&nbsp;     *
+<i class="no-highlight">317</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">318</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">319</i>&nbsp;     */
+<i class="no-highlight">320</i>&nbsp;    public K append(V value) {
+<i class="no-highlight">321</i>&nbsp;
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        boolean doAutoCommit = beginAutoCommit();</b>
+<i class="no-highlight">323</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            Object[] key = new Object[1];</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            view.append(value, key, null);</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            commitAutoCommit(doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;            return (K) key[0];</b>
+<b class="nc"><i class="no-highlight">328</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">329</i>&nbsp;            throw handleException(e, doAutoCommit);</b>
+<i class="no-highlight">330</i>&nbsp;        }
+<i class="no-highlight">331</i>&nbsp;    }
+<i class="no-highlight">332</i>&nbsp;
+<i class="no-highlight">333</i>&nbsp;    /**
+<i class="no-highlight">334</i>&nbsp;     * Removes the mapping for this key from this map if present (optional
+<i class="no-highlight">335</i>&nbsp;     * operation).  If duplicates are allowed, this method removes all
+<i class="no-highlight">336</i>&nbsp;     * duplicates for the given key.  This method conforms to the {@link
+<i class="no-highlight">337</i>&nbsp;     * Map#remove} interface.
+<i class="no-highlight">338</i>&nbsp;     *
+<i class="no-highlight">339</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">340</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">341</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">342</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">343</i>&nbsp;     *
+<i class="no-highlight">344</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">345</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">346</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">347</i>&nbsp;     *
+<i class="no-highlight">348</i>&nbsp;     * @throws UnsupportedOperationException if the collection is read-only.
+<i class="no-highlight">349</i>&nbsp;     *
+<i class="no-highlight">350</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">351</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">352</i>&nbsp;     */
+<i class="no-highlight">353</i>&nbsp;    public V remove(Object key) {
+<i class="no-highlight">354</i>&nbsp;
+<b class="nc"><i class="no-highlight">355</i>&nbsp;        Object[] oldVal = new Object[1];</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        removeKey(key, oldVal);</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;        return (V) oldVal[0];</b>
+<i class="no-highlight">358</i>&nbsp;    }
+<i class="no-highlight">359</i>&nbsp;
+<i class="no-highlight">360</i>&nbsp;    /**
+<i class="no-highlight">361</i>&nbsp;     * If the specified key is not already associated with a value, associate
+<i class="no-highlight">362</i>&nbsp;     * it with the given value.  This method conforms to the {@link
+<i class="no-highlight">363</i>&nbsp;     * ConcurrentMap#putIfAbsent} interface.
+<i class="no-highlight">364</i>&nbsp;     *
+<i class="no-highlight">365</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">366</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">367</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">368</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">369</i>&nbsp;     *
+<i class="no-highlight">370</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">371</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">372</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">373</i>&nbsp;     *
+<i class="no-highlight">374</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">375</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">376</i>&nbsp;     */
+<i class="no-highlight">377</i>&nbsp;    public V putIfAbsent(K key, V value) {
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        DataCursor cursor = null;</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        boolean doAutoCommit = beginAutoCommit();</b>
+<i class="no-highlight">380</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;            cursor = new DataCursor(view, true);</b>
+<i class="no-highlight">382</i>&nbsp;            V oldValue;
+<i class="no-highlight">383</i>&nbsp;            while (true) {
+<b class="nc"><i class="no-highlight">384</i>&nbsp;                OperationStatus status =</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;                    cursor.putNoOverwrite(key, value, false /*useCurrentKey*/);</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;                if (status == OperationStatus.SUCCESS) {</b>
+<i class="no-highlight">387</i>&nbsp;                    /* We inserted the key.  Return null.  */
+<b class="nc"><i class="no-highlight">388</i>&nbsp;                    oldValue = null;</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;                    break;</b>
+<i class="no-highlight">390</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">391</i>&nbsp;                    status = cursor.getSearchKey(key, null /*value*/,</b>
+<i class="no-highlight">392</i>&nbsp;                                                 false /*lockForWrite*/);
+<b class="nc"><i class="no-highlight">393</i>&nbsp;                    if (status == OperationStatus.SUCCESS) {</b>
+<i class="no-highlight">394</i>&nbsp;                        /* The key is present. Return the current value. */
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                        oldValue = (V) cursor.getCurrentValue();</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                        break;</b>
+<i class="no-highlight">397</i>&nbsp;                    } else {
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;                        /*
+<i class="no-highlight">400</i>&nbsp;                         * If Serializable isolation is not configured, another
+<i class="no-highlight">401</i>&nbsp;                         * thread can delete the record after our attempt to
+<i class="no-highlight">402</i>&nbsp;                         * insert it failed above.  Loop back and try again.
+<i class="no-highlight">403</i>&nbsp;                         */
+<i class="no-highlight">404</i>&nbsp;                        continue;
+<i class="no-highlight">405</i>&nbsp;                    }
+<i class="no-highlight">406</i>&nbsp;                }
+<i class="no-highlight">407</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">408</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            commitAutoCommit(doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            return oldValue;</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;            throw handleException(e, doAutoCommit);</b>
+<i class="no-highlight">414</i>&nbsp;        }
+<i class="no-highlight">415</i>&nbsp;    }
+<i class="no-highlight">416</i>&nbsp;
+<i class="no-highlight">417</i>&nbsp;    /**
+<i class="no-highlight">418</i>&nbsp;     * Remove entry for key only if currently mapped to given value.  This
+<i class="no-highlight">419</i>&nbsp;     * method conforms to the {@link ConcurrentMap#remove(Object,Object)}
+<i class="no-highlight">420</i>&nbsp;     * interface.
+<i class="no-highlight">421</i>&nbsp;     *
+<i class="no-highlight">422</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">423</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">424</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">425</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">426</i>&nbsp;     *
+<i class="no-highlight">427</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">428</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">429</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">430</i>&nbsp;     *
+<i class="no-highlight">431</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">432</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">433</i>&nbsp;     */
+<i class="no-highlight">434</i>&nbsp;    public boolean remove(Object key, Object value) {
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        DataCursor cursor = null;</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        boolean doAutoCommit = beginAutoCommit();</b>
+<i class="no-highlight">437</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">438</i>&nbsp;            cursor = new DataCursor(view, true, key);</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;            OperationStatus status = cursor.getFirst(true /*lockForWrite*/);</b>
+<i class="no-highlight">440</i>&nbsp;            boolean removed;
+<b class="nc"><i class="no-highlight">441</i>&nbsp;            if (status == OperationStatus.SUCCESS &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;                cursor.getCurrentValue().equals(value)) {</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;                cursor.delete();</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                removed = true;</b>
+<i class="no-highlight">445</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                removed = false;</b>
+<i class="no-highlight">447</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">448</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;            commitAutoCommit(doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;            return removed;</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">453</i>&nbsp;            throw handleException(e, doAutoCommit);</b>
+<i class="no-highlight">454</i>&nbsp;        }
+<i class="no-highlight">455</i>&nbsp;    }
+<i class="no-highlight">456</i>&nbsp;
+<i class="no-highlight">457</i>&nbsp;    /**
+<i class="no-highlight">458</i>&nbsp;     * Replace entry for key only if currently mapped to some value.  This
+<i class="no-highlight">459</i>&nbsp;     * method conforms to the {@link ConcurrentMap#replace(Object,Object)}
+<i class="no-highlight">460</i>&nbsp;     * interface.
+<i class="no-highlight">461</i>&nbsp;     *
+<i class="no-highlight">462</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">463</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">464</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">465</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">466</i>&nbsp;     *
+<i class="no-highlight">467</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">468</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">469</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">470</i>&nbsp;     *
+<i class="no-highlight">471</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">472</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">473</i>&nbsp;     */
+<i class="no-highlight">474</i>&nbsp;    public V replace(K key, V value) {
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        DataCursor cursor = null;</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        boolean doAutoCommit = beginAutoCommit();</b>
+<i class="no-highlight">477</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">478</i>&nbsp;            cursor = new DataCursor(view, true, key);</b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;            OperationStatus status = cursor.getFirst(true /*lockForWrite*/);</b>
+<i class="no-highlight">480</i>&nbsp;            V oldValue;
+<b class="nc"><i class="no-highlight">481</i>&nbsp;            if (status == OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                oldValue = (V) cursor.getCurrentValue();</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                cursor.putCurrent(value);</b>
+<i class="no-highlight">484</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                oldValue = null;</b>
+<i class="no-highlight">486</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">487</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">488</i>&nbsp;            commitAutoCommit(doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;            return oldValue;</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">491</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            throw handleException(e, doAutoCommit);</b>
+<i class="no-highlight">493</i>&nbsp;        }
+<i class="no-highlight">494</i>&nbsp;    }
+<i class="no-highlight">495</i>&nbsp;
+<i class="no-highlight">496</i>&nbsp;    /**
+<i class="no-highlight">497</i>&nbsp;     * Replace entry for key only if currently mapped to given value.  This
+<i class="no-highlight">498</i>&nbsp;     * method conforms to the {@link
+<i class="no-highlight">499</i>&nbsp;     * ConcurrentMap#replace(Object,Object,Object)} interface.
+<i class="no-highlight">500</i>&nbsp;     *
+<i class="no-highlight">501</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">502</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">503</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">504</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">505</i>&nbsp;     *
+<i class="no-highlight">506</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">507</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">508</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">509</i>&nbsp;     *
+<i class="no-highlight">510</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">511</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">512</i>&nbsp;     */
+<i class="no-highlight">513</i>&nbsp;    public boolean replace(K key, V oldValue, V newValue) {
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        DataCursor cursor = null;</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;        boolean doAutoCommit = beginAutoCommit();</b>
+<i class="no-highlight">516</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">517</i>&nbsp;            cursor = new DataCursor(view, true, key);</b>
+<b class="nc"><i class="no-highlight">518</i>&nbsp;            OperationStatus status = cursor.getFirst(true /*lockForWrite*/);</b>
+<i class="no-highlight">519</i>&nbsp;            boolean replaced;
+<b class="nc"><i class="no-highlight">520</i>&nbsp;            if (status == OperationStatus.SUCCESS &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;                cursor.getCurrentValue().equals(oldValue)) {</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;                cursor.putCurrent(newValue);</b>
+<b class="nc"><i class="no-highlight">523</i>&nbsp;                replaced = true;</b>
+<i class="no-highlight">524</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">525</i>&nbsp;                replaced = false;</b>
+<i class="no-highlight">526</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">527</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            commitAutoCommit(doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;            return replaced;</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;            closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">532</i>&nbsp;            throw handleException(e, doAutoCommit);</b>
+<i class="no-highlight">533</i>&nbsp;        }
+<i class="no-highlight">534</i>&nbsp;    }
+<i class="no-highlight">535</i>&nbsp;
+<i class="no-highlight">536</i>&nbsp;    /**
+<i class="no-highlight">537</i>&nbsp;     * Returns true if this map contains the specified key.  This method
+<i class="no-highlight">538</i>&nbsp;     * conforms to the {@link Map#containsKey} interface.
+<i class="no-highlight">539</i>&nbsp;     *
+<i class="no-highlight">540</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">541</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">542</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">543</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">544</i>&nbsp;     *
+<i class="no-highlight">545</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">546</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">547</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">548</i>&nbsp;     *
+<i class="no-highlight">549</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">550</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">551</i>&nbsp;     */
+<i class="no-highlight">552</i>&nbsp;    public boolean containsKey(Object key) {
+<i class="no-highlight">553</i>&nbsp;
+<b class="nc"><i class="no-highlight">554</i>&nbsp;        return super.containsKey(key);</b>
+<i class="no-highlight">555</i>&nbsp;    }
+<i class="no-highlight">556</i>&nbsp;
+<i class="no-highlight">557</i>&nbsp;    /**
+<i class="no-highlight">558</i>&nbsp;     * Returns true if this map contains the specified value.  When an entity
+<i class="no-highlight">559</i>&nbsp;     * binding is used, this method returns whether the map contains the
+<i class="no-highlight">560</i>&nbsp;     * primary key and value mapping of the entity.  This method conforms to
+<i class="no-highlight">561</i>&nbsp;     * the {@link Map#containsValue} interface.
+<i class="no-highlight">562</i>&nbsp;     *
+<i class="no-highlight">563</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">564</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">565</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">566</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">567</i>&nbsp;     *
+<i class="no-highlight">568</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">569</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">570</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">571</i>&nbsp;     *
+<i class="no-highlight">572</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">573</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">574</i>&nbsp;     */
+<i class="no-highlight">575</i>&nbsp;    public boolean containsValue(Object value) {
+<i class="no-highlight">576</i>&nbsp;
+<b class="nc"><i class="no-highlight">577</i>&nbsp;        return super.containsValue(value);</b>
+<i class="no-highlight">578</i>&nbsp;    }
+<i class="no-highlight">579</i>&nbsp;
+<i class="no-highlight">580</i>&nbsp;    /**
+<i class="no-highlight">581</i>&nbsp;     * Copies all of the mappings from the specified map to this map (optional
+<i class="no-highlight">582</i>&nbsp;     * operation).  When duplicates are allowed, the mappings in the specified
+<i class="no-highlight">583</i>&nbsp;     * map are effectively appended to the existing mappings in this map, that
+<i class="no-highlight">584</i>&nbsp;     * is no previously existing mappings in this map are replaced.  This
+<i class="no-highlight">585</i>&nbsp;     * method conforms to the {@link Map#putAll} interface.
+<i class="no-highlight">586</i>&nbsp;     *
+<i class="no-highlight">587</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">588</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">589</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">590</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">591</i>&nbsp;     *
+<i class="no-highlight">592</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">593</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">594</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">595</i>&nbsp;     *
+<i class="no-highlight">596</i>&nbsp;     * @throws UnsupportedOperationException if the collection is read-only, or
+<i class="no-highlight">597</i>&nbsp;     * if the collection is indexed.
+<i class="no-highlight">598</i>&nbsp;     *
+<i class="no-highlight">599</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">600</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">601</i>&nbsp;     */
+<i class="no-highlight">602</i>&nbsp;    public void putAll(Map&lt;? extends K, ? extends V&gt; map) {
+<i class="no-highlight">603</i>&nbsp;
+<b class="nc"><i class="no-highlight">604</i>&nbsp;        boolean doAutoCommit = beginAutoCommit();</b>
+<b class="nc"><i class="no-highlight">605</i>&nbsp;        Iterator i = null;</b>
+<i class="no-highlight">606</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            Collection coll = map.entrySet();</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            i = storedOrExternalIterator(coll);</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;            while (i.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;                Entry entry = (Entry) i.next();</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;                putKeyValue(entry.getKey(), entry.getValue());</b>
+<b class="nc"><i class="no-highlight">612</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">613</i>&nbsp;            StoredIterator.close(i);</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;            commitAutoCommit(doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">615</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">616</i>&nbsp;            StoredIterator.close(i);</b>
+<b class="nc"><i class="no-highlight">617</i>&nbsp;            throw handleException(e, doAutoCommit);</b>
+<b class="nc"><i class="no-highlight">618</i>&nbsp;        }</b>
+<i class="no-highlight">619</i>&nbsp;    }
+<i class="no-highlight">620</i>&nbsp;
+<i class="no-highlight">621</i>&nbsp;    /**
+<i class="no-highlight">622</i>&nbsp;     * Returns a set view of the keys contained in this map.  A {@link
+<i class="no-highlight">623</i>&nbsp;     * java.util.SortedSet} is returned if the map supports key ranges.  The
+<i class="no-highlight">624</i>&nbsp;     * returned collection will be read-only if the map is read-only.  This
+<i class="no-highlight">625</i>&nbsp;     * method conforms to the {@link Map#keySet()} interface.
+<i class="no-highlight">626</i>&nbsp;     *
+<i class="no-highlight">627</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">628</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">629</i>&nbsp;     *
+<i class="no-highlight">630</i>&nbsp;     * @return a {@link StoredKeySet} or a {@link StoredSortedKeySet} for this
+<i class="no-highlight">631</i>&nbsp;     * map.
+<i class="no-highlight">632</i>&nbsp;     *
+<i class="no-highlight">633</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">634</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">635</i>&nbsp;     *
+<i class="no-highlight">636</i>&nbsp;     * @see #areKeyRangesAllowed
+<i class="no-highlight">637</i>&nbsp;     * @see #isWriteAllowed
+<i class="no-highlight">638</i>&nbsp;     */
+<i class="no-highlight">639</i>&nbsp;    public Set&lt;K&gt; keySet() {
+<i class="no-highlight">640</i>&nbsp;
+<b class="nc"><i class="no-highlight">641</i>&nbsp;        return keySet;</b>
+<i class="no-highlight">642</i>&nbsp;    }
+<i class="no-highlight">643</i>&nbsp;
+<i class="no-highlight">644</i>&nbsp;    /**
+<i class="no-highlight">645</i>&nbsp;     * Returns a set view of the mappings contained in this map.  A {@link
+<i class="no-highlight">646</i>&nbsp;     * java.util.SortedSet} is returned if the map supports key ranges.  The
+<i class="no-highlight">647</i>&nbsp;     * returned collection will be read-only if the map is read-only.  This
+<i class="no-highlight">648</i>&nbsp;     * method conforms to the {@link Map#entrySet()} interface.
+<i class="no-highlight">649</i>&nbsp;     *
+<i class="no-highlight">650</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">651</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">652</i>&nbsp;     *
+<i class="no-highlight">653</i>&nbsp;     * @return a {@link StoredEntrySet} or a {@link StoredSortedEntrySet} for
+<i class="no-highlight">654</i>&nbsp;     * this map.
+<i class="no-highlight">655</i>&nbsp;     *
+<i class="no-highlight">656</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">657</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">658</i>&nbsp;     *
+<i class="no-highlight">659</i>&nbsp;     * @see #areKeyRangesAllowed
+<i class="no-highlight">660</i>&nbsp;     * @see #isWriteAllowed
+<i class="no-highlight">661</i>&nbsp;     */
+<i class="no-highlight">662</i>&nbsp;    public Set&lt;Entry&lt;K, V&gt;&gt; entrySet() {
+<i class="no-highlight">663</i>&nbsp;
+<b class="nc"><i class="no-highlight">664</i>&nbsp;        return entrySet;</b>
+<i class="no-highlight">665</i>&nbsp;    }
+<i class="no-highlight">666</i>&nbsp;
+<i class="no-highlight">667</i>&nbsp;    /**
+<i class="no-highlight">668</i>&nbsp;     * Returns a collection view of the values contained in this map.  A {@link
+<i class="no-highlight">669</i>&nbsp;     * java.util.SortedSet} is returned if the map supports key ranges and the
+<i class="no-highlight">670</i>&nbsp;     * value/entity binding can be used to derive the map&#39;s key from its
+<i class="no-highlight">671</i>&nbsp;     * value/entity object.  The returned collection will be read-only if the
+<i class="no-highlight">672</i>&nbsp;     * map is read-only.  This method conforms to the {@link Map#values()}
+<i class="no-highlight">673</i>&nbsp;     * interface.
+<i class="no-highlight">674</i>&nbsp;     *
+<i class="no-highlight">675</i>&nbsp;     * &lt;p&gt;Note that the return value is a StoredCollection and must be treated
+<i class="no-highlight">676</i>&nbsp;     * as such; for example, its iterators must be explicitly closed.&lt;/p&gt;
+<i class="no-highlight">677</i>&nbsp;     *
+<i class="no-highlight">678</i>&nbsp;     * @return a {@link StoredValueSet} or a {@link StoredSortedValueSet} for
+<i class="no-highlight">679</i>&nbsp;     * this map.
+<i class="no-highlight">680</i>&nbsp;     *
+<i class="no-highlight">681</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">682</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">683</i>&nbsp;     *
+<i class="no-highlight">684</i>&nbsp;     * @see #areKeyRangesAllowed
+<i class="no-highlight">685</i>&nbsp;     * @see #isWriteAllowed
+<i class="no-highlight">686</i>&nbsp;     */
+<i class="no-highlight">687</i>&nbsp;    public Collection&lt;V&gt; values() {
+<i class="no-highlight">688</i>&nbsp;
+<b class="nc"><i class="no-highlight">689</i>&nbsp;        return valueSet;</b>
+<i class="no-highlight">690</i>&nbsp;    }
+<i class="no-highlight">691</i>&nbsp;
+<i class="no-highlight">692</i>&nbsp;    /**
+<i class="no-highlight">693</i>&nbsp;     * Returns a new collection containing the values mapped to the given key
+<i class="no-highlight">694</i>&nbsp;     * in this map.  This collection&#39;s iterator() method is particularly useful
+<i class="no-highlight">695</i>&nbsp;     * for iterating over the duplicates for a given key, since this is not
+<i class="no-highlight">696</i>&nbsp;     * supported by the standard Map interface.  This method does not exist in
+<i class="no-highlight">697</i>&nbsp;     * the standard {@link Map} interface.
+<i class="no-highlight">698</i>&nbsp;     *
+<i class="no-highlight">699</i>&nbsp;     * &lt;p&gt;If no mapping for the given key is present, an empty collection is
+<i class="no-highlight">700</i>&nbsp;     * returned.  If duplicates are not allowed, at most a single value will be
+<i class="no-highlight">701</i>&nbsp;     * in the collection returned.  If duplicates are allowed, the returned
+<i class="no-highlight">702</i>&nbsp;     * collection&#39;s add() method may be used to add values for the given
+<i class="no-highlight">703</i>&nbsp;     * key.&lt;/p&gt;
+<i class="no-highlight">704</i>&nbsp;     *
+<i class="no-highlight">705</i>&nbsp;     * @param key is the key for which values are to be returned.
+<i class="no-highlight">706</i>&nbsp;     *
+<i class="no-highlight">707</i>&nbsp;     * @return the new collection.
+<i class="no-highlight">708</i>&nbsp;     *
+<i class="no-highlight">709</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">710</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">711</i>&nbsp;     */
+<i class="no-highlight">712</i>&nbsp;    public Collection&lt;V&gt; duplicates(K key) {
+<i class="no-highlight">713</i>&nbsp;
+<i class="no-highlight">714</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">715</i>&nbsp;            DataView newView = view.valueSetView(key);</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            return new StoredValueSet(newView);</b>
+<b class="nc"><i class="no-highlight">717</i>&nbsp;        } catch (KeyRangeException e) {</b>
+<b class="nc"><i class="no-highlight">718</i>&nbsp;            return Collections.EMPTY_SET;</b>
+<b class="nc"><i class="no-highlight">719</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">721</i>&nbsp;        }
+<i class="no-highlight">722</i>&nbsp;    }
+<i class="no-highlight">723</i>&nbsp;
+<i class="no-highlight">724</i>&nbsp;    /**
+<i class="no-highlight">725</i>&nbsp;     * Returns a new map from primary key to value for the subset of records
+<i class="no-highlight">726</i>&nbsp;     * having a given secondary key (duplicates).  This method does not exist
+<i class="no-highlight">727</i>&nbsp;     * in the standard {@link Map} interface.
+<i class="no-highlight">728</i>&nbsp;     *
+<i class="no-highlight">729</i>&nbsp;     * &lt;p&gt;If no mapping for the given key is present, an empty collection is
+<i class="no-highlight">730</i>&nbsp;     * returned.  If duplicates are not allowed, at most a single value will be
+<i class="no-highlight">731</i>&nbsp;     * in the collection returned.  If duplicates are allowed, the returned
+<i class="no-highlight">732</i>&nbsp;     * collection&#39;s add() method may be used to add values for the given
+<i class="no-highlight">733</i>&nbsp;     * key.&lt;/p&gt;
+<i class="no-highlight">734</i>&nbsp;     *
+<i class="no-highlight">735</i>&nbsp;     * @param secondaryKey is the secondary key for which duplicates values
+<i class="no-highlight">736</i>&nbsp;     * will be represented by the returned map.
+<i class="no-highlight">737</i>&nbsp;     *
+<i class="no-highlight">738</i>&nbsp;     * @param primaryKeyBinding is the binding used for keys in the returned
+<i class="no-highlight">739</i>&nbsp;     * map.
+<i class="no-highlight">740</i>&nbsp;     *
+<i class="no-highlight">741</i>&nbsp;     * @param &lt;PK&gt; the primary key class.
+<i class="no-highlight">742</i>&nbsp;     *
+<i class="no-highlight">743</i>&nbsp;     * @return the new map.
+<i class="no-highlight">744</i>&nbsp;     *
+<i class="no-highlight">745</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">746</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">747</i>&nbsp;     */
+<i class="no-highlight">748</i>&nbsp;    public &lt;PK&gt; Map&lt;PK, V&gt; duplicatesMap(K secondaryKey,
+<i class="no-highlight">749</i>&nbsp;                                         EntryBinding primaryKeyBinding) {
+<i class="no-highlight">750</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">751</i>&nbsp;            DataView newView =</b>
+<b class="nc"><i class="no-highlight">752</i>&nbsp;                view.duplicatesView(secondaryKey, primaryKeyBinding);</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;            if (isOrdered()) {</b>
+<b class="nc"><i class="no-highlight">754</i>&nbsp;                return new StoredSortedMap(newView);</b>
+<i class="no-highlight">755</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">756</i>&nbsp;                return new StoredMap(newView);</b>
+<i class="no-highlight">757</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">758</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">759</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">760</i>&nbsp;        }
+<i class="no-highlight">761</i>&nbsp;    }
+<i class="no-highlight">762</i>&nbsp;
+<i class="no-highlight">763</i>&nbsp;    /**
+<i class="no-highlight">764</i>&nbsp;     * Compares the specified object with this map for equality.  A value
+<i class="no-highlight">765</i>&nbsp;     * comparison is performed by this method and the stored values are
+<i class="no-highlight">766</i>&nbsp;     * compared rather than calling the equals() method of each element.  This
+<i class="no-highlight">767</i>&nbsp;     * method conforms to the {@link Map#equals} interface.
+<i class="no-highlight">768</i>&nbsp;     *
+<i class="no-highlight">769</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">770</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">771</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">772</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">773</i>&nbsp;     *
+<i class="no-highlight">774</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">775</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">776</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">777</i>&nbsp;     *
+<i class="no-highlight">778</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">779</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">780</i>&nbsp;     */
+<i class="no-highlight">781</i>&nbsp;    public boolean equals(Object other) {
+<i class="no-highlight">782</i>&nbsp;
+<b class="nc"><i class="no-highlight">783</i>&nbsp;        if (other instanceof Map) {</b>
+<b class="nc"><i class="no-highlight">784</i>&nbsp;            return entrySet().equals(((Map) other).entrySet());</b>
+<i class="no-highlight">785</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">786</i>&nbsp;            return false;</b>
+<i class="no-highlight">787</i>&nbsp;        }
+<i class="no-highlight">788</i>&nbsp;    }
+<i class="no-highlight">789</i>&nbsp;
+<i class="no-highlight">790</i>&nbsp;    /*
+<i class="no-highlight">791</i>&nbsp;     * Add this in to keep FindBugs from whining at us about implementing
+<i class="no-highlight">792</i>&nbsp;     * equals(), but not hashCode().
+<i class="no-highlight">793</i>&nbsp;     */
+<i class="no-highlight">794</i>&nbsp;    public int hashCode() {
+<b class="nc"><i class="no-highlight">795</i>&nbsp;        return super.hashCode();</b>
+<i class="no-highlight">796</i>&nbsp;    }
+<i class="no-highlight">797</i>&nbsp;
+<i class="no-highlight">798</i>&nbsp;    // Inherit javadoc
+<i class="no-highlight">799</i>&nbsp;    public int size() {
+<b class="nc"><i class="no-highlight">800</i>&nbsp;        return values().size();</b>
+<i class="no-highlight">801</i>&nbsp;    }
+<i class="no-highlight">802</i>&nbsp;
+<i class="no-highlight">803</i>&nbsp;    /**
+<i class="no-highlight">804</i>&nbsp;     * Converts the map to a string representation for debugging.  WARNING: All
+<i class="no-highlight">805</i>&nbsp;     * mappings will be converted to strings and returned and therefore the
+<i class="no-highlight">806</i>&nbsp;     * returned string may be very large.
+<i class="no-highlight">807</i>&nbsp;     *
+<i class="no-highlight">808</i>&nbsp;     * @return the string representation.
+<i class="no-highlight">809</i>&nbsp;     *
+<i class="no-highlight">810</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">811</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">812</i>&nbsp;     */
+<i class="no-highlight">813</i>&nbsp;    public String toString() {
+<i class="no-highlight">814</i>&nbsp;
+<b class="nc"><i class="no-highlight">815</i>&nbsp;        return entrySet().toString();</b>
+<i class="no-highlight">816</i>&nbsp;    }
+<i class="no-highlight">817</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

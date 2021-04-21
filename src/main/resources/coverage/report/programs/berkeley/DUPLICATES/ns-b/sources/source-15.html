@@ -1,0 +1,1517 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > MemoryBudget</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.dbi</a>
+</div>
+
+<h1>Coverage Summary for Class: MemoryBudget (com.sleepycat.je.dbi)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">MemoryBudget</td>
+<td class="coverageStat">
+  <span class="percent">
+    65.9%
+  </span>
+  <span class="absValue">
+    (27/41)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    53.1%
+  </span>
+  <span class="absValue">
+    (207/390)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">MemoryBudget$PrivateTotals</td>
+<td class="coverageStat">
+  <span class="percent">
+    80%
+  </span>
+  <span class="absValue">
+    (4/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    85.7%
+  </span>
+  <span class="absValue">
+    (6/7)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">MemoryBudget$SharedTotals</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">MemoryBudget$Totals</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (6/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (10/10)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    64.9%
+  </span>
+  <span class="absValue">
+    (37/57)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    53.9%
+  </span>
+  <span class="absValue">
+    (223/414)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.dbi;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_ADMIN_BYTES;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_DATA_BYTES;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_DATA_ADMIN_BYTES;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_DOS_BYTES;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_GROUP_DESC;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_GROUP_NAME;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_LOCK_BYTES;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_SHARED_CACHE_TOTAL_BYTES;
+<i class="no-highlight">24</i>&nbsp;import static com.sleepycat.je.dbi.DbiStatDefinition.MB_TOTAL_BYTES;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import java.lang.management.ManagementFactory;
+<i class="no-highlight">27</i>&nbsp;import java.util.List;
+<i class="no-highlight">28</i>&nbsp;import java.util.concurrent.atomic.AtomicLong;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.bind.tuple.TupleOutput;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.EnvironmentMutableConfig;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.utilint.JVMSystemUtils;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">39</i>&nbsp;
+<i class="no-highlight">40</i>&nbsp;/**
+<i class="no-highlight">41</i>&nbsp; * MemoryBudget calculates the available memory for JE and how to apportion
+<i class="no-highlight">42</i>&nbsp; * it between cache and log buffers. It is meant to centralize all memory
+<i class="no-highlight">43</i>&nbsp; * calculations. Objects that ask for memory budgets should get settings from
+<i class="no-highlight">44</i>&nbsp; * this class, rather than using the configuration parameter values directly.
+<i class="no-highlight">45</i>&nbsp; */
+<b class="fc"><i class="no-highlight">46</i>&nbsp;public class MemoryBudget implements EnvConfigObserver {</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /*
+<i class="no-highlight">49</i>&nbsp;     * CLEANUP_DONE can be set to false for unit test debugging
+<i class="no-highlight">50</i>&nbsp;     * that is still in progress. When we do the final regression,
+<i class="no-highlight">51</i>&nbsp;     * this should be removed to be assured that it is never false.
+<i class="no-highlight">52</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">53</i>&nbsp;    public static boolean CLEANUP_DONE = false;</b>
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    /*
+<i class="no-highlight">56</i>&nbsp;     * These DEBUG variables are public so unit tests can easily turn them
+<i class="no-highlight">57</i>&nbsp;     * on and off for different sections of code.
+<i class="no-highlight">58</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">59</i>&nbsp;    public static boolean DEBUG_ADMIN = Boolean.getBoolean(&quot;memAdmin&quot;);</b>
+<b class="fc"><i class="no-highlight">60</i>&nbsp;    public static boolean DEBUG_LOCK = Boolean.getBoolean(&quot;memLock&quot;);</b>
+<b class="fc"><i class="no-highlight">61</i>&nbsp;    public static boolean DEBUG_TXN = Boolean.getBoolean(&quot;memTxn&quot;);</b>
+<b class="fc"><i class="no-highlight">62</i>&nbsp;    public static boolean DEBUG_TREEADMIN = Boolean.getBoolean(&quot;memTreeAdmin&quot;);</b>
+<b class="fc"><i class="no-highlight">63</i>&nbsp;    public static boolean DEBUG_TREE = Boolean.getBoolean(&quot;memTree&quot;);</b>
+<b class="fc"><i class="no-highlight">64</i>&nbsp;    public static boolean DEBUG_DOS = Boolean.getBoolean(&quot;memDOS&quot;);</b>
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /*
+<i class="no-highlight">67</i>&nbsp;     * Object overheads. These are set statically with advance measurements.
+<i class="no-highlight">68</i>&nbsp;     * Java doesn&#39;t provide a way of assessing object size dynamically. These
+<i class="no-highlight">69</i>&nbsp;     * overheads will not be precise, but are close enough to let the system
+<i class="no-highlight">70</i>&nbsp;     * behave predictably.
+<i class="no-highlight">71</i>&nbsp;     *
+<i class="no-highlight">72</i>&nbsp;     * _32 values are the same on Windows and Solaris.
+<i class="no-highlight">73</i>&nbsp;     * _64 values are from Linux (were previously 1.5.0_05 on Solaris).
+<i class="no-highlight">74</i>&nbsp;     * _OOPS are on a 64b JVM with -XX:+UseCompressedOops
+<i class="no-highlight">75</i>&nbsp;     *
+<i class="no-highlight">76</i>&nbsp;     * The integer following the // below is the Sizeof argument used to
+<i class="no-highlight">77</i>&nbsp;     * compute the value.
+<i class="no-highlight">78</i>&nbsp;     */
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    // 7
+<i class="no-highlight">81</i>&nbsp;    private final static int LONG_OVERHEAD_32 = 16;
+<i class="no-highlight">82</i>&nbsp;    private final static int LONG_OVERHEAD_64 = 24;
+<i class="no-highlight">83</i>&nbsp;    private final static int LONG_OVERHEAD_OOPS = 24;
+<i class="no-highlight">84</i>&nbsp;
+<i class="no-highlight">85</i>&nbsp;    // 8
+<i class="no-highlight">86</i>&nbsp;    private final static int ARRAY_OVERHEAD_32 = 16;
+<i class="no-highlight">87</i>&nbsp;    private final static int ARRAY_OVERHEAD_64 = 24;
+<i class="no-highlight">88</i>&nbsp;    private final static int ARRAY_OVERHEAD_OOPS = 16;
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;    // see byteArraySize
+<i class="no-highlight">91</i>&nbsp;    private final static int ARRAY_SIZE_INCLUDED_32 = 4;
+<i class="no-highlight">92</i>&nbsp;    private final static int ARRAY_SIZE_INCLUDED_64 = 0;
+<i class="no-highlight">93</i>&nbsp;    private final static int ARRAY_SIZE_INCLUDED_OOPS = 0;
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;    // 2
+<i class="no-highlight">96</i>&nbsp;    private final static int OBJECT_OVERHEAD_32 = 8;
+<i class="no-highlight">97</i>&nbsp;    private final static int OBJECT_OVERHEAD_64 = 16;
+<i class="no-highlight">98</i>&nbsp;    private final static int OBJECT_OVERHEAD_OOPS = 16;
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;    // (4 - ARRAY_OVERHEAD) / 256
+<i class="no-highlight">101</i>&nbsp;    // 32b: 4 is 1040
+<i class="no-highlight">102</i>&nbsp;    // 64b: 4 is 2078
+<i class="no-highlight">103</i>&nbsp;    // Oops: 4 is 1040
+<i class="no-highlight">104</i>&nbsp;    private final static int OBJECT_ARRAY_ITEM_OVERHEAD_32 = 4;
+<i class="no-highlight">105</i>&nbsp;    private final static int OBJECT_ARRAY_ITEM_OVERHEAD_64 = 8;
+<i class="no-highlight">106</i>&nbsp;    private final static int OBJECT_ARRAY_ITEM_OVERHEAD_OOPS = 4;
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    // 20
+<i class="no-highlight">109</i>&nbsp;    private final static int HASHMAP_OVERHEAD_32 = 120;
+<i class="no-highlight">110</i>&nbsp;    private final static int HASHMAP_OVERHEAD_64 = 219;
+<i class="no-highlight">111</i>&nbsp;    private final static int HASHMAP_OVERHEAD_OOPS = 128;
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    // 21 - OBJECT_OVERHEAD - HASHMAP_OVERHEAD
+<i class="no-highlight">114</i>&nbsp;    // 32b: 21 is 152
+<i class="no-highlight">115</i>&nbsp;    // 64b: 21 is max(280,...,287) on Linux/Solaris 1.5/1.6
+<i class="no-highlight">116</i>&nbsp;    // Oops: 21 is 176
+<i class="no-highlight">117</i>&nbsp;    private final static int HASHMAP_ENTRY_OVERHEAD_32 = 24;
+<i class="no-highlight">118</i>&nbsp;    private final static int HASHMAP_ENTRY_OVERHEAD_64 = 52;
+<i class="no-highlight">119</i>&nbsp;    private final static int HASHMAP_ENTRY_OVERHEAD_OOPS = 32;
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    // 22
+<i class="no-highlight">122</i>&nbsp;    private final static int HASHSET_OVERHEAD_32 = 136;
+<i class="no-highlight">123</i>&nbsp;    private final static int HASHSET_OVERHEAD_64 = 240;
+<i class="no-highlight">124</i>&nbsp;    private final static int HASHSET_OVERHEAD_OOPS = 144;
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    // 23 - OBJECT_OVERHEAD - HASHSET_OVERHEAD
+<i class="no-highlight">127</i>&nbsp;    // 32b: 23 is 168
+<i class="no-highlight">128</i>&nbsp;    // 64b: 23 is max(304,...,311) on Linux/Solaris
+<i class="no-highlight">129</i>&nbsp;    // Oops: 23 is 192
+<i class="no-highlight">130</i>&nbsp;    private final static int HASHSET_ENTRY_OVERHEAD_32 = 24;
+<i class="no-highlight">131</i>&nbsp;    private final static int HASHSET_ENTRY_OVERHEAD_64 = 55;
+<i class="no-highlight">132</i>&nbsp;    private final static int HASHSET_ENTRY_OVERHEAD_OOPS = 32;
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    // HASHMAP_OVERHEAD * 2
+<i class="no-highlight">135</i>&nbsp;    private final static int TWOHASHMAPS_OVERHEAD_32 = 240;
+<i class="no-highlight">136</i>&nbsp;    private final static int TWOHASHMAPS_OVERHEAD_64 = 438;
+<i class="no-highlight">137</i>&nbsp;    private final static int TWOHASHMAPS_OVERHEAD_OOPS = 256;
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    // 34
+<i class="no-highlight">140</i>&nbsp;    private final static int TREEMAP_OVERHEAD_32 = 48;
+<i class="no-highlight">141</i>&nbsp;    private final static int TREEMAP_OVERHEAD_64 = 80;
+<i class="no-highlight">142</i>&nbsp;    private final static int TREEMAP_OVERHEAD_OOPS = 48;
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    // 35 - OBJECT_OVERHEAD - TREEMAP_OVERHEAD
+<i class="no-highlight">145</i>&nbsp;    // 32b: 35 is 88
+<i class="no-highlight">146</i>&nbsp;    // 64b: 35 is 160
+<i class="no-highlight">147</i>&nbsp;    // Oops: 35 is 104
+<i class="no-highlight">148</i>&nbsp;    private final static int TREEMAP_ENTRY_OVERHEAD_32 = 32;
+<i class="no-highlight">149</i>&nbsp;    private final static int TREEMAP_ENTRY_OVERHEAD_64 = 64;
+<i class="no-highlight">150</i>&nbsp;    private final static int TREEMAP_ENTRY_OVERHEAD_OOPS = 40;
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    // 36
+<i class="no-highlight">153</i>&nbsp;    // 32b JDK 1.7 is 928
+<i class="no-highlight">154</i>&nbsp;    private final static int MAPLN_OVERHEAD_32 = 920;
+<i class="no-highlight">155</i>&nbsp;    private final static int MAPLN_OVERHEAD_64 = 1624;
+<i class="no-highlight">156</i>&nbsp;    private final static int MAPLN_OVERHEAD_OOPS = 1016;
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    // 9
+<i class="no-highlight">159</i>&nbsp;    private final static int LN_OVERHEAD_32 = 16;
+<i class="no-highlight">160</i>&nbsp;    private final static int LN_OVERHEAD_64 = 32;
+<i class="no-highlight">161</i>&nbsp;    private final static int LN_OVERHEAD_OOPS = 24;
+<i class="no-highlight">162</i>&nbsp;    
+<i class="no-highlight">163</i>&nbsp;    // 17 minus 9
+<i class="no-highlight">164</i>&nbsp;    // 32b: 17 is 24
+<i class="no-highlight">165</i>&nbsp;    // 64b: 17 is 40
+<i class="no-highlight">166</i>&nbsp;    // Oops: 17 is 32
+<i class="no-highlight">167</i>&nbsp;    private final static int VERSIONEDLN_OVERHEAD_32 = 8;
+<i class="no-highlight">168</i>&nbsp;    private final static int VERSIONEDLN_OVERHEAD_64 = 8;
+<i class="no-highlight">169</i>&nbsp;    private final static int VERSIONEDLN_OVERHEAD_OOPS = 8;
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;    // No longer updated, as dups are no longer used except during conversion.
+<i class="no-highlight">172</i>&nbsp;    private final static int DUPCOUNTLN_OVERHEAD_32 = 32;
+<i class="no-highlight">173</i>&nbsp;    private final static int DUPCOUNTLN_OVERHEAD_64 = 48;
+<i class="no-highlight">174</i>&nbsp;    private final static int DUPCOUNTLN_OVERHEAD_OOPS = 40;
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;    // 12
+<i class="no-highlight">177</i>&nbsp;    private final static int BIN_FIXED_OVERHEAD_32 = 223;
+<i class="no-highlight">178</i>&nbsp;    private final static int BIN_FIXED_OVERHEAD_64 = 352;
+<i class="no-highlight">179</i>&nbsp;    private final static int BIN_FIXED_OVERHEAD_OOPS = 232;
+<i class="no-highlight">180</i>&nbsp;
+<i class="no-highlight">181</i>&nbsp;    // 18
+<i class="no-highlight">182</i>&nbsp;    private final static int BINDELTA_OVERHEAD_32 = 48;
+<i class="no-highlight">183</i>&nbsp;    private final static int BINDELTA_OVERHEAD_64 = 72;
+<i class="no-highlight">184</i>&nbsp;    private final static int BINDELTA_OVERHEAD_OOPS = 64;
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;    // 19
+<i class="no-highlight">187</i>&nbsp;    private final static int DELTAINFO_OVERHEAD_32 = 24;
+<i class="no-highlight">188</i>&nbsp;    private final static int DELTAINFO_OVERHEAD_64 = 40;
+<i class="no-highlight">189</i>&nbsp;    private final static int DELTAINFO_OVERHEAD_OOPS = 32;
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    // 47
+<i class="no-highlight">192</i>&nbsp;    private final static int SPARSE_TARGET_ENTRY_OVERHEAD_32 = 72;
+<i class="no-highlight">193</i>&nbsp;    private final static int SPARSE_TARGET_ENTRY_OVERHEAD_64 = 120;
+<i class="no-highlight">194</i>&nbsp;    private final static int SPARSE_TARGET_ENTRY_OVERHEAD_OOPS = 80;
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;    // 48
+<i class="no-highlight">197</i>&nbsp;    private final static int DEFAULT_TARGET_ENTRY_OVERHEAD_32 = 16;
+<i class="no-highlight">198</i>&nbsp;    private final static int DEFAULT_TARGET_ENTRY_OVERHEAD_64 = 24;
+<i class="no-highlight">199</i>&nbsp;    private final static int DEFAULT_TARGET_ENTRY_OVERHEAD_OOPS = 16;
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    // 49
+<i class="no-highlight">202</i>&nbsp;    private final static int MAX_KEY_SIZE_KEYVALS_OVERHEAD_32 = 16;
+<i class="no-highlight">203</i>&nbsp;    private final static int MAX_KEY_SIZE_KEYVALS_OVERHEAD_64 = 32;
+<i class="no-highlight">204</i>&nbsp;    private final static int MAX_KEY_SIZE_KEYVALS_OVERHEAD_OOPS = 24;
+<i class="no-highlight">205</i>&nbsp;
+<i class="no-highlight">206</i>&nbsp;    // 50
+<i class="no-highlight">207</i>&nbsp;    private final static int DEFAULT_KEYVALS_OVERHEAD_32 = 16;
+<i class="no-highlight">208</i>&nbsp;    private final static int DEFAULT_KEYVALS_OVERHEAD_64 = 24;
+<i class="no-highlight">209</i>&nbsp;    private final static int DEFAULT_KEYVALS_OVERHEAD_OOPS = 16;
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;    // 52
+<i class="no-highlight">212</i>&nbsp;    private final static int DEFAULT_LONG_REP_OVERHEAD_32 = 16;
+<i class="no-highlight">213</i>&nbsp;    private final static int DEFAULT_LONG_REP_OVERHEAD_64 = 32;
+<i class="no-highlight">214</i>&nbsp;    private final static int DEFAULT_LONG_REP_OVERHEAD_OOPS = 24;
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;    // 59
+<i class="no-highlight">217</i>&nbsp;    private final static int SPARSE_LONG_REP_OVERHEAD_32 = 24;
+<i class="no-highlight">218</i>&nbsp;    private final static int SPARSE_LONG_REP_OVERHEAD_64 = 40;
+<i class="no-highlight">219</i>&nbsp;    private final static int SPARSE_LONG_REP_OVERHEAD_OOPS = 24;
+<i class="no-highlight">220</i>&nbsp;
+<i class="no-highlight">221</i>&nbsp;    // 54
+<i class="no-highlight">222</i>&nbsp;    private final static int DIN_FIXED_OVERHEAD_32 = 120;
+<i class="no-highlight">223</i>&nbsp;    private final static int DIN_FIXED_OVERHEAD_64 = 176;
+<i class="no-highlight">224</i>&nbsp;    private final static int DIN_FIXED_OVERHEAD_OOPS = 120;
+<i class="no-highlight">225</i>&nbsp;
+<i class="no-highlight">226</i>&nbsp;    // 53
+<i class="no-highlight">227</i>&nbsp;    private final static int DBIN_FIXED_OVERHEAD_32 = 152;
+<i class="no-highlight">228</i>&nbsp;    private final static int DBIN_FIXED_OVERHEAD_64 = 232;
+<i class="no-highlight">229</i>&nbsp;    private final static int DBIN_FIXED_OVERHEAD_OOPS = 168;
+<i class="no-highlight">230</i>&nbsp;
+<i class="no-highlight">231</i>&nbsp;    // 13
+<i class="no-highlight">232</i>&nbsp;    private final static int IN_FIXED_OVERHEAD_32 = 248;
+<i class="no-highlight">233</i>&nbsp;    private final static int IN_FIXED_OVERHEAD_64 = 392;
+<i class="no-highlight">234</i>&nbsp;    private final static int IN_FIXED_OVERHEAD_OOPS = 256;
+<i class="no-highlight">235</i>&nbsp;
+<i class="no-highlight">236</i>&nbsp;    // 6
+<i class="no-highlight">237</i>&nbsp;    private final static int KEY_OVERHEAD_32 = 16;
+<i class="no-highlight">238</i>&nbsp;    private final static int KEY_OVERHEAD_64 = 24;
+<i class="no-highlight">239</i>&nbsp;    private final static int KEY_OVERHEAD_OOPS = 16;
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    // 24
+<i class="no-highlight">242</i>&nbsp;    private final static int LOCKIMPL_OVERHEAD_32 = 24;
+<i class="no-highlight">243</i>&nbsp;    private final static int LOCKIMPL_OVERHEAD_64 = 48;
+<i class="no-highlight">244</i>&nbsp;    private final static int LOCKIMPL_OVERHEAD_OOPS = 32;
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;    // 42
+<i class="no-highlight">247</i>&nbsp;    private final static int THINLOCKIMPL_OVERHEAD_32 = 16;
+<i class="no-highlight">248</i>&nbsp;    private final static int THINLOCKIMPL_OVERHEAD_64 = 32;
+<i class="no-highlight">249</i>&nbsp;    private final static int THINLOCKIMPL_OVERHEAD_OOPS = 24;
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;    // 25
+<i class="no-highlight">252</i>&nbsp;    private final static int LOCKINFO_OVERHEAD_32 = 16;
+<i class="no-highlight">253</i>&nbsp;    private final static int LOCKINFO_OVERHEAD_64 = 32;
+<i class="no-highlight">254</i>&nbsp;    private final static int LOCKINFO_OVERHEAD_OOPS = 24;
+<i class="no-highlight">255</i>&nbsp;
+<i class="no-highlight">256</i>&nbsp;    // 37
+<i class="no-highlight">257</i>&nbsp;    private final static int WRITE_LOCKINFO_OVERHEAD_32 = 48;
+<i class="no-highlight">258</i>&nbsp;    private final static int WRITE_LOCKINFO_OVERHEAD_64 = 72;
+<i class="no-highlight">259</i>&nbsp;    private final static int WRITE_LOCKINFO_OVERHEAD_OOPS = 56;
+<i class="no-highlight">260</i>&nbsp;
+<i class="no-highlight">261</i>&nbsp;    /*
+<i class="no-highlight">262</i>&nbsp;     * Txn memory is the size for the Txn + a hashmap entry
+<i class="no-highlight">263</i>&nbsp;     * overhead for being part of the transaction table.
+<i class="no-highlight">264</i>&nbsp;     */
+<i class="no-highlight">265</i>&nbsp;    // 15
+<i class="no-highlight">266</i>&nbsp;    private final static int TXN_OVERHEAD_32 = 224;
+<i class="no-highlight">267</i>&nbsp;    private final static int TXN_OVERHEAD_64 = 361;
+<i class="no-highlight">268</i>&nbsp;    private final static int TXN_OVERHEAD_OOPS = 240;
+<i class="no-highlight">269</i>&nbsp;
+<i class="no-highlight">270</i>&nbsp;    // 26
+<i class="no-highlight">271</i>&nbsp;    private final static int CHECKPOINT_REFERENCE_SIZE_32 = 40 +
+<i class="no-highlight">272</i>&nbsp;        HASHSET_ENTRY_OVERHEAD_32;
+<i class="no-highlight">273</i>&nbsp;    private final static int CHECKPOINT_REFERENCE_SIZE_64 = 56 +
+<i class="no-highlight">274</i>&nbsp;        HASHSET_ENTRY_OVERHEAD_64;
+<i class="no-highlight">275</i>&nbsp;    private final static int CHECKPOINT_REFERENCE_SIZE_OOPS = 48 +
+<i class="no-highlight">276</i>&nbsp;        HASHSET_ENTRY_OVERHEAD_OOPS;
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /* The per-log-file bytes used in UtilizationProfile. */
+<i class="no-highlight">279</i>&nbsp;    // 29 / 10.0 (That is the number 10, not the Sizeof type 10)
+<i class="no-highlight">280</i>&nbsp;    // 32b: 29 is 1088
+<i class="no-highlight">281</i>&nbsp;    // 64b: 29 is 1600
+<i class="no-highlight">282</i>&nbsp;    // Oops: 29 is 1248
+<i class="no-highlight">283</i>&nbsp;    private final static int UTILIZATION_PROFILE_ENTRY_32 = 109;
+<i class="no-highlight">284</i>&nbsp;    private final static int UTILIZATION_PROFILE_ENTRY_64 = 160;
+<i class="no-highlight">285</i>&nbsp;    private final static int UTILIZATION_PROFILE_ENTRY_OOPS = 125;
+<i class="no-highlight">286</i>&nbsp;
+<i class="no-highlight">287</i>&nbsp;    // 38
+<i class="no-highlight">288</i>&nbsp;    private final static int DBFILESUMMARY_OVERHEAD_32 = 40;
+<i class="no-highlight">289</i>&nbsp;    private final static int DBFILESUMMARY_OVERHEAD_64 = 48;
+<i class="no-highlight">290</i>&nbsp;    private final static int DBFILESUMMARY_OVERHEAD_OOPS = 48;
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;    /* Tracked File Summary overheads. */
+<i class="no-highlight">293</i>&nbsp;    // 31
+<i class="no-highlight">294</i>&nbsp;    private final static int TFS_LIST_INITIAL_OVERHEAD_32 = 464;
+<i class="no-highlight">295</i>&nbsp;    private final static int TFS_LIST_INITIAL_OVERHEAD_64 = 504;
+<i class="no-highlight">296</i>&nbsp;    private final static int TFS_LIST_INITIAL_OVERHEAD_OOPS = 464;
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    // 30
+<i class="no-highlight">299</i>&nbsp;    // 64b: 30 is max(464,464,464,465) on Linux/Solaris on 1.5/1.6
+<i class="no-highlight">300</i>&nbsp;    private final static int TFS_LIST_SEGMENT_OVERHEAD_32 = 440;
+<i class="no-highlight">301</i>&nbsp;    private final static int TFS_LIST_SEGMENT_OVERHEAD_64 = 465;
+<i class="no-highlight">302</i>&nbsp;    private final static int TFS_LIST_SEGMENT_OVERHEAD_OOPS = 440;
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;    // 33
+<i class="no-highlight">305</i>&nbsp;    private final static int LN_INFO_OVERHEAD_32 = 32;
+<i class="no-highlight">306</i>&nbsp;    private final static int LN_INFO_OVERHEAD_64 = 48;
+<i class="no-highlight">307</i>&nbsp;    private final static int LN_INFO_OVERHEAD_OOPS = 30;
+<i class="no-highlight">308</i>&nbsp;
+<i class="no-highlight">309</i>&nbsp;    // 43
+<i class="no-highlight">310</i>&nbsp;    private final static int FILESUMMARYLN_OVERHEAD_32 = 112;
+<i class="no-highlight">311</i>&nbsp;    private final static int FILESUMMARYLN_OVERHEAD_64 = 168;
+<i class="no-highlight">312</i>&nbsp;    private final static int FILESUMMARYLN_OVERHEAD_OOPS = 128;
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;    // 51
+<i class="no-highlight">315</i>&nbsp;    private final static int INENTRY_OVERHEAD_32 = 16;
+<i class="no-highlight">316</i>&nbsp;    private final static int INENTRY_OVERHEAD_64 = 32;
+<i class="no-highlight">317</i>&nbsp;    private final static int INENTRY_OVERHEAD_OOPS= 24;
+<i class="no-highlight">318</i>&nbsp;
+<i class="no-highlight">319</i>&nbsp;    // 46
+<i class="no-highlight">320</i>&nbsp;    private final static int DELTAINENTRY_OVERHEAD_32 = 32;
+<i class="no-highlight">321</i>&nbsp;    private final static int DELTAINENTRY_OVERHEAD_64 = 48;
+<i class="no-highlight">322</i>&nbsp;    private final static int DELTAINENTRY_OVERHEAD_OOPS= 32;
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    // 55
+<i class="no-highlight">325</i>&nbsp;    private final static int DOS_WEAK_BINREF_OVERHEAD_32 = 48;
+<i class="no-highlight">326</i>&nbsp;    private final static int DOS_WEAK_BINREF_OVERHEAD_64 = 72;
+<i class="no-highlight">327</i>&nbsp;    private final static int DOS_WEAK_BINREF_OVERHEAD_OOPS= 48;
+<i class="no-highlight">328</i>&nbsp;
+<i class="no-highlight">329</i>&nbsp;    // 56
+<i class="no-highlight">330</i>&nbsp;    private final static int DOS_OFFHEAP_BINREF_OVERHEAD_32 = 32;
+<i class="no-highlight">331</i>&nbsp;    private final static int DOS_OFFHEAP_BINREF_OVERHEAD_64 = 40;
+<i class="no-highlight">332</i>&nbsp;    private final static int DOS_OFFHEAP_BINREF_OVERHEAD_OOPS = 40;
+<i class="no-highlight">333</i>&nbsp;
+<i class="no-highlight">334</i>&nbsp;    // 57
+<i class="no-highlight">335</i>&nbsp;    private final static int DOS_DEFERRED_LSN_BATCH_OVERHEAD_32 = 88;
+<i class="no-highlight">336</i>&nbsp;    private final static int DOS_DEFERRED_LSN_BATCH_OVERHEAD_64 = 128;
+<i class="no-highlight">337</i>&nbsp;    private final static int DOS_DEFERRED_LSN_BATCH_OVERHEAD_OOPS = 88;
+<i class="no-highlight">338</i>&nbsp;
+<i class="no-highlight">339</i>&nbsp;    // 58
+<i class="no-highlight">340</i>&nbsp;    private final static int DOS_DEFERRED_DELTAREF_OVERHEAD_32 = 16;
+<i class="no-highlight">341</i>&nbsp;    private final static int DOS_DEFERRED_DELTAREF_OVERHEAD_64 = 24;
+<i class="no-highlight">342</i>&nbsp;    private final static int DOS_DEFERRED_DELTAREF_OVERHEAD_OOPS= 16;
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;    // 27 minus zero length Object array
+<b class="fc"><i class="no-highlight">345</i>&nbsp;    private final static int EMPTY_OBJ_ARRAY = objectArraySize(0);</b>
+<b class="fc"><i class="no-highlight">346</i>&nbsp;    private final static int ARRAYLIST_OVERHEAD_32 = 40 - EMPTY_OBJ_ARRAY;</b>
+<b class="fc"><i class="no-highlight">347</i>&nbsp;    private final static int ARRAYLIST_OVERHEAD_64 = 64 - EMPTY_OBJ_ARRAY;</b>
+<b class="fc"><i class="no-highlight">348</i>&nbsp;    private final static int ARRAYLIST_OVERHEAD_OOPS = 40 - EMPTY_OBJ_ARRAY;</b>
+<i class="no-highlight">349</i>&nbsp;
+<i class="no-highlight">350</i>&nbsp;    // 44 minus 45
+<i class="no-highlight">351</i>&nbsp;    // 32b: 44 and 45 are 40 and 16, resp.
+<i class="no-highlight">352</i>&nbsp;    // 64b: 44 and 45 are 56 and 24, resp.
+<i class="no-highlight">353</i>&nbsp;    // Oops: 44 and 45 are 40 and 16, resp.
+<i class="no-highlight">354</i>&nbsp;    private final static int TUPLE_OUTPUT_OVERHEAD_32 = 24;
+<i class="no-highlight">355</i>&nbsp;    private final static int TUPLE_OUTPUT_OVERHEAD_64 = 32;
+<i class="no-highlight">356</i>&nbsp;    private final static int TUPLE_OUTPUT_OVERHEAD_OOPS = 24;
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;    public final static int LONG_OVERHEAD;
+<i class="no-highlight">359</i>&nbsp;    public final static int ARRAY_OVERHEAD;
+<i class="no-highlight">360</i>&nbsp;    public final static int ARRAY_SIZE_INCLUDED;
+<i class="no-highlight">361</i>&nbsp;    public final static int OBJECT_OVERHEAD;
+<i class="no-highlight">362</i>&nbsp;    public final static int OBJECT_ARRAY_ITEM_OVERHEAD;
+<i class="no-highlight">363</i>&nbsp;    public final static int HASHMAP_OVERHEAD;
+<i class="no-highlight">364</i>&nbsp;    public final static int HASHMAP_ENTRY_OVERHEAD;
+<i class="no-highlight">365</i>&nbsp;    public final static int HASHSET_OVERHEAD;
+<i class="no-highlight">366</i>&nbsp;    public final static int HASHSET_ENTRY_OVERHEAD;
+<i class="no-highlight">367</i>&nbsp;    public final static int TWOHASHMAPS_OVERHEAD;
+<i class="no-highlight">368</i>&nbsp;    public final static int TREEMAP_OVERHEAD;
+<i class="no-highlight">369</i>&nbsp;    public final static int TREEMAP_ENTRY_OVERHEAD;
+<i class="no-highlight">370</i>&nbsp;    public final static int MAPLN_OVERHEAD;
+<i class="no-highlight">371</i>&nbsp;    public final static int LN_OVERHEAD;
+<i class="no-highlight">372</i>&nbsp;    public final static int VERSIONEDLN_OVERHEAD;
+<i class="no-highlight">373</i>&nbsp;    public final static int DUPCOUNTLN_OVERHEAD;
+<i class="no-highlight">374</i>&nbsp;    public final static int BIN_FIXED_OVERHEAD;
+<i class="no-highlight">375</i>&nbsp;    public final static int BINDELTA_OVERHEAD;
+<i class="no-highlight">376</i>&nbsp;    public final static int DELTAINFO_OVERHEAD;
+<i class="no-highlight">377</i>&nbsp;    public final static int SPARSE_TARGET_ENTRY_OVERHEAD;
+<i class="no-highlight">378</i>&nbsp;    public final static int DEFAULT_TARGET_ENTRY_OVERHEAD;
+<i class="no-highlight">379</i>&nbsp;    public final static int DEFAULT_KEYVALS_OVERHEAD;
+<i class="no-highlight">380</i>&nbsp;    public final static int MAX_KEY_SIZE_KEYVALS_OVERHEAD;
+<i class="no-highlight">381</i>&nbsp;    public final static int DEFAULT_LONG_REP_OVERHEAD;
+<i class="no-highlight">382</i>&nbsp;    public final static int SPARSE_LONG_REP_OVERHEAD;
+<i class="no-highlight">383</i>&nbsp;    public final static int DIN_FIXED_OVERHEAD;
+<i class="no-highlight">384</i>&nbsp;    public final static int DBIN_FIXED_OVERHEAD;
+<i class="no-highlight">385</i>&nbsp;    public final static int IN_FIXED_OVERHEAD;
+<i class="no-highlight">386</i>&nbsp;    public final static int KEY_OVERHEAD;
+<i class="no-highlight">387</i>&nbsp;    public final static int LOCKIMPL_OVERHEAD;
+<i class="no-highlight">388</i>&nbsp;    public final static int THINLOCKIMPL_OVERHEAD;
+<i class="no-highlight">389</i>&nbsp;    public final static int LOCKINFO_OVERHEAD;
+<i class="no-highlight">390</i>&nbsp;    public final static int WRITE_LOCKINFO_OVERHEAD;
+<i class="no-highlight">391</i>&nbsp;    public final static int TXN_OVERHEAD;
+<i class="no-highlight">392</i>&nbsp;    public final static int CHECKPOINT_REFERENCE_SIZE;
+<i class="no-highlight">393</i>&nbsp;    public final static int UTILIZATION_PROFILE_ENTRY;
+<i class="no-highlight">394</i>&nbsp;    public final static int DBFILESUMMARY_OVERHEAD;
+<i class="no-highlight">395</i>&nbsp;    public final static int TFS_LIST_INITIAL_OVERHEAD;
+<i class="no-highlight">396</i>&nbsp;    public final static int TFS_LIST_SEGMENT_OVERHEAD;
+<i class="no-highlight">397</i>&nbsp;    public final static int LN_INFO_OVERHEAD;
+<i class="no-highlight">398</i>&nbsp;    public final static int FILESUMMARYLN_OVERHEAD;
+<i class="no-highlight">399</i>&nbsp;    public final static int INENTRY_OVERHEAD;
+<i class="no-highlight">400</i>&nbsp;    public final static int DELTAINENTRY_OVERHEAD;
+<i class="no-highlight">401</i>&nbsp;
+<i class="no-highlight">402</i>&nbsp;    public final static int DOS_WEAK_BINREF_OVERHEAD;
+<i class="no-highlight">403</i>&nbsp;    public final static int DOS_OFFHEAP_BINREF_OVERHEAD;
+<i class="no-highlight">404</i>&nbsp;    public final static int DOS_DEFERRED_LSN_BATCH_OVERHEAD;
+<i class="no-highlight">405</i>&nbsp;    public final static int DOS_DEFERRED_DELTAREF_OVERHEAD;
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;    public final static int ARRAYLIST_OVERHEAD;
+<i class="no-highlight">408</i>&nbsp;    public final static int TUPLE_OUTPUT_OVERHEAD;
+<i class="no-highlight">409</i>&nbsp;
+<i class="no-highlight">410</i>&nbsp;    /* Primitive long array item size is the same on all platforms. */
+<i class="no-highlight">411</i>&nbsp;    public final static int PRIMITIVE_LONG_ARRAY_ITEM_OVERHEAD = 8;
+<i class="no-highlight">412</i>&nbsp;
+<i class="no-highlight">413</i>&nbsp;    private final static String JVM_ARCH_PROPERTY = &quot;sun.arch.data.model&quot;;
+<i class="no-highlight">414</i>&nbsp;    private final static String FORCE_JVM_ARCH = &quot;je.forceJVMArch&quot;;
+<b class="fc"><i class="no-highlight">415</i>&nbsp;    private static boolean COMPRESSED_OOPS_REQUESTED = false;</b>
+<b class="fc"><i class="no-highlight">416</i>&nbsp;    private static boolean COMPRESSED_OOPS_KNOWN = false;</b>
+<b class="fc"><i class="no-highlight">417</i>&nbsp;    private static boolean COMPRESSED_OOPS_KNOWN_ON = false;</b>
+<i class="no-highlight">418</i>&nbsp;
+<i class="no-highlight">419</i>&nbsp;    static {
+<b class="fc"><i class="no-highlight">420</i>&nbsp;        boolean is64 = false;</b>
+<b class="fc"><i class="no-highlight">421</i>&nbsp;        String overrideArch = System.getProperty(FORCE_JVM_ARCH);</b>
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">424</i>&nbsp;            if (overrideArch == null) {</b>
+<b class="fc"><i class="no-highlight">425</i>&nbsp;                String arch = System.getProperty(JVM_ARCH_PROPERTY);</b>
+<b class="fc"><i class="no-highlight">426</i>&nbsp;                if (arch != null) {</b>
+<b class="fc"><i class="no-highlight">427</i>&nbsp;                    is64 = Integer.parseInt(arch) == 64;</b>
+<i class="no-highlight">428</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">429</i>&nbsp;            } else {</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                is64 = Integer.parseInt(overrideArch) == 64;</b>
+<i class="no-highlight">431</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">432</i>&nbsp;        } catch (NumberFormatException NFE) {</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            NFE.printStackTrace(System.err);</b>
+<b class="fc"><i class="no-highlight">434</i>&nbsp;        }</b>
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;        final Boolean checkCompressedOops =
+<b class="fc"><i class="no-highlight">437</i>&nbsp;            CompressedOopsDetector.isEnabled();</b>
+<b class="fc"><i class="no-highlight">438</i>&nbsp;        if (checkCompressedOops != null) {</b>
+<b class="fc"><i class="no-highlight">439</i>&nbsp;            COMPRESSED_OOPS_KNOWN = true;</b>
+<b class="fc"><i class="no-highlight">440</i>&nbsp;            COMPRESSED_OOPS_KNOWN_ON = checkCompressedOops;</b>
+<i class="no-highlight">441</i>&nbsp;        }
+<i class="no-highlight">442</i>&nbsp;
+<i class="no-highlight">443</i>&nbsp;        List&lt;String&gt; args =
+<b class="fc"><i class="no-highlight">444</i>&nbsp;            ManagementFactory.getRuntimeMXBean().getInputArguments();</b>
+<b class="fc"><i class="no-highlight">445</i>&nbsp;        for (String arg : args) {</b>
+<b class="fc"><i class="no-highlight">446</i>&nbsp;            if (&quot;-XX:+UseCompressedOops&quot;.equals(arg)) {</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;                COMPRESSED_OOPS_REQUESTED = true;</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                break;</b>
+<i class="no-highlight">449</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">450</i>&nbsp;        }</b>
+<i class="no-highlight">451</i>&nbsp;
+<b class="fc"><i class="no-highlight">452</i>&nbsp;        final boolean useCompressedOops = COMPRESSED_OOPS_KNOWN ?</b>
+<i class="no-highlight">453</i>&nbsp;            COMPRESSED_OOPS_KNOWN_ON :
+<i class="no-highlight">454</i>&nbsp;            COMPRESSED_OOPS_REQUESTED;
+<i class="no-highlight">455</i>&nbsp;
+<b class="fc"><i class="no-highlight">456</i>&nbsp;        if (useCompressedOops) {</b>
+<b class="fc"><i class="no-highlight">457</i>&nbsp;            LONG_OVERHEAD = LONG_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">458</i>&nbsp;            ARRAY_OVERHEAD = ARRAY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">459</i>&nbsp;            ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_OOPS;</b>
+<b class="fc"><i class="no-highlight">460</i>&nbsp;            OBJECT_OVERHEAD = OBJECT_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">461</i>&nbsp;            OBJECT_ARRAY_ITEM_OVERHEAD = OBJECT_ARRAY_ITEM_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">462</i>&nbsp;            HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">463</i>&nbsp;            HASHSET_OVERHEAD = HASHSET_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">464</i>&nbsp;            HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">465</i>&nbsp;            TREEMAP_OVERHEAD = TREEMAP_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">466</i>&nbsp;            MAPLN_OVERHEAD = MAPLN_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">467</i>&nbsp;            BIN_FIXED_OVERHEAD = BIN_FIXED_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">468</i>&nbsp;            BINDELTA_OVERHEAD = BINDELTA_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">469</i>&nbsp;            DELTAINFO_OVERHEAD = DELTAINFO_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">470</i>&nbsp;            SPARSE_TARGET_ENTRY_OVERHEAD =</b>
+<i class="no-highlight">471</i>&nbsp;                SPARSE_TARGET_ENTRY_OVERHEAD_OOPS;
+<b class="fc"><i class="no-highlight">472</i>&nbsp;            DEFAULT_TARGET_ENTRY_OVERHEAD =</b>
+<i class="no-highlight">473</i>&nbsp;                DEFAULT_TARGET_ENTRY_OVERHEAD_OOPS;
+<b class="fc"><i class="no-highlight">474</i>&nbsp;            DEFAULT_KEYVALS_OVERHEAD = DEFAULT_KEYVALS_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">475</i>&nbsp;            MAX_KEY_SIZE_KEYVALS_OVERHEAD =</b>
+<i class="no-highlight">476</i>&nbsp;                MAX_KEY_SIZE_KEYVALS_OVERHEAD_OOPS;
+<b class="fc"><i class="no-highlight">477</i>&nbsp;            DEFAULT_LONG_REP_OVERHEAD = DEFAULT_LONG_REP_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">478</i>&nbsp;            SPARSE_LONG_REP_OVERHEAD = SPARSE_LONG_REP_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">479</i>&nbsp;            DIN_FIXED_OVERHEAD = DIN_FIXED_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">480</i>&nbsp;            DBIN_FIXED_OVERHEAD = DBIN_FIXED_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">481</i>&nbsp;            IN_FIXED_OVERHEAD = IN_FIXED_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">482</i>&nbsp;            HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">483</i>&nbsp;            TWOHASHMAPS_OVERHEAD = TWOHASHMAPS_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">484</i>&nbsp;            TREEMAP_ENTRY_OVERHEAD = TREEMAP_ENTRY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">485</i>&nbsp;            LN_OVERHEAD = LN_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">486</i>&nbsp;            VERSIONEDLN_OVERHEAD = VERSIONEDLN_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">487</i>&nbsp;            DUPCOUNTLN_OVERHEAD = DUPCOUNTLN_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">488</i>&nbsp;            TXN_OVERHEAD = TXN_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">489</i>&nbsp;            CHECKPOINT_REFERENCE_SIZE = CHECKPOINT_REFERENCE_SIZE_OOPS;</b>
+<b class="fc"><i class="no-highlight">490</i>&nbsp;            KEY_OVERHEAD = KEY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">491</i>&nbsp;            LOCKIMPL_OVERHEAD = LOCKIMPL_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">492</i>&nbsp;            THINLOCKIMPL_OVERHEAD = THINLOCKIMPL_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">493</i>&nbsp;            LOCKINFO_OVERHEAD = LOCKINFO_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">494</i>&nbsp;            WRITE_LOCKINFO_OVERHEAD = WRITE_LOCKINFO_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">495</i>&nbsp;            UTILIZATION_PROFILE_ENTRY = UTILIZATION_PROFILE_ENTRY_OOPS;</b>
+<b class="fc"><i class="no-highlight">496</i>&nbsp;            DBFILESUMMARY_OVERHEAD = DBFILESUMMARY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">497</i>&nbsp;            TFS_LIST_INITIAL_OVERHEAD = TFS_LIST_INITIAL_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">498</i>&nbsp;            TFS_LIST_SEGMENT_OVERHEAD = TFS_LIST_SEGMENT_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">499</i>&nbsp;            LN_INFO_OVERHEAD = LN_INFO_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">500</i>&nbsp;            FILESUMMARYLN_OVERHEAD = FILESUMMARYLN_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">501</i>&nbsp;            INENTRY_OVERHEAD = INENTRY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">502</i>&nbsp;            DELTAINENTRY_OVERHEAD = DELTAINENTRY_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">503</i>&nbsp;            ARRAYLIST_OVERHEAD = ARRAYLIST_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">504</i>&nbsp;            TUPLE_OUTPUT_OVERHEAD = TUPLE_OUTPUT_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">505</i>&nbsp;            DOS_WEAK_BINREF_OVERHEAD = DOS_WEAK_BINREF_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">506</i>&nbsp;            DOS_OFFHEAP_BINREF_OVERHEAD = DOS_OFFHEAP_BINREF_OVERHEAD_OOPS;</b>
+<b class="fc"><i class="no-highlight">507</i>&nbsp;            DOS_DEFERRED_LSN_BATCH_OVERHEAD =</b>
+<i class="no-highlight">508</i>&nbsp;                DOS_DEFERRED_LSN_BATCH_OVERHEAD_OOPS;
+<b class="fc"><i class="no-highlight">509</i>&nbsp;            DOS_DEFERRED_DELTAREF_OVERHEAD =</b>
+<i class="no-highlight">510</i>&nbsp;                DOS_DEFERRED_DELTAREF_OVERHEAD_OOPS;
+<b class="nc"><i class="no-highlight">511</i>&nbsp;        } else if (is64) {</b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;            LONG_OVERHEAD = LONG_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;            ARRAY_OVERHEAD = ARRAY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;            ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_64;</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            OBJECT_OVERHEAD = OBJECT_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            OBJECT_ARRAY_ITEM_OVERHEAD = OBJECT_ARRAY_ITEM_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">517</i>&nbsp;            HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">518</i>&nbsp;            HASHSET_OVERHEAD = HASHSET_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;            TREEMAP_OVERHEAD = TREEMAP_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;            MAPLN_OVERHEAD = MAPLN_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;            BIN_FIXED_OVERHEAD = BIN_FIXED_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">523</i>&nbsp;            DIN_FIXED_OVERHEAD = DIN_FIXED_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;            DBIN_FIXED_OVERHEAD = DBIN_FIXED_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">525</i>&nbsp;            IN_FIXED_OVERHEAD = IN_FIXED_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;            HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">527</i>&nbsp;            TWOHASHMAPS_OVERHEAD = TWOHASHMAPS_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            BINDELTA_OVERHEAD = BINDELTA_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;            DELTAINFO_OVERHEAD = DELTAINFO_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;            SPARSE_TARGET_ENTRY_OVERHEAD = SPARSE_TARGET_ENTRY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;            DEFAULT_TARGET_ENTRY_OVERHEAD =</b>
+<i class="no-highlight">532</i>&nbsp;                DEFAULT_TARGET_ENTRY_OVERHEAD_64;
+<b class="nc"><i class="no-highlight">533</i>&nbsp;            DEFAULT_KEYVALS_OVERHEAD = DEFAULT_KEYVALS_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;            MAX_KEY_SIZE_KEYVALS_OVERHEAD =</b>
+<i class="no-highlight">535</i>&nbsp;                MAX_KEY_SIZE_KEYVALS_OVERHEAD_64;
+<b class="nc"><i class="no-highlight">536</i>&nbsp;            DEFAULT_LONG_REP_OVERHEAD = DEFAULT_LONG_REP_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;            SPARSE_LONG_REP_OVERHEAD = SPARSE_LONG_REP_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">538</i>&nbsp;            TREEMAP_ENTRY_OVERHEAD = TREEMAP_ENTRY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">539</i>&nbsp;            LN_OVERHEAD = LN_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">540</i>&nbsp;            VERSIONEDLN_OVERHEAD = VERSIONEDLN_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;            DUPCOUNTLN_OVERHEAD = DUPCOUNTLN_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;            TXN_OVERHEAD = TXN_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">543</i>&nbsp;            CHECKPOINT_REFERENCE_SIZE = CHECKPOINT_REFERENCE_SIZE_64;</b>
+<b class="nc"><i class="no-highlight">544</i>&nbsp;            KEY_OVERHEAD = KEY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;            LOCKIMPL_OVERHEAD = LOCKIMPL_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;            THINLOCKIMPL_OVERHEAD = THINLOCKIMPL_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">547</i>&nbsp;            LOCKINFO_OVERHEAD = LOCKINFO_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">548</i>&nbsp;            WRITE_LOCKINFO_OVERHEAD = WRITE_LOCKINFO_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;            UTILIZATION_PROFILE_ENTRY = UTILIZATION_PROFILE_ENTRY_64;</b>
+<b class="nc"><i class="no-highlight">550</i>&nbsp;            DBFILESUMMARY_OVERHEAD = DBFILESUMMARY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            TFS_LIST_INITIAL_OVERHEAD = TFS_LIST_INITIAL_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;            TFS_LIST_SEGMENT_OVERHEAD = TFS_LIST_SEGMENT_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            LN_INFO_OVERHEAD = LN_INFO_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">554</i>&nbsp;            FILESUMMARYLN_OVERHEAD = FILESUMMARYLN_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            INENTRY_OVERHEAD = INENTRY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;            DELTAINENTRY_OVERHEAD = DELTAINENTRY_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            ARRAYLIST_OVERHEAD = ARRAYLIST_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">558</i>&nbsp;            TUPLE_OUTPUT_OVERHEAD = TUPLE_OUTPUT_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">559</i>&nbsp;            DOS_WEAK_BINREF_OVERHEAD = DOS_WEAK_BINREF_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;            DOS_OFFHEAP_BINREF_OVERHEAD = DOS_OFFHEAP_BINREF_OVERHEAD_64;</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;            DOS_DEFERRED_LSN_BATCH_OVERHEAD =</b>
+<i class="no-highlight">562</i>&nbsp;                DOS_DEFERRED_LSN_BATCH_OVERHEAD_64;
+<b class="nc"><i class="no-highlight">563</i>&nbsp;            DOS_DEFERRED_DELTAREF_OVERHEAD = DOS_DEFERRED_DELTAREF_OVERHEAD_64;</b>
+<i class="no-highlight">564</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">565</i>&nbsp;            LONG_OVERHEAD = LONG_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">566</i>&nbsp;            ARRAY_OVERHEAD = ARRAY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">567</i>&nbsp;            ARRAY_SIZE_INCLUDED = ARRAY_SIZE_INCLUDED_32;</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;            OBJECT_OVERHEAD = OBJECT_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;            OBJECT_ARRAY_ITEM_OVERHEAD = OBJECT_ARRAY_ITEM_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;            HASHMAP_OVERHEAD = HASHMAP_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;            HASHMAP_ENTRY_OVERHEAD = HASHMAP_ENTRY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">572</i>&nbsp;            HASHSET_OVERHEAD = HASHSET_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">573</i>&nbsp;            HASHSET_ENTRY_OVERHEAD = HASHSET_ENTRY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            TWOHASHMAPS_OVERHEAD = TWOHASHMAPS_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;            TREEMAP_OVERHEAD = TREEMAP_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;            MAPLN_OVERHEAD = MAPLN_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">577</i>&nbsp;            TREEMAP_ENTRY_OVERHEAD = TREEMAP_ENTRY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">578</i>&nbsp;            LN_OVERHEAD = LN_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;            VERSIONEDLN_OVERHEAD = VERSIONEDLN_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;            DUPCOUNTLN_OVERHEAD = DUPCOUNTLN_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;            BIN_FIXED_OVERHEAD = BIN_FIXED_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">582</i>&nbsp;            BINDELTA_OVERHEAD = BINDELTA_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">583</i>&nbsp;            DELTAINFO_OVERHEAD = DELTAINFO_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">584</i>&nbsp;            SPARSE_TARGET_ENTRY_OVERHEAD = SPARSE_TARGET_ENTRY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">585</i>&nbsp;            DEFAULT_TARGET_ENTRY_OVERHEAD =</b>
+<i class="no-highlight">586</i>&nbsp;                DEFAULT_TARGET_ENTRY_OVERHEAD_32;
+<b class="nc"><i class="no-highlight">587</i>&nbsp;            DEFAULT_KEYVALS_OVERHEAD = DEFAULT_KEYVALS_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">588</i>&nbsp;            MAX_KEY_SIZE_KEYVALS_OVERHEAD =</b>
+<i class="no-highlight">589</i>&nbsp;                MAX_KEY_SIZE_KEYVALS_OVERHEAD_32;
+<b class="nc"><i class="no-highlight">590</i>&nbsp;            DEFAULT_LONG_REP_OVERHEAD = DEFAULT_LONG_REP_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">591</i>&nbsp;            SPARSE_LONG_REP_OVERHEAD = SPARSE_LONG_REP_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">592</i>&nbsp;            DIN_FIXED_OVERHEAD = DIN_FIXED_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;            DBIN_FIXED_OVERHEAD = DBIN_FIXED_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">594</i>&nbsp;            IN_FIXED_OVERHEAD = IN_FIXED_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;            TXN_OVERHEAD = TXN_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;            CHECKPOINT_REFERENCE_SIZE = CHECKPOINT_REFERENCE_SIZE_32;</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            KEY_OVERHEAD = KEY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;            LOCKIMPL_OVERHEAD = LOCKIMPL_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;            THINLOCKIMPL_OVERHEAD = THINLOCKIMPL_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;            LOCKINFO_OVERHEAD = LOCKINFO_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">601</i>&nbsp;            WRITE_LOCKINFO_OVERHEAD = WRITE_LOCKINFO_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">602</i>&nbsp;            UTILIZATION_PROFILE_ENTRY = UTILIZATION_PROFILE_ENTRY_32;</b>
+<b class="nc"><i class="no-highlight">603</i>&nbsp;            DBFILESUMMARY_OVERHEAD = DBFILESUMMARY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">604</i>&nbsp;            TFS_LIST_INITIAL_OVERHEAD = TFS_LIST_INITIAL_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">605</i>&nbsp;            TFS_LIST_SEGMENT_OVERHEAD = TFS_LIST_SEGMENT_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">606</i>&nbsp;            LN_INFO_OVERHEAD = LN_INFO_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;            FILESUMMARYLN_OVERHEAD = FILESUMMARYLN_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            INENTRY_OVERHEAD = INENTRY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;            DELTAINENTRY_OVERHEAD = DELTAINENTRY_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;            ARRAYLIST_OVERHEAD = ARRAYLIST_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;            TUPLE_OUTPUT_OVERHEAD = TUPLE_OUTPUT_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">612</i>&nbsp;            DOS_WEAK_BINREF_OVERHEAD = DOS_WEAK_BINREF_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">613</i>&nbsp;            DOS_OFFHEAP_BINREF_OVERHEAD = DOS_OFFHEAP_BINREF_OVERHEAD_32;</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;            DOS_DEFERRED_LSN_BATCH_OVERHEAD =</b>
+<i class="no-highlight">615</i>&nbsp;                DOS_DEFERRED_LSN_BATCH_OVERHEAD_32;
+<b class="nc"><i class="no-highlight">616</i>&nbsp;            DOS_DEFERRED_DELTAREF_OVERHEAD = DOS_DEFERRED_DELTAREF_OVERHEAD_32;</b>
+<i class="no-highlight">617</i>&nbsp;        }
+<i class="no-highlight">618</i>&nbsp;    }
+<i class="no-highlight">619</i>&nbsp;
+<i class="no-highlight">620</i>&nbsp;    /* public for unit tests. */
+<i class="no-highlight">621</i>&nbsp;    public final static long MIN_MAX_MEMORY_SIZE = 96 * 1024;
+<b class="fc"><i class="no-highlight">622</i>&nbsp;    public final static String MIN_MAX_MEMORY_SIZE_STRING =</b>
+<b class="fc"><i class="no-highlight">623</i>&nbsp;        Long.toString(MIN_MAX_MEMORY_SIZE);</b>
+<i class="no-highlight">624</i>&nbsp;
+<i class="no-highlight">625</i>&nbsp;    /* This value prevents cache churn for apps with a high write rate. */
+<i class="no-highlight">626</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">627</i>&nbsp;    private final static int DEFAULT_MIN_BTREE_CACHE_SIZE = 500 * 1024;
+<i class="no-highlight">628</i>&nbsp;
+<i class="no-highlight">629</i>&nbsp;    private final static long N_64MB = (1 &lt;&lt; 26);
+<i class="no-highlight">630</i>&nbsp;
+<i class="no-highlight">631</i>&nbsp;    /*
+<i class="no-highlight">632</i>&nbsp;     * Note that this class contains long fields that are accessed by multiple
+<i class="no-highlight">633</i>&nbsp;     * threads.  Access to these fields is synchronized when changing them but
+<i class="no-highlight">634</i>&nbsp;     * not when reading them to detect cache overflow or get stats.  Although
+<i class="no-highlight">635</i>&nbsp;     * inaccuracies may occur when reading the values, correcting this is not
+<i class="no-highlight">636</i>&nbsp;     * worth the cost of synchronizing every time we access them.  The worst
+<i class="no-highlight">637</i>&nbsp;     * that can happen is that we may invoke eviction unnecessarily.
+<i class="no-highlight">638</i>&nbsp;     */
+<i class="no-highlight">639</i>&nbsp;
+<i class="no-highlight">640</i>&nbsp;    /*
+<i class="no-highlight">641</i>&nbsp;     * Amount of memory cached for tree objects.
+<i class="no-highlight">642</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">643</i>&nbsp;    private final AtomicLong treeMemoryUsage = new AtomicLong(0);</b>
+<i class="no-highlight">644</i>&nbsp;
+<i class="no-highlight">645</i>&nbsp;    /*
+<i class="no-highlight">646</i>&nbsp;     * Amount of memory cached for disk ordered scans.
+<i class="no-highlight">647</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">648</i>&nbsp;    private final AtomicLong dosMemoryUsage = new AtomicLong(0);</b>
+<i class="no-highlight">649</i>&nbsp;
+<i class="no-highlight">650</i>&nbsp;    /*
+<i class="no-highlight">651</i>&nbsp;     * Amount of memory cached for txn usage.
+<i class="no-highlight">652</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">653</i>&nbsp;    private final AtomicLong txnMemoryUsage = new AtomicLong(0);</b>
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;    /*
+<i class="no-highlight">656</i>&nbsp;     * Amount of memory cached for log cleaning, dirty IN list, and other admin
+<i class="no-highlight">657</i>&nbsp;     * functions.
+<i class="no-highlight">658</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">659</i>&nbsp;    private final AtomicLong adminMemoryUsage = new AtomicLong(0);</b>
+<i class="no-highlight">660</i>&nbsp;
+<i class="no-highlight">661</i>&nbsp;    /*
+<i class="no-highlight">662</i>&nbsp;     * Amount of memory cached for admininstrative structures that are
+<i class="no-highlight">663</i>&nbsp;     * sometimes housed within tree nodes. Right now, that&#39;s
+<i class="no-highlight">664</i>&nbsp;     * DbFileSummaryMap, which is sometimes referenced by a MapLN by
+<i class="no-highlight">665</i>&nbsp;     * way of a DatabaseImpl, and sometimes is just referenced by
+<i class="no-highlight">666</i>&nbsp;     * a DatabaseImpl without a MapLN (the id and name databases.)
+<i class="no-highlight">667</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">668</i>&nbsp;    private final AtomicLong treeAdminMemoryUsage = new AtomicLong(0);</b>
+<i class="no-highlight">669</i>&nbsp;
+<i class="no-highlight">670</i>&nbsp;    /*
+<i class="no-highlight">671</i>&nbsp;     * Amount of memory cached for locks. Protected by the
+<i class="no-highlight">672</i>&nbsp;     * LockManager.lockTableLatches[lockTableIndex].
+<i class="no-highlight">673</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">674</i>&nbsp;    private final AtomicLong lockMemoryUsage = new AtomicLong(0);</b>
+<i class="no-highlight">675</i>&nbsp;
+<i class="no-highlight">676</i>&nbsp;    /*
+<i class="no-highlight">677</i>&nbsp;     * Memory available to JE, based on je.maxMemory and the memory available
+<i class="no-highlight">678</i>&nbsp;     * to this process.
+<i class="no-highlight">679</i>&nbsp;     */
+<i class="no-highlight">680</i>&nbsp;    private final Totals totals;
+<i class="no-highlight">681</i>&nbsp;
+<i class="no-highlight">682</i>&nbsp;    /* Memory available to log buffers. */
+<i class="no-highlight">683</i>&nbsp;    private long logBufferBudget;
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;    /* Maximum allowed use of the admin budget by the UtilizationTracker. */
+<i class="no-highlight">686</i>&nbsp;    private long trackerBudget;
+<i class="no-highlight">687</i>&nbsp;
+<i class="no-highlight">688</i>&nbsp;    /* Mininum to prevent cache churn. */
+<i class="no-highlight">689</i>&nbsp;    private long minTreeMemoryUsage;
+<i class="no-highlight">690</i>&nbsp;
+<i class="no-highlight">691</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">692</i>&nbsp;
+<i class="no-highlight">693</i>&nbsp;    MemoryBudget(EnvironmentImpl envImpl,
+<i class="no-highlight">694</i>&nbsp;                 EnvironmentImpl sharedCacheEnv,
+<i class="no-highlight">695</i>&nbsp;                 DbConfigManager configManager)
+<b class="fc"><i class="no-highlight">696</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">697</i>&nbsp;
+<b class="fc"><i class="no-highlight">698</i>&nbsp;        this.envImpl = envImpl;</b>
+<i class="no-highlight">699</i>&nbsp;
+<i class="no-highlight">700</i>&nbsp;        /* Request notification of mutable property changes. */
+<b class="fc"><i class="no-highlight">701</i>&nbsp;        envImpl.addConfigObserver(this);</b>
+<i class="no-highlight">702</i>&nbsp;
+<i class="no-highlight">703</i>&nbsp;        /* Perform first time budget initialization. */
+<i class="no-highlight">704</i>&nbsp;        long newMaxMemory;
+<b class="fc"><i class="no-highlight">705</i>&nbsp;        if (envImpl.getSharedCache()) {</b>
+<b class="nc"><i class="no-highlight">706</i>&nbsp;            if (sharedCacheEnv != null) {</b>
+<b class="nc"><i class="no-highlight">707</i>&nbsp;                totals = sharedCacheEnv.getMemoryBudget().totals;</b>
+<i class="no-highlight">708</i>&nbsp;                /* For a new environment, do not override existing budget. */
+<b class="nc"><i class="no-highlight">709</i>&nbsp;                newMaxMemory = -1;</b>
+<i class="no-highlight">710</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">711</i>&nbsp;                totals = new SharedTotals();</b>
+<b class="nc"><i class="no-highlight">712</i>&nbsp;                newMaxMemory = calcMaxMemory(configManager);</b>
+<i class="no-highlight">713</i>&nbsp;            }
+<i class="no-highlight">714</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">715</i>&nbsp;            totals = new PrivateTotals(this);</b>
+<b class="fc"><i class="no-highlight">716</i>&nbsp;            newMaxMemory = calcMaxMemory(configManager);</b>
+<i class="no-highlight">717</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">718</i>&nbsp;        reset(newMaxMemory, true /*newEnv*/, configManager);</b>
+<i class="no-highlight">719</i>&nbsp;
+<b class="fc"><i class="no-highlight">720</i>&nbsp;        checkCompressedOops();</b>
+<b class="fc"><i class="no-highlight">721</i>&nbsp;    }</b>
+<i class="no-highlight">722</i>&nbsp;
+<i class="no-highlight">723</i>&nbsp;    /**
+<i class="no-highlight">724</i>&nbsp;     * Logs a SEVERE message if compressed oops was specified but did not take
+<i class="no-highlight">725</i>&nbsp;     * effect.  Must be called after the environment is initialized so the
+<i class="no-highlight">726</i>&nbsp;     * message makes it to the output file.
+<i class="no-highlight">727</i>&nbsp;     */
+<i class="no-highlight">728</i>&nbsp;    private void checkCompressedOops() {
+<b class="fc"><i class="no-highlight">729</i>&nbsp;        if (COMPRESSED_OOPS_REQUESTED &amp;&amp;</b>
+<i class="no-highlight">730</i>&nbsp;            COMPRESSED_OOPS_KNOWN &amp;&amp;
+<i class="no-highlight">731</i>&nbsp;            !COMPRESSED_OOPS_KNOWN_ON) {
+<b class="nc"><i class="no-highlight">732</i>&nbsp;            LoggerUtils.severe(envImpl.getLogger(), envImpl,</b>
+<i class="no-highlight">733</i>&nbsp;                &quot;-XX:+UseCompressedOops was specified but is not in effect,&quot; +
+<i class="no-highlight">734</i>&nbsp;                &quot; probably because the heap size is too large for this JVM&quot; +
+<i class="no-highlight">735</i>&nbsp;                &quot; option on this platform.  This is likely to cause an&quot; +
+<i class="no-highlight">736</i>&nbsp;                &quot; OutOfMemoryError!&quot;);
+<i class="no-highlight">737</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">738</i>&nbsp;    }</b>
+<i class="no-highlight">739</i>&nbsp;
+<i class="no-highlight">740</i>&nbsp;    /**
+<i class="no-highlight">741</i>&nbsp;     * Respond to config updates.
+<i class="no-highlight">742</i>&nbsp;     */
+<i class="no-highlight">743</i>&nbsp;    public void envConfigUpdate(DbConfigManager configManager,
+<i class="no-highlight">744</i>&nbsp;                                EnvironmentMutableConfig ignore)
+<i class="no-highlight">745</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">746</i>&nbsp;
+<i class="no-highlight">747</i>&nbsp;        /* Reinitialize the cache budget and the log buffer pool. */
+<b class="nc"><i class="no-highlight">748</i>&nbsp;        reset(calcMaxMemory(configManager), false /*newEnv*/, configManager);</b>
+<b class="nc"><i class="no-highlight">749</i>&nbsp;    }</b>
+<i class="no-highlight">750</i>&nbsp;
+<i class="no-highlight">751</i>&nbsp;    /**
+<i class="no-highlight">752</i>&nbsp;     * @throws IllegalArgumentException via Environment ctor and
+<i class="no-highlight">753</i>&nbsp;     * setMutableConfig.
+<i class="no-highlight">754</i>&nbsp;     */
+<i class="no-highlight">755</i>&nbsp;    private long calcMaxMemory(DbConfigManager configManager) {
+<i class="no-highlight">756</i>&nbsp;
+<i class="no-highlight">757</i>&nbsp;        /*
+<i class="no-highlight">758</i>&nbsp;         * Calculate the total memory allotted to JE.
+<i class="no-highlight">759</i>&nbsp;         * 1. If je.maxMemory is specified, use that. Check that it&#39;s not more
+<i class="no-highlight">760</i>&nbsp;         * than the JVM memory.
+<i class="no-highlight">761</i>&nbsp;         * 2. Otherwise, take je.maxMemoryPercent * JVM max memory.
+<i class="no-highlight">762</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">763</i>&nbsp;        long newMaxMemory =</b>
+<b class="fc"><i class="no-highlight">764</i>&nbsp;            configManager.getLong(EnvironmentParams.MAX_MEMORY);</b>
+<b class="fc"><i class="no-highlight">765</i>&nbsp;        long jvmMemory = JVMSystemUtils.getRuntimeMaxMemory();</b>
+<i class="no-highlight">766</i>&nbsp;
+<b class="fc"><i class="no-highlight">767</i>&nbsp;        if (newMaxMemory != 0) {</b>
+<i class="no-highlight">768</i>&nbsp;            /* Application specified a cache size number, validate it. */
+<b class="fc"><i class="no-highlight">769</i>&nbsp;            if (jvmMemory &lt; newMaxMemory) {</b>
+<b class="nc"><i class="no-highlight">770</i>&nbsp;                throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">771</i>&nbsp;                    (EnvironmentParams.MAX_MEMORY.getName() +</b>
+<i class="no-highlight">772</i>&nbsp;                     &quot; has a value of &quot; + newMaxMemory +
+<i class="no-highlight">773</i>&nbsp;                     &quot; but the JVM is only configured for &quot; +
+<i class="no-highlight">774</i>&nbsp;                     jvmMemory +
+<i class="no-highlight">775</i>&nbsp;                     &quot;. Consider using je.maxMemoryPercent.&quot;);
+<i class="no-highlight">776</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">777</i>&nbsp;            if (newMaxMemory &lt; MIN_MAX_MEMORY_SIZE) {</b>
+<b class="nc"><i class="no-highlight">778</i>&nbsp;                throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">779</i>&nbsp;                    (EnvironmentParams.MAX_MEMORY.getName() +</b>
+<i class="no-highlight">780</i>&nbsp;                     &quot; is &quot; + newMaxMemory +
+<i class="no-highlight">781</i>&nbsp;                     &quot; which is less than the minimum: &quot; +
+<i class="no-highlight">782</i>&nbsp;                     MIN_MAX_MEMORY_SIZE);
+<i class="no-highlight">783</i>&nbsp;            }
+<i class="no-highlight">784</i>&nbsp;        } else {
+<i class="no-highlight">785</i>&nbsp;
+<i class="no-highlight">786</i>&nbsp;            /*
+<i class="no-highlight">787</i>&nbsp;             * When no explicit cache size is specified and the JVM memory size
+<i class="no-highlight">788</i>&nbsp;             * is unknown, assume a default sized (64 MB) heap.  This produces
+<i class="no-highlight">789</i>&nbsp;             * a reasonable cache size when no heap size is known.
+<i class="no-highlight">790</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">791</i>&nbsp;            if (jvmMemory == Long.MAX_VALUE) {</b>
+<b class="nc"><i class="no-highlight">792</i>&nbsp;                jvmMemory = N_64MB;</b>
+<i class="no-highlight">793</i>&nbsp;            }
+<i class="no-highlight">794</i>&nbsp;
+<i class="no-highlight">795</i>&nbsp;            /* Use the configured percentage of the JVM memory size. */
+<b class="nc"><i class="no-highlight">796</i>&nbsp;            int maxMemoryPercent =</b>
+<b class="nc"><i class="no-highlight">797</i>&nbsp;                configManager.getInt(EnvironmentParams.MAX_MEMORY_PERCENT);</b>
+<b class="nc"><i class="no-highlight">798</i>&nbsp;            newMaxMemory = (maxMemoryPercent * jvmMemory) / 100;</b>
+<i class="no-highlight">799</i>&nbsp;        }
+<i class="no-highlight">800</i>&nbsp;
+<b class="fc"><i class="no-highlight">801</i>&nbsp;        return newMaxMemory;</b>
+<i class="no-highlight">802</i>&nbsp;    }
+<i class="no-highlight">803</i>&nbsp;
+<i class="no-highlight">804</i>&nbsp;    /**
+<i class="no-highlight">805</i>&nbsp;     * Initialize at construction time and when the cache is resized.
+<i class="no-highlight">806</i>&nbsp;     *
+<i class="no-highlight">807</i>&nbsp;     * @param newMaxMemory is the new total cache budget or is less than 0 if
+<i class="no-highlight">808</i>&nbsp;     * the total should remain unchanged.
+<i class="no-highlight">809</i>&nbsp;     *
+<i class="no-highlight">810</i>&nbsp;     * @param newEnv is true if this is the first time we are resetting the
+<i class="no-highlight">811</i>&nbsp;     * budget for a new environment.  Note that a new environment has not yet
+<i class="no-highlight">812</i>&nbsp;     * been added to the set of shared cache environments.
+<i class="no-highlight">813</i>&nbsp;     */
+<i class="no-highlight">814</i>&nbsp;    void reset(long newMaxMemory,
+<i class="no-highlight">815</i>&nbsp;               boolean newEnv,
+<i class="no-highlight">816</i>&nbsp;               DbConfigManager configManager)
+<i class="no-highlight">817</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">818</i>&nbsp;
+<b class="fc"><i class="no-highlight">819</i>&nbsp;        long oldLogBufferBudget = logBufferBudget;</b>
+<i class="no-highlight">820</i>&nbsp;
+<i class="no-highlight">821</i>&nbsp;        /*
+<i class="no-highlight">822</i>&nbsp;         * Update the new total cache budget.
+<i class="no-highlight">823</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">824</i>&nbsp;        if (newMaxMemory &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">825</i>&nbsp;            newMaxMemory = getMaxMemory();</b>
+<i class="no-highlight">826</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">827</i>&nbsp;            totals.setMaxMemory(newMaxMemory);</b>
+<i class="no-highlight">828</i>&nbsp;        }
+<i class="no-highlight">829</i>&nbsp;
+<i class="no-highlight">830</i>&nbsp;        /*
+<i class="no-highlight">831</i>&nbsp;         * This environment&#39;s portion is adjusted for a shared cache.  Further
+<i class="no-highlight">832</i>&nbsp;         * below we make buffer and tracker sizes a fixed percentage (7% and
+<i class="no-highlight">833</i>&nbsp;         * 2%, by default) of the total shared cache size.  The math for this
+<i class="no-highlight">834</i>&nbsp;         * starts by dividing the total size by number of environments to get
+<i class="no-highlight">835</i>&nbsp;         * myCachePortion.  Then we take 7% or 2% of myCachePortion to get each
+<i class="no-highlight">836</i>&nbsp;         * environment&#39;s portion.  In other words, if there are 10 environments
+<i class="no-highlight">837</i>&nbsp;         * then each gets 7%/10 and 2%/10 of the total cache size, by default.
+<i class="no-highlight">838</i>&nbsp;         *
+<i class="no-highlight">839</i>&nbsp;         * Note that when we resize the shared cache, we resize the buffer
+<i class="no-highlight">840</i>&nbsp;         * pools and tracker budgets for all environments.  Resizing the
+<i class="no-highlight">841</i>&nbsp;         * tracker budget has no overhead, but resizing the buffer pools causes
+<i class="no-highlight">842</i>&nbsp;         * new buffers to be allocated.  If reallocation of the log buffers is
+<i class="no-highlight">843</i>&nbsp;         * not desirable, the user can configure a byte amount rather than a
+<i class="no-highlight">844</i>&nbsp;         * percentage.
+<i class="no-highlight">845</i>&nbsp;         */
+<i class="no-highlight">846</i>&nbsp;        long myCachePortion;
+<b class="fc"><i class="no-highlight">847</i>&nbsp;        if (envImpl.getSharedCache()) {</b>
+<b class="nc"><i class="no-highlight">848</i>&nbsp;            int nEnvs = DbEnvPool.getInstance().getNSharedCacheEnvironments();</b>
+<b class="nc"><i class="no-highlight">849</i>&nbsp;            if (newEnv) {</b>
+<b class="nc"><i class="no-highlight">850</i>&nbsp;                nEnvs += 1;</b>
+<i class="no-highlight">851</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">852</i>&nbsp;            myCachePortion = newMaxMemory / nEnvs;</b>
+<b class="nc"><i class="no-highlight">853</i>&nbsp;        } else {</b>
+<b class="fc"><i class="no-highlight">854</i>&nbsp;            myCachePortion = newMaxMemory;</b>
+<i class="no-highlight">855</i>&nbsp;        }
+<i class="no-highlight">856</i>&nbsp;
+<i class="no-highlight">857</i>&nbsp;        /*
+<i class="no-highlight">858</i>&nbsp;         * Calculate the memory budget for log buffering.  If the LOG_MEM_SIZE
+<i class="no-highlight">859</i>&nbsp;         * parameter is not set, start by using 7% (1/16th) of the cache
+<i class="no-highlight">860</i>&nbsp;         * size. If it is set, use that explicit setting.
+<i class="no-highlight">861</i>&nbsp;         *
+<i class="no-highlight">862</i>&nbsp;         * No point in having more log buffers than the maximum size. If
+<i class="no-highlight">863</i>&nbsp;         * this starting point results in overly large log buffers,
+<i class="no-highlight">864</i>&nbsp;         * reduce the log buffer budget again.
+<i class="no-highlight">865</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">866</i>&nbsp;        long newLogBufferBudget =</b>
+<b class="fc"><i class="no-highlight">867</i>&nbsp;            configManager.getLong(EnvironmentParams.LOG_MEM_SIZE);</b>
+<b class="fc"><i class="no-highlight">868</i>&nbsp;        if (newLogBufferBudget == 0) {</b>
+<b class="fc"><i class="no-highlight">869</i>&nbsp;            newLogBufferBudget = myCachePortion &gt;&gt; 4;</b>
+<b class="nc"><i class="no-highlight">870</i>&nbsp;        } else if (newLogBufferBudget &gt; myCachePortion / 2) {</b>
+<b class="nc"><i class="no-highlight">871</i>&nbsp;            newLogBufferBudget = myCachePortion / 2;</b>
+<i class="no-highlight">872</i>&nbsp;        }
+<i class="no-highlight">873</i>&nbsp;
+<i class="no-highlight">874</i>&nbsp;        /*
+<i class="no-highlight">875</i>&nbsp;         * We have a first pass at the log buffer budget. See what
+<i class="no-highlight">876</i>&nbsp;         * size log buffers result. Don&#39;t let them be too big, it would
+<i class="no-highlight">877</i>&nbsp;         * be a waste.
+<i class="no-highlight">878</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">879</i>&nbsp;        int numBuffers =</b>
+<b class="fc"><i class="no-highlight">880</i>&nbsp;            configManager.getInt(EnvironmentParams.NUM_LOG_BUFFERS);</b>
+<b class="fc"><i class="no-highlight">881</i>&nbsp;        long startingBufferSize = newLogBufferBudget / numBuffers;</b>
+<b class="fc"><i class="no-highlight">882</i>&nbsp;        int logBufferSize =</b>
+<b class="fc"><i class="no-highlight">883</i>&nbsp;            configManager.getInt(EnvironmentParams.LOG_BUFFER_MAX_SIZE);</b>
+<b class="fc"><i class="no-highlight">884</i>&nbsp;        if (startingBufferSize &gt; logBufferSize) {</b>
+<b class="nc"><i class="no-highlight">885</i>&nbsp;            startingBufferSize = logBufferSize;</b>
+<b class="nc"><i class="no-highlight">886</i>&nbsp;            newLogBufferBudget = numBuffers * startingBufferSize;</b>
+<b class="fc"><i class="no-highlight">887</i>&nbsp;        } else if (startingBufferSize &lt;</b>
+<i class="no-highlight">888</i>&nbsp;                   EnvironmentParams.MIN_LOG_BUFFER_SIZE) {
+<b class="nc"><i class="no-highlight">889</i>&nbsp;            startingBufferSize = EnvironmentParams.MIN_LOG_BUFFER_SIZE;</b>
+<b class="nc"><i class="no-highlight">890</i>&nbsp;            newLogBufferBudget = numBuffers * startingBufferSize;</b>
+<i class="no-highlight">891</i>&nbsp;        }
+<i class="no-highlight">892</i>&nbsp;
+<b class="fc"><i class="no-highlight">893</i>&nbsp;        long newCriticalThreshold =</b>
+<i class="no-highlight">894</i>&nbsp;            (newMaxMemory *
+<b class="fc"><i class="no-highlight">895</i>&nbsp;             envImpl.getConfigManager().getInt</b>
+<b class="fc"><i class="no-highlight">896</i>&nbsp;                (EnvironmentParams.EVICTOR_CRITICAL_PERCENTAGE))/100;</b>
+<i class="no-highlight">897</i>&nbsp;
+<b class="fc"><i class="no-highlight">898</i>&nbsp;        long newTrackerBudget =</b>
+<i class="no-highlight">899</i>&nbsp;            (myCachePortion *
+<b class="fc"><i class="no-highlight">900</i>&nbsp;             envImpl.getConfigManager().getInt</b>
+<b class="fc"><i class="no-highlight">901</i>&nbsp;                (EnvironmentParams.CLEANER_DETAIL_MAX_MEMORY_PERCENTAGE))/100;</b>
+<i class="no-highlight">902</i>&nbsp;
+<b class="fc"><i class="no-highlight">903</i>&nbsp;        long newMinTreeMemoryUsage = Math.min</b>
+<b class="fc"><i class="no-highlight">904</i>&nbsp;            (configManager.getLong(EnvironmentParams.MIN_TREE_MEMORY),</b>
+<i class="no-highlight">905</i>&nbsp;             myCachePortion - newLogBufferBudget);
+<i class="no-highlight">906</i>&nbsp;
+<i class="no-highlight">907</i>&nbsp;        /*
+<i class="no-highlight">908</i>&nbsp;         * If all has gone well, update the budget fields.  Once the log buffer
+<i class="no-highlight">909</i>&nbsp;         * budget is determined, the remainder of the memory is left for tree
+<i class="no-highlight">910</i>&nbsp;         * nodes.
+<i class="no-highlight">911</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">912</i>&nbsp;        logBufferBudget = newLogBufferBudget;</b>
+<b class="fc"><i class="no-highlight">913</i>&nbsp;        totals.setCriticalThreshold(newCriticalThreshold);</b>
+<b class="fc"><i class="no-highlight">914</i>&nbsp;        trackerBudget = newTrackerBudget;</b>
+<b class="fc"><i class="no-highlight">915</i>&nbsp;        minTreeMemoryUsage = newMinTreeMemoryUsage;</b>
+<i class="no-highlight">916</i>&nbsp;
+<i class="no-highlight">917</i>&nbsp;        /* The log buffer budget is counted in the cache usage. */
+<b class="fc"><i class="no-highlight">918</i>&nbsp;        totals.updateCacheUsage(logBufferBudget - oldLogBufferBudget);</b>
+<i class="no-highlight">919</i>&nbsp;
+<i class="no-highlight">920</i>&nbsp;        /*
+<i class="no-highlight">921</i>&nbsp;         * Only reset the log buffer pool if the log buffer has already been
+<i class="no-highlight">922</i>&nbsp;         * initialized (we&#39;re updating an existing budget) and the log buffer
+<i class="no-highlight">923</i>&nbsp;         * budget has changed (resetting it is expensive and may cause I/O).
+<i class="no-highlight">924</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">925</i>&nbsp;        if (!newEnv &amp;&amp; oldLogBufferBudget != logBufferBudget) {</b>
+<b class="nc"><i class="no-highlight">926</i>&nbsp;            envImpl.getLogManager().resetPool(configManager);</b>
+<i class="no-highlight">927</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">928</i>&nbsp;    }</b>
+<i class="no-highlight">929</i>&nbsp;
+<i class="no-highlight">930</i>&nbsp;    /**
+<i class="no-highlight">931</i>&nbsp;     * Initialize the starting environment memory state. We really only need to
+<i class="no-highlight">932</i>&nbsp;     * recalibrate the tree and treeAdmin categories, since there are no locks
+<i class="no-highlight">933</i>&nbsp;     * and txns yet, and the items in the admin category are cleaner items and
+<i class="no-highlight">934</i>&nbsp;     * aren&#39;t affected by the recovery splicing process.
+<i class="no-highlight">935</i>&nbsp;     */
+<i class="no-highlight">936</i>&nbsp;    void initCacheMemoryUsage(long dbTreeAdminMemory)  {
+<b class="fc"><i class="no-highlight">937</i>&nbsp;        long totalTree = 0;</b>
+<b class="fc"><i class="no-highlight">938</i>&nbsp;        long treeAdmin = 0;</b>
+<b class="fc"><i class="no-highlight">939</i>&nbsp;        for (IN in : envImpl.getInMemoryINs()) {</b>
+<b class="fc"><i class="no-highlight">940</i>&nbsp;            totalTree += in.getBudgetedMemorySize();</b>
+<b class="fc"><i class="no-highlight">941</i>&nbsp;            treeAdmin += in.getTreeAdminMemorySize();</b>
+<b class="fc"><i class="no-highlight">942</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">943</i>&nbsp;        refreshTreeMemoryUsage(totalTree);</b>
+<b class="fc"><i class="no-highlight">944</i>&nbsp;        refreshTreeAdminMemoryUsage(treeAdmin + dbTreeAdminMemory);</b>
+<b class="fc"><i class="no-highlight">945</i>&nbsp;    }</b>
+<i class="no-highlight">946</i>&nbsp;
+<i class="no-highlight">947</i>&nbsp;    /**
+<i class="no-highlight">948</i>&nbsp;     * Called by INList when clearing  tree memory usage.
+<i class="no-highlight">949</i>&nbsp;     */
+<i class="no-highlight">950</i>&nbsp;    void refreshTreeAdminMemoryUsage(long newSize) {
+<b class="fc"><i class="no-highlight">951</i>&nbsp;        long oldSize = treeAdminMemoryUsage.getAndSet(newSize);</b>
+<b class="fc"><i class="no-highlight">952</i>&nbsp;        long diff = (newSize - oldSize);</b>
+<i class="no-highlight">953</i>&nbsp;
+<b class="fc"><i class="no-highlight">954</i>&nbsp;        if (DEBUG_TREEADMIN) {</b>
+<b class="nc"><i class="no-highlight">955</i>&nbsp;            System.err.println(&quot;RESET = &quot; + newSize);</b>
+<i class="no-highlight">956</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">957</i>&nbsp;        if (totals.updateCacheUsage(diff)) {</b>
+<b class="nc"><i class="no-highlight">958</i>&nbsp;            envImpl.alertEvictor();</b>
+<i class="no-highlight">959</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">960</i>&nbsp;    }</b>
+<i class="no-highlight">961</i>&nbsp;
+<i class="no-highlight">962</i>&nbsp;    /**
+<i class="no-highlight">963</i>&nbsp;     * Called by INList when recalculating tree memory usage.
+<i class="no-highlight">964</i>&nbsp;     */
+<i class="no-highlight">965</i>&nbsp;    void refreshTreeMemoryUsage(long newSize) {
+<b class="fc"><i class="no-highlight">966</i>&nbsp;        long oldSize = treeMemoryUsage.getAndSet(newSize);</b>
+<b class="fc"><i class="no-highlight">967</i>&nbsp;        long diff = (newSize - oldSize);</b>
+<i class="no-highlight">968</i>&nbsp;
+<b class="fc"><i class="no-highlight">969</i>&nbsp;        if (totals.updateCacheUsage(diff)) {</b>
+<b class="nc"><i class="no-highlight">970</i>&nbsp;            envImpl.alertEvictor();</b>
+<i class="no-highlight">971</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">972</i>&nbsp;    }</b>
+<i class="no-highlight">973</i>&nbsp;
+<i class="no-highlight">974</i>&nbsp;    /**
+<i class="no-highlight">975</i>&nbsp;     * Returns whether eviction of INList information is allowed.
+<i class="no-highlight">976</i>&nbsp;     * To prevent extreme cache churn, eviction of Btree information is
+<i class="no-highlight">977</i>&nbsp;     * prohibited unless the tree memory usage is above this minimum value.
+<i class="no-highlight">978</i>&nbsp;     */
+<i class="no-highlight">979</i>&nbsp;    public boolean isTreeUsageAboveMinimum() {
+<b class="fc"><i class="no-highlight">980</i>&nbsp;        return treeMemoryUsage.get() &gt; minTreeMemoryUsage;</b>
+<i class="no-highlight">981</i>&nbsp;    }
+<i class="no-highlight">982</i>&nbsp;
+<i class="no-highlight">983</i>&nbsp;    /**
+<i class="no-highlight">984</i>&nbsp;     * For unit tests.
+<i class="no-highlight">985</i>&nbsp;     */
+<i class="no-highlight">986</i>&nbsp;    public long getMinTreeMemoryUsage() {
+<b class="nc"><i class="no-highlight">987</i>&nbsp;        return minTreeMemoryUsage;</b>
+<i class="no-highlight">988</i>&nbsp;    }
+<i class="no-highlight">989</i>&nbsp;
+<i class="no-highlight">990</i>&nbsp;    /**
+<i class="no-highlight">991</i>&nbsp;     * Update the environment wide tree memory count, wake up the evictor if
+<i class="no-highlight">992</i>&nbsp;     * necessary.
+<i class="no-highlight">993</i>&nbsp;     * @param increment note that increment may be negative.
+<i class="no-highlight">994</i>&nbsp;     */
+<i class="no-highlight">995</i>&nbsp;    public void updateTreeMemoryUsage(long increment) {
+<b class="fc"><i class="no-highlight">996</i>&nbsp;        updateCounter(increment, treeMemoryUsage, &quot;tree&quot;, DEBUG_TREE);</b>
+<b class="fc"><i class="no-highlight">997</i>&nbsp;    }</b>
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;    /**
+<i class="no-highlight">1000</i>&nbsp;     * Update the environment wide tree memory count, wake up the evictor if
+<i class="no-highlight">1001</i>&nbsp;     * necessary.
+<i class="no-highlight">1002</i>&nbsp;     * @param increment note that increment may be negative.
+<i class="no-highlight">1003</i>&nbsp;     */
+<i class="no-highlight">1004</i>&nbsp;    public void updateDOSMemoryUsage(long increment) {
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;        updateCounter(increment, dosMemoryUsage, &quot;DOS&quot;, DEBUG_DOS);</b>
+<b class="nc"><i class="no-highlight">1006</i>&nbsp;    }</b>
+<i class="no-highlight">1007</i>&nbsp;
+<i class="no-highlight">1008</i>&nbsp;    /**
+<i class="no-highlight">1009</i>&nbsp;     * Update the environment wide txn memory count, wake up the evictor if
+<i class="no-highlight">1010</i>&nbsp;     * necessary.
+<i class="no-highlight">1011</i>&nbsp;     * @param increment note that increment may be negative.
+<i class="no-highlight">1012</i>&nbsp;     */
+<i class="no-highlight">1013</i>&nbsp;    public void updateTxnMemoryUsage(long increment) {
+<b class="fc"><i class="no-highlight">1014</i>&nbsp;        updateCounter(increment, txnMemoryUsage, &quot;txn&quot;, DEBUG_TXN);</b>
+<b class="fc"><i class="no-highlight">1015</i>&nbsp;    }</b>
+<i class="no-highlight">1016</i>&nbsp;
+<i class="no-highlight">1017</i>&nbsp;    /**
+<i class="no-highlight">1018</i>&nbsp;     * Update the environment wide admin memory count, wake up the evictor if
+<i class="no-highlight">1019</i>&nbsp;     * necessary.
+<i class="no-highlight">1020</i>&nbsp;     * @param increment note that increment may be negative.
+<i class="no-highlight">1021</i>&nbsp;     */
+<i class="no-highlight">1022</i>&nbsp;    public void updateAdminMemoryUsage(long increment) {
+<b class="fc"><i class="no-highlight">1023</i>&nbsp;        updateCounter(increment, adminMemoryUsage, &quot;admin&quot;, DEBUG_ADMIN);</b>
+<b class="fc"><i class="no-highlight">1024</i>&nbsp;    }</b>
+<i class="no-highlight">1025</i>&nbsp;
+<i class="no-highlight">1026</i>&nbsp;    /**
+<i class="no-highlight">1027</i>&nbsp;     * Update the treeAdmin memory count, wake up the evictor if necessary.
+<i class="no-highlight">1028</i>&nbsp;     * @param increment note that increment may be negative.
+<i class="no-highlight">1029</i>&nbsp;     */
+<i class="no-highlight">1030</i>&nbsp;    public void updateTreeAdminMemoryUsage(long increment) {
+<b class="fc"><i class="no-highlight">1031</i>&nbsp;        updateCounter(increment, treeAdminMemoryUsage, &quot;treeAdmin&quot;,</b>
+<i class="no-highlight">1032</i>&nbsp;                      DEBUG_TREEADMIN);
+<b class="fc"><i class="no-highlight">1033</i>&nbsp;    }</b>
+<i class="no-highlight">1034</i>&nbsp;
+<i class="no-highlight">1035</i>&nbsp;    private void updateCounter(long increment,
+<i class="no-highlight">1036</i>&nbsp;                               AtomicLong counter,
+<i class="no-highlight">1037</i>&nbsp;                               String debugName,
+<i class="no-highlight">1038</i>&nbsp;                               boolean debug) {
+<b class="fc"><i class="no-highlight">1039</i>&nbsp;        if (increment != 0) {</b>
+<b class="fc"><i class="no-highlight">1040</i>&nbsp;            long newSize = counter.addAndGet(increment);</b>
+<i class="no-highlight">1041</i>&nbsp;
+<b class="fc"><i class="no-highlight">1042</i>&nbsp;            assert (sizeNotNegative(newSize)) :</b>
+<b class="nc"><i class="no-highlight">1043</i>&nbsp;                   makeErrorMessage(debugName, newSize, increment);</b>
+<i class="no-highlight">1044</i>&nbsp;
+<b class="fc"><i class="no-highlight">1045</i>&nbsp;            if (debug) {</b>
+<b class="nc"><i class="no-highlight">1046</i>&nbsp;                if (increment &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1047</i>&nbsp;                    System.err.println(&quot;INC-------- =&quot; + increment + &quot; &quot; +</b>
+<i class="no-highlight">1048</i>&nbsp;                                       debugName + &quot; &quot;  + newSize);
+<i class="no-highlight">1049</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1050</i>&nbsp;                    System.err.println(&quot;-------DEC=&quot; + increment + &quot; &quot; +</b>
+<i class="no-highlight">1051</i>&nbsp;                                       debugName + &quot; &quot;  + newSize);
+<i class="no-highlight">1052</i>&nbsp;                }
+<i class="no-highlight">1053</i>&nbsp;            }
+<i class="no-highlight">1054</i>&nbsp;
+<b class="fc"><i class="no-highlight">1055</i>&nbsp;            if (totals.updateCacheUsage(increment)) {</b>
+<b class="fc"><i class="no-highlight">1056</i>&nbsp;                envImpl.alertEvictor();</b>
+<i class="no-highlight">1057</i>&nbsp;            }
+<i class="no-highlight">1058</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1059</i>&nbsp;    }</b>
+<i class="no-highlight">1060</i>&nbsp;
+<i class="no-highlight">1061</i>&nbsp;    private boolean sizeNotNegative(long newSize) {
+<i class="no-highlight">1062</i>&nbsp;
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;        if (CLEANUP_DONE)  {</b>
+<b class="nc"><i class="no-highlight">1064</i>&nbsp;            return (newSize &gt;= 0);</b>
+<i class="no-highlight">1065</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;    	return true;</b>
+<i class="no-highlight">1067</i>&nbsp;    }
+<i class="no-highlight">1068</i>&nbsp;
+<i class="no-highlight">1069</i>&nbsp;    public void updateLockMemoryUsage(long increment, int lockTableIndex) {
+<b class="fc"><i class="no-highlight">1070</i>&nbsp;        if (increment != 0) {</b>
+<b class="fc"><i class="no-highlight">1071</i>&nbsp;            lockMemoryUsage.addAndGet(increment);</b>
+<i class="no-highlight">1072</i>&nbsp;
+<b class="fc"><i class="no-highlight">1073</i>&nbsp;            assert lockMemoryUsage.get() &gt;= 0:</b>
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;                   makeErrorMessage(&quot;lockMem&quot;,</b>
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;                                    lockMemoryUsage.get(),</b>
+<i class="no-highlight">1076</i>&nbsp;                                    increment);
+<b class="fc"><i class="no-highlight">1077</i>&nbsp;            if (DEBUG_LOCK) {</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;                if (increment &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1079</i>&nbsp;                    System.err.println(&quot;INC-------- =&quot; + increment +</b>
+<i class="no-highlight">1080</i>&nbsp;                                       &quot; lock[&quot; +
+<i class="no-highlight">1081</i>&nbsp;                                       lockTableIndex + &quot;] &quot; +
+<b class="nc"><i class="no-highlight">1082</i>&nbsp;                                       lockMemoryUsage.get());</b>
+<i class="no-highlight">1083</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1084</i>&nbsp;                    System.err.println(&quot;-------DEC=&quot; + increment +</b>
+<i class="no-highlight">1085</i>&nbsp;                                       &quot; lock[&quot; + lockTableIndex + &quot;] &quot; +
+<b class="nc"><i class="no-highlight">1086</i>&nbsp;                                       lockMemoryUsage.get());</b>
+<i class="no-highlight">1087</i>&nbsp;                }
+<i class="no-highlight">1088</i>&nbsp;            }
+<i class="no-highlight">1089</i>&nbsp;
+<b class="fc"><i class="no-highlight">1090</i>&nbsp;            if (totals.updateCacheUsage(increment)) {</b>
+<b class="fc"><i class="no-highlight">1091</i>&nbsp;                envImpl.alertEvictor();</b>
+<i class="no-highlight">1092</i>&nbsp;            }
+<i class="no-highlight">1093</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">1094</i>&nbsp;    }</b>
+<i class="no-highlight">1095</i>&nbsp;
+<i class="no-highlight">1096</i>&nbsp;    private String makeErrorMessage(String memoryType,
+<i class="no-highlight">1097</i>&nbsp;                                    long total,
+<i class="no-highlight">1098</i>&nbsp;                                    long increment) {
+<b class="nc"><i class="no-highlight">1099</i>&nbsp;        return memoryType + &quot;=&quot; + total +</b>
+<i class="no-highlight">1100</i>&nbsp;            &quot; increment=&quot; + increment + &quot; &quot; +
+<b class="nc"><i class="no-highlight">1101</i>&nbsp;            LoggerUtils.getStackTrace(new Throwable());</b>
+<i class="no-highlight">1102</i>&nbsp;    }
+<i class="no-highlight">1103</i>&nbsp;
+<i class="no-highlight">1104</i>&nbsp;    void subtractCacheUsage() {
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;        totals.updateCacheUsage(0 - getLocalCacheUsage());</b>
+<b class="nc"><i class="no-highlight">1106</i>&nbsp;    }</b>
+<i class="no-highlight">1107</i>&nbsp;
+<i class="no-highlight">1108</i>&nbsp;    public long getLocalCacheUsage() {
+<b class="fc"><i class="no-highlight">1109</i>&nbsp;        return (logBufferBudget +</b>
+<b class="fc"><i class="no-highlight">1110</i>&nbsp;                treeMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1111</i>&nbsp;                dosMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1112</i>&nbsp;                adminMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1113</i>&nbsp;                treeAdminMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1114</i>&nbsp;                getLockMemoryUsage());</b>
+<i class="no-highlight">1115</i>&nbsp;    }
+<i class="no-highlight">1116</i>&nbsp;
+<i class="no-highlight">1117</i>&nbsp;    long getVariableCacheUsage() {
+<b class="fc"><i class="no-highlight">1118</i>&nbsp;        return (treeMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1119</i>&nbsp;                dosMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1120</i>&nbsp;                adminMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1121</i>&nbsp;                treeAdminMemoryUsage.get() +</b>
+<b class="fc"><i class="no-highlight">1122</i>&nbsp;                getLockMemoryUsage());</b>
+<i class="no-highlight">1123</i>&nbsp;    }
+<i class="no-highlight">1124</i>&nbsp;
+<i class="no-highlight">1125</i>&nbsp;    /**
+<i class="no-highlight">1126</i>&nbsp;     * Public for unit testing.
+<i class="no-highlight">1127</i>&nbsp;     */
+<i class="no-highlight">1128</i>&nbsp;    public long getLockMemoryUsage() {
+<b class="fc"><i class="no-highlight">1129</i>&nbsp;        long accLockMemoryUsage =</b>
+<b class="fc"><i class="no-highlight">1130</i>&nbsp;            txnMemoryUsage.get() + lockMemoryUsage.get();</b>
+<i class="no-highlight">1131</i>&nbsp;
+<b class="fc"><i class="no-highlight">1132</i>&nbsp;        return accLockMemoryUsage;</b>
+<i class="no-highlight">1133</i>&nbsp;    }
+<i class="no-highlight">1134</i>&nbsp;
+<i class="no-highlight">1135</i>&nbsp;    /*
+<i class="no-highlight">1136</i>&nbsp;     * The following 2 methods are shorthand for getTotals.getXxx().
+<i class="no-highlight">1137</i>&nbsp;     */
+<i class="no-highlight">1138</i>&nbsp;
+<i class="no-highlight">1139</i>&nbsp;    public long getCacheMemoryUsage() {
+<b class="nc"><i class="no-highlight">1140</i>&nbsp;        return totals.getCacheUsage();</b>
+<i class="no-highlight">1141</i>&nbsp;    }
+<i class="no-highlight">1142</i>&nbsp;
+<i class="no-highlight">1143</i>&nbsp;    public long getMaxMemory() {
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;        return totals.getMaxMemory();</b>
+<i class="no-highlight">1145</i>&nbsp;    }
+<i class="no-highlight">1146</i>&nbsp;
+<i class="no-highlight">1147</i>&nbsp;    /**
+<i class="no-highlight">1148</i>&nbsp;     * Used for unit testing.
+<i class="no-highlight">1149</i>&nbsp;     */
+<i class="no-highlight">1150</i>&nbsp;    public long getTreeMemoryUsage() {
+<b class="nc"><i class="no-highlight">1151</i>&nbsp;        return treeMemoryUsage.get();</b>
+<i class="no-highlight">1152</i>&nbsp;    }
+<i class="no-highlight">1153</i>&nbsp;
+<i class="no-highlight">1154</i>&nbsp;    /**
+<i class="no-highlight">1155</i>&nbsp;     * Used for unit testing.
+<i class="no-highlight">1156</i>&nbsp;     */
+<i class="no-highlight">1157</i>&nbsp;    public long getDOSMemoryUsage() {
+<b class="nc"><i class="no-highlight">1158</i>&nbsp;        return dosMemoryUsage.get();</b>
+<i class="no-highlight">1159</i>&nbsp;    }
+<i class="no-highlight">1160</i>&nbsp;
+<i class="no-highlight">1161</i>&nbsp;    /**
+<i class="no-highlight">1162</i>&nbsp;     * Used for unit testing.
+<i class="no-highlight">1163</i>&nbsp;     */
+<i class="no-highlight">1164</i>&nbsp;    public long getAdminMemoryUsage() {
+<b class="nc"><i class="no-highlight">1165</i>&nbsp;        return adminMemoryUsage.get();</b>
+<i class="no-highlight">1166</i>&nbsp;    }
+<i class="no-highlight">1167</i>&nbsp;
+<i class="no-highlight">1168</i>&nbsp;    /*
+<i class="no-highlight">1169</i>&nbsp;     * For unit testing
+<i class="no-highlight">1170</i>&nbsp;     */
+<i class="no-highlight">1171</i>&nbsp;    public long getTreeAdminMemoryUsage() {
+<b class="nc"><i class="no-highlight">1172</i>&nbsp;        return treeAdminMemoryUsage.get();</b>
+<i class="no-highlight">1173</i>&nbsp;    }
+<i class="no-highlight">1174</i>&nbsp;
+<i class="no-highlight">1175</i>&nbsp;    public long getLogBufferBudget() {
+<b class="fc"><i class="no-highlight">1176</i>&nbsp;        return logBufferBudget;</b>
+<i class="no-highlight">1177</i>&nbsp;    }
+<i class="no-highlight">1178</i>&nbsp;
+<i class="no-highlight">1179</i>&nbsp;    public long getTrackerBudget() {
+<b class="fc"><i class="no-highlight">1180</i>&nbsp;        return trackerBudget;</b>
+<i class="no-highlight">1181</i>&nbsp;    }
+<i class="no-highlight">1182</i>&nbsp;
+<i class="no-highlight">1183</i>&nbsp;    public static int tupleOutputSize(TupleOutput o) {
+<b class="fc"><i class="no-highlight">1184</i>&nbsp;        return TUPLE_OUTPUT_OVERHEAD +</b>
+<b class="fc"><i class="no-highlight">1185</i>&nbsp;               byteArraySize(o.getBufferBytes().length);</b>
+<i class="no-highlight">1186</i>&nbsp;    }
+<i class="no-highlight">1187</i>&nbsp;
+<i class="no-highlight">1188</i>&nbsp;    /**
+<i class="no-highlight">1189</i>&nbsp;     * Returns the memory size occupied by a byte array of a given length.  All
+<i class="no-highlight">1190</i>&nbsp;     * arrays (regardless of element type) have the same overhead for a zero
+<i class="no-highlight">1191</i>&nbsp;     * length array.  On 32b Java, there are 4 bytes included in that fixed
+<i class="no-highlight">1192</i>&nbsp;     * overhead that can be used for the first N elements -- however many fit
+<i class="no-highlight">1193</i>&nbsp;     * in 4 bytes.  On 64b Java, there is no extra space included.  In all
+<i class="no-highlight">1194</i>&nbsp;     * cases, space is allocated in 8 byte chunks.
+<i class="no-highlight">1195</i>&nbsp;     */
+<i class="no-highlight">1196</i>&nbsp;    public static int byteArraySize(int arrayLen) {
+<i class="no-highlight">1197</i>&nbsp;
+<i class="no-highlight">1198</i>&nbsp;        /*
+<i class="no-highlight">1199</i>&nbsp;         * ARRAY_OVERHEAD accounts for N bytes of data, which is 4 bytes on 32b
+<i class="no-highlight">1200</i>&nbsp;         * Java and 0 bytes on 64b Java.  Data larger than N bytes is allocated
+<i class="no-highlight">1201</i>&nbsp;         * in 8 byte increments.
+<i class="no-highlight">1202</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">1203</i>&nbsp;        int size = ARRAY_OVERHEAD;</b>
+<b class="fc"><i class="no-highlight">1204</i>&nbsp;        if (arrayLen &gt; ARRAY_SIZE_INCLUDED) {</b>
+<b class="fc"><i class="no-highlight">1205</i>&nbsp;            size += ((arrayLen - ARRAY_SIZE_INCLUDED + 7) / 8) * 8;</b>
+<i class="no-highlight">1206</i>&nbsp;        }
+<i class="no-highlight">1207</i>&nbsp;
+<b class="fc"><i class="no-highlight">1208</i>&nbsp;        return size;</b>
+<i class="no-highlight">1209</i>&nbsp;    }
+<i class="no-highlight">1210</i>&nbsp;
+<i class="no-highlight">1211</i>&nbsp;    public static int shortArraySize(int arrayLen) {
+<b class="fc"><i class="no-highlight">1212</i>&nbsp;        return byteArraySize(arrayLen * 2);</b>
+<i class="no-highlight">1213</i>&nbsp;    }
+<i class="no-highlight">1214</i>&nbsp;
+<i class="no-highlight">1215</i>&nbsp;    public static int intArraySize(int arrayLen) {
+<b class="fc"><i class="no-highlight">1216</i>&nbsp;        return byteArraySize(arrayLen * 4);</b>
+<i class="no-highlight">1217</i>&nbsp;    }
+<i class="no-highlight">1218</i>&nbsp;
+<i class="no-highlight">1219</i>&nbsp;    public static int longArraySize(int arrayLen) {
+<b class="fc"><i class="no-highlight">1220</i>&nbsp;        return byteArraySize(arrayLen * 8);</b>
+<i class="no-highlight">1221</i>&nbsp;    }
+<i class="no-highlight">1222</i>&nbsp;
+<i class="no-highlight">1223</i>&nbsp;    public static int objectArraySize(int arrayLen) {
+<b class="fc"><i class="no-highlight">1224</i>&nbsp;        return byteArraySize(arrayLen * OBJECT_ARRAY_ITEM_OVERHEAD);</b>
+<i class="no-highlight">1225</i>&nbsp;    }
+<i class="no-highlight">1226</i>&nbsp;
+<i class="no-highlight">1227</i>&nbsp;    StatGroup loadStats() {
+<b class="nc"><i class="no-highlight">1228</i>&nbsp;        StatGroup stats = new StatGroup(MB_GROUP_NAME, MB_GROUP_DESC);</b>
+<b class="nc"><i class="no-highlight">1229</i>&nbsp;        new LongStat(stats, MB_SHARED_CACHE_TOTAL_BYTES,</b>
+<b class="nc"><i class="no-highlight">1230</i>&nbsp;                     totals.isSharedCache() ? totals.getCacheUsage() : 0);</b>
+<b class="nc"><i class="no-highlight">1231</i>&nbsp;        new LongStat(stats, MB_TOTAL_BYTES, getLocalCacheUsage());</b>
+<b class="nc"><i class="no-highlight">1232</i>&nbsp;        new LongStat(stats, MB_DATA_BYTES,</b>
+<b class="nc"><i class="no-highlight">1233</i>&nbsp;                     treeMemoryUsage.get() + treeAdminMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1234</i>&nbsp;        new LongStat(stats, MB_DATA_ADMIN_BYTES, treeAdminMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1235</i>&nbsp;        new LongStat(stats, MB_DOS_BYTES, dosMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1236</i>&nbsp;        new LongStat(stats, MB_ADMIN_BYTES, adminMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1237</i>&nbsp;        new LongStat(stats, MB_LOCK_BYTES, getLockMemoryUsage());</b>
+<i class="no-highlight">1238</i>&nbsp;
+<b class="nc"><i class="no-highlight">1239</i>&nbsp;        return stats;</b>
+<i class="no-highlight">1240</i>&nbsp;    }
+<i class="no-highlight">1241</i>&nbsp;
+<i class="no-highlight">1242</i>&nbsp;    @Override
+<i class="no-highlight">1243</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">1244</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1245</i>&nbsp;        sb.append(&quot;treeUsage = &quot;).append(treeMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1246</i>&nbsp;        sb.append(&quot;treeAdminUsage = &quot;).append(treeAdminMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1247</i>&nbsp;        sb.append(&quot;dosUsage = &quot;).append(dosMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1248</i>&nbsp;        sb.append(&quot;adminUsage = &quot;).append(adminMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1249</i>&nbsp;        sb.append(&quot;txnUsage = &quot;).append(txnMemoryUsage.get());</b>
+<b class="nc"><i class="no-highlight">1250</i>&nbsp;        sb.append(&quot;lockUsage = &quot;).append(getLockMemoryUsage());</b>
+<b class="nc"><i class="no-highlight">1251</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">1252</i>&nbsp;    }
+<i class="no-highlight">1253</i>&nbsp;
+<i class="no-highlight">1254</i>&nbsp;    public Totals getTotals() {
+<b class="fc"><i class="no-highlight">1255</i>&nbsp;        return totals;</b>
+<i class="no-highlight">1256</i>&nbsp;    }
+<i class="no-highlight">1257</i>&nbsp;
+<i class="no-highlight">1258</i>&nbsp;    /**
+<i class="no-highlight">1259</i>&nbsp;     * Common base class for shared and private totals.  This abstraction
+<i class="no-highlight">1260</i>&nbsp;     * allows most other classes to be unaware of whether we&#39;re using a
+<i class="no-highlight">1261</i>&nbsp;     * SharedEvictor or PrivateEvictor.
+<i class="no-highlight">1262</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">1263</i>&nbsp;    public abstract static class Totals {</b>
+<i class="no-highlight">1264</i>&nbsp;
+<i class="no-highlight">1265</i>&nbsp;        long maxMemory;
+<i class="no-highlight">1266</i>&nbsp;        private long criticalThreshold;
+<i class="no-highlight">1267</i>&nbsp;
+<b class="fc"><i class="no-highlight">1268</i>&nbsp;        private Totals() {</b>
+<b class="fc"><i class="no-highlight">1269</i>&nbsp;            maxMemory = 0;</b>
+<b class="fc"><i class="no-highlight">1270</i>&nbsp;        }</b>
+<i class="no-highlight">1271</i>&nbsp;
+<i class="no-highlight">1272</i>&nbsp;        private void setMaxMemory(long maxMemory) {
+<b class="fc"><i class="no-highlight">1273</i>&nbsp;            this.maxMemory = maxMemory;</b>
+<b class="fc"><i class="no-highlight">1274</i>&nbsp;        }</b>
+<i class="no-highlight">1275</i>&nbsp;
+<i class="no-highlight">1276</i>&nbsp;        public final long getMaxMemory() {
+<b class="fc"><i class="no-highlight">1277</i>&nbsp;            return maxMemory;</b>
+<i class="no-highlight">1278</i>&nbsp;        }
+<i class="no-highlight">1279</i>&nbsp;
+<i class="no-highlight">1280</i>&nbsp;        private void setCriticalThreshold(long criticalThreshold) {
+<b class="fc"><i class="no-highlight">1281</i>&nbsp;            this.criticalThreshold = criticalThreshold;</b>
+<b class="fc"><i class="no-highlight">1282</i>&nbsp;        }</b>
+<i class="no-highlight">1283</i>&nbsp;
+<i class="no-highlight">1284</i>&nbsp;        public final long getCriticalThreshold() {
+<b class="fc"><i class="no-highlight">1285</i>&nbsp;            return criticalThreshold;</b>
+<i class="no-highlight">1286</i>&nbsp;        }
+<i class="no-highlight">1287</i>&nbsp;
+<i class="no-highlight">1288</i>&nbsp;        public abstract long getCacheUsage();
+<i class="no-highlight">1289</i>&nbsp;        abstract boolean updateCacheUsage(long increment);
+<i class="no-highlight">1290</i>&nbsp;        abstract boolean isSharedCache();
+<i class="no-highlight">1291</i>&nbsp;    }
+<i class="no-highlight">1292</i>&nbsp;
+<i class="no-highlight">1293</i>&nbsp;    /**
+<i class="no-highlight">1294</i>&nbsp;     * Totals for a single environment&#39;s non-shared cache.  Used when
+<i class="no-highlight">1295</i>&nbsp;     * EnvironmentConfig.setSharedCache(false) and a PrivateEvictor are used.
+<i class="no-highlight">1296</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">1297</i>&nbsp;    private static class PrivateTotals extends Totals {</b>
+<i class="no-highlight">1298</i>&nbsp;
+<i class="no-highlight">1299</i>&nbsp;        private final MemoryBudget parent;
+<i class="no-highlight">1300</i>&nbsp;
+<b class="fc"><i class="no-highlight">1301</i>&nbsp;        private PrivateTotals(MemoryBudget parent) {</b>
+<b class="fc"><i class="no-highlight">1302</i>&nbsp;            this.parent = parent;</b>
+<b class="fc"><i class="no-highlight">1303</i>&nbsp;        }</b>
+<i class="no-highlight">1304</i>&nbsp;
+<i class="no-highlight">1305</i>&nbsp;        @Override
+<i class="no-highlight">1306</i>&nbsp;        public final long getCacheUsage() {
+<b class="fc"><i class="no-highlight">1307</i>&nbsp;            return parent.getLocalCacheUsage();</b>
+<i class="no-highlight">1308</i>&nbsp;        }
+<i class="no-highlight">1309</i>&nbsp;
+<i class="no-highlight">1310</i>&nbsp;        @Override
+<i class="no-highlight">1311</i>&nbsp;        final boolean updateCacheUsage(long increment) {
+<b class="fc"><i class="no-highlight">1312</i>&nbsp;            return (parent.getLocalCacheUsage() &gt; maxMemory);</b>
+<i class="no-highlight">1313</i>&nbsp;        }
+<i class="no-highlight">1314</i>&nbsp;
+<i class="no-highlight">1315</i>&nbsp;        @Override
+<i class="no-highlight">1316</i>&nbsp;        final boolean isSharedCache() {
+<b class="nc"><i class="no-highlight">1317</i>&nbsp;            return false;</b>
+<i class="no-highlight">1318</i>&nbsp;        }
+<i class="no-highlight">1319</i>&nbsp;    }
+<i class="no-highlight">1320</i>&nbsp;
+<i class="no-highlight">1321</i>&nbsp;    /**
+<i class="no-highlight">1322</i>&nbsp;     * Totals for the multi-environment shared cache.  Used when
+<i class="no-highlight">1323</i>&nbsp;     * EnvironmentConfig.setSharedCache(false) and the SharedEvictor are used.
+<i class="no-highlight">1324</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1325</i>&nbsp;    private static class SharedTotals extends Totals {</b>
+<i class="no-highlight">1326</i>&nbsp;
+<i class="no-highlight">1327</i>&nbsp;        private final AtomicLong usage;
+<i class="no-highlight">1328</i>&nbsp;
+<b class="nc"><i class="no-highlight">1329</i>&nbsp;        private SharedTotals() {</b>
+<b class="nc"><i class="no-highlight">1330</i>&nbsp;            usage = new AtomicLong();</b>
+<b class="nc"><i class="no-highlight">1331</i>&nbsp;        }</b>
+<i class="no-highlight">1332</i>&nbsp;
+<i class="no-highlight">1333</i>&nbsp;        @Override
+<i class="no-highlight">1334</i>&nbsp;        public final long getCacheUsage() {
+<b class="nc"><i class="no-highlight">1335</i>&nbsp;            return usage.get();</b>
+<i class="no-highlight">1336</i>&nbsp;        }
+<i class="no-highlight">1337</i>&nbsp;
+<i class="no-highlight">1338</i>&nbsp;        @Override
+<i class="no-highlight">1339</i>&nbsp;        final boolean updateCacheUsage(long increment) {
+<b class="nc"><i class="no-highlight">1340</i>&nbsp;            return (usage.addAndGet(increment) &gt; maxMemory);</b>
+<i class="no-highlight">1341</i>&nbsp;        }
+<i class="no-highlight">1342</i>&nbsp;
+<i class="no-highlight">1343</i>&nbsp;        @Override
+<i class="no-highlight">1344</i>&nbsp;        final boolean isSharedCache() {
+<b class="nc"><i class="no-highlight">1345</i>&nbsp;            return true;</b>
+<i class="no-highlight">1346</i>&nbsp;        }
+<i class="no-highlight">1347</i>&nbsp;    }
+<i class="no-highlight">1348</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

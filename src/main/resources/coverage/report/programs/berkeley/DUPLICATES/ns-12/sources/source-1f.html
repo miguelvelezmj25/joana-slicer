@@ -1,0 +1,772 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LogUtils</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.log</a>
+</div>
+
+<h1>Coverage Summary for Class: LogUtils (com.sleepycat.je.log)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LogUtils</td>
+<td class="coverageStat">
+  <span class="percent">
+    80%
+  </span>
+  <span class="absValue">
+    (32/40)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    70.2%
+  </span>
+  <span class="absValue">
+    (139/198)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">LogUtils$XidImpl</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/44)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    66.7%
+  </span>
+  <span class="absValue">
+    (32/48)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    57.4%
+  </span>
+  <span class="absValue">
+    (139/242)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.log;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;import java.nio.charset.Charset;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import javax.transaction.xa.Xid;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.utilint.Timestamp;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.util.PackedInteger;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.utilint.StringUtils;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;/**
+<i class="no-highlight">26</i>&nbsp; * This class holds convenience methods for marshalling internal JE data to and
+<i class="no-highlight">27</i>&nbsp; * from the log.
+<i class="no-highlight">28</i>&nbsp; */
+<b class="nc"><i class="no-highlight">29</i>&nbsp;public class LogUtils {</b>
+<i class="no-highlight">30</i>&nbsp;    /* Storage sizes for int, long in log. */
+<i class="no-highlight">31</i>&nbsp;    public static final int SHORT_BYTES = 2;
+<i class="no-highlight">32</i>&nbsp;    public static final int INT_BYTES = 4;
+<i class="no-highlight">33</i>&nbsp;    public static final int LONG_BYTES = 8;
+<i class="no-highlight">34</i>&nbsp;    public static final int UNSIGNED_INT_BYTES = 4;
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;    private static final boolean DEBUG = false;
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;    /*
+<i class="no-highlight">39</i>&nbsp;     * We can return the same byte[] for 0 length arrays.
+<i class="no-highlight">40</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">41</i>&nbsp;    public static final byte[] ZERO_LENGTH_BYTE_ARRAY = new byte[0];</b>
+<i class="no-highlight">42</i>&nbsp;
+<i class="no-highlight">43</i>&nbsp;    /*
+<i class="no-highlight">44</i>&nbsp;     * The je.logCharset system property can be specified when running
+<i class="no-highlight">45</i>&nbsp;     * DbPrintLog to work around the charset issue in JE 5.0 and earlier (see
+<i class="no-highlight">46</i>&nbsp;     * [#15296] below).  For example, because of this issue, on a z/OS system
+<i class="no-highlight">47</i>&nbsp;     * the trace messages and other internal strings (such as the checkpoint
+<i class="no-highlight">48</i>&nbsp;     * invoker) are stored in the log in EBCDIC encoding.  The following system
+<i class="no-highlight">49</i>&nbsp;     * property allows such strings to be viewed correctly in the DbPrintLog
+<i class="no-highlight">50</i>&nbsp;     * output:
+<i class="no-highlight">51</i>&nbsp;     *      -Dje.logCharset=IBM1047
+<i class="no-highlight">52</i>&nbsp;     *
+<i class="no-highlight">53</i>&nbsp;     * WARNING: Do not specify this property when running an application that
+<i class="no-highlight">54</i>&nbsp;     * writes to the log.  It is only for reading a log (such as with
+<i class="no-highlight">55</i>&nbsp;     * DbPrintLog) that was written with a non-ANSI-based default charset.
+<i class="no-highlight">56</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">57</i>&nbsp;    private static Charset logCharset = null;</b>
+<i class="no-highlight">58</i>&nbsp;    static {
+<b class="fc"><i class="no-highlight">59</i>&nbsp;        final String charsetName = System.getProperty(&quot;je.logCharset&quot;);</b>
+<b class="fc"><i class="no-highlight">60</i>&nbsp;        if (charsetName != null &amp;&amp; charsetName.length() &gt; 0) {</b>
+<i class="no-highlight">61</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">62</i>&nbsp;                logCharset = Charset.forName(charsetName);</b>
+<b class="nc"><i class="no-highlight">63</i>&nbsp;            } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;                e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;            }</b>
+<i class="no-highlight">66</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">67</i>&nbsp;    }</b>
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /**
+<i class="no-highlight">70</i>&nbsp;     * Marshall a long into the next 4 bytes in this buffer. Necessary when the
+<i class="no-highlight">71</i>&nbsp;     * long is used to hold an unsigned int.
+<i class="no-highlight">72</i>&nbsp;     */
+<i class="no-highlight">73</i>&nbsp;    public static void writeUnsignedInt(ByteBuffer buf, long value) {
+<b class="fc"><i class="no-highlight">74</i>&nbsp;        buf.put((byte) (value &gt;&gt;&gt; 0));</b>
+<b class="fc"><i class="no-highlight">75</i>&nbsp;        buf.put((byte) (value &gt;&gt;&gt; 8));</b>
+<b class="fc"><i class="no-highlight">76</i>&nbsp;        buf.put((byte) (value &gt;&gt;&gt; 16));</b>
+<b class="fc"><i class="no-highlight">77</i>&nbsp;        buf.put((byte) (value &gt;&gt;&gt; 24));</b>
+<b class="fc"><i class="no-highlight">78</i>&nbsp;    }</b>
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /**
+<i class="no-highlight">81</i>&nbsp;     * Unmarshall the next four bytes which hold an unsigned int into a long.
+<i class="no-highlight">82</i>&nbsp;     */
+<i class="no-highlight">83</i>&nbsp;    public static long readUnsignedInt(ByteBuffer buf) {
+<b class="fc"><i class="no-highlight">84</i>&nbsp;        long ret = (buf.get() &amp; 0xFFL) &lt;&lt; 0;</b>
+<b class="fc"><i class="no-highlight">85</i>&nbsp;        ret += (buf.get() &amp; 0xFFL) &lt;&lt; 8;</b>
+<b class="fc"><i class="no-highlight">86</i>&nbsp;        ret += (buf.get() &amp; 0xFFL) &lt;&lt; 16;</b>
+<b class="fc"><i class="no-highlight">87</i>&nbsp;        ret += (buf.get() &amp; 0xFFL) &lt;&lt; 24;</b>
+<b class="fc"><i class="no-highlight">88</i>&nbsp;        return ret;</b>
+<i class="no-highlight">89</i>&nbsp;    }
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;    /*
+<i class="no-highlight">92</i>&nbsp;     * Marshall objects.
+<i class="no-highlight">93</i>&nbsp;     */
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;    /**
+<i class="no-highlight">96</i>&nbsp;     * Write a short into the log.
+<i class="no-highlight">97</i>&nbsp;     */
+<i class="no-highlight">98</i>&nbsp;    public static void writeShort(ByteBuffer logBuf, short i) {
+<b class="fc"><i class="no-highlight">99</i>&nbsp;        byte b = (byte) ((i &gt;&gt; 0) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">100</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">101</i>&nbsp;        b = (byte) ((i &gt;&gt; 8) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">102</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">103</i>&nbsp;    }</b>
+<i class="no-highlight">104</i>&nbsp;
+<i class="no-highlight">105</i>&nbsp;    /**
+<i class="no-highlight">106</i>&nbsp;     * Read a short from the log.
+<i class="no-highlight">107</i>&nbsp;     */
+<i class="no-highlight">108</i>&nbsp;    public static short readShort(ByteBuffer logBuf) {
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        return (short) (((logBuf.get() &amp; 0xFF) &lt;&lt; 0) +</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                        ((logBuf.get() &amp; 0xFF) &lt;&lt; 8));</b>
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    /**
+<i class="no-highlight">114</i>&nbsp;     * Read an int from the log in either packed or unpacked format.
+<i class="no-highlight">115</i>&nbsp;     */
+<i class="no-highlight">116</i>&nbsp;    public static int readInt(ByteBuffer logBuf, boolean unpacked) {
+<b class="fc"><i class="no-highlight">117</i>&nbsp;        if (unpacked) {</b>
+<b class="nc"><i class="no-highlight">118</i>&nbsp;            return readInt(logBuf);</b>
+<i class="no-highlight">119</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">120</i>&nbsp;            return readPackedInt(logBuf);</b>
+<i class="no-highlight">121</i>&nbsp;        }
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /**
+<i class="no-highlight">125</i>&nbsp;     * Write an int into the log.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    public static void writeInt(ByteBuffer logBuf, int i) {
+<b class="fc"><i class="no-highlight">128</i>&nbsp;        byte b = (byte) ((i &gt;&gt; 0) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">129</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">130</i>&nbsp;        b = (byte) ((i &gt;&gt; 8) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">131</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">132</i>&nbsp;        b = (byte) ((i &gt;&gt; 16) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">133</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">134</i>&nbsp;        b = (byte) ((i &gt;&gt; 24) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">135</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">136</i>&nbsp;    }</b>
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /**
+<i class="no-highlight">139</i>&nbsp;     * Read a int from the log.
+<i class="no-highlight">140</i>&nbsp;     */
+<i class="no-highlight">141</i>&nbsp;    public static int readInt(ByteBuffer logBuf) {
+<b class="fc"><i class="no-highlight">142</i>&nbsp;        int ret = (logBuf.get() &amp; 0xFF) &lt;&lt; 0;</b>
+<b class="fc"><i class="no-highlight">143</i>&nbsp;        ret += (logBuf.get() &amp; 0xFF) &lt;&lt; 8;</b>
+<b class="fc"><i class="no-highlight">144</i>&nbsp;        ret += (logBuf.get() &amp; 0xFF) &lt;&lt; 16;</b>
+<b class="fc"><i class="no-highlight">145</i>&nbsp;        ret += (logBuf.get() &amp; 0xFF) &lt;&lt; 24;</b>
+<b class="fc"><i class="no-highlight">146</i>&nbsp;        return ret;</b>
+<i class="no-highlight">147</i>&nbsp;    }
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /**
+<i class="no-highlight">150</i>&nbsp;     * @return log storage size for an int.
+<i class="no-highlight">151</i>&nbsp;     */
+<i class="no-highlight">152</i>&nbsp;    public static int getIntLogSize() {
+<b class="fc"><i class="no-highlight">153</i>&nbsp;        return INT_BYTES;</b>
+<i class="no-highlight">154</i>&nbsp;    }
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;    /**
+<i class="no-highlight">157</i>&nbsp;     * Write a packed int into the log.
+<i class="no-highlight">158</i>&nbsp;     */
+<i class="no-highlight">159</i>&nbsp;    public static void writePackedInt(ByteBuffer logBuf, int i) {
+<b class="fc"><i class="no-highlight">160</i>&nbsp;        int off = logBuf.arrayOffset();</b>
+<b class="fc"><i class="no-highlight">161</i>&nbsp;        int newPos =</b>
+<b class="fc"><i class="no-highlight">162</i>&nbsp;            PackedInteger.writeInt(logBuf.array(),</b>
+<b class="fc"><i class="no-highlight">163</i>&nbsp;                                   logBuf.position() + off, i);</b>
+<b class="fc"><i class="no-highlight">164</i>&nbsp;        logBuf.position(newPos - off);</b>
+<b class="fc"><i class="no-highlight">165</i>&nbsp;    }</b>
+<i class="no-highlight">166</i>&nbsp;
+<i class="no-highlight">167</i>&nbsp;    /**
+<i class="no-highlight">168</i>&nbsp;     * Read a packed int from the log.
+<i class="no-highlight">169</i>&nbsp;     */
+<i class="no-highlight">170</i>&nbsp;    public static int readPackedInt(ByteBuffer logBuf) {
+<b class="fc"><i class="no-highlight">171</i>&nbsp;        byte a[] = logBuf.array();</b>
+<b class="fc"><i class="no-highlight">172</i>&nbsp;        int oldPos = logBuf.position();</b>
+<b class="fc"><i class="no-highlight">173</i>&nbsp;        int off = logBuf.arrayOffset() + oldPos;</b>
+<b class="fc"><i class="no-highlight">174</i>&nbsp;        int len = PackedInteger.getReadIntLength(a, off);</b>
+<b class="fc"><i class="no-highlight">175</i>&nbsp;        int val = PackedInteger.readInt(a, off);</b>
+<b class="fc"><i class="no-highlight">176</i>&nbsp;        logBuf.position(oldPos + len);</b>
+<b class="fc"><i class="no-highlight">177</i>&nbsp;        return val;</b>
+<i class="no-highlight">178</i>&nbsp;    }
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /**
+<i class="no-highlight">181</i>&nbsp;     * @return log storage size for a packed int.
+<i class="no-highlight">182</i>&nbsp;     */
+<i class="no-highlight">183</i>&nbsp;    public static int getPackedIntLogSize(int i) {
+<b class="fc"><i class="no-highlight">184</i>&nbsp;        return PackedInteger.getWriteIntLength(i);</b>
+<i class="no-highlight">185</i>&nbsp;    }
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    /**
+<i class="no-highlight">188</i>&nbsp;     * Write an int into the log in MSB order.  Used for ordered keys.
+<i class="no-highlight">189</i>&nbsp;     */
+<i class="no-highlight">190</i>&nbsp;    public static void writeIntMSB(ByteBuffer logBuf, int i) {
+<b class="fc"><i class="no-highlight">191</i>&nbsp;        byte b = (byte) ((i &gt;&gt; 24) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">192</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">193</i>&nbsp;        b = (byte) ((i &gt;&gt; 16) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">194</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">195</i>&nbsp;        b = (byte) ((i &gt;&gt; 8) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">196</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">197</i>&nbsp;        b = (byte) ((i &gt;&gt; 0) &amp; 0xff);</b>
+<b class="fc"><i class="no-highlight">198</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">199</i>&nbsp;    }</b>
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    /**
+<i class="no-highlight">202</i>&nbsp;     * Read a int from the log in MSB order.  Used for ordered keys.
+<i class="no-highlight">203</i>&nbsp;     */
+<i class="no-highlight">204</i>&nbsp;    public static int readIntMSB(ByteBuffer logBuf) {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        int ret = (logBuf.get() &amp; 0xFF) &lt;&lt; 24;</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        ret += (logBuf.get() &amp; 0xFF) &lt;&lt; 16;</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        ret += (logBuf.get() &amp; 0xFF) &lt;&lt; 8;</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        ret += (logBuf.get() &amp; 0xFF) &lt;&lt; 0;</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        return ret;</b>
+<i class="no-highlight">210</i>&nbsp;    }
+<i class="no-highlight">211</i>&nbsp;
+<i class="no-highlight">212</i>&nbsp;    /**
+<i class="no-highlight">213</i>&nbsp;     * Write a long into the log.
+<i class="no-highlight">214</i>&nbsp;     */
+<i class="no-highlight">215</i>&nbsp;    public static void writeLong(ByteBuffer logBuf, long l) {
+<b class="fc"><i class="no-highlight">216</i>&nbsp;        byte b =(byte) (l &gt;&gt;&gt; 0);</b>
+<b class="fc"><i class="no-highlight">217</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">218</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 8);</b>
+<b class="fc"><i class="no-highlight">219</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">220</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 16);</b>
+<b class="fc"><i class="no-highlight">221</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">222</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 24);</b>
+<b class="fc"><i class="no-highlight">223</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">224</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 32);</b>
+<b class="fc"><i class="no-highlight">225</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">226</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 40);</b>
+<b class="fc"><i class="no-highlight">227</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">228</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 48);</b>
+<b class="fc"><i class="no-highlight">229</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">230</i>&nbsp;        b =(byte) (l &gt;&gt;&gt; 56);</b>
+<b class="fc"><i class="no-highlight">231</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">232</i>&nbsp;    }</b>
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /**
+<i class="no-highlight">235</i>&nbsp;     * Read an int from the log in either packed or unpacked format.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    public static long readLong(ByteBuffer logBuf, boolean unpacked) {
+<b class="fc"><i class="no-highlight">238</i>&nbsp;        if (unpacked) {</b>
+<b class="fc"><i class="no-highlight">239</i>&nbsp;            return readLong(logBuf);</b>
+<i class="no-highlight">240</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">241</i>&nbsp;            return readPackedLong(logBuf);</b>
+<i class="no-highlight">242</i>&nbsp;        }
+<i class="no-highlight">243</i>&nbsp;    }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    /**
+<i class="no-highlight">246</i>&nbsp;     * Read a long from the log.
+<i class="no-highlight">247</i>&nbsp;     */
+<i class="no-highlight">248</i>&nbsp;    public static long readLong(ByteBuffer logBuf) {
+<b class="fc"><i class="no-highlight">249</i>&nbsp;        long ret = (logBuf.get() &amp; 0xFFL) &lt;&lt; 0;</b>
+<b class="fc"><i class="no-highlight">250</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 8;</b>
+<b class="fc"><i class="no-highlight">251</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 16;</b>
+<b class="fc"><i class="no-highlight">252</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 24;</b>
+<b class="fc"><i class="no-highlight">253</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 32;</b>
+<b class="fc"><i class="no-highlight">254</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 40;</b>
+<b class="fc"><i class="no-highlight">255</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 48;</b>
+<b class="fc"><i class="no-highlight">256</i>&nbsp;        ret += (logBuf.get() &amp; 0xFFL) &lt;&lt; 56;</b>
+<b class="fc"><i class="no-highlight">257</i>&nbsp;        return ret;</b>
+<i class="no-highlight">258</i>&nbsp;    }
+<i class="no-highlight">259</i>&nbsp;
+<i class="no-highlight">260</i>&nbsp;    /**
+<i class="no-highlight">261</i>&nbsp;     * @return log storage size for a long.
+<i class="no-highlight">262</i>&nbsp;     */
+<i class="no-highlight">263</i>&nbsp;    public static int getLongLogSize() {
+<b class="fc"><i class="no-highlight">264</i>&nbsp;        return LONG_BYTES;</b>
+<i class="no-highlight">265</i>&nbsp;    }
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;    /**
+<i class="no-highlight">268</i>&nbsp;     * Write a packed long into the log.
+<i class="no-highlight">269</i>&nbsp;     */
+<i class="no-highlight">270</i>&nbsp;    public static void writePackedLong(ByteBuffer logBuf, long l) {
+<b class="fc"><i class="no-highlight">271</i>&nbsp;        int off = logBuf.arrayOffset();</b>
+<b class="fc"><i class="no-highlight">272</i>&nbsp;        int newPos =</b>
+<b class="fc"><i class="no-highlight">273</i>&nbsp;            PackedInteger.writeLong(logBuf.array(),</b>
+<b class="fc"><i class="no-highlight">274</i>&nbsp;                                    logBuf.position() + off, l);</b>
+<b class="fc"><i class="no-highlight">275</i>&nbsp;        logBuf.position(newPos - off);</b>
+<b class="fc"><i class="no-highlight">276</i>&nbsp;    }</b>
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /**
+<i class="no-highlight">279</i>&nbsp;     * Read a packed long from the log.
+<i class="no-highlight">280</i>&nbsp;     */
+<i class="no-highlight">281</i>&nbsp;    public static long readPackedLong(ByteBuffer logBuf) {
+<b class="fc"><i class="no-highlight">282</i>&nbsp;        byte a[] = logBuf.array();</b>
+<b class="fc"><i class="no-highlight">283</i>&nbsp;        int oldPos = logBuf.position();</b>
+<b class="fc"><i class="no-highlight">284</i>&nbsp;        int off = logBuf.arrayOffset() + oldPos;</b>
+<b class="fc"><i class="no-highlight">285</i>&nbsp;        int len = PackedInteger.getReadLongLength(a, off);</b>
+<b class="fc"><i class="no-highlight">286</i>&nbsp;        long val = PackedInteger.readLong(a, off);</b>
+<b class="fc"><i class="no-highlight">287</i>&nbsp;        logBuf.position(oldPos + len);</b>
+<b class="fc"><i class="no-highlight">288</i>&nbsp;        return val;</b>
+<i class="no-highlight">289</i>&nbsp;    }
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;    /**
+<i class="no-highlight">292</i>&nbsp;     * @return log storage size for a packed long.
+<i class="no-highlight">293</i>&nbsp;     */
+<i class="no-highlight">294</i>&nbsp;    public static int getPackedLongLogSize(long l) {
+<b class="fc"><i class="no-highlight">295</i>&nbsp;        return PackedInteger.getWriteLongLength(l);</b>
+<i class="no-highlight">296</i>&nbsp;    }
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    /**
+<i class="no-highlight">299</i>&nbsp;     * Write a byte array into the log. The size is stored first as an integer.
+<i class="no-highlight">300</i>&nbsp;     */
+<i class="no-highlight">301</i>&nbsp;    public static void writeByteArray(ByteBuffer logBuf, byte[] b) {
+<i class="no-highlight">302</i>&nbsp;
+<b class="fc"><i class="no-highlight">303</i>&nbsp;        if (b == null) {</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            writePackedInt(logBuf, -1);</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            return;</b>
+<i class="no-highlight">306</i>&nbsp;        }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;        /* Write the length. */
+<b class="fc"><i class="no-highlight">309</i>&nbsp;        writePackedInt(logBuf, b.length);</b>
+<i class="no-highlight">310</i>&nbsp;
+<i class="no-highlight">311</i>&nbsp;        /* Add the data itself. */
+<b class="fc"><i class="no-highlight">312</i>&nbsp;        logBuf.put(b);                     // data</b>
+<b class="fc"><i class="no-highlight">313</i>&nbsp;    }</b>
+<i class="no-highlight">314</i>&nbsp;
+<i class="no-highlight">315</i>&nbsp;    /**
+<i class="no-highlight">316</i>&nbsp;     * Read a byte array from the log. The size is stored first as an integer.
+<i class="no-highlight">317</i>&nbsp;     */
+<i class="no-highlight">318</i>&nbsp;    public static byte[] readByteArray(ByteBuffer logBuf, boolean unpacked) {
+<b class="fc"><i class="no-highlight">319</i>&nbsp;        int size = readInt(logBuf, unpacked);</b>
+<i class="no-highlight">320</i>&nbsp;        if (DEBUG) {
+<i class="no-highlight">321</i>&nbsp;            System.out.println(&quot;pos = &quot; + logBuf.position() +
+<i class="no-highlight">322</i>&nbsp;                               &quot; byteArray is &quot; + size + &quot; on read&quot;);
+<i class="no-highlight">323</i>&nbsp;        }
+<i class="no-highlight">324</i>&nbsp;
+<b class="fc"><i class="no-highlight">325</i>&nbsp;        if (size &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            return null;</b>
+<i class="no-highlight">327</i>&nbsp;        }
+<i class="no-highlight">328</i>&nbsp;
+<b class="fc"><i class="no-highlight">329</i>&nbsp;        if (size == 0) {</b>
+<b class="fc"><i class="no-highlight">330</i>&nbsp;            return ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">331</i>&nbsp;        }
+<i class="no-highlight">332</i>&nbsp;
+<b class="fc"><i class="no-highlight">333</i>&nbsp;        byte[] b = new byte[size];</b>
+<b class="fc"><i class="no-highlight">334</i>&nbsp;        logBuf.get(b);               // read it out</b>
+<b class="fc"><i class="no-highlight">335</i>&nbsp;        return b;</b>
+<i class="no-highlight">336</i>&nbsp;    }
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;    /**
+<i class="no-highlight">339</i>&nbsp;     * @return log storage size for a byteArray
+<i class="no-highlight">340</i>&nbsp;     */
+<i class="no-highlight">341</i>&nbsp;    public static int getByteArrayLogSize(byte[] b) {
+<b class="fc"><i class="no-highlight">342</i>&nbsp;        if (b == null) {</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            return LogUtils.getPackedIntLogSize(-1);</b>
+<i class="no-highlight">344</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">345</i>&nbsp;            int len = b.length;</b>
+<b class="fc"><i class="no-highlight">346</i>&nbsp;            return LogUtils.getPackedIntLogSize(len) + len;</b>
+<i class="no-highlight">347</i>&nbsp;        }
+<i class="no-highlight">348</i>&nbsp;    }
+<i class="no-highlight">349</i>&nbsp;
+<i class="no-highlight">350</i>&nbsp;    /**
+<i class="no-highlight">351</i>&nbsp;     * Write a byte array into the log. No size is stored.
+<i class="no-highlight">352</i>&nbsp;     */
+<i class="no-highlight">353</i>&nbsp;    public static void writeBytesNoLength(ByteBuffer logBuf, byte[] b) {
+<i class="no-highlight">354</i>&nbsp;
+<i class="no-highlight">355</i>&nbsp;        /* Add the data itself. */
+<b class="fc"><i class="no-highlight">356</i>&nbsp;        logBuf.put(b);</b>
+<b class="fc"><i class="no-highlight">357</i>&nbsp;    }</b>
+<i class="no-highlight">358</i>&nbsp;
+<i class="no-highlight">359</i>&nbsp;    /**
+<i class="no-highlight">360</i>&nbsp;     * Read a byte array from the log.  The size is not stored.
+<i class="no-highlight">361</i>&nbsp;     */
+<i class="no-highlight">362</i>&nbsp;    public static byte[] readBytesNoLength(ByteBuffer logBuf, int size) {
+<i class="no-highlight">363</i>&nbsp;        if (DEBUG) {
+<i class="no-highlight">364</i>&nbsp;            System.out.println(&quot;pos = &quot; + logBuf.position() +
+<i class="no-highlight">365</i>&nbsp;                               &quot; byteArray is &quot; + size + &quot; on read&quot;);
+<i class="no-highlight">366</i>&nbsp;        }
+<i class="no-highlight">367</i>&nbsp;
+<b class="fc"><i class="no-highlight">368</i>&nbsp;        if (size == 0) {</b>
+<b class="fc"><i class="no-highlight">369</i>&nbsp;            return ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">370</i>&nbsp;        }
+<i class="no-highlight">371</i>&nbsp;
+<b class="fc"><i class="no-highlight">372</i>&nbsp;        byte[] b = new byte[size];</b>
+<b class="fc"><i class="no-highlight">373</i>&nbsp;        logBuf.get(b);               // read it out</b>
+<b class="fc"><i class="no-highlight">374</i>&nbsp;        return b;</b>
+<i class="no-highlight">375</i>&nbsp;    }
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;    /**
+<i class="no-highlight">378</i>&nbsp;     * Write a string into the log. The size is stored first as an integer.
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    public static void writeString(ByteBuffer logBuf,
+<i class="no-highlight">381</i>&nbsp;                                   String stringVal) {
+<b class="fc"><i class="no-highlight">382</i>&nbsp;        writeByteArray(logBuf, StringUtils.toUTF8(stringVal));</b>
+<b class="fc"><i class="no-highlight">383</i>&nbsp;    }</b>
+<i class="no-highlight">384</i>&nbsp;
+<i class="no-highlight">385</i>&nbsp;    /**
+<i class="no-highlight">386</i>&nbsp;     * Read a string from the log. The size is stored first as an integer.
+<i class="no-highlight">387</i>&nbsp;     */
+<i class="no-highlight">388</i>&nbsp;    public static String readString(ByteBuffer logBuf,
+<i class="no-highlight">389</i>&nbsp;                                    boolean unpacked,
+<i class="no-highlight">390</i>&nbsp;                                    int entryVersion) {
+<b class="nc"><i class="no-highlight">391</i>&nbsp;        final byte[] bytes = readByteArray(logBuf, unpacked);</b>
+<i class="no-highlight">392</i>&nbsp;
+<i class="no-highlight">393</i>&nbsp;        /*
+<i class="no-highlight">394</i>&nbsp;         * Use logCharset only prior to version 9, since in version 9
+<i class="no-highlight">395</i>&nbsp;         * UTF8 is always used.  See logCharset for details.
+<i class="no-highlight">396</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">397</i>&nbsp;        if (entryVersion &gt;= 9) {</b>
+<b class="nc"><i class="no-highlight">398</i>&nbsp;            return StringUtils.fromUTF8(bytes);</b>
+<i class="no-highlight">399</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">400</i>&nbsp;        if (logCharset != null) {</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;            return new String(bytes, logCharset);</b>
+<i class="no-highlight">402</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">403</i>&nbsp;        return new String(bytes);</b>
+<i class="no-highlight">404</i>&nbsp;    }
+<i class="no-highlight">405</i>&nbsp;
+<i class="no-highlight">406</i>&nbsp;    /**
+<i class="no-highlight">407</i>&nbsp;     * @return log storage size for a string
+<i class="no-highlight">408</i>&nbsp;     */
+<i class="no-highlight">409</i>&nbsp;    public static int getStringLogSize(String s) {
+<b class="fc"><i class="no-highlight">410</i>&nbsp;        return getByteArrayLogSize(StringUtils.toUTF8(s));</b>
+<i class="no-highlight">411</i>&nbsp;    }
+<i class="no-highlight">412</i>&nbsp;
+<i class="no-highlight">413</i>&nbsp;    /**
+<i class="no-highlight">414</i>&nbsp;     * Write a timestamp into the log.
+<i class="no-highlight">415</i>&nbsp;     */
+<i class="no-highlight">416</i>&nbsp;    public static void writeTimestamp(ByteBuffer logBuf, Timestamp time) {
+<b class="fc"><i class="no-highlight">417</i>&nbsp;        writePackedLong(logBuf, time.getTime());</b>
+<b class="fc"><i class="no-highlight">418</i>&nbsp;    }</b>
+<i class="no-highlight">419</i>&nbsp;
+<i class="no-highlight">420</i>&nbsp;    /**
+<i class="no-highlight">421</i>&nbsp;     * Read a timestamp from the log.
+<i class="no-highlight">422</i>&nbsp;     */
+<i class="no-highlight">423</i>&nbsp;    public static Timestamp readTimestamp(ByteBuffer logBuf,
+<i class="no-highlight">424</i>&nbsp;                                          boolean unpacked) {
+<b class="fc"><i class="no-highlight">425</i>&nbsp;        long millis = readLong(logBuf, unpacked);</b>
+<b class="fc"><i class="no-highlight">426</i>&nbsp;        return new Timestamp(millis);</b>
+<i class="no-highlight">427</i>&nbsp;    }
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;    /**
+<i class="no-highlight">430</i>&nbsp;     * @return log storage size for a timestamp
+<i class="no-highlight">431</i>&nbsp;     */
+<i class="no-highlight">432</i>&nbsp;    public static int getTimestampLogSize(Timestamp time) {
+<b class="fc"><i class="no-highlight">433</i>&nbsp;        return PackedInteger.getWriteLongLength(time.getTime());</b>
+<i class="no-highlight">434</i>&nbsp;    }
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;    /**
+<i class="no-highlight">437</i>&nbsp;     * Write a boolean into the log.
+<i class="no-highlight">438</i>&nbsp;     */
+<i class="no-highlight">439</i>&nbsp;    public static void writeBoolean(ByteBuffer logBuf, boolean bool) {
+<b class="fc"><i class="no-highlight">440</i>&nbsp;        byte val = bool ? (byte) 1 : (byte) 0;</b>
+<b class="fc"><i class="no-highlight">441</i>&nbsp;        logBuf.put(val);</b>
+<b class="fc"><i class="no-highlight">442</i>&nbsp;    }</b>
+<i class="no-highlight">443</i>&nbsp;
+<i class="no-highlight">444</i>&nbsp;    /**
+<i class="no-highlight">445</i>&nbsp;     * Read a boolean from the log.
+<i class="no-highlight">446</i>&nbsp;     */
+<i class="no-highlight">447</i>&nbsp;    public static boolean readBoolean(ByteBuffer logBuf) {
+<b class="fc"><i class="no-highlight">448</i>&nbsp;        byte val = logBuf.get();</b>
+<b class="fc"><i class="no-highlight">449</i>&nbsp;        return (val == (byte) 1) ? true : false;</b>
+<i class="no-highlight">450</i>&nbsp;    }
+<i class="no-highlight">451</i>&nbsp;
+<i class="no-highlight">452</i>&nbsp;    /**
+<i class="no-highlight">453</i>&nbsp;     * @return log storage size for a boolean.
+<i class="no-highlight">454</i>&nbsp;     */
+<i class="no-highlight">455</i>&nbsp;    public static int getBooleanLogSize() {
+<b class="fc"><i class="no-highlight">456</i>&nbsp;        return 1;</b>
+<i class="no-highlight">457</i>&nbsp;    }
+<i class="no-highlight">458</i>&nbsp;
+<i class="no-highlight">459</i>&nbsp;    /*
+<i class="no-highlight">460</i>&nbsp;     * Dumping support.
+<i class="no-highlight">461</i>&nbsp;     */
+<i class="no-highlight">462</i>&nbsp;    public static boolean dumpBoolean(ByteBuffer itemBuffer,
+<i class="no-highlight">463</i>&nbsp;                                      StringBuilder sb,
+<i class="no-highlight">464</i>&nbsp;                                      String tag) {
+<b class="nc"><i class="no-highlight">465</i>&nbsp;        sb.append(&quot;&lt;&quot;);</b>
+<b class="nc"><i class="no-highlight">466</i>&nbsp;        sb.append(tag);</b>
+<b class="nc"><i class="no-highlight">467</i>&nbsp;        sb.append(&quot; exists = \&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">468</i>&nbsp;        boolean exists = readBoolean(itemBuffer);</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;        sb.append(exists);</b>
+<b class="nc"><i class="no-highlight">470</i>&nbsp;        if (exists) {</b>
+<b class="nc"><i class="no-highlight">471</i>&nbsp;            sb.append(&quot;\&quot;&gt;&quot;);</b>
+<i class="no-highlight">472</i>&nbsp;        } else {
+<i class="no-highlight">473</i>&nbsp;            /* Close off the tag, we&#39;re done. */
+<b class="nc"><i class="no-highlight">474</i>&nbsp;            sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">475</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        return exists;</b>
+<i class="no-highlight">477</i>&nbsp;    }
+<i class="no-highlight">478</i>&nbsp;
+<i class="no-highlight">479</i>&nbsp;    /**
+<i class="no-highlight">480</i>&nbsp;     * The byte[]&#39;s in Xid&#39;s are known to be 255 or less in length.  So instead
+<i class="no-highlight">481</i>&nbsp;     * of using read/writeByteArray(), we can save 6 bytes per record by making
+<i class="no-highlight">482</i>&nbsp;     * the byte[] length be 1 byte instead of 4.
+<i class="no-highlight">483</i>&nbsp;     */
+<i class="no-highlight">484</i>&nbsp;    public static int getXidSize(Xid xid) {
+<b class="nc"><i class="no-highlight">485</i>&nbsp;        byte[] gid = xid.getGlobalTransactionId();</b>
+<b class="nc"><i class="no-highlight">486</i>&nbsp;        byte[] bqual = xid.getBranchQualifier();</b>
+<b class="nc"><i class="no-highlight">487</i>&nbsp;        return</b>
+<i class="no-highlight">488</i>&nbsp;            INT_BYTES +                         // FormatId
+<i class="no-highlight">489</i>&nbsp;            1 +                                 // gxid length byte
+<i class="no-highlight">490</i>&nbsp;            1 +                                 // bqual length byte
+<i class="no-highlight">491</i>&nbsp;            (gid == null ? 0 : gid.length) +    // gid bytes
+<i class="no-highlight">492</i>&nbsp;            (bqual == null ? 0 : bqual.length); // bqual bytes
+<i class="no-highlight">493</i>&nbsp;    }
+<i class="no-highlight">494</i>&nbsp;
+<i class="no-highlight">495</i>&nbsp;    /*
+<i class="no-highlight">496</i>&nbsp;     * Xid.gid[] and bqual[] can&#39;t be longer than 64 bytes so we can get away
+<i class="no-highlight">497</i>&nbsp;     * with writing the length in one byte, rather than 4.
+<i class="no-highlight">498</i>&nbsp;     */
+<i class="no-highlight">499</i>&nbsp;    public static void writeXid(ByteBuffer logBuf, Xid xid) {
+<b class="nc"><i class="no-highlight">500</i>&nbsp;        byte[] gid = xid.getGlobalTransactionId();</b>
+<b class="nc"><i class="no-highlight">501</i>&nbsp;        byte[] bqual = xid.getBranchQualifier();</b>
+<i class="no-highlight">502</i>&nbsp;
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        writeInt(logBuf, xid.getFormatId());</b>
+<i class="no-highlight">504</i>&nbsp;
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        if (gid == null) {</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;            logBuf.put((byte) -1);</b>
+<i class="no-highlight">507</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">508</i>&nbsp;            logBuf.put((byte) (gid.length));</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;            logBuf.put(gid);</b>
+<i class="no-highlight">510</i>&nbsp;        }
+<i class="no-highlight">511</i>&nbsp;
+<b class="nc"><i class="no-highlight">512</i>&nbsp;        if (bqual == null) {</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;            logBuf.put((byte) -1);</b>
+<i class="no-highlight">514</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            logBuf.put((byte) (bqual.length));</b>
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            logBuf.put(bqual);</b>
+<i class="no-highlight">517</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">518</i>&nbsp;    }</b>
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;    /*
+<i class="no-highlight">521</i>&nbsp;     * Xid.gid[] and bqual[] can&#39;t be longer than 64 bytes so we can get away
+<i class="no-highlight">522</i>&nbsp;     * with writing the length in one byte, rather than 4.
+<i class="no-highlight">523</i>&nbsp;     */
+<i class="no-highlight">524</i>&nbsp;    public static Xid readXid(ByteBuffer logBuf) {
+<b class="nc"><i class="no-highlight">525</i>&nbsp;        int formatId = readInt(logBuf);</b>
+<i class="no-highlight">526</i>&nbsp;
+<b class="nc"><i class="no-highlight">527</i>&nbsp;        int gidLen = logBuf.get();</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;        byte[] gid = null;</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;        if (gidLen &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;            gid = new byte[gidLen];</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;            logBuf.get(gid);</b>
+<i class="no-highlight">532</i>&nbsp;        }
+<i class="no-highlight">533</i>&nbsp;
+<b class="nc"><i class="no-highlight">534</i>&nbsp;        int bqualLen = logBuf.get();</b>
+<b class="nc"><i class="no-highlight">535</i>&nbsp;        byte[] bqual = null;</b>
+<b class="nc"><i class="no-highlight">536</i>&nbsp;        if (bqualLen &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;            bqual = new byte[bqualLen];</b>
+<b class="nc"><i class="no-highlight">538</i>&nbsp;            logBuf.get(bqual);</b>
+<i class="no-highlight">539</i>&nbsp;        }
+<i class="no-highlight">540</i>&nbsp;
+<b class="nc"><i class="no-highlight">541</i>&nbsp;        return new XidImpl(formatId, gid, bqual);</b>
+<i class="no-highlight">542</i>&nbsp;    }
+<i class="no-highlight">543</i>&nbsp;
+<i class="no-highlight">544</i>&nbsp;    public static class XidImpl implements Xid {
+<i class="no-highlight">545</i>&nbsp;        private int formatId;
+<i class="no-highlight">546</i>&nbsp;        private byte[] gid;
+<i class="no-highlight">547</i>&nbsp;        private byte[] bqual;
+<i class="no-highlight">548</i>&nbsp;
+<i class="no-highlight">549</i>&nbsp;        /* public for unit tests. */
+<b class="nc"><i class="no-highlight">550</i>&nbsp;        public XidImpl(int formatId, byte[] gid, byte[] bqual) {</b>
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            this.formatId = formatId;</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;            this.gid = gid;</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            this.bqual = bqual;</b>
+<i class="no-highlight">554</i>&nbsp;        }
+<i class="no-highlight">555</i>&nbsp;
+<i class="no-highlight">556</i>&nbsp;        public int getFormatId() {
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            return formatId;</b>
+<i class="no-highlight">558</i>&nbsp;        }
+<i class="no-highlight">559</i>&nbsp;
+<i class="no-highlight">560</i>&nbsp;        public byte[] getGlobalTransactionId() {
+<b class="nc"><i class="no-highlight">561</i>&nbsp;            return gid;</b>
+<i class="no-highlight">562</i>&nbsp;        }
+<i class="no-highlight">563</i>&nbsp;
+<i class="no-highlight">564</i>&nbsp;        public byte[] getBranchQualifier() {
+<b class="nc"><i class="no-highlight">565</i>&nbsp;            return bqual;</b>
+<i class="no-highlight">566</i>&nbsp;        }
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;        @Override
+<i class="no-highlight">569</i>&nbsp;        public boolean equals(Object o) {
+<b class="nc"><i class="no-highlight">570</i>&nbsp;            if (!(o instanceof XidImpl)) {</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                return false;</b>
+<i class="no-highlight">572</i>&nbsp;            }
+<i class="no-highlight">573</i>&nbsp;
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            XidImpl xid = (XidImpl) o;</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;            if (xid.getFormatId() != formatId) {</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;                return false;</b>
+<i class="no-highlight">577</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">578</i>&nbsp;            if (compareByteArrays(xid.getGlobalTransactionId(), gid) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;                compareByteArrays(xid.getBranchQualifier(), bqual)) {</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;                return true;</b>
+<i class="no-highlight">581</i>&nbsp;            }
+<i class="no-highlight">582</i>&nbsp;
+<b class="nc"><i class="no-highlight">583</i>&nbsp;            return false;</b>
+<i class="no-highlight">584</i>&nbsp;        }
+<i class="no-highlight">585</i>&nbsp;
+<i class="no-highlight">586</i>&nbsp;        @Override
+<i class="no-highlight">587</i>&nbsp;        public int hashCode() {
+<b class="nc"><i class="no-highlight">588</i>&nbsp;            int code = formatId;</b>
+<b class="nc"><i class="no-highlight">589</i>&nbsp;            if (gid != null) {</b>
+<b class="nc"><i class="no-highlight">590</i>&nbsp;                for (int i = 0; i &lt; gid.length; i++) {</b>
+<b class="nc"><i class="no-highlight">591</i>&nbsp;                    code += gid[i];</b>
+<i class="no-highlight">592</i>&nbsp;                }
+<i class="no-highlight">593</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">594</i>&nbsp;            if (bqual != null) {</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;                for (int i = 0; i &lt; bqual.length; i++) {</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                    code += bqual[i];</b>
+<i class="no-highlight">597</i>&nbsp;                }
+<i class="no-highlight">598</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">599</i>&nbsp;            return code;</b>
+<i class="no-highlight">600</i>&nbsp;        }
+<i class="no-highlight">601</i>&nbsp;
+<i class="no-highlight">602</i>&nbsp;        private boolean compareByteArrays(byte[] b1, byte[] b2) {
+<b class="nc"><i class="no-highlight">603</i>&nbsp;            if (b1 == null ||</b>
+<i class="no-highlight">604</i>&nbsp;                b2 == null) {
+<b class="nc"><i class="no-highlight">605</i>&nbsp;                return b1 == b2;</b>
+<i class="no-highlight">606</i>&nbsp;            }
+<i class="no-highlight">607</i>&nbsp;
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            if (b1.length != b2.length) {</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;                return false;</b>
+<i class="no-highlight">610</i>&nbsp;            }
+<i class="no-highlight">611</i>&nbsp;
+<b class="nc"><i class="no-highlight">612</i>&nbsp;            for (int i = 0; i &lt; b1.length; i++) {</b>
+<b class="nc"><i class="no-highlight">613</i>&nbsp;                if (b1[i] != b2[i]) {</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;                    return false;</b>
+<i class="no-highlight">615</i>&nbsp;                }
+<i class="no-highlight">616</i>&nbsp;            }
+<i class="no-highlight">617</i>&nbsp;
+<b class="nc"><i class="no-highlight">618</i>&nbsp;            return true;</b>
+<i class="no-highlight">619</i>&nbsp;        }
+<i class="no-highlight">620</i>&nbsp;
+<i class="no-highlight">621</i>&nbsp;        @Override
+<i class="no-highlight">622</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">624</i>&nbsp;            sb.append(&quot;&lt;Xid formatId=\&quot;&quot;).append(formatId);</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;            sb.append(&quot;\&quot; gTxnId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">626</i>&nbsp;            if (gid == null) {</b>
+<b class="nc"><i class="no-highlight">627</i>&nbsp;                sb.append(&quot;null&quot;);</b>
+<i class="no-highlight">628</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">629</i>&nbsp;                sb.append(new String(gid));</b>
+<i class="no-highlight">630</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">631</i>&nbsp;            sb.append(&quot;\&quot; bqual=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">632</i>&nbsp;            if (bqual == null) {</b>
+<b class="nc"><i class="no-highlight">633</i>&nbsp;                sb.append(&quot;null&quot;);</b>
+<i class="no-highlight">634</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">635</i>&nbsp;                sb.append(new String(bqual));</b>
+<i class="no-highlight">636</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">637</i>&nbsp;            sb.append(&quot;\&quot;/&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">638</i>&nbsp;            return sb.toString();</b>
+<i class="no-highlight">639</i>&nbsp;        }
+<i class="no-highlight">640</i>&nbsp;    }
+<i class="no-highlight">641</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

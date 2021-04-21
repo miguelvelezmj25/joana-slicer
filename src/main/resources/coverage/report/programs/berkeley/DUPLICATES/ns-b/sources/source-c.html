@@ -1,0 +1,625 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DiskOrderedCursorImpl</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.dbi</a>
+</div>
+
+<h1>Coverage Summary for Class: DiskOrderedCursorImpl (com.sleepycat.je.dbi)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DiskOrderedCursorImpl</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/70)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">DiskOrderedCursorImpl$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">DiskOrderedCursorImpl$KeyAndData</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/19)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">DiskOrderedCursorImpl$Processor</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/28)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/33)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/128)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.dbi;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.concurrent.ArrayBlockingQueue;
+<i class="no-highlight">17</i>&nbsp;import java.util.concurrent.BlockingQueue;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DiskOrderedCursorConfig;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.DiskOrderedCursorProducerException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.OperationResult;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;/**
+<i class="no-highlight">31</i>&nbsp; * This class implements the DiskOrderedCursor. When an instance is
+<i class="no-highlight">32</i>&nbsp; * constructed, a Producer Thread is created which runs a DiskOrderedScanner
+<i class="no-highlight">33</i>&nbsp; * against the DiskOrderedCursor&#39;s Database.  The callback for the
+<i class="no-highlight">34</i>&nbsp; * DiskOrderedScanner takes key/data byte arrays that are passed to it, and
+<i class="no-highlight">35</i>&nbsp; * then place those entries on a BlockingQueue which is shared between the
+<i class="no-highlight">36</i>&nbsp; * Producer Thread and the application thread.  When the application calls
+<i class="no-highlight">37</i>&nbsp; * getNext(), it simply takes an entry off the queue and hands it to the
+<i class="no-highlight">38</i>&nbsp; * caller.  The entries on the queue are simple KeyAndData structs which hold
+<i class="no-highlight">39</i>&nbsp; * byte[]&#39;s for the key (and optional) data.  A special instance of KeyAndData
+<i class="no-highlight">40</i>&nbsp; * is used to indicate that the cursor scan has finished.
+<i class="no-highlight">41</i>&nbsp; *
+<i class="no-highlight">42</i>&nbsp; * The consistency guarantees are documented in the public javadoc for
+<i class="no-highlight">43</i>&nbsp; * DiskOrderedCursor, and are based on the use of DiskOrderedScanner (see its
+<i class="no-highlight">44</i>&nbsp; * javadoc for details).
+<i class="no-highlight">45</i>&nbsp; *
+<i class="no-highlight">46</i>&nbsp; * If the cleaner is operating concurrently with the DiskOrderedScanner, then
+<i class="no-highlight">47</i>&nbsp; * it is possible for a file to be deleted and a not-yet-processed LSN (i.e.
+<i class="no-highlight">48</i>&nbsp; * one which has not yet been returned to the user) might be pointing to that
+<i class="no-highlight">49</i>&nbsp; * deleted file.  Therefore, we must disable file deletion (but not cleaner
+<i class="no-highlight">50</i>&nbsp; * operation) during the DOS.
+<i class="no-highlight">51</i>&nbsp; */
+<b class="nc"><i class="no-highlight">52</i>&nbsp;public class DiskOrderedCursorImpl {</b>
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /*
+<i class="no-highlight">55</i>&nbsp;     * Simple struct to hold key and data byte arrays being passed through the
+<i class="no-highlight">56</i>&nbsp;     * queue.
+<i class="no-highlight">57</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">58</i>&nbsp;    private static class KeyAndData {</b>
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;        final int dbIdx;
+<i class="no-highlight">61</i>&nbsp;        final byte[] key;
+<i class="no-highlight">62</i>&nbsp;        final byte[] data;
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;        /* Negative value means &quot;in hours&quot;, to save queue space. */
+<i class="no-highlight">65</i>&nbsp;        final int expiration;
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;        /**
+<i class="no-highlight">68</i>&nbsp;         * Creates a marker instance, for END_OF_QUEUE.
+<i class="no-highlight">69</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        private KeyAndData() {</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;            this.dbIdx = -1;</b>
+<b class="nc"><i class="no-highlight">72</i>&nbsp;            this.key = null;</b>
+<b class="nc"><i class="no-highlight">73</i>&nbsp;            this.data = null;</b>
+<b class="nc"><i class="no-highlight">74</i>&nbsp;            this.expiration = 0;</b>
+<i class="no-highlight">75</i>&nbsp;        }
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;        private KeyAndData(
+<i class="no-highlight">78</i>&nbsp;            int dbIdx,
+<i class="no-highlight">79</i>&nbsp;            byte[] key,
+<i class="no-highlight">80</i>&nbsp;            byte[] data,
+<i class="no-highlight">81</i>&nbsp;            int expiration,
+<b class="nc"><i class="no-highlight">82</i>&nbsp;            boolean expirationInHours) {</b>
+<i class="no-highlight">83</i>&nbsp;
+<b class="nc"><i class="no-highlight">84</i>&nbsp;            this.dbIdx = dbIdx;</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;            this.key = key;</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;            this.data = data;</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;            this.expiration = expirationInHours ? (- expiration) : expiration;</b>
+<i class="no-highlight">88</i>&nbsp;        }
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;        private int getDbIdx() {
+<b class="nc"><i class="no-highlight">91</i>&nbsp;            return dbIdx;</b>
+<i class="no-highlight">92</i>&nbsp;        }
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;        private byte[] getKey() {
+<b class="nc"><i class="no-highlight">95</i>&nbsp;            return key;</b>
+<i class="no-highlight">96</i>&nbsp;        }
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;        private byte[] getData() {
+<b class="nc"><i class="no-highlight">99</i>&nbsp;            return data;</b>
+<i class="no-highlight">100</i>&nbsp;        }
+<i class="no-highlight">101</i>&nbsp;
+<i class="no-highlight">102</i>&nbsp;        private long getExpirationTime() {
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            if (expiration == 0) {</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                return 0;</b>
+<i class="no-highlight">105</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            if (expiration &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;                return TTL.expirationToSystemTime(- expiration, true);</b>
+<i class="no-highlight">108</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">109</i>&nbsp;            return TTL.expirationToSystemTime(expiration, false);</b>
+<i class="no-highlight">110</i>&nbsp;        }
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    /*
+<i class="no-highlight">114</i>&nbsp;     * The maximum number of entries that the BlockingQueue will store before
+<i class="no-highlight">115</i>&nbsp;     * blocking the producer thread.
+<i class="no-highlight">116</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">117</i>&nbsp;    private int queueSize = 1000;</b>
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    /* Queue.offer() timeout in msec. */
+<i class="no-highlight">120</i>&nbsp;    private int offerTimeout;
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;    private final boolean keysOnly;
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    private final EnvironmentImpl env;
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    private final Processor processor;
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    private final DiskOrderedScanner scanner;
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    private final Thread producer;
+<i class="no-highlight">131</i>&nbsp;
+<i class="no-highlight">132</i>&nbsp;    private final BlockingQueue&lt;KeyAndData&gt; queue;
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    /* The special KeyAndData which marks the end of the operation. */
+<b class="nc"><i class="no-highlight">135</i>&nbsp;    private final KeyAndData END_OF_QUEUE = new KeyAndData();</b>
+<i class="no-highlight">136</i>&nbsp;
+<b class="nc"><i class="no-highlight">137</i>&nbsp;    private final RuntimeException SHUTDOWN_REQUESTED_EXCEPTION =</b>
+<i class="no-highlight">138</i>&nbsp;        new RuntimeException(&quot;Producer Thread shutdown requested&quot;);
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    /* DiskOrderedCursors are initialized as soon as they are created. */
+<b class="nc"><i class="no-highlight">141</i>&nbsp;    private boolean closed = false;</b>
+<i class="no-highlight">142</i>&nbsp;
+<b class="nc"><i class="no-highlight">143</i>&nbsp;    private KeyAndData currentNode = null;</b>
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;    public DiskOrderedCursorImpl(
+<i class="no-highlight">146</i>&nbsp;        final DatabaseImpl[] dbImpls,
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        final DiskOrderedCursorConfig config) {</b>
+<i class="no-highlight">148</i>&nbsp;
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        this.env = dbImpls[0].getEnv();</b>
+<i class="no-highlight">150</i>&nbsp;
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        DbConfigManager configMgr = env.getConfigManager();</b>
+<i class="no-highlight">152</i>&nbsp;
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        this.offerTimeout = configMgr.getDuration(</b>
+<i class="no-highlight">154</i>&nbsp;            EnvironmentParams.DOS_PRODUCER_QUEUE_TIMEOUT);
+<i class="no-highlight">155</i>&nbsp;
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        this.keysOnly = config.getKeysOnly();</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        this.queueSize = config.getQueueSize();</b>
+<i class="no-highlight">158</i>&nbsp;
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        if (keysOnly) {</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            for (int i = 0; i &lt; dbImpls.length; ++i) {</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                if (queueSize &lt; dbImpls[i].getNodeMaxTreeEntries()) {</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                    queueSize = dbImpls[i].getNodeMaxTreeEntries();</b>
+<i class="no-highlight">163</i>&nbsp;                }
+<i class="no-highlight">164</i>&nbsp;            }
+<i class="no-highlight">165</i>&nbsp;        }
+<i class="no-highlight">166</i>&nbsp;
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        this.processor = new Processor();</b>
+<i class="no-highlight">168</i>&nbsp;
+<b class="nc"><i class="no-highlight">169</i>&nbsp;        this.scanner = new DiskOrderedScanner(</b>
+<i class="no-highlight">170</i>&nbsp;            dbImpls, processor,
+<b class="nc"><i class="no-highlight">171</i>&nbsp;            config.getSerialDBScan(),</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;            config.getBINsOnly(), keysOnly, config.getCountOnly(),</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            config.getLSNBatchSize(), config.getInternalMemoryLimit(),</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            config.getDebug());</b>
+<i class="no-highlight">175</i>&nbsp;
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        this.queue = new ArrayBlockingQueue&lt;KeyAndData&gt;(queueSize);</b>
+<i class="no-highlight">177</i>&nbsp;
+<b class="nc"><i class="no-highlight">178</i>&nbsp;        this.producer = new Thread() {</b>
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;                public void run() {
+<i class="no-highlight">181</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">182</i>&nbsp;                        scanner.scan(</b>
+<i class="no-highlight">183</i>&nbsp;                            FileProtector.DISK_ORDERED_CURSOR_NAME,
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                            env.getNodeSequence().</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;                                getNextDiskOrderedCursorId());</b>
+<i class="no-highlight">186</i>&nbsp;
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                        processor.close();</b>
+<i class="no-highlight">188</i>&nbsp;
+<b class="nc"><i class="no-highlight">189</i>&nbsp;                    } catch (Throwable T) {</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;                        if (T == SHUTDOWN_REQUESTED_EXCEPTION) {</b>
+<i class="no-highlight">191</i>&nbsp;                            /* Shutdown was requested.  Don&#39;t rethrow. */
+<b class="nc"><i class="no-highlight">192</i>&nbsp;                            processor.isClosed = true;</b>
+<i class="no-highlight">193</i>&nbsp;                            return;
+<i class="no-highlight">194</i>&nbsp;                        }
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;                        /* The exception is check by the getNext() method of
+<i class="no-highlight">197</i>&nbsp;                           the consumer code.
+<i class="no-highlight">198</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">199</i>&nbsp;                        processor.setException(T);</b>
+<i class="no-highlight">200</i>&nbsp;
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                        queue.offer(END_OF_QUEUE);</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                    }</b>
+<i class="no-highlight">203</i>&nbsp;                }
+<i class="no-highlight">204</i>&nbsp;            };
+<i class="no-highlight">205</i>&nbsp;
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        this.producer.setName(&quot;DiskOrderedCursor Producer Thread for &quot; +</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;                              Thread.currentThread());</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        this.producer.start();</b>
+<i class="no-highlight">209</i>&nbsp;    }
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;    private class Processor implements DiskOrderedScanner.RecordProcessor {</b>
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;        /*
+<i class="no-highlight">214</i>&nbsp;         * A place to stash any exception caught by the producer thread so that
+<i class="no-highlight">215</i>&nbsp;         * it can be returned to the application.
+<i class="no-highlight">216</i>&nbsp;         */
+<i class="no-highlight">217</i>&nbsp;        private Throwable exception;
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;        private volatile boolean shutdownNow;
+<i class="no-highlight">220</i>&nbsp;
+<b class="nc"><i class="no-highlight">221</i>&nbsp;        public boolean isClosed = false; // used for unit testing only</b>
+<i class="no-highlight">222</i>&nbsp;
+<i class="no-highlight">223</i>&nbsp;        @Override
+<i class="no-highlight">224</i>&nbsp;        public void process(
+<i class="no-highlight">225</i>&nbsp;            int dbIdx,
+<i class="no-highlight">226</i>&nbsp;            byte[] key,
+<i class="no-highlight">227</i>&nbsp;            byte[] data,
+<i class="no-highlight">228</i>&nbsp;            int expiration,
+<i class="no-highlight">229</i>&nbsp;            boolean expirationInHours) {
+<i class="no-highlight">230</i>&nbsp;
+<b class="nc"><i class="no-highlight">231</i>&nbsp;            checkShutdown();</b>
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">234</i>&nbsp;                KeyAndData e = new KeyAndData(</b>
+<i class="no-highlight">235</i>&nbsp;                    dbIdx, key, data, expiration, expirationInHours);
+<i class="no-highlight">236</i>&nbsp;
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                while (!queue.offer(e, offerTimeout, TimeUnit.MILLISECONDS)) {</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                    checkShutdown();</b>
+<i class="no-highlight">239</i>&nbsp;                }
+<i class="no-highlight">240</i>&nbsp;
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            } catch (InterruptedException IE) {</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                setException(</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;                    new ThreadInterruptedException(env, IE));</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                setShutdown();</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            }</b>
+<i class="no-highlight">246</i>&nbsp;        }
+<i class="no-highlight">247</i>&nbsp;
+<i class="no-highlight">248</i>&nbsp;        @Override
+<i class="no-highlight">249</i>&nbsp;        public boolean canProcessWithoutBlocking(int nRecords) {
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            return queue.remainingCapacity() &gt;= nRecords;</b>
+<i class="no-highlight">251</i>&nbsp;        }
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;        @Override
+<i class="no-highlight">254</i>&nbsp;        public int getCapacity() {
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            return queueSize;</b>
+<i class="no-highlight">256</i>&nbsp;        }
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;        /*
+<i class="no-highlight">259</i>&nbsp;         * Called from the producer thread&#39;s run() method after there are
+<i class="no-highlight">260</i>&nbsp;         * no more records to scan.
+<i class="no-highlight">261</i>&nbsp;         */
+<i class="no-highlight">262</i>&nbsp;        void close() {
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">265</i>&nbsp;                if (!queue.offer(END_OF_QUEUE, offerTimeout,</b>
+<i class="no-highlight">266</i>&nbsp;                                 TimeUnit.MILLISECONDS)) {
+<i class="no-highlight">267</i>&nbsp;                    /* Cursor.close() called, but queue was not drained. */
+<b class="nc"><i class="no-highlight">268</i>&nbsp;                    setException(SHUTDOWN_REQUESTED_EXCEPTION.</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;                                 fillInStackTrace());</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;                    setShutdown();</b>
+<i class="no-highlight">271</i>&nbsp;                }
+<i class="no-highlight">272</i>&nbsp;
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                isClosed = true;</b>
+<i class="no-highlight">274</i>&nbsp;
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            } catch (InterruptedException IE) {</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;                setException(</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;                    new ThreadInterruptedException(env, IE));</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;                setShutdown();</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;            }</b>
+<i class="no-highlight">280</i>&nbsp;        }
+<i class="no-highlight">281</i>&nbsp;
+<i class="no-highlight">282</i>&nbsp;        /*
+<i class="no-highlight">283</i>&nbsp;         * Called by producer code only.
+<i class="no-highlight">284</i>&nbsp;         */
+<i class="no-highlight">285</i>&nbsp;        void setException(Throwable t) {
+<b class="nc"><i class="no-highlight">286</i>&nbsp;            exception = t;</b>
+<i class="no-highlight">287</i>&nbsp;        }
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;        /*
+<i class="no-highlight">290</i>&nbsp;         * Called by consumer thread&#39;s getNext() method.
+<i class="no-highlight">291</i>&nbsp;         */
+<i class="no-highlight">292</i>&nbsp;        private Throwable getException() {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;            return exception;</b>
+<i class="no-highlight">294</i>&nbsp;        }
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;        /*
+<i class="no-highlight">297</i>&nbsp;         * Called by by both producer and consumer code.
+<i class="no-highlight">298</i>&nbsp;         */
+<i class="no-highlight">299</i>&nbsp;        private void setShutdown() {
+<b class="nc"><i class="no-highlight">300</i>&nbsp;            shutdownNow = true;</b>
+<i class="no-highlight">301</i>&nbsp;        }
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;        /*
+<i class="no-highlight">304</i>&nbsp;         * Called by producer code only.
+<i class="no-highlight">305</i>&nbsp;         */
+<i class="no-highlight">306</i>&nbsp;        @Override
+<i class="no-highlight">307</i>&nbsp;        public void checkShutdown() {
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            if (shutdownNow) {</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;                throw SHUTDOWN_REQUESTED_EXCEPTION;</b>
+<i class="no-highlight">310</i>&nbsp;            }
+<i class="no-highlight">311</i>&nbsp;        }
+<i class="no-highlight">312</i>&nbsp;    }
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;    /*
+<i class="no-highlight">315</i>&nbsp;     * For unit testing only
+<i class="no-highlight">316</i>&nbsp;     */
+<i class="no-highlight">317</i>&nbsp;    public boolean isProcessorClosed() {
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        return processor.isClosed;</b>
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    public synchronized boolean isClosed() {
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        return closed;</b>
+<i class="no-highlight">323</i>&nbsp;    }
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;    public synchronized void close() {
+<b class="nc"><i class="no-highlight">326</i>&nbsp;        if (closed) {</b>
+<i class="no-highlight">327</i>&nbsp;            return;
+<i class="no-highlight">328</i>&nbsp;        }
+<i class="no-highlight">329</i>&nbsp;
+<i class="no-highlight">330</i>&nbsp;        /* Tell Producer Thread to die if it hasn&#39;t already. */
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        processor.setShutdown();</b>
+<i class="no-highlight">332</i>&nbsp;
+<b class="nc"><i class="no-highlight">333</i>&nbsp;        closed = true;</b>
+<i class="no-highlight">334</i>&nbsp;    }
+<i class="no-highlight">335</i>&nbsp;
+<i class="no-highlight">336</i>&nbsp;    public void checkEnv() {
+<b class="nc"><i class="no-highlight">337</i>&nbsp;        env.checkIfInvalid();</b>
+<i class="no-highlight">338</i>&nbsp;    }
+<i class="no-highlight">339</i>&nbsp;
+<i class="no-highlight">340</i>&nbsp;    private OperationResult setData(
+<i class="no-highlight">341</i>&nbsp;        final DatabaseEntry foundKey,
+<i class="no-highlight">342</i>&nbsp;        final DatabaseEntry foundData) {
+<i class="no-highlight">343</i>&nbsp;
+<b class="nc"><i class="no-highlight">344</i>&nbsp;        if (foundKey != null) {</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            LN.setEntry(foundKey, currentNode.getKey());</b>
+<i class="no-highlight">346</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        if (foundData != null) {</b>
+<b class="nc"><i class="no-highlight">348</i>&nbsp;            LN.setEntry(foundData, currentNode.getData());</b>
+<i class="no-highlight">349</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">350</i>&nbsp;        return DbInternal.makeResult(currentNode.getExpirationTime());</b>
+<i class="no-highlight">351</i>&nbsp;    }
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;    public synchronized OperationResult getCurrent(
+<i class="no-highlight">354</i>&nbsp;        final DatabaseEntry foundKey,
+<i class="no-highlight">355</i>&nbsp;        final DatabaseEntry foundData) {
+<i class="no-highlight">356</i>&nbsp;
+<b class="nc"><i class="no-highlight">357</i>&nbsp;        if (closed) {</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;            throw new IllegalStateException(&quot;Not initialized&quot;);</b>
+<i class="no-highlight">359</i>&nbsp;        }
+<i class="no-highlight">360</i>&nbsp;
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        if (currentNode == END_OF_QUEUE) {</b>
+<b class="nc"><i class="no-highlight">362</i>&nbsp;            return null;</b>
+<i class="no-highlight">363</i>&nbsp;        }
+<i class="no-highlight">364</i>&nbsp;
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        return setData(foundKey, foundData);</b>
+<i class="no-highlight">366</i>&nbsp;    }
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    public int getCurrDb() {
+<i class="no-highlight">369</i>&nbsp;
+<b class="nc"><i class="no-highlight">370</i>&nbsp;        if (closed) {</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;            throw new IllegalStateException(&quot;Not initialized&quot;);</b>
+<i class="no-highlight">372</i>&nbsp;        }
+<i class="no-highlight">373</i>&nbsp;
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        if (currentNode == END_OF_QUEUE) {</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;            return -1;</b>
+<i class="no-highlight">376</i>&nbsp;        }
+<i class="no-highlight">377</i>&nbsp;
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        return currentNode.getDbIdx();</b>
+<i class="no-highlight">379</i>&nbsp;    }
+<i class="no-highlight">380</i>&nbsp;
+<i class="no-highlight">381</i>&nbsp;    public synchronized OperationResult getNext(
+<i class="no-highlight">382</i>&nbsp;        final DatabaseEntry foundKey,
+<i class="no-highlight">383</i>&nbsp;        final DatabaseEntry foundData) {
+<i class="no-highlight">384</i>&nbsp;
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        if (closed) {</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            throw new IllegalStateException(&quot;Not initialized&quot;);</b>
+<i class="no-highlight">387</i>&nbsp;        }
+<i class="no-highlight">388</i>&nbsp;
+<i class="no-highlight">389</i>&nbsp;        /*
+<i class="no-highlight">390</i>&nbsp;         * If null was returned earlier, do not enter loop below to avoid a
+<i class="no-highlight">391</i>&nbsp;         * hang. [#21282]
+<i class="no-highlight">392</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">393</i>&nbsp;        if (currentNode == END_OF_QUEUE) {</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;            return null;</b>
+<i class="no-highlight">395</i>&nbsp;        }
+<i class="no-highlight">396</i>&nbsp;
+<i class="no-highlight">397</i>&nbsp;        try {
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;            /*
+<i class="no-highlight">400</i>&nbsp;             * Poll in a loop in case the producer thread throws an exception
+<i class="no-highlight">401</i>&nbsp;             * and can&#39;t put END_OF_QUEUE on the queue because of an
+<i class="no-highlight">402</i>&nbsp;             * InterruptedException.  The presence of an exception is the last
+<i class="no-highlight">403</i>&nbsp;             * resort to make sure that getNext actually returns to the user.
+<i class="no-highlight">404</i>&nbsp;             */
+<i class="no-highlight">405</i>&nbsp;            do {
+<b class="nc"><i class="no-highlight">406</i>&nbsp;                currentNode = queue.poll(1, TimeUnit.SECONDS);</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;                if (processor.getException() != null) {</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                    break;</b>
+<i class="no-highlight">409</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            } while (currentNode == null);</b>
+<i class="no-highlight">411</i>&nbsp;
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        } catch (InterruptedException IE) {</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;            currentNode = END_OF_QUEUE;</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            throw new ThreadInterruptedException(env, IE);</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        }</b>
+<i class="no-highlight">416</i>&nbsp;
+<b class="nc"><i class="no-highlight">417</i>&nbsp;        if (processor.getException() != null) {</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;            throw new DiskOrderedCursorProducerException(</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;                &quot;Producer Thread Failure&quot;, processor.getException());</b>
+<i class="no-highlight">420</i>&nbsp;        }
+<i class="no-highlight">421</i>&nbsp;
+<b class="nc"><i class="no-highlight">422</i>&nbsp;        if (currentNode == END_OF_QUEUE) {</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;            return null;</b>
+<i class="no-highlight">424</i>&nbsp;        }
+<i class="no-highlight">425</i>&nbsp;
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        return setData(foundKey, foundData);</b>
+<i class="no-highlight">427</i>&nbsp;    }
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;    /**
+<i class="no-highlight">430</i>&nbsp;     * For unit testing only
+<i class="no-highlight">431</i>&nbsp;     */
+<i class="no-highlight">432</i>&nbsp;    int freeQueueSlots() {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        return queue.remainingCapacity();</b>
+<i class="no-highlight">434</i>&nbsp;    }
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;    /*
+<i class="no-highlight">437</i>&nbsp;     * For unit testing only.
+<i class="no-highlight">438</i>&nbsp;     */
+<i class="no-highlight">439</i>&nbsp;    long getNumLsns() {
+<b class="nc"><i class="no-highlight">440</i>&nbsp;        return scanner.getNumLsns();</b>
+<i class="no-highlight">441</i>&nbsp;    }
+<i class="no-highlight">442</i>&nbsp;
+<i class="no-highlight">443</i>&nbsp;    /*
+<i class="no-highlight">444</i>&nbsp;     * For unit testing only.
+<i class="no-highlight">445</i>&nbsp;     */
+<i class="no-highlight">446</i>&nbsp;    DiskOrderedScanner getScanner() {
+<b class="nc"><i class="no-highlight">447</i>&nbsp;        return scanner;</b>
+<i class="no-highlight">448</i>&nbsp;    }
+<i class="no-highlight">449</i>&nbsp;
+<i class="no-highlight">450</i>&nbsp;    /**
+<i class="no-highlight">451</i>&nbsp;     * For testing and other internal use.
+<i class="no-highlight">452</i>&nbsp;     */
+<i class="no-highlight">453</i>&nbsp;    public int getNScannerIterations() {
+<b class="nc"><i class="no-highlight">454</i>&nbsp;        return scanner.getNIterations();</b>
+<i class="no-highlight">455</i>&nbsp;    }
+<i class="no-highlight">456</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

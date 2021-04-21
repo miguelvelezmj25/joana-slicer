@@ -1,0 +1,440 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ExpirationTracker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: ExpirationTracker (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ExpirationTracker</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (6/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    22.2%
+  </span>
+  <span class="absValue">
+    (26/117)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.List;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;import java.util.TreeMap;
+<i class="no-highlight">22</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.bind.tuple.TupleInput;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.bind.tuple.TupleOutput;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.log.entry.INLogEntry;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.tree.Key;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;/**
+<i class="no-highlight">35</i>&nbsp; * Tracks the expired bytes in each time window, i.e., a histogram. A separate
+<i class="no-highlight">36</i>&nbsp; * ExpirationTracker instance is used for each tracked data file.
+<i class="no-highlight">37</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">38</i>&nbsp; * A copy-on-write approach is used to store a file number-to-counter mapping,
+<i class="no-highlight">39</i>&nbsp; * and AtomicIntegers are used for the counters. This avoids blocking when
+<i class="no-highlight">40</i>&nbsp; * tracking information for the current end-of-log file. That way, the
+<i class="no-highlight">41</i>&nbsp; * end-of-log tracker can be used by multiple threads without holding a global
+<i class="no-highlight">42</i>&nbsp; * mutex. This tracker is maintained by the LogManager and a new tracker is
+<i class="no-highlight">43</i>&nbsp; * created for each file, and then flushed to disk when starting a new file as
+<i class="no-highlight">44</i>&nbsp; * a FileExpirationLN.
+<i class="no-highlight">45</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">46</i>&nbsp; * An ExpirationTracker instance is used to track expired data when performing
+<i class="no-highlight">47</i>&nbsp; * the first pass of two pass cleaning, although in that case it is only used
+<i class="no-highlight">48</i>&nbsp; * by one thread, so the optimizations are irrelevant.
+<i class="no-highlight">49</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">50</i>&nbsp; * The {@link #serialize}} method is called to represent the histogram in a
+<i class="no-highlight">51</i>&nbsp; * single byte array. This array is the record &quot;data&quot; in a FileExpirationLN.
+<i class="no-highlight">52</i>&nbsp; * It is also stored in memory, in the UtilizationProfile, and used during
+<i class="no-highlight">53</i>&nbsp; * cleaning to calculate the number of expired bytes per file.
+<i class="no-highlight">54</i>&nbsp; */
+<i class="no-highlight">55</i>&nbsp;public class ExpirationTracker {
+<i class="no-highlight">56</i>&nbsp;
+<i class="no-highlight">57</i>&nbsp;    private final long fileNum;
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /* Copy-on-write map of expiration time (in hours) to byte counter. */
+<b class="fc"><i class="no-highlight">60</i>&nbsp;    private volatile Map&lt;Integer, AtomicInteger&gt; map = new HashMap&lt;&gt;();</b>
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /**
+<i class="no-highlight">63</i>&nbsp;     * We wait for pendingTrackCalls to go to zero before flushing the
+<i class="no-highlight">64</i>&nbsp;     * tracker to its database.
+<i class="no-highlight">65</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">66</i>&nbsp;    private AtomicInteger pendingTrackCalls = new AtomicInteger(0);</b>
+<i class="no-highlight">67</i>&nbsp;
+<b class="fc"><i class="no-highlight">68</i>&nbsp;    public ExpirationTracker(final long fileNum) {</b>
+<b class="fc"><i class="no-highlight">69</i>&nbsp;        this.fileNum = fileNum;</b>
+<b class="fc"><i class="no-highlight">70</i>&nbsp;    }</b>
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    public long getFileNum() {
+<b class="fc"><i class="no-highlight">73</i>&nbsp;        return fileNum;</b>
+<i class="no-highlight">74</i>&nbsp;    }
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /**
+<i class="no-highlight">77</i>&nbsp;     * Tracks expiration of a BIN or LN.
+<i class="no-highlight">78</i>&nbsp;     *
+<i class="no-highlight">79</i>&nbsp;     * @param entry is the LogEntry that was just logged. INs and LNs will be
+<i class="no-highlight">80</i>&nbsp;     * processed here, and must be protected by their parent latch.
+<i class="no-highlight">81</i>&nbsp;     *
+<i class="no-highlight">82</i>&nbsp;     * @param size byte size of logged entry.
+<i class="no-highlight">83</i>&nbsp;     */
+<i class="no-highlight">84</i>&nbsp;    public void track(final LogEntry entry, final int size) {
+<i class="no-highlight">85</i>&nbsp;
+<b class="fc"><i class="no-highlight">86</i>&nbsp;        pendingTrackCalls.decrementAndGet();</b>
+<i class="no-highlight">87</i>&nbsp;
+<b class="fc"><i class="no-highlight">88</i>&nbsp;        final LogEntryType type = entry.getLogType();</b>
+<i class="no-highlight">89</i>&nbsp;
+<b class="fc"><i class="no-highlight">90</i>&nbsp;        if (type.isUserLNType()) {</b>
+<i class="no-highlight">91</i>&nbsp;
+<b class="fc"><i class="no-highlight">92</i>&nbsp;            final LNLogEntry&lt;?&gt; lnEntry = (LNLogEntry&lt;?&gt;) entry;</b>
+<b class="fc"><i class="no-highlight">93</i>&nbsp;            final int expiration = lnEntry.getExpiration();</b>
+<i class="no-highlight">94</i>&nbsp;
+<b class="fc"><i class="no-highlight">95</i>&nbsp;            if (expiration == 0) {</b>
+<b class="fc"><i class="no-highlight">96</i>&nbsp;                return;</b>
+<i class="no-highlight">97</i>&nbsp;            }
+<i class="no-highlight">98</i>&nbsp;
+<b class="nc"><i class="no-highlight">99</i>&nbsp;            track(expiration, lnEntry.isExpirationInHours(), size);</b>
+<b class="nc"><i class="no-highlight">100</i>&nbsp;            return;</b>
+<i class="no-highlight">101</i>&nbsp;        }
+<i class="no-highlight">102</i>&nbsp;
+<b class="fc"><i class="no-highlight">103</i>&nbsp;        if (!type.equals(LogEntryType.LOG_BIN) &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">104</i>&nbsp;            !type.equals(LogEntryType.LOG_BIN_DELTA)){</b>
+<b class="fc"><i class="no-highlight">105</i>&nbsp;            return;</b>
+<i class="no-highlight">106</i>&nbsp;        }
+<i class="no-highlight">107</i>&nbsp;
+<b class="fc"><i class="no-highlight">108</i>&nbsp;        final INLogEntry&lt;?&gt; inEntry = (INLogEntry&lt;?&gt;) entry;</b>
+<b class="fc"><i class="no-highlight">109</i>&nbsp;        final BIN bin = inEntry.getBINWithExpiration();</b>
+<i class="no-highlight">110</i>&nbsp;
+<b class="fc"><i class="no-highlight">111</i>&nbsp;        if (bin == null) {</b>
+<b class="fc"><i class="no-highlight">112</i>&nbsp;            return;</b>
+<i class="no-highlight">113</i>&nbsp;        }
+<i class="no-highlight">114</i>&nbsp;
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        final boolean inHours = bin.isExpirationInHours();</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        final int entrySize = size / bin.getNEntries();</b>
+<i class="no-highlight">117</i>&nbsp;
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        for (int i = 0; i &lt; bin.getNEntries(); i += 1) {</b>
+<i class="no-highlight">119</i>&nbsp;
+<b class="nc"><i class="no-highlight">120</i>&nbsp;            final int expiration = bin.getExpiration(i);</b>
+<i class="no-highlight">121</i>&nbsp;
+<b class="nc"><i class="no-highlight">122</i>&nbsp;            if (expiration == 0) {</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;                continue;</b>
+<i class="no-highlight">124</i>&nbsp;            }
+<i class="no-highlight">125</i>&nbsp;
+<b class="nc"><i class="no-highlight">126</i>&nbsp;            track(expiration, inHours, entrySize);</b>
+<i class="no-highlight">127</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">128</i>&nbsp;    }</b>
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    /**
+<i class="no-highlight">131</i>&nbsp;     * Adds a single expiration value.
+<i class="no-highlight">132</i>&nbsp;     */
+<i class="no-highlight">133</i>&nbsp;    private void track(int expiration,
+<i class="no-highlight">134</i>&nbsp;                       final boolean expirationInHours,
+<i class="no-highlight">135</i>&nbsp;                       final int size) {
+<i class="no-highlight">136</i>&nbsp;
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        final Integer expInHours =</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;            expirationInHours ? expiration : (24 * expiration);</b>
+<i class="no-highlight">139</i>&nbsp;
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        AtomicInteger counter = map.get(expInHours);</b>
+<i class="no-highlight">141</i>&nbsp;
+<i class="no-highlight">142</i>&nbsp;        /*
+<i class="no-highlight">143</i>&nbsp;         * The map is modified only while synchronized, which prevents two
+<i class="no-highlight">144</i>&nbsp;         * threads from adding the same entry or a reader thread from accessing
+<i class="no-highlight">145</i>&nbsp;         * the map while it is being modified. To guarantee this we must
+<i class="no-highlight">146</i>&nbsp;         * &quot;install&quot; the new map in the volatile field only after adding the
+<i class="no-highlight">147</i>&nbsp;         * new counter.
+<i class="no-highlight">148</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        if (counter == null) {</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            synchronized (this) {</b>
+<i class="no-highlight">151</i>&nbsp;                /*
+<i class="no-highlight">152</i>&nbsp;                 * Check again while synchronized, since another thread may
+<i class="no-highlight">153</i>&nbsp;                 * have added it. This &quot;double check&quot; is safe because the &#39;map&#39;
+<i class="no-highlight">154</i>&nbsp;                 * field is volatile.
+<i class="no-highlight">155</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">156</i>&nbsp;                counter = map.get(expInHours);</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;                if (counter == null) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;                    final Map&lt;Integer, AtomicInteger&gt; newMap =</b>
+<i class="no-highlight">159</i>&nbsp;                        new HashMap&lt;&gt;(map);
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                    counter = new AtomicInteger(0);</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                    newMap.put(expInHours, counter);</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                    map = newMap;</b>
+<i class="no-highlight">163</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">164</i>&nbsp;            }</b>
+<i class="no-highlight">165</i>&nbsp;        }
+<i class="no-highlight">166</i>&nbsp;
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        counter.addAndGet(size);</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;    }</b>
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    /**
+<i class="no-highlight">171</i>&nbsp;     * Increment the number of calls to {@link #track(int, boolean, int)}
+<i class="no-highlight">172</i>&nbsp;     * that must be made before the tracked data can be flushed to its
+<i class="no-highlight">173</i>&nbsp;     * database.
+<i class="no-highlight">174</i>&nbsp;     */
+<i class="no-highlight">175</i>&nbsp;    public void incrementPendingTrackCalls() {
+<b class="fc"><i class="no-highlight">176</i>&nbsp;        pendingTrackCalls.incrementAndGet();</b>
+<b class="fc"><i class="no-highlight">177</i>&nbsp;    }</b>
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;    /**
+<i class="no-highlight">180</i>&nbsp;     * Returns whether to wait for outstanding calls to {@link
+<i class="no-highlight">181</i>&nbsp;     * #track(int, boolean, int)} before flushing the tracked data to its
+<i class="no-highlight">182</i>&nbsp;     * database.
+<i class="no-highlight">183</i>&nbsp;     */
+<i class="no-highlight">184</i>&nbsp;    boolean hasPendingTrackCalls() {
+<b class="fc"><i class="no-highlight">185</i>&nbsp;        return pendingTrackCalls.get() &gt; 0;</b>
+<i class="no-highlight">186</i>&nbsp;    }
+<i class="no-highlight">187</i>&nbsp;
+<i class="no-highlight">188</i>&nbsp;    /**
+<i class="no-highlight">189</i>&nbsp;     * Computes the current expired bytes for the given time.
+<i class="no-highlight">190</i>&nbsp;     */
+<i class="no-highlight">191</i>&nbsp;    public int getExpiredBytes(final long time) {
+<i class="no-highlight">192</i>&nbsp;
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        final int expLimit = (int) (time / TTL.MILLIS_PER_HOUR);</b>
+<i class="no-highlight">194</i>&nbsp;
+<b class="nc"><i class="no-highlight">195</i>&nbsp;        int expiredSize = 0;</b>
+<i class="no-highlight">196</i>&nbsp;
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        for (final Map.Entry&lt;Integer, AtomicInteger&gt; entry : map.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;            final int exp = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            if (exp &gt; expLimit) {</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;                continue;</b>
+<i class="no-highlight">201</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">202</i>&nbsp;            expiredSize += entry.getValue().get();</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;        }</b>
+<i class="no-highlight">204</i>&nbsp;
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        return expiredSize;</b>
+<i class="no-highlight">206</i>&nbsp;    }
+<i class="no-highlight">207</i>&nbsp;
+<i class="no-highlight">208</i>&nbsp;    @Override
+<i class="no-highlight">209</i>&nbsp;    public String toString() {
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        final StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        sb.append(&quot;{ExpTracker file= &quot;).append(fileNum);</b>
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;        for (final Map.Entry&lt;Integer, AtomicInteger&gt; entry :
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            new TreeMap&lt;&gt;(map).entrySet()) {</b>
+<i class="no-highlight">216</i>&nbsp;
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            final int exp = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            sb.append(&#39; &#39;).append(TTL.formatExpiration(exp, true));</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;            sb.append(&#39;=&#39;).append(entry.getValue().get());</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        }</b>
+<i class="no-highlight">221</i>&nbsp;
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        sb.append(&#39;}&#39;);</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">224</i>&nbsp;    }
+<i class="no-highlight">225</i>&nbsp;
+<i class="no-highlight">226</i>&nbsp;    public static String toString(final byte[] serializedForm) {
+<i class="no-highlight">227</i>&nbsp;
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        final StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        sb.append(&quot;{ExpSerialized&quot;);</b>
+<i class="no-highlight">230</i>&nbsp;
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        final TupleInput in = new TupleInput(</b>
+<i class="no-highlight">232</i>&nbsp;            serializedForm, 1, serializedForm.length - 1);
+<i class="no-highlight">233</i>&nbsp;
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        final boolean hours = isExpirationInHours(serializedForm);</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        int prevExp = 0;</b>
+<i class="no-highlight">236</i>&nbsp;
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        while (in.available() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            final int exp = in.readPackedInt() + prevExp;</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            final int size = in.readPackedInt();</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;            sb.append(&#39; &#39;).append(TTL.formatExpiration(exp, hours));</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            sb.append(&#39;=&#39;).append(size);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;            prevExp = exp;</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        }</b>
+<i class="no-highlight">244</i>&nbsp;
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        sb.append(&#39;}&#39;);</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * Computes the expired bytes for the given serialized histogram and
+<i class="no-highlight">251</i>&nbsp;     * expiration time.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    static int getExpiredBytes(final byte[] serializedForm,
+<i class="no-highlight">254</i>&nbsp;                               final int dayLimit,
+<i class="no-highlight">255</i>&nbsp;                               final int hourLimit) {
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        final int expLimit =</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            ExpirationTracker.isExpirationInHours(serializedForm) ?</b>
+<i class="no-highlight">258</i>&nbsp;            hourLimit : dayLimit;
+<i class="no-highlight">259</i>&nbsp;
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        final TupleInput in = new TupleInput(</b>
+<i class="no-highlight">261</i>&nbsp;            serializedForm, 1, serializedForm.length - 1);
+<i class="no-highlight">262</i>&nbsp;
+<b class="nc"><i class="no-highlight">263</i>&nbsp;        int expiredSize = 0;</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        int prevExp = 0;</b>
+<i class="no-highlight">265</i>&nbsp;
+<b class="nc"><i class="no-highlight">266</i>&nbsp;        while (in.available() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            final int exp = in.readPackedInt() + prevExp;</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;            if (exp &gt; expLimit) {</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;                break;</b>
+<i class="no-highlight">270</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">271</i>&nbsp;            expiredSize += in.readPackedInt();</b>
+<b class="nc"><i class="no-highlight">272</i>&nbsp;            prevExp = exp;</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        }</b>
+<i class="no-highlight">274</i>&nbsp;
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        return expiredSize;</b>
+<i class="no-highlight">276</i>&nbsp;    }
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /**
+<i class="no-highlight">279</i>&nbsp;     * Converts this object to a serialized form that is compact and can be
+<i class="no-highlight">280</i>&nbsp;     * used to quickly find the total bytes after a given time. Returns an
+<i class="no-highlight">281</i>&nbsp;     * empty array if no data in this file has an expiration time.
+<i class="no-highlight">282</i>&nbsp;     *
+<i class="no-highlight">283</i>&nbsp;     * The serialized form is a series of {interval,byteSize} pairs that is
+<i class="no-highlight">284</i>&nbsp;     * ordered by expiration time and run length encoded. The interval and
+<i class="no-highlight">285</i>&nbsp;     * byteSize are packed integers. The interval is the delta between the
+<i class="no-highlight">286</i>&nbsp;     * current and previous expiration value. All expiration values are in days
+<i class="no-highlight">287</i>&nbsp;     * if all values are on a day boundary; otherwise they are in hours. Days
+<i class="no-highlight">288</i>&nbsp;     * are used, when possible, to reduce the size of the delta, using less
+<i class="no-highlight">289</i>&nbsp;     * space due to the packed integer format.
+<i class="no-highlight">290</i>&nbsp;     */
+<i class="no-highlight">291</i>&nbsp;    byte[] serialize() {
+<i class="no-highlight">292</i>&nbsp;
+<b class="fc"><i class="no-highlight">293</i>&nbsp;        final Map&lt;Integer, AtomicInteger&gt; myMap = map;</b>
+<i class="no-highlight">294</i>&nbsp;
+<b class="fc"><i class="no-highlight">295</i>&nbsp;        if (myMap.isEmpty()) {</b>
+<b class="fc"><i class="no-highlight">296</i>&nbsp;            return Key.EMPTY_KEY;</b>
+<i class="no-highlight">297</i>&nbsp;        }
+<i class="no-highlight">298</i>&nbsp;
+<b class="nc"><i class="no-highlight">299</i>&nbsp;        final List&lt;Integer&gt; expList = new ArrayList&lt;&gt;(myMap.size());</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        expList.addAll(myMap.keySet());</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        Collections.sort(expList);</b>
+<i class="no-highlight">302</i>&nbsp;
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        boolean hours = false;</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;        for (int exp : expList) {</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            if (exp % 24 != 0) {</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;                hours = true;</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;                break;</b>
+<i class="no-highlight">308</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">309</i>&nbsp;        }</b>
+<i class="no-highlight">310</i>&nbsp;
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        final TupleOutput out = new TupleOutput();</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;        out.write(hours ? 1 : 0);</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;        int prevExp = 0;</b>
+<i class="no-highlight">314</i>&nbsp;
+<b class="nc"><i class="no-highlight">315</i>&nbsp;        for (int exp : expList) {</b>
+<b class="nc"><i class="no-highlight">316</i>&nbsp;            final AtomicInteger counter = myMap.get(exp);</b>
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            if (!hours) {</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;                exp /= 24;</b>
+<i class="no-highlight">319</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">320</i>&nbsp;            out.writePackedInt(exp - prevExp);</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;            out.writePackedInt(counter.get());</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;            prevExp = exp;</b>
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        }</b>
+<i class="no-highlight">324</i>&nbsp;
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        return out.toByteArray();</b>
+<i class="no-highlight">326</i>&nbsp;    }
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;    /**
+<i class="no-highlight">329</i>&nbsp;     * Returns whether the given serialized form has expired values in hours.
+<i class="no-highlight">330</i>&nbsp;     * If false is returned, all values expired on day boundaries.
+<i class="no-highlight">331</i>&nbsp;     */
+<i class="no-highlight">332</i>&nbsp;    static boolean isExpirationInHours(final byte[] serialized) {
+<b class="nc"><i class="no-highlight">333</i>&nbsp;        return (serialized[0] == 1);</b>
+<i class="no-highlight">334</i>&nbsp;    }
+<i class="no-highlight">335</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

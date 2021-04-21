@@ -1,0 +1,1567 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Frame</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.asm</a>
+</div>
+
+<h1>Coverage Summary for Class: Frame (com.sleepycat.asm)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Frame</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/16)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/434)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/***
+<i class="no-highlight">2</i>&nbsp; * ASM: a very small and fast Java bytecode manipulation framework
+<i class="no-highlight">3</i>&nbsp; * Copyright (c) 2000-2011 INRIA, France Telecom
+<i class="no-highlight">4</i>&nbsp; * All rights reserved.
+<i class="no-highlight">5</i>&nbsp; *
+<i class="no-highlight">6</i>&nbsp; * Redistribution and use in source and binary forms, with or without
+<i class="no-highlight">7</i>&nbsp; * modification, are permitted provided that the following conditions
+<i class="no-highlight">8</i>&nbsp; * are met:
+<i class="no-highlight">9</i>&nbsp; * 1. Redistributions of source code must retain the above copyright
+<i class="no-highlight">10</i>&nbsp; *    notice, this list of conditions and the following disclaimer.
+<i class="no-highlight">11</i>&nbsp; * 2. Redistributions in binary form must reproduce the above copyright
+<i class="no-highlight">12</i>&nbsp; *    notice, this list of conditions and the following disclaimer in the
+<i class="no-highlight">13</i>&nbsp; *    documentation and/or other materials provided with the distribution.
+<i class="no-highlight">14</i>&nbsp; * 3. Neither the name of the copyright holders nor the names of its
+<i class="no-highlight">15</i>&nbsp; *    contributors may be used to endorse or promote products derived from
+<i class="no-highlight">16</i>&nbsp; *    this software without specific prior written permission.
+<i class="no-highlight">17</i>&nbsp; *
+<i class="no-highlight">18</i>&nbsp; * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;
+<i class="no-highlight">19</i>&nbsp; * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+<i class="no-highlight">20</i>&nbsp; * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+<i class="no-highlight">21</i>&nbsp; * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+<i class="no-highlight">22</i>&nbsp; * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+<i class="no-highlight">23</i>&nbsp; * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+<i class="no-highlight">24</i>&nbsp; * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+<i class="no-highlight">25</i>&nbsp; * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+<i class="no-highlight">26</i>&nbsp; * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+<i class="no-highlight">27</i>&nbsp; * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+<i class="no-highlight">28</i>&nbsp; * THE POSSIBILITY OF SUCH DAMAGE.
+<i class="no-highlight">29</i>&nbsp; */
+<i class="no-highlight">30</i>&nbsp;package com.sleepycat.asm;
+<i class="no-highlight">31</i>&nbsp;
+<i class="no-highlight">32</i>&nbsp;/**
+<i class="no-highlight">33</i>&nbsp; * Information about the input and output stack map frames of a basic block.
+<i class="no-highlight">34</i>&nbsp; * 
+<i class="no-highlight">35</i>&nbsp; * @author Eric Bruneton
+<i class="no-highlight">36</i>&nbsp; */
+<b class="nc"><i class="no-highlight">37</i>&nbsp;final class Frame {</b>
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;    /*
+<i class="no-highlight">40</i>&nbsp;     * Frames are computed in a two steps process: during the visit of each
+<i class="no-highlight">41</i>&nbsp;     * instruction, the state of the frame at the end of current basic block is
+<i class="no-highlight">42</i>&nbsp;     * updated by simulating the action of the instruction on the previous state
+<i class="no-highlight">43</i>&nbsp;     * of this so called &quot;output frame&quot;. In visitMaxs, a fix point algorithm is
+<i class="no-highlight">44</i>&nbsp;     * used to compute the &quot;input frame&quot; of each basic block, i.e. the stack map
+<i class="no-highlight">45</i>&nbsp;     * frame at the beginning of the basic block, starting from the input frame
+<i class="no-highlight">46</i>&nbsp;     * of the first basic block (which is computed from the method descriptor),
+<i class="no-highlight">47</i>&nbsp;     * and by using the previously computed output frames to compute the input
+<i class="no-highlight">48</i>&nbsp;     * state of the other blocks.
+<i class="no-highlight">49</i>&nbsp;     * 
+<i class="no-highlight">50</i>&nbsp;     * All output and input frames are stored as arrays of integers. Reference
+<i class="no-highlight">51</i>&nbsp;     * and array types are represented by an index into a type table (which is
+<i class="no-highlight">52</i>&nbsp;     * not the same as the constant pool of the class, in order to avoid adding
+<i class="no-highlight">53</i>&nbsp;     * unnecessary constants in the pool - not all computed frames will end up
+<i class="no-highlight">54</i>&nbsp;     * being stored in the stack map table). This allows very fast type
+<i class="no-highlight">55</i>&nbsp;     * comparisons.
+<i class="no-highlight">56</i>&nbsp;     * 
+<i class="no-highlight">57</i>&nbsp;     * Output stack map frames are computed relatively to the input frame of the
+<i class="no-highlight">58</i>&nbsp;     * basic block, which is not yet known when output frames are computed. It
+<i class="no-highlight">59</i>&nbsp;     * is therefore necessary to be able to represent abstract types such as
+<i class="no-highlight">60</i>&nbsp;     * &quot;the type at position x in the input frame locals&quot; or &quot;the type at
+<i class="no-highlight">61</i>&nbsp;     * position x from the top of the input frame stack&quot; or even &quot;the type at
+<i class="no-highlight">62</i>&nbsp;     * position x in the input frame, with y more (or less) array dimensions&quot;.
+<i class="no-highlight">63</i>&nbsp;     * This explains the rather complicated type format used in output frames.
+<i class="no-highlight">64</i>&nbsp;     * 
+<i class="no-highlight">65</i>&nbsp;     * This format is the following: DIM KIND VALUE (4, 4 and 24 bits). DIM is a
+<i class="no-highlight">66</i>&nbsp;     * signed number of array dimensions (from -8 to 7). KIND is either BASE,
+<i class="no-highlight">67</i>&nbsp;     * LOCAL or STACK. BASE is used for types that are not relative to the input
+<i class="no-highlight">68</i>&nbsp;     * frame. LOCAL is used for types that are relative to the input local
+<i class="no-highlight">69</i>&nbsp;     * variable types. STACK is used for types that are relative to the input
+<i class="no-highlight">70</i>&nbsp;     * stack types. VALUE depends on KIND. For LOCAL types, it is an index in
+<i class="no-highlight">71</i>&nbsp;     * the input local variable types. For STACK types, it is a position
+<i class="no-highlight">72</i>&nbsp;     * relatively to the top of input frame stack. For BASE types, it is either
+<i class="no-highlight">73</i>&nbsp;     * one of the constants defined below, or for OBJECT and UNINITIALIZED
+<i class="no-highlight">74</i>&nbsp;     * types, a tag and an index in the type table.
+<i class="no-highlight">75</i>&nbsp;     * 
+<i class="no-highlight">76</i>&nbsp;     * Output frames can contain types of any kind and with a positive or
+<i class="no-highlight">77</i>&nbsp;     * negative dimension (and even unassigned types, represented by 0 - which
+<i class="no-highlight">78</i>&nbsp;     * does not correspond to any valid type value). Input frames can only
+<i class="no-highlight">79</i>&nbsp;     * contain BASE types of positive or null dimension. In all cases the type
+<i class="no-highlight">80</i>&nbsp;     * table contains only internal type names (array type descriptors are
+<i class="no-highlight">81</i>&nbsp;     * forbidden - dimensions must be represented through the DIM field).
+<i class="no-highlight">82</i>&nbsp;     * 
+<i class="no-highlight">83</i>&nbsp;     * The LONG and DOUBLE types are always represented by using two slots (LONG
+<i class="no-highlight">84</i>&nbsp;     * + TOP or DOUBLE + TOP), for local variable types as well as in the
+<i class="no-highlight">85</i>&nbsp;     * operand stack. This is necessary to be able to simulate DUPx_y
+<i class="no-highlight">86</i>&nbsp;     * instructions, whose effect would be dependent on the actual type values
+<i class="no-highlight">87</i>&nbsp;     * if types were always represented by a single slot in the stack (and this
+<i class="no-highlight">88</i>&nbsp;     * is not possible, since actual type values are not always known - cf LOCAL
+<i class="no-highlight">89</i>&nbsp;     * and STACK type kinds).
+<i class="no-highlight">90</i>&nbsp;     */
+<i class="no-highlight">91</i>&nbsp;
+<i class="no-highlight">92</i>&nbsp;    /**
+<i class="no-highlight">93</i>&nbsp;     * Mask to get the dimension of a frame type. This dimension is a signed
+<i class="no-highlight">94</i>&nbsp;     * integer between -8 and 7.
+<i class="no-highlight">95</i>&nbsp;     */
+<i class="no-highlight">96</i>&nbsp;    static final int DIM = 0xF0000000;
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * Constant to be added to a type to get a type with one more dimension.
+<i class="no-highlight">100</i>&nbsp;     */
+<i class="no-highlight">101</i>&nbsp;    static final int ARRAY_OF = 0x10000000;
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    /**
+<i class="no-highlight">104</i>&nbsp;     * Constant to be added to a type to get a type with one less dimension.
+<i class="no-highlight">105</i>&nbsp;     */
+<i class="no-highlight">106</i>&nbsp;    static final int ELEMENT_OF = 0xF0000000;
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    /**
+<i class="no-highlight">109</i>&nbsp;     * Mask to get the kind of a frame type.
+<i class="no-highlight">110</i>&nbsp;     * 
+<i class="no-highlight">111</i>&nbsp;     * @see #BASE
+<i class="no-highlight">112</i>&nbsp;     * @see #LOCAL
+<i class="no-highlight">113</i>&nbsp;     * @see #STACK
+<i class="no-highlight">114</i>&nbsp;     */
+<i class="no-highlight">115</i>&nbsp;    static final int KIND = 0xF000000;
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    /**
+<i class="no-highlight">118</i>&nbsp;     * Flag used for LOCAL and STACK types. Indicates that if this type happens
+<i class="no-highlight">119</i>&nbsp;     * to be a long or double type (during the computations of input frames),
+<i class="no-highlight">120</i>&nbsp;     * then it must be set to TOP because the second word of this value has been
+<i class="no-highlight">121</i>&nbsp;     * reused to store other data in the basic block. Hence the first word no
+<i class="no-highlight">122</i>&nbsp;     * longer stores a valid long or double value.
+<i class="no-highlight">123</i>&nbsp;     */
+<i class="no-highlight">124</i>&nbsp;    static final int TOP_IF_LONG_OR_DOUBLE = 0x800000;
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    /**
+<i class="no-highlight">127</i>&nbsp;     * Mask to get the value of a frame type.
+<i class="no-highlight">128</i>&nbsp;     */
+<i class="no-highlight">129</i>&nbsp;    static final int VALUE = 0x7FFFFF;
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    /**
+<i class="no-highlight">132</i>&nbsp;     * Mask to get the kind of base types.
+<i class="no-highlight">133</i>&nbsp;     */
+<i class="no-highlight">134</i>&nbsp;    static final int BASE_KIND = 0xFF00000;
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    /**
+<i class="no-highlight">137</i>&nbsp;     * Mask to get the value of base types.
+<i class="no-highlight">138</i>&nbsp;     */
+<i class="no-highlight">139</i>&nbsp;    static final int BASE_VALUE = 0xFFFFF;
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;    /**
+<i class="no-highlight">142</i>&nbsp;     * Kind of the types that are not relative to an input stack map frame.
+<i class="no-highlight">143</i>&nbsp;     */
+<i class="no-highlight">144</i>&nbsp;    static final int BASE = 0x1000000;
+<i class="no-highlight">145</i>&nbsp;
+<i class="no-highlight">146</i>&nbsp;    /**
+<i class="no-highlight">147</i>&nbsp;     * Base kind of the base reference types. The BASE_VALUE of such types is an
+<i class="no-highlight">148</i>&nbsp;     * index into the type table.
+<i class="no-highlight">149</i>&nbsp;     */
+<i class="no-highlight">150</i>&nbsp;    static final int OBJECT = BASE | 0x700000;
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    /**
+<i class="no-highlight">153</i>&nbsp;     * Base kind of the uninitialized base types. The BASE_VALUE of such types
+<i class="no-highlight">154</i>&nbsp;     * in an index into the type table (the Item at that index contains both an
+<i class="no-highlight">155</i>&nbsp;     * instruction offset and an internal class name).
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    static final int UNINITIALIZED = BASE | 0x800000;
+<i class="no-highlight">158</i>&nbsp;
+<i class="no-highlight">159</i>&nbsp;    /**
+<i class="no-highlight">160</i>&nbsp;     * Kind of the types that are relative to the local variable types of an
+<i class="no-highlight">161</i>&nbsp;     * input stack map frame. The value of such types is a local variable index.
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    private static final int LOCAL = 0x2000000;
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    /**
+<i class="no-highlight">166</i>&nbsp;     * Kind of the the types that are relative to the stack of an input stack
+<i class="no-highlight">167</i>&nbsp;     * map frame. The value of such types is a position relatively to the top of
+<i class="no-highlight">168</i>&nbsp;     * this stack.
+<i class="no-highlight">169</i>&nbsp;     */
+<i class="no-highlight">170</i>&nbsp;    private static final int STACK = 0x3000000;
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;    /**
+<i class="no-highlight">173</i>&nbsp;     * The TOP type. This is a BASE type.
+<i class="no-highlight">174</i>&nbsp;     */
+<i class="no-highlight">175</i>&nbsp;    static final int TOP = BASE | 0;
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    /**
+<i class="no-highlight">178</i>&nbsp;     * The BOOLEAN type. This is a BASE type mainly used for array types.
+<i class="no-highlight">179</i>&nbsp;     */
+<i class="no-highlight">180</i>&nbsp;    static final int BOOLEAN = BASE | 9;
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;    /**
+<i class="no-highlight">183</i>&nbsp;     * The BYTE type. This is a BASE type mainly used for array types.
+<i class="no-highlight">184</i>&nbsp;     */
+<i class="no-highlight">185</i>&nbsp;    static final int BYTE = BASE | 10;
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    /**
+<i class="no-highlight">188</i>&nbsp;     * The CHAR type. This is a BASE type mainly used for array types.
+<i class="no-highlight">189</i>&nbsp;     */
+<i class="no-highlight">190</i>&nbsp;    static final int CHAR = BASE | 11;
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;    /**
+<i class="no-highlight">193</i>&nbsp;     * The SHORT type. This is a BASE type mainly used for array types.
+<i class="no-highlight">194</i>&nbsp;     */
+<i class="no-highlight">195</i>&nbsp;    static final int SHORT = BASE | 12;
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    /**
+<i class="no-highlight">198</i>&nbsp;     * The INTEGER type. This is a BASE type.
+<i class="no-highlight">199</i>&nbsp;     */
+<i class="no-highlight">200</i>&nbsp;    static final int INTEGER = BASE | 1;
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /**
+<i class="no-highlight">203</i>&nbsp;     * The FLOAT type. This is a BASE type.
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    static final int FLOAT = BASE | 2;
+<i class="no-highlight">206</i>&nbsp;
+<i class="no-highlight">207</i>&nbsp;    /**
+<i class="no-highlight">208</i>&nbsp;     * The DOUBLE type. This is a BASE type.
+<i class="no-highlight">209</i>&nbsp;     */
+<i class="no-highlight">210</i>&nbsp;    static final int DOUBLE = BASE | 3;
+<i class="no-highlight">211</i>&nbsp;
+<i class="no-highlight">212</i>&nbsp;    /**
+<i class="no-highlight">213</i>&nbsp;     * The LONG type. This is a BASE type.
+<i class="no-highlight">214</i>&nbsp;     */
+<i class="no-highlight">215</i>&nbsp;    static final int LONG = BASE | 4;
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    /**
+<i class="no-highlight">218</i>&nbsp;     * The NULL type. This is a BASE type.
+<i class="no-highlight">219</i>&nbsp;     */
+<i class="no-highlight">220</i>&nbsp;    static final int NULL = BASE | 5;
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;    /**
+<i class="no-highlight">223</i>&nbsp;     * The UNINITIALIZED_THIS type. This is a BASE type.
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    static final int UNINITIALIZED_THIS = BASE | 6;
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * The stack size variation corresponding to each JVM instruction. This
+<i class="no-highlight">229</i>&nbsp;     * stack variation is equal to the size of the values produced by an
+<i class="no-highlight">230</i>&nbsp;     * instruction, minus the size of the values consumed by this instruction.
+<i class="no-highlight">231</i>&nbsp;     */
+<i class="no-highlight">232</i>&nbsp;    static final int[] SIZE;
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /**
+<i class="no-highlight">235</i>&nbsp;     * Computes the stack size variation corresponding to each JVM instruction.
+<i class="no-highlight">236</i>&nbsp;     */
+<i class="no-highlight">237</i>&nbsp;    static {
+<i class="no-highlight">238</i>&nbsp;        int i;
+<b class="nc"><i class="no-highlight">239</i>&nbsp;        int[] b = new int[202];</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        String s = &quot;EFFFFFFFFGGFFFGGFFFEEFGFGFEEEEEEEEEEEEEEEEEEEEDEDEDDDDD&quot;</b>
+<i class="no-highlight">241</i>&nbsp;                + &quot;CDCDEEEEEEEEEEEEEEEEEEEEBABABBBBDCFFFGGGEDCDCDCDCDCDCDCDCD&quot;
+<i class="no-highlight">242</i>&nbsp;                + &quot;CDCEEEEDDDDDDDCDCDCEFEFDDEEFFDEDEEEBDDBBDDDDDDCCCCCCCCEFED&quot;
+<i class="no-highlight">243</i>&nbsp;                + &quot;DDCDCDEEEEEEEEEEFEEEEEEDDEEDDEE&quot;;
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        for (i = 0; i &lt; b.length; ++i) {</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            b[i] = s.charAt(i) - &#39;E&#39;;</b>
+<i class="no-highlight">246</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        SIZE = b;</b>
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;        // code to generate the above string
+<i class="no-highlight">250</i>&nbsp;        //
+<i class="no-highlight">251</i>&nbsp;        // int NA = 0; // not applicable (unused opcode or variable size opcode)
+<i class="no-highlight">252</i>&nbsp;        //
+<i class="no-highlight">253</i>&nbsp;        // b = new int[] {
+<i class="no-highlight">254</i>&nbsp;        // 0, //NOP, // visitInsn
+<i class="no-highlight">255</i>&nbsp;        // 1, //ACONST_NULL, // -
+<i class="no-highlight">256</i>&nbsp;        // 1, //ICONST_M1, // -
+<i class="no-highlight">257</i>&nbsp;        // 1, //ICONST_0, // -
+<i class="no-highlight">258</i>&nbsp;        // 1, //ICONST_1, // -
+<i class="no-highlight">259</i>&nbsp;        // 1, //ICONST_2, // -
+<i class="no-highlight">260</i>&nbsp;        // 1, //ICONST_3, // -
+<i class="no-highlight">261</i>&nbsp;        // 1, //ICONST_4, // -
+<i class="no-highlight">262</i>&nbsp;        // 1, //ICONST_5, // -
+<i class="no-highlight">263</i>&nbsp;        // 2, //LCONST_0, // -
+<i class="no-highlight">264</i>&nbsp;        // 2, //LCONST_1, // -
+<i class="no-highlight">265</i>&nbsp;        // 1, //FCONST_0, // -
+<i class="no-highlight">266</i>&nbsp;        // 1, //FCONST_1, // -
+<i class="no-highlight">267</i>&nbsp;        // 1, //FCONST_2, // -
+<i class="no-highlight">268</i>&nbsp;        // 2, //DCONST_0, // -
+<i class="no-highlight">269</i>&nbsp;        // 2, //DCONST_1, // -
+<i class="no-highlight">270</i>&nbsp;        // 1, //BIPUSH, // visitIntInsn
+<i class="no-highlight">271</i>&nbsp;        // 1, //SIPUSH, // -
+<i class="no-highlight">272</i>&nbsp;        // 1, //LDC, // visitLdcInsn
+<i class="no-highlight">273</i>&nbsp;        // NA, //LDC_W, // -
+<i class="no-highlight">274</i>&nbsp;        // NA, //LDC2_W, // -
+<i class="no-highlight">275</i>&nbsp;        // 1, //ILOAD, // visitVarInsn
+<i class="no-highlight">276</i>&nbsp;        // 2, //LLOAD, // -
+<i class="no-highlight">277</i>&nbsp;        // 1, //FLOAD, // -
+<i class="no-highlight">278</i>&nbsp;        // 2, //DLOAD, // -
+<i class="no-highlight">279</i>&nbsp;        // 1, //ALOAD, // -
+<i class="no-highlight">280</i>&nbsp;        // NA, //ILOAD_0, // -
+<i class="no-highlight">281</i>&nbsp;        // NA, //ILOAD_1, // -
+<i class="no-highlight">282</i>&nbsp;        // NA, //ILOAD_2, // -
+<i class="no-highlight">283</i>&nbsp;        // NA, //ILOAD_3, // -
+<i class="no-highlight">284</i>&nbsp;        // NA, //LLOAD_0, // -
+<i class="no-highlight">285</i>&nbsp;        // NA, //LLOAD_1, // -
+<i class="no-highlight">286</i>&nbsp;        // NA, //LLOAD_2, // -
+<i class="no-highlight">287</i>&nbsp;        // NA, //LLOAD_3, // -
+<i class="no-highlight">288</i>&nbsp;        // NA, //FLOAD_0, // -
+<i class="no-highlight">289</i>&nbsp;        // NA, //FLOAD_1, // -
+<i class="no-highlight">290</i>&nbsp;        // NA, //FLOAD_2, // -
+<i class="no-highlight">291</i>&nbsp;        // NA, //FLOAD_3, // -
+<i class="no-highlight">292</i>&nbsp;        // NA, //DLOAD_0, // -
+<i class="no-highlight">293</i>&nbsp;        // NA, //DLOAD_1, // -
+<i class="no-highlight">294</i>&nbsp;        // NA, //DLOAD_2, // -
+<i class="no-highlight">295</i>&nbsp;        // NA, //DLOAD_3, // -
+<i class="no-highlight">296</i>&nbsp;        // NA, //ALOAD_0, // -
+<i class="no-highlight">297</i>&nbsp;        // NA, //ALOAD_1, // -
+<i class="no-highlight">298</i>&nbsp;        // NA, //ALOAD_2, // -
+<i class="no-highlight">299</i>&nbsp;        // NA, //ALOAD_3, // -
+<i class="no-highlight">300</i>&nbsp;        // -1, //IALOAD, // visitInsn
+<i class="no-highlight">301</i>&nbsp;        // 0, //LALOAD, // -
+<i class="no-highlight">302</i>&nbsp;        // -1, //FALOAD, // -
+<i class="no-highlight">303</i>&nbsp;        // 0, //DALOAD, // -
+<i class="no-highlight">304</i>&nbsp;        // -1, //AALOAD, // -
+<i class="no-highlight">305</i>&nbsp;        // -1, //BALOAD, // -
+<i class="no-highlight">306</i>&nbsp;        // -1, //CALOAD, // -
+<i class="no-highlight">307</i>&nbsp;        // -1, //SALOAD, // -
+<i class="no-highlight">308</i>&nbsp;        // -1, //ISTORE, // visitVarInsn
+<i class="no-highlight">309</i>&nbsp;        // -2, //LSTORE, // -
+<i class="no-highlight">310</i>&nbsp;        // -1, //FSTORE, // -
+<i class="no-highlight">311</i>&nbsp;        // -2, //DSTORE, // -
+<i class="no-highlight">312</i>&nbsp;        // -1, //ASTORE, // -
+<i class="no-highlight">313</i>&nbsp;        // NA, //ISTORE_0, // -
+<i class="no-highlight">314</i>&nbsp;        // NA, //ISTORE_1, // -
+<i class="no-highlight">315</i>&nbsp;        // NA, //ISTORE_2, // -
+<i class="no-highlight">316</i>&nbsp;        // NA, //ISTORE_3, // -
+<i class="no-highlight">317</i>&nbsp;        // NA, //LSTORE_0, // -
+<i class="no-highlight">318</i>&nbsp;        // NA, //LSTORE_1, // -
+<i class="no-highlight">319</i>&nbsp;        // NA, //LSTORE_2, // -
+<i class="no-highlight">320</i>&nbsp;        // NA, //LSTORE_3, // -
+<i class="no-highlight">321</i>&nbsp;        // NA, //FSTORE_0, // -
+<i class="no-highlight">322</i>&nbsp;        // NA, //FSTORE_1, // -
+<i class="no-highlight">323</i>&nbsp;        // NA, //FSTORE_2, // -
+<i class="no-highlight">324</i>&nbsp;        // NA, //FSTORE_3, // -
+<i class="no-highlight">325</i>&nbsp;        // NA, //DSTORE_0, // -
+<i class="no-highlight">326</i>&nbsp;        // NA, //DSTORE_1, // -
+<i class="no-highlight">327</i>&nbsp;        // NA, //DSTORE_2, // -
+<i class="no-highlight">328</i>&nbsp;        // NA, //DSTORE_3, // -
+<i class="no-highlight">329</i>&nbsp;        // NA, //ASTORE_0, // -
+<i class="no-highlight">330</i>&nbsp;        // NA, //ASTORE_1, // -
+<i class="no-highlight">331</i>&nbsp;        // NA, //ASTORE_2, // -
+<i class="no-highlight">332</i>&nbsp;        // NA, //ASTORE_3, // -
+<i class="no-highlight">333</i>&nbsp;        // -3, //IASTORE, // visitInsn
+<i class="no-highlight">334</i>&nbsp;        // -4, //LASTORE, // -
+<i class="no-highlight">335</i>&nbsp;        // -3, //FASTORE, // -
+<i class="no-highlight">336</i>&nbsp;        // -4, //DASTORE, // -
+<i class="no-highlight">337</i>&nbsp;        // -3, //AASTORE, // -
+<i class="no-highlight">338</i>&nbsp;        // -3, //BASTORE, // -
+<i class="no-highlight">339</i>&nbsp;        // -3, //CASTORE, // -
+<i class="no-highlight">340</i>&nbsp;        // -3, //SASTORE, // -
+<i class="no-highlight">341</i>&nbsp;        // -1, //POP, // -
+<i class="no-highlight">342</i>&nbsp;        // -2, //POP2, // -
+<i class="no-highlight">343</i>&nbsp;        // 1, //DUP, // -
+<i class="no-highlight">344</i>&nbsp;        // 1, //DUP_X1, // -
+<i class="no-highlight">345</i>&nbsp;        // 1, //DUP_X2, // -
+<i class="no-highlight">346</i>&nbsp;        // 2, //DUP2, // -
+<i class="no-highlight">347</i>&nbsp;        // 2, //DUP2_X1, // -
+<i class="no-highlight">348</i>&nbsp;        // 2, //DUP2_X2, // -
+<i class="no-highlight">349</i>&nbsp;        // 0, //SWAP, // -
+<i class="no-highlight">350</i>&nbsp;        // -1, //IADD, // -
+<i class="no-highlight">351</i>&nbsp;        // -2, //LADD, // -
+<i class="no-highlight">352</i>&nbsp;        // -1, //FADD, // -
+<i class="no-highlight">353</i>&nbsp;        // -2, //DADD, // -
+<i class="no-highlight">354</i>&nbsp;        // -1, //ISUB, // -
+<i class="no-highlight">355</i>&nbsp;        // -2, //LSUB, // -
+<i class="no-highlight">356</i>&nbsp;        // -1, //FSUB, // -
+<i class="no-highlight">357</i>&nbsp;        // -2, //DSUB, // -
+<i class="no-highlight">358</i>&nbsp;        // -1, //IMUL, // -
+<i class="no-highlight">359</i>&nbsp;        // -2, //LMUL, // -
+<i class="no-highlight">360</i>&nbsp;        // -1, //FMUL, // -
+<i class="no-highlight">361</i>&nbsp;        // -2, //DMUL, // -
+<i class="no-highlight">362</i>&nbsp;        // -1, //IDIV, // -
+<i class="no-highlight">363</i>&nbsp;        // -2, //LDIV, // -
+<i class="no-highlight">364</i>&nbsp;        // -1, //FDIV, // -
+<i class="no-highlight">365</i>&nbsp;        // -2, //DDIV, // -
+<i class="no-highlight">366</i>&nbsp;        // -1, //IREM, // -
+<i class="no-highlight">367</i>&nbsp;        // -2, //LREM, // -
+<i class="no-highlight">368</i>&nbsp;        // -1, //FREM, // -
+<i class="no-highlight">369</i>&nbsp;        // -2, //DREM, // -
+<i class="no-highlight">370</i>&nbsp;        // 0, //INEG, // -
+<i class="no-highlight">371</i>&nbsp;        // 0, //LNEG, // -
+<i class="no-highlight">372</i>&nbsp;        // 0, //FNEG, // -
+<i class="no-highlight">373</i>&nbsp;        // 0, //DNEG, // -
+<i class="no-highlight">374</i>&nbsp;        // -1, //ISHL, // -
+<i class="no-highlight">375</i>&nbsp;        // -1, //LSHL, // -
+<i class="no-highlight">376</i>&nbsp;        // -1, //ISHR, // -
+<i class="no-highlight">377</i>&nbsp;        // -1, //LSHR, // -
+<i class="no-highlight">378</i>&nbsp;        // -1, //IUSHR, // -
+<i class="no-highlight">379</i>&nbsp;        // -1, //LUSHR, // -
+<i class="no-highlight">380</i>&nbsp;        // -1, //IAND, // -
+<i class="no-highlight">381</i>&nbsp;        // -2, //LAND, // -
+<i class="no-highlight">382</i>&nbsp;        // -1, //IOR, // -
+<i class="no-highlight">383</i>&nbsp;        // -2, //LOR, // -
+<i class="no-highlight">384</i>&nbsp;        // -1, //IXOR, // -
+<i class="no-highlight">385</i>&nbsp;        // -2, //LXOR, // -
+<i class="no-highlight">386</i>&nbsp;        // 0, //IINC, // visitIincInsn
+<i class="no-highlight">387</i>&nbsp;        // 1, //I2L, // visitInsn
+<i class="no-highlight">388</i>&nbsp;        // 0, //I2F, // -
+<i class="no-highlight">389</i>&nbsp;        // 1, //I2D, // -
+<i class="no-highlight">390</i>&nbsp;        // -1, //L2I, // -
+<i class="no-highlight">391</i>&nbsp;        // -1, //L2F, // -
+<i class="no-highlight">392</i>&nbsp;        // 0, //L2D, // -
+<i class="no-highlight">393</i>&nbsp;        // 0, //F2I, // -
+<i class="no-highlight">394</i>&nbsp;        // 1, //F2L, // -
+<i class="no-highlight">395</i>&nbsp;        // 1, //F2D, // -
+<i class="no-highlight">396</i>&nbsp;        // -1, //D2I, // -
+<i class="no-highlight">397</i>&nbsp;        // 0, //D2L, // -
+<i class="no-highlight">398</i>&nbsp;        // -1, //D2F, // -
+<i class="no-highlight">399</i>&nbsp;        // 0, //I2B, // -
+<i class="no-highlight">400</i>&nbsp;        // 0, //I2C, // -
+<i class="no-highlight">401</i>&nbsp;        // 0, //I2S, // -
+<i class="no-highlight">402</i>&nbsp;        // -3, //LCMP, // -
+<i class="no-highlight">403</i>&nbsp;        // -1, //FCMPL, // -
+<i class="no-highlight">404</i>&nbsp;        // -1, //FCMPG, // -
+<i class="no-highlight">405</i>&nbsp;        // -3, //DCMPL, // -
+<i class="no-highlight">406</i>&nbsp;        // -3, //DCMPG, // -
+<i class="no-highlight">407</i>&nbsp;        // -1, //IFEQ, // visitJumpInsn
+<i class="no-highlight">408</i>&nbsp;        // -1, //IFNE, // -
+<i class="no-highlight">409</i>&nbsp;        // -1, //IFLT, // -
+<i class="no-highlight">410</i>&nbsp;        // -1, //IFGE, // -
+<i class="no-highlight">411</i>&nbsp;        // -1, //IFGT, // -
+<i class="no-highlight">412</i>&nbsp;        // -1, //IFLE, // -
+<i class="no-highlight">413</i>&nbsp;        // -2, //IF_ICMPEQ, // -
+<i class="no-highlight">414</i>&nbsp;        // -2, //IF_ICMPNE, // -
+<i class="no-highlight">415</i>&nbsp;        // -2, //IF_ICMPLT, // -
+<i class="no-highlight">416</i>&nbsp;        // -2, //IF_ICMPGE, // -
+<i class="no-highlight">417</i>&nbsp;        // -2, //IF_ICMPGT, // -
+<i class="no-highlight">418</i>&nbsp;        // -2, //IF_ICMPLE, // -
+<i class="no-highlight">419</i>&nbsp;        // -2, //IF_ACMPEQ, // -
+<i class="no-highlight">420</i>&nbsp;        // -2, //IF_ACMPNE, // -
+<i class="no-highlight">421</i>&nbsp;        // 0, //GOTO, // -
+<i class="no-highlight">422</i>&nbsp;        // 1, //JSR, // -
+<i class="no-highlight">423</i>&nbsp;        // 0, //RET, // visitVarInsn
+<i class="no-highlight">424</i>&nbsp;        // -1, //TABLESWITCH, // visiTableSwitchInsn
+<i class="no-highlight">425</i>&nbsp;        // -1, //LOOKUPSWITCH, // visitLookupSwitch
+<i class="no-highlight">426</i>&nbsp;        // -1, //IRETURN, // visitInsn
+<i class="no-highlight">427</i>&nbsp;        // -2, //LRETURN, // -
+<i class="no-highlight">428</i>&nbsp;        // -1, //FRETURN, // -
+<i class="no-highlight">429</i>&nbsp;        // -2, //DRETURN, // -
+<i class="no-highlight">430</i>&nbsp;        // -1, //ARETURN, // -
+<i class="no-highlight">431</i>&nbsp;        // 0, //RETURN, // -
+<i class="no-highlight">432</i>&nbsp;        // NA, //GETSTATIC, // visitFieldInsn
+<i class="no-highlight">433</i>&nbsp;        // NA, //PUTSTATIC, // -
+<i class="no-highlight">434</i>&nbsp;        // NA, //GETFIELD, // -
+<i class="no-highlight">435</i>&nbsp;        // NA, //PUTFIELD, // -
+<i class="no-highlight">436</i>&nbsp;        // NA, //INVOKEVIRTUAL, // visitMethodInsn
+<i class="no-highlight">437</i>&nbsp;        // NA, //INVOKESPECIAL, // -
+<i class="no-highlight">438</i>&nbsp;        // NA, //INVOKESTATIC, // -
+<i class="no-highlight">439</i>&nbsp;        // NA, //INVOKEINTERFACE, // -
+<i class="no-highlight">440</i>&nbsp;        // NA, //INVOKEDYNAMIC, // visitInvokeDynamicInsn
+<i class="no-highlight">441</i>&nbsp;        // 1, //NEW, // visitTypeInsn
+<i class="no-highlight">442</i>&nbsp;        // 0, //NEWARRAY, // visitIntInsn
+<i class="no-highlight">443</i>&nbsp;        // 0, //ANEWARRAY, // visitTypeInsn
+<i class="no-highlight">444</i>&nbsp;        // 0, //ARRAYLENGTH, // visitInsn
+<i class="no-highlight">445</i>&nbsp;        // NA, //ATHROW, // -
+<i class="no-highlight">446</i>&nbsp;        // 0, //CHECKCAST, // visitTypeInsn
+<i class="no-highlight">447</i>&nbsp;        // 0, //INSTANCEOF, // -
+<i class="no-highlight">448</i>&nbsp;        // -1, //MONITORENTER, // visitInsn
+<i class="no-highlight">449</i>&nbsp;        // -1, //MONITOREXIT, // -
+<i class="no-highlight">450</i>&nbsp;        // NA, //WIDE, // NOT VISITED
+<i class="no-highlight">451</i>&nbsp;        // NA, //MULTIANEWARRAY, // visitMultiANewArrayInsn
+<i class="no-highlight">452</i>&nbsp;        // -1, //IFNULL, // visitJumpInsn
+<i class="no-highlight">453</i>&nbsp;        // -1, //IFNONNULL, // -
+<i class="no-highlight">454</i>&nbsp;        // NA, //GOTO_W, // -
+<i class="no-highlight">455</i>&nbsp;        // NA, //JSR_W, // -
+<i class="no-highlight">456</i>&nbsp;        // };
+<i class="no-highlight">457</i>&nbsp;        // for (i = 0; i &lt; b.length; ++i) {
+<i class="no-highlight">458</i>&nbsp;        // System.err.print((char)(&#39;E&#39; + b[i]));
+<i class="no-highlight">459</i>&nbsp;        // }
+<i class="no-highlight">460</i>&nbsp;        // System.err.println();
+<i class="no-highlight">461</i>&nbsp;    }
+<i class="no-highlight">462</i>&nbsp;
+<i class="no-highlight">463</i>&nbsp;    /**
+<i class="no-highlight">464</i>&nbsp;     * The label (i.e. basic block) to which these input and output stack map
+<i class="no-highlight">465</i>&nbsp;     * frames correspond.
+<i class="no-highlight">466</i>&nbsp;     */
+<i class="no-highlight">467</i>&nbsp;    Label owner;
+<i class="no-highlight">468</i>&nbsp;
+<i class="no-highlight">469</i>&nbsp;    /**
+<i class="no-highlight">470</i>&nbsp;     * The input stack map frame locals.
+<i class="no-highlight">471</i>&nbsp;     */
+<i class="no-highlight">472</i>&nbsp;    int[] inputLocals;
+<i class="no-highlight">473</i>&nbsp;
+<i class="no-highlight">474</i>&nbsp;    /**
+<i class="no-highlight">475</i>&nbsp;     * The input stack map frame stack.
+<i class="no-highlight">476</i>&nbsp;     */
+<i class="no-highlight">477</i>&nbsp;    int[] inputStack;
+<i class="no-highlight">478</i>&nbsp;
+<i class="no-highlight">479</i>&nbsp;    /**
+<i class="no-highlight">480</i>&nbsp;     * The output stack map frame locals.
+<i class="no-highlight">481</i>&nbsp;     */
+<i class="no-highlight">482</i>&nbsp;    private int[] outputLocals;
+<i class="no-highlight">483</i>&nbsp;
+<i class="no-highlight">484</i>&nbsp;    /**
+<i class="no-highlight">485</i>&nbsp;     * The output stack map frame stack.
+<i class="no-highlight">486</i>&nbsp;     */
+<i class="no-highlight">487</i>&nbsp;    private int[] outputStack;
+<i class="no-highlight">488</i>&nbsp;
+<i class="no-highlight">489</i>&nbsp;    /**
+<i class="no-highlight">490</i>&nbsp;     * Relative size of the output stack. The exact semantics of this field
+<i class="no-highlight">491</i>&nbsp;     * depends on the algorithm that is used.
+<i class="no-highlight">492</i>&nbsp;     * 
+<i class="no-highlight">493</i>&nbsp;     * When only the maximum stack size is computed, this field is the size of
+<i class="no-highlight">494</i>&nbsp;     * the output stack relatively to the top of the input stack.
+<i class="no-highlight">495</i>&nbsp;     * 
+<i class="no-highlight">496</i>&nbsp;     * When the stack map frames are completely computed, this field is the
+<i class="no-highlight">497</i>&nbsp;     * actual number of types in {@link #outputStack}.
+<i class="no-highlight">498</i>&nbsp;     */
+<i class="no-highlight">499</i>&nbsp;    private int outputStackTop;
+<i class="no-highlight">500</i>&nbsp;
+<i class="no-highlight">501</i>&nbsp;    /**
+<i class="no-highlight">502</i>&nbsp;     * Number of types that are initialized in the basic block.
+<i class="no-highlight">503</i>&nbsp;     * 
+<i class="no-highlight">504</i>&nbsp;     * @see #initializations
+<i class="no-highlight">505</i>&nbsp;     */
+<i class="no-highlight">506</i>&nbsp;    private int initializationCount;
+<i class="no-highlight">507</i>&nbsp;
+<i class="no-highlight">508</i>&nbsp;    /**
+<i class="no-highlight">509</i>&nbsp;     * The types that are initialized in the basic block. A constructor
+<i class="no-highlight">510</i>&nbsp;     * invocation on an UNINITIALIZED or UNINITIALIZED_THIS type must replace
+<i class="no-highlight">511</i>&nbsp;     * &lt;i&gt;every occurence&lt;/i&gt; of this type in the local variables and in the
+<i class="no-highlight">512</i>&nbsp;     * operand stack. This cannot be done during the first phase of the
+<i class="no-highlight">513</i>&nbsp;     * algorithm since, during this phase, the local variables and the operand
+<i class="no-highlight">514</i>&nbsp;     * stack are not completely computed. It is therefore necessary to store the
+<i class="no-highlight">515</i>&nbsp;     * types on which constructors are invoked in the basic block, in order to
+<i class="no-highlight">516</i>&nbsp;     * do this replacement during the second phase of the algorithm, where the
+<i class="no-highlight">517</i>&nbsp;     * frames are fully computed. Note that this array can contain types that
+<i class="no-highlight">518</i>&nbsp;     * are relative to input locals or to the input stack (see below for the
+<i class="no-highlight">519</i>&nbsp;     * description of the algorithm).
+<i class="no-highlight">520</i>&nbsp;     */
+<i class="no-highlight">521</i>&nbsp;    private int[] initializations;
+<i class="no-highlight">522</i>&nbsp;
+<i class="no-highlight">523</i>&nbsp;    /**
+<i class="no-highlight">524</i>&nbsp;     * Returns the output frame local variable type at the given index.
+<i class="no-highlight">525</i>&nbsp;     * 
+<i class="no-highlight">526</i>&nbsp;     * @param local
+<i class="no-highlight">527</i>&nbsp;     *            the index of the local that must be returned.
+<i class="no-highlight">528</i>&nbsp;     * @return the output frame local variable type at the given index.
+<i class="no-highlight">529</i>&nbsp;     */
+<i class="no-highlight">530</i>&nbsp;    private int get(final int local) {
+<b class="nc"><i class="no-highlight">531</i>&nbsp;        if (outputLocals == null || local &gt;= outputLocals.length) {</b>
+<i class="no-highlight">532</i>&nbsp;            // this local has never been assigned in this basic block,
+<i class="no-highlight">533</i>&nbsp;            // so it is still equal to its value in the input frame
+<b class="nc"><i class="no-highlight">534</i>&nbsp;            return LOCAL | local;</b>
+<i class="no-highlight">535</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">536</i>&nbsp;            int type = outputLocals[local];</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;            if (type == 0) {</b>
+<i class="no-highlight">538</i>&nbsp;                // this local has never been assigned in this basic block,
+<i class="no-highlight">539</i>&nbsp;                // so it is still equal to its value in the input frame
+<b class="nc"><i class="no-highlight">540</i>&nbsp;                type = outputLocals[local] = LOCAL | local;</b>
+<i class="no-highlight">541</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">542</i>&nbsp;            return type;</b>
+<i class="no-highlight">543</i>&nbsp;        }
+<i class="no-highlight">544</i>&nbsp;    }
+<i class="no-highlight">545</i>&nbsp;
+<i class="no-highlight">546</i>&nbsp;    /**
+<i class="no-highlight">547</i>&nbsp;     * Sets the output frame local variable type at the given index.
+<i class="no-highlight">548</i>&nbsp;     * 
+<i class="no-highlight">549</i>&nbsp;     * @param local
+<i class="no-highlight">550</i>&nbsp;     *            the index of the local that must be set.
+<i class="no-highlight">551</i>&nbsp;     * @param type
+<i class="no-highlight">552</i>&nbsp;     *            the value of the local that must be set.
+<i class="no-highlight">553</i>&nbsp;     */
+<i class="no-highlight">554</i>&nbsp;    private void set(final int local, final int type) {
+<i class="no-highlight">555</i>&nbsp;        // creates and/or resizes the output local variables array if necessary
+<b class="nc"><i class="no-highlight">556</i>&nbsp;        if (outputLocals == null) {</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            outputLocals = new int[10];</b>
+<i class="no-highlight">558</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">559</i>&nbsp;        int n = outputLocals.length;</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        if (local &gt;= n) {</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;            int[] t = new int[Math.max(local + 1, 2 * n)];</b>
+<b class="nc"><i class="no-highlight">562</i>&nbsp;            System.arraycopy(outputLocals, 0, t, 0, n);</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;            outputLocals = t;</b>
+<i class="no-highlight">564</i>&nbsp;        }
+<i class="no-highlight">565</i>&nbsp;        // sets the local variable
+<b class="nc"><i class="no-highlight">566</i>&nbsp;        outputLocals[local] = type;</b>
+<i class="no-highlight">567</i>&nbsp;    }
+<i class="no-highlight">568</i>&nbsp;
+<i class="no-highlight">569</i>&nbsp;    /**
+<i class="no-highlight">570</i>&nbsp;     * Pushes a new type onto the output frame stack.
+<i class="no-highlight">571</i>&nbsp;     * 
+<i class="no-highlight">572</i>&nbsp;     * @param type
+<i class="no-highlight">573</i>&nbsp;     *            the type that must be pushed.
+<i class="no-highlight">574</i>&nbsp;     */
+<i class="no-highlight">575</i>&nbsp;    private void push(final int type) {
+<i class="no-highlight">576</i>&nbsp;        // creates and/or resizes the output stack array if necessary
+<b class="nc"><i class="no-highlight">577</i>&nbsp;        if (outputStack == null) {</b>
+<b class="nc"><i class="no-highlight">578</i>&nbsp;            outputStack = new int[10];</b>
+<i class="no-highlight">579</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">580</i>&nbsp;        int n = outputStack.length;</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;        if (outputStackTop &gt;= n) {</b>
+<b class="nc"><i class="no-highlight">582</i>&nbsp;            int[] t = new int[Math.max(outputStackTop + 1, 2 * n)];</b>
+<b class="nc"><i class="no-highlight">583</i>&nbsp;            System.arraycopy(outputStack, 0, t, 0, n);</b>
+<b class="nc"><i class="no-highlight">584</i>&nbsp;            outputStack = t;</b>
+<i class="no-highlight">585</i>&nbsp;        }
+<i class="no-highlight">586</i>&nbsp;        // pushes the type on the output stack
+<b class="nc"><i class="no-highlight">587</i>&nbsp;        outputStack[outputStackTop++] = type;</b>
+<i class="no-highlight">588</i>&nbsp;        // updates the maximun height reached by the output stack, if needed
+<b class="nc"><i class="no-highlight">589</i>&nbsp;        int top = owner.inputStackTop + outputStackTop;</b>
+<b class="nc"><i class="no-highlight">590</i>&nbsp;        if (top &gt; owner.outputStackMax) {</b>
+<b class="nc"><i class="no-highlight">591</i>&nbsp;            owner.outputStackMax = top;</b>
+<i class="no-highlight">592</i>&nbsp;        }
+<i class="no-highlight">593</i>&nbsp;    }
+<i class="no-highlight">594</i>&nbsp;
+<i class="no-highlight">595</i>&nbsp;    /**
+<i class="no-highlight">596</i>&nbsp;     * Pushes a new type onto the output frame stack.
+<i class="no-highlight">597</i>&nbsp;     * 
+<i class="no-highlight">598</i>&nbsp;     * @param cw
+<i class="no-highlight">599</i>&nbsp;     *            the ClassWriter to which this label belongs.
+<i class="no-highlight">600</i>&nbsp;     * @param desc
+<i class="no-highlight">601</i>&nbsp;     *            the descriptor of the type to be pushed. Can also be a method
+<i class="no-highlight">602</i>&nbsp;     *            descriptor (in this case this method pushes its return type
+<i class="no-highlight">603</i>&nbsp;     *            onto the output frame stack).
+<i class="no-highlight">604</i>&nbsp;     */
+<i class="no-highlight">605</i>&nbsp;    private void push(final ClassWriter cw, final String desc) {
+<b class="nc"><i class="no-highlight">606</i>&nbsp;        int type = type(cw, desc);</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;        if (type != 0) {</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;            push(type);</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;            if (type == LONG || type == DOUBLE) {</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;                push(TOP);</b>
+<i class="no-highlight">611</i>&nbsp;            }
+<i class="no-highlight">612</i>&nbsp;        }
+<i class="no-highlight">613</i>&nbsp;    }
+<i class="no-highlight">614</i>&nbsp;
+<i class="no-highlight">615</i>&nbsp;    /**
+<i class="no-highlight">616</i>&nbsp;     * Returns the int encoding of the given type.
+<i class="no-highlight">617</i>&nbsp;     * 
+<i class="no-highlight">618</i>&nbsp;     * @param cw
+<i class="no-highlight">619</i>&nbsp;     *            the ClassWriter to which this label belongs.
+<i class="no-highlight">620</i>&nbsp;     * @param desc
+<i class="no-highlight">621</i>&nbsp;     *            a type descriptor.
+<i class="no-highlight">622</i>&nbsp;     * @return the int encoding of the given type.
+<i class="no-highlight">623</i>&nbsp;     */
+<i class="no-highlight">624</i>&nbsp;    private static int type(final ClassWriter cw, final String desc) {
+<i class="no-highlight">625</i>&nbsp;        String t;
+<b class="nc"><i class="no-highlight">626</i>&nbsp;        int index = desc.charAt(0) == &#39;(&#39; ? desc.indexOf(&#39;)&#39;) + 1 : 0;</b>
+<b class="nc"><i class="no-highlight">627</i>&nbsp;        switch (desc.charAt(index)) {</b>
+<i class="no-highlight">628</i>&nbsp;        case &#39;V&#39;:
+<b class="nc"><i class="no-highlight">629</i>&nbsp;            return 0;</b>
+<i class="no-highlight">630</i>&nbsp;        case &#39;Z&#39;:
+<i class="no-highlight">631</i>&nbsp;        case &#39;C&#39;:
+<i class="no-highlight">632</i>&nbsp;        case &#39;B&#39;:
+<i class="no-highlight">633</i>&nbsp;        case &#39;S&#39;:
+<i class="no-highlight">634</i>&nbsp;        case &#39;I&#39;:
+<b class="nc"><i class="no-highlight">635</i>&nbsp;            return INTEGER;</b>
+<i class="no-highlight">636</i>&nbsp;        case &#39;F&#39;:
+<b class="nc"><i class="no-highlight">637</i>&nbsp;            return FLOAT;</b>
+<i class="no-highlight">638</i>&nbsp;        case &#39;J&#39;:
+<b class="nc"><i class="no-highlight">639</i>&nbsp;            return LONG;</b>
+<i class="no-highlight">640</i>&nbsp;        case &#39;D&#39;:
+<b class="nc"><i class="no-highlight">641</i>&nbsp;            return DOUBLE;</b>
+<i class="no-highlight">642</i>&nbsp;        case &#39;L&#39;:
+<i class="no-highlight">643</i>&nbsp;            // stores the internal name, not the descriptor!
+<b class="nc"><i class="no-highlight">644</i>&nbsp;            t = desc.substring(index + 1, desc.length() - 1);</b>
+<b class="nc"><i class="no-highlight">645</i>&nbsp;            return OBJECT | cw.addType(t);</b>
+<i class="no-highlight">646</i>&nbsp;            // case &#39;[&#39;:
+<i class="no-highlight">647</i>&nbsp;        default:
+<i class="no-highlight">648</i>&nbsp;            // extracts the dimensions and the element type
+<i class="no-highlight">649</i>&nbsp;            int data;
+<b class="nc"><i class="no-highlight">650</i>&nbsp;            int dims = index + 1;</b>
+<b class="nc"><i class="no-highlight">651</i>&nbsp;            while (desc.charAt(dims) == &#39;[&#39;) {</b>
+<b class="nc"><i class="no-highlight">652</i>&nbsp;                ++dims;</b>
+<i class="no-highlight">653</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">654</i>&nbsp;            switch (desc.charAt(dims)) {</b>
+<i class="no-highlight">655</i>&nbsp;            case &#39;Z&#39;:
+<b class="nc"><i class="no-highlight">656</i>&nbsp;                data = BOOLEAN;</b>
+<b class="nc"><i class="no-highlight">657</i>&nbsp;                break;</b>
+<i class="no-highlight">658</i>&nbsp;            case &#39;C&#39;:
+<b class="nc"><i class="no-highlight">659</i>&nbsp;                data = CHAR;</b>
+<b class="nc"><i class="no-highlight">660</i>&nbsp;                break;</b>
+<i class="no-highlight">661</i>&nbsp;            case &#39;B&#39;:
+<b class="nc"><i class="no-highlight">662</i>&nbsp;                data = BYTE;</b>
+<b class="nc"><i class="no-highlight">663</i>&nbsp;                break;</b>
+<i class="no-highlight">664</i>&nbsp;            case &#39;S&#39;:
+<b class="nc"><i class="no-highlight">665</i>&nbsp;                data = SHORT;</b>
+<b class="nc"><i class="no-highlight">666</i>&nbsp;                break;</b>
+<i class="no-highlight">667</i>&nbsp;            case &#39;I&#39;:
+<b class="nc"><i class="no-highlight">668</i>&nbsp;                data = INTEGER;</b>
+<b class="nc"><i class="no-highlight">669</i>&nbsp;                break;</b>
+<i class="no-highlight">670</i>&nbsp;            case &#39;F&#39;:
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                data = FLOAT;</b>
+<b class="nc"><i class="no-highlight">672</i>&nbsp;                break;</b>
+<i class="no-highlight">673</i>&nbsp;            case &#39;J&#39;:
+<b class="nc"><i class="no-highlight">674</i>&nbsp;                data = LONG;</b>
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                break;</b>
+<i class="no-highlight">676</i>&nbsp;            case &#39;D&#39;:
+<b class="nc"><i class="no-highlight">677</i>&nbsp;                data = DOUBLE;</b>
+<b class="nc"><i class="no-highlight">678</i>&nbsp;                break;</b>
+<i class="no-highlight">679</i>&nbsp;            // case &#39;L&#39;:
+<i class="no-highlight">680</i>&nbsp;            default:
+<i class="no-highlight">681</i>&nbsp;                // stores the internal name, not the descriptor
+<b class="nc"><i class="no-highlight">682</i>&nbsp;                t = desc.substring(dims + 1, desc.length() - 1);</b>
+<b class="nc"><i class="no-highlight">683</i>&nbsp;                data = OBJECT | cw.addType(t);</b>
+<i class="no-highlight">684</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">685</i>&nbsp;            return (dims - index) &lt;&lt; 28 | data;</b>
+<i class="no-highlight">686</i>&nbsp;        }
+<i class="no-highlight">687</i>&nbsp;    }
+<i class="no-highlight">688</i>&nbsp;
+<i class="no-highlight">689</i>&nbsp;    /**
+<i class="no-highlight">690</i>&nbsp;     * Pops a type from the output frame stack and returns its value.
+<i class="no-highlight">691</i>&nbsp;     * 
+<i class="no-highlight">692</i>&nbsp;     * @return the type that has been popped from the output frame stack.
+<i class="no-highlight">693</i>&nbsp;     */
+<i class="no-highlight">694</i>&nbsp;    private int pop() {
+<b class="nc"><i class="no-highlight">695</i>&nbsp;        if (outputStackTop &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">696</i>&nbsp;            return outputStack[--outputStackTop];</b>
+<i class="no-highlight">697</i>&nbsp;        } else {
+<i class="no-highlight">698</i>&nbsp;            // if the output frame stack is empty, pops from the input stack
+<b class="nc"><i class="no-highlight">699</i>&nbsp;            return STACK | -(--owner.inputStackTop);</b>
+<i class="no-highlight">700</i>&nbsp;        }
+<i class="no-highlight">701</i>&nbsp;    }
+<i class="no-highlight">702</i>&nbsp;
+<i class="no-highlight">703</i>&nbsp;    /**
+<i class="no-highlight">704</i>&nbsp;     * Pops the given number of types from the output frame stack.
+<i class="no-highlight">705</i>&nbsp;     * 
+<i class="no-highlight">706</i>&nbsp;     * @param elements
+<i class="no-highlight">707</i>&nbsp;     *            the number of types that must be popped.
+<i class="no-highlight">708</i>&nbsp;     */
+<i class="no-highlight">709</i>&nbsp;    private void pop(final int elements) {
+<b class="nc"><i class="no-highlight">710</i>&nbsp;        if (outputStackTop &gt;= elements) {</b>
+<b class="nc"><i class="no-highlight">711</i>&nbsp;            outputStackTop -= elements;</b>
+<i class="no-highlight">712</i>&nbsp;        } else {
+<i class="no-highlight">713</i>&nbsp;            // if the number of elements to be popped is greater than the number
+<i class="no-highlight">714</i>&nbsp;            // of elements in the output stack, clear it, and pops the remaining
+<i class="no-highlight">715</i>&nbsp;            // elements from the input stack.
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            owner.inputStackTop -= elements - outputStackTop;</b>
+<b class="nc"><i class="no-highlight">717</i>&nbsp;            outputStackTop = 0;</b>
+<i class="no-highlight">718</i>&nbsp;        }
+<i class="no-highlight">719</i>&nbsp;    }
+<i class="no-highlight">720</i>&nbsp;
+<i class="no-highlight">721</i>&nbsp;    /**
+<i class="no-highlight">722</i>&nbsp;     * Pops a type from the output frame stack.
+<i class="no-highlight">723</i>&nbsp;     * 
+<i class="no-highlight">724</i>&nbsp;     * @param desc
+<i class="no-highlight">725</i>&nbsp;     *            the descriptor of the type to be popped. Can also be a method
+<i class="no-highlight">726</i>&nbsp;     *            descriptor (in this case this method pops the types
+<i class="no-highlight">727</i>&nbsp;     *            corresponding to the method arguments).
+<i class="no-highlight">728</i>&nbsp;     */
+<i class="no-highlight">729</i>&nbsp;    private void pop(final String desc) {
+<b class="nc"><i class="no-highlight">730</i>&nbsp;        char c = desc.charAt(0);</b>
+<b class="nc"><i class="no-highlight">731</i>&nbsp;        if (c == &#39;(&#39;) {</b>
+<b class="nc"><i class="no-highlight">732</i>&nbsp;            pop((Type.getArgumentsAndReturnSizes(desc) &gt;&gt; 2) - 1);</b>
+<b class="nc"><i class="no-highlight">733</i>&nbsp;        } else if (c == &#39;J&#39; || c == &#39;D&#39;) {</b>
+<b class="nc"><i class="no-highlight">734</i>&nbsp;            pop(2);</b>
+<i class="no-highlight">735</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">736</i>&nbsp;            pop(1);</b>
+<i class="no-highlight">737</i>&nbsp;        }
+<i class="no-highlight">738</i>&nbsp;    }
+<i class="no-highlight">739</i>&nbsp;
+<i class="no-highlight">740</i>&nbsp;    /**
+<i class="no-highlight">741</i>&nbsp;     * Adds a new type to the list of types on which a constructor is invoked in
+<i class="no-highlight">742</i>&nbsp;     * the basic block.
+<i class="no-highlight">743</i>&nbsp;     * 
+<i class="no-highlight">744</i>&nbsp;     * @param var
+<i class="no-highlight">745</i>&nbsp;     *            a type on a which a constructor is invoked.
+<i class="no-highlight">746</i>&nbsp;     */
+<i class="no-highlight">747</i>&nbsp;    private void init(final int var) {
+<i class="no-highlight">748</i>&nbsp;        // creates and/or resizes the initializations array if necessary
+<b class="nc"><i class="no-highlight">749</i>&nbsp;        if (initializations == null) {</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;            initializations = new int[2];</b>
+<i class="no-highlight">751</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">752</i>&nbsp;        int n = initializations.length;</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;        if (initializationCount &gt;= n) {</b>
+<b class="nc"><i class="no-highlight">754</i>&nbsp;            int[] t = new int[Math.max(initializationCount + 1, 2 * n)];</b>
+<b class="nc"><i class="no-highlight">755</i>&nbsp;            System.arraycopy(initializations, 0, t, 0, n);</b>
+<b class="nc"><i class="no-highlight">756</i>&nbsp;            initializations = t;</b>
+<i class="no-highlight">757</i>&nbsp;        }
+<i class="no-highlight">758</i>&nbsp;        // stores the type to be initialized
+<b class="nc"><i class="no-highlight">759</i>&nbsp;        initializations[initializationCount++] = var;</b>
+<i class="no-highlight">760</i>&nbsp;    }
+<i class="no-highlight">761</i>&nbsp;
+<i class="no-highlight">762</i>&nbsp;    /**
+<i class="no-highlight">763</i>&nbsp;     * Replaces the given type with the appropriate type if it is one of the
+<i class="no-highlight">764</i>&nbsp;     * types on which a constructor is invoked in the basic block.
+<i class="no-highlight">765</i>&nbsp;     * 
+<i class="no-highlight">766</i>&nbsp;     * @param cw
+<i class="no-highlight">767</i>&nbsp;     *            the ClassWriter to which this label belongs.
+<i class="no-highlight">768</i>&nbsp;     * @param t
+<i class="no-highlight">769</i>&nbsp;     *            a type
+<i class="no-highlight">770</i>&nbsp;     * @return t or, if t is one of the types on which a constructor is invoked
+<i class="no-highlight">771</i>&nbsp;     *         in the basic block, the type corresponding to this constructor.
+<i class="no-highlight">772</i>&nbsp;     */
+<i class="no-highlight">773</i>&nbsp;    private int init(final ClassWriter cw, final int t) {
+<i class="no-highlight">774</i>&nbsp;        int s;
+<b class="nc"><i class="no-highlight">775</i>&nbsp;        if (t == UNINITIALIZED_THIS) {</b>
+<b class="nc"><i class="no-highlight">776</i>&nbsp;            s = OBJECT | cw.addType(cw.thisName);</b>
+<b class="nc"><i class="no-highlight">777</i>&nbsp;        } else if ((t &amp; (DIM | BASE_KIND)) == UNINITIALIZED) {</b>
+<b class="nc"><i class="no-highlight">778</i>&nbsp;            String type = cw.typeTable[t &amp; BASE_VALUE].strVal1;</b>
+<b class="nc"><i class="no-highlight">779</i>&nbsp;            s = OBJECT | cw.addType(type);</b>
+<b class="nc"><i class="no-highlight">780</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;            return t;</b>
+<i class="no-highlight">782</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">783</i>&nbsp;        for (int j = 0; j &lt; initializationCount; ++j) {</b>
+<b class="nc"><i class="no-highlight">784</i>&nbsp;            int u = initializations[j];</b>
+<b class="nc"><i class="no-highlight">785</i>&nbsp;            int dim = u &amp; DIM;</b>
+<b class="nc"><i class="no-highlight">786</i>&nbsp;            int kind = u &amp; KIND;</b>
+<b class="nc"><i class="no-highlight">787</i>&nbsp;            if (kind == LOCAL) {</b>
+<b class="nc"><i class="no-highlight">788</i>&nbsp;                u = dim + inputLocals[u &amp; VALUE];</b>
+<b class="nc"><i class="no-highlight">789</i>&nbsp;            } else if (kind == STACK) {</b>
+<b class="nc"><i class="no-highlight">790</i>&nbsp;                u = dim + inputStack[inputStack.length - (u &amp; VALUE)];</b>
+<i class="no-highlight">791</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">792</i>&nbsp;            if (t == u) {</b>
+<b class="nc"><i class="no-highlight">793</i>&nbsp;                return s;</b>
+<i class="no-highlight">794</i>&nbsp;            }
+<i class="no-highlight">795</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">796</i>&nbsp;        return t;</b>
+<i class="no-highlight">797</i>&nbsp;    }
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;    /**
+<i class="no-highlight">800</i>&nbsp;     * Initializes the input frame of the first basic block from the method
+<i class="no-highlight">801</i>&nbsp;     * descriptor.
+<i class="no-highlight">802</i>&nbsp;     * 
+<i class="no-highlight">803</i>&nbsp;     * @param cw
+<i class="no-highlight">804</i>&nbsp;     *            the ClassWriter to which this label belongs.
+<i class="no-highlight">805</i>&nbsp;     * @param access
+<i class="no-highlight">806</i>&nbsp;     *            the access flags of the method to which this label belongs.
+<i class="no-highlight">807</i>&nbsp;     * @param args
+<i class="no-highlight">808</i>&nbsp;     *            the formal parameter types of this method.
+<i class="no-highlight">809</i>&nbsp;     * @param maxLocals
+<i class="no-highlight">810</i>&nbsp;     *            the maximum number of local variables of this method.
+<i class="no-highlight">811</i>&nbsp;     */
+<i class="no-highlight">812</i>&nbsp;    void initInputFrame(final ClassWriter cw, final int access,
+<i class="no-highlight">813</i>&nbsp;            final Type[] args, final int maxLocals) {
+<b class="nc"><i class="no-highlight">814</i>&nbsp;        inputLocals = new int[maxLocals];</b>
+<b class="nc"><i class="no-highlight">815</i>&nbsp;        inputStack = new int[0];</b>
+<b class="nc"><i class="no-highlight">816</i>&nbsp;        int i = 0;</b>
+<b class="nc"><i class="no-highlight">817</i>&nbsp;        if ((access &amp; Opcodes.ACC_STATIC) == 0) {</b>
+<b class="nc"><i class="no-highlight">818</i>&nbsp;            if ((access &amp; MethodWriter.ACC_CONSTRUCTOR) == 0) {</b>
+<b class="nc"><i class="no-highlight">819</i>&nbsp;                inputLocals[i++] = OBJECT | cw.addType(cw.thisName);</b>
+<i class="no-highlight">820</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">821</i>&nbsp;                inputLocals[i++] = UNINITIALIZED_THIS;</b>
+<i class="no-highlight">822</i>&nbsp;            }
+<i class="no-highlight">823</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">824</i>&nbsp;        for (int j = 0; j &lt; args.length; ++j) {</b>
+<b class="nc"><i class="no-highlight">825</i>&nbsp;            int t = type(cw, args[j].getDescriptor());</b>
+<b class="nc"><i class="no-highlight">826</i>&nbsp;            inputLocals[i++] = t;</b>
+<b class="nc"><i class="no-highlight">827</i>&nbsp;            if (t == LONG || t == DOUBLE) {</b>
+<b class="nc"><i class="no-highlight">828</i>&nbsp;                inputLocals[i++] = TOP;</b>
+<i class="no-highlight">829</i>&nbsp;            }
+<i class="no-highlight">830</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">831</i>&nbsp;        while (i &lt; maxLocals) {</b>
+<b class="nc"><i class="no-highlight">832</i>&nbsp;            inputLocals[i++] = TOP;</b>
+<i class="no-highlight">833</i>&nbsp;        }
+<i class="no-highlight">834</i>&nbsp;    }
+<i class="no-highlight">835</i>&nbsp;
+<i class="no-highlight">836</i>&nbsp;    /**
+<i class="no-highlight">837</i>&nbsp;     * Simulates the action of the given instruction on the output stack frame.
+<i class="no-highlight">838</i>&nbsp;     * 
+<i class="no-highlight">839</i>&nbsp;     * @param opcode
+<i class="no-highlight">840</i>&nbsp;     *            the opcode of the instruction.
+<i class="no-highlight">841</i>&nbsp;     * @param arg
+<i class="no-highlight">842</i>&nbsp;     *            the operand of the instruction, if any.
+<i class="no-highlight">843</i>&nbsp;     * @param cw
+<i class="no-highlight">844</i>&nbsp;     *            the class writer to which this label belongs.
+<i class="no-highlight">845</i>&nbsp;     * @param item
+<i class="no-highlight">846</i>&nbsp;     *            the operand of the instructions, if any.
+<i class="no-highlight">847</i>&nbsp;     */
+<i class="no-highlight">848</i>&nbsp;    void execute(final int opcode, final int arg, final ClassWriter cw,
+<i class="no-highlight">849</i>&nbsp;            final Item item) {
+<i class="no-highlight">850</i>&nbsp;        int t1, t2, t3, t4;
+<b class="nc"><i class="no-highlight">851</i>&nbsp;        switch (opcode) {</b>
+<i class="no-highlight">852</i>&nbsp;        case Opcodes.NOP:
+<i class="no-highlight">853</i>&nbsp;        case Opcodes.INEG:
+<i class="no-highlight">854</i>&nbsp;        case Opcodes.LNEG:
+<i class="no-highlight">855</i>&nbsp;        case Opcodes.FNEG:
+<i class="no-highlight">856</i>&nbsp;        case Opcodes.DNEG:
+<i class="no-highlight">857</i>&nbsp;        case Opcodes.I2B:
+<i class="no-highlight">858</i>&nbsp;        case Opcodes.I2C:
+<i class="no-highlight">859</i>&nbsp;        case Opcodes.I2S:
+<i class="no-highlight">860</i>&nbsp;        case Opcodes.GOTO:
+<i class="no-highlight">861</i>&nbsp;        case Opcodes.RETURN:
+<b class="nc"><i class="no-highlight">862</i>&nbsp;            break;</b>
+<i class="no-highlight">863</i>&nbsp;        case Opcodes.ACONST_NULL:
+<b class="nc"><i class="no-highlight">864</i>&nbsp;            push(NULL);</b>
+<b class="nc"><i class="no-highlight">865</i>&nbsp;            break;</b>
+<i class="no-highlight">866</i>&nbsp;        case Opcodes.ICONST_M1:
+<i class="no-highlight">867</i>&nbsp;        case Opcodes.ICONST_0:
+<i class="no-highlight">868</i>&nbsp;        case Opcodes.ICONST_1:
+<i class="no-highlight">869</i>&nbsp;        case Opcodes.ICONST_2:
+<i class="no-highlight">870</i>&nbsp;        case Opcodes.ICONST_3:
+<i class="no-highlight">871</i>&nbsp;        case Opcodes.ICONST_4:
+<i class="no-highlight">872</i>&nbsp;        case Opcodes.ICONST_5:
+<i class="no-highlight">873</i>&nbsp;        case Opcodes.BIPUSH:
+<i class="no-highlight">874</i>&nbsp;        case Opcodes.SIPUSH:
+<i class="no-highlight">875</i>&nbsp;        case Opcodes.ILOAD:
+<b class="nc"><i class="no-highlight">876</i>&nbsp;            push(INTEGER);</b>
+<b class="nc"><i class="no-highlight">877</i>&nbsp;            break;</b>
+<i class="no-highlight">878</i>&nbsp;        case Opcodes.LCONST_0:
+<i class="no-highlight">879</i>&nbsp;        case Opcodes.LCONST_1:
+<i class="no-highlight">880</i>&nbsp;        case Opcodes.LLOAD:
+<b class="nc"><i class="no-highlight">881</i>&nbsp;            push(LONG);</b>
+<b class="nc"><i class="no-highlight">882</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">883</i>&nbsp;            break;</b>
+<i class="no-highlight">884</i>&nbsp;        case Opcodes.FCONST_0:
+<i class="no-highlight">885</i>&nbsp;        case Opcodes.FCONST_1:
+<i class="no-highlight">886</i>&nbsp;        case Opcodes.FCONST_2:
+<i class="no-highlight">887</i>&nbsp;        case Opcodes.FLOAD:
+<b class="nc"><i class="no-highlight">888</i>&nbsp;            push(FLOAT);</b>
+<b class="nc"><i class="no-highlight">889</i>&nbsp;            break;</b>
+<i class="no-highlight">890</i>&nbsp;        case Opcodes.DCONST_0:
+<i class="no-highlight">891</i>&nbsp;        case Opcodes.DCONST_1:
+<i class="no-highlight">892</i>&nbsp;        case Opcodes.DLOAD:
+<b class="nc"><i class="no-highlight">893</i>&nbsp;            push(DOUBLE);</b>
+<b class="nc"><i class="no-highlight">894</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">895</i>&nbsp;            break;</b>
+<i class="no-highlight">896</i>&nbsp;        case Opcodes.LDC:
+<b class="nc"><i class="no-highlight">897</i>&nbsp;            switch (item.type) {</b>
+<i class="no-highlight">898</i>&nbsp;            case ClassWriter.INT:
+<b class="nc"><i class="no-highlight">899</i>&nbsp;                push(INTEGER);</b>
+<b class="nc"><i class="no-highlight">900</i>&nbsp;                break;</b>
+<i class="no-highlight">901</i>&nbsp;            case ClassWriter.LONG:
+<b class="nc"><i class="no-highlight">902</i>&nbsp;                push(LONG);</b>
+<b class="nc"><i class="no-highlight">903</i>&nbsp;                push(TOP);</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;                break;</b>
+<i class="no-highlight">905</i>&nbsp;            case ClassWriter.FLOAT:
+<b class="nc"><i class="no-highlight">906</i>&nbsp;                push(FLOAT);</b>
+<b class="nc"><i class="no-highlight">907</i>&nbsp;                break;</b>
+<i class="no-highlight">908</i>&nbsp;            case ClassWriter.DOUBLE:
+<b class="nc"><i class="no-highlight">909</i>&nbsp;                push(DOUBLE);</b>
+<b class="nc"><i class="no-highlight">910</i>&nbsp;                push(TOP);</b>
+<b class="nc"><i class="no-highlight">911</i>&nbsp;                break;</b>
+<i class="no-highlight">912</i>&nbsp;            case ClassWriter.CLASS:
+<b class="nc"><i class="no-highlight">913</i>&nbsp;                push(OBJECT | cw.addType(&quot;java/lang/Class&quot;));</b>
+<b class="nc"><i class="no-highlight">914</i>&nbsp;                break;</b>
+<i class="no-highlight">915</i>&nbsp;            case ClassWriter.STR:
+<b class="nc"><i class="no-highlight">916</i>&nbsp;                push(OBJECT | cw.addType(&quot;java/lang/String&quot;));</b>
+<b class="nc"><i class="no-highlight">917</i>&nbsp;                break;</b>
+<i class="no-highlight">918</i>&nbsp;            case ClassWriter.MTYPE:
+<b class="nc"><i class="no-highlight">919</i>&nbsp;                push(OBJECT | cw.addType(&quot;java/lang/invoke/MethodType&quot;));</b>
+<b class="nc"><i class="no-highlight">920</i>&nbsp;                break;</b>
+<i class="no-highlight">921</i>&nbsp;            // case ClassWriter.HANDLE_BASE + [1..9]:
+<i class="no-highlight">922</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">923</i>&nbsp;                push(OBJECT | cw.addType(&quot;java/lang/invoke/MethodHandle&quot;));</b>
+<i class="no-highlight">924</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">925</i>&nbsp;            break;</b>
+<i class="no-highlight">926</i>&nbsp;        case Opcodes.ALOAD:
+<b class="nc"><i class="no-highlight">927</i>&nbsp;            push(get(arg));</b>
+<b class="nc"><i class="no-highlight">928</i>&nbsp;            break;</b>
+<i class="no-highlight">929</i>&nbsp;        case Opcodes.IALOAD:
+<i class="no-highlight">930</i>&nbsp;        case Opcodes.BALOAD:
+<i class="no-highlight">931</i>&nbsp;        case Opcodes.CALOAD:
+<i class="no-highlight">932</i>&nbsp;        case Opcodes.SALOAD:
+<b class="nc"><i class="no-highlight">933</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">934</i>&nbsp;            push(INTEGER);</b>
+<b class="nc"><i class="no-highlight">935</i>&nbsp;            break;</b>
+<i class="no-highlight">936</i>&nbsp;        case Opcodes.LALOAD:
+<i class="no-highlight">937</i>&nbsp;        case Opcodes.D2L:
+<b class="nc"><i class="no-highlight">938</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">939</i>&nbsp;            push(LONG);</b>
+<b class="nc"><i class="no-highlight">940</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">941</i>&nbsp;            break;</b>
+<i class="no-highlight">942</i>&nbsp;        case Opcodes.FALOAD:
+<b class="nc"><i class="no-highlight">943</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">944</i>&nbsp;            push(FLOAT);</b>
+<b class="nc"><i class="no-highlight">945</i>&nbsp;            break;</b>
+<i class="no-highlight">946</i>&nbsp;        case Opcodes.DALOAD:
+<i class="no-highlight">947</i>&nbsp;        case Opcodes.L2D:
+<b class="nc"><i class="no-highlight">948</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">949</i>&nbsp;            push(DOUBLE);</b>
+<b class="nc"><i class="no-highlight">950</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">951</i>&nbsp;            break;</b>
+<i class="no-highlight">952</i>&nbsp;        case Opcodes.AALOAD:
+<b class="nc"><i class="no-highlight">953</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">954</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">955</i>&nbsp;            push(ELEMENT_OF + t1);</b>
+<b class="nc"><i class="no-highlight">956</i>&nbsp;            break;</b>
+<i class="no-highlight">957</i>&nbsp;        case Opcodes.ISTORE:
+<i class="no-highlight">958</i>&nbsp;        case Opcodes.FSTORE:
+<i class="no-highlight">959</i>&nbsp;        case Opcodes.ASTORE:
+<b class="nc"><i class="no-highlight">960</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">961</i>&nbsp;            set(arg, t1);</b>
+<b class="nc"><i class="no-highlight">962</i>&nbsp;            if (arg &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">963</i>&nbsp;                t2 = get(arg - 1);</b>
+<i class="no-highlight">964</i>&nbsp;                // if t2 is of kind STACK or LOCAL we cannot know its size!
+<b class="nc"><i class="no-highlight">965</i>&nbsp;                if (t2 == LONG || t2 == DOUBLE) {</b>
+<b class="nc"><i class="no-highlight">966</i>&nbsp;                    set(arg - 1, TOP);</b>
+<b class="nc"><i class="no-highlight">967</i>&nbsp;                } else if ((t2 &amp; KIND) != BASE) {</b>
+<b class="nc"><i class="no-highlight">968</i>&nbsp;                    set(arg - 1, t2 | TOP_IF_LONG_OR_DOUBLE);</b>
+<i class="no-highlight">969</i>&nbsp;                }
+<i class="no-highlight">970</i>&nbsp;            }
+<i class="no-highlight">971</i>&nbsp;            break;
+<i class="no-highlight">972</i>&nbsp;        case Opcodes.LSTORE:
+<i class="no-highlight">973</i>&nbsp;        case Opcodes.DSTORE:
+<b class="nc"><i class="no-highlight">974</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">975</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">976</i>&nbsp;            set(arg, t1);</b>
+<b class="nc"><i class="no-highlight">977</i>&nbsp;            set(arg + 1, TOP);</b>
+<b class="nc"><i class="no-highlight">978</i>&nbsp;            if (arg &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">979</i>&nbsp;                t2 = get(arg - 1);</b>
+<i class="no-highlight">980</i>&nbsp;                // if t2 is of kind STACK or LOCAL we cannot know its size!
+<b class="nc"><i class="no-highlight">981</i>&nbsp;                if (t2 == LONG || t2 == DOUBLE) {</b>
+<b class="nc"><i class="no-highlight">982</i>&nbsp;                    set(arg - 1, TOP);</b>
+<b class="nc"><i class="no-highlight">983</i>&nbsp;                } else if ((t2 &amp; KIND) != BASE) {</b>
+<b class="nc"><i class="no-highlight">984</i>&nbsp;                    set(arg - 1, t2 | TOP_IF_LONG_OR_DOUBLE);</b>
+<i class="no-highlight">985</i>&nbsp;                }
+<i class="no-highlight">986</i>&nbsp;            }
+<i class="no-highlight">987</i>&nbsp;            break;
+<i class="no-highlight">988</i>&nbsp;        case Opcodes.IASTORE:
+<i class="no-highlight">989</i>&nbsp;        case Opcodes.BASTORE:
+<i class="no-highlight">990</i>&nbsp;        case Opcodes.CASTORE:
+<i class="no-highlight">991</i>&nbsp;        case Opcodes.SASTORE:
+<i class="no-highlight">992</i>&nbsp;        case Opcodes.FASTORE:
+<i class="no-highlight">993</i>&nbsp;        case Opcodes.AASTORE:
+<b class="nc"><i class="no-highlight">994</i>&nbsp;            pop(3);</b>
+<b class="nc"><i class="no-highlight">995</i>&nbsp;            break;</b>
+<i class="no-highlight">996</i>&nbsp;        case Opcodes.LASTORE:
+<i class="no-highlight">997</i>&nbsp;        case Opcodes.DASTORE:
+<b class="nc"><i class="no-highlight">998</i>&nbsp;            pop(4);</b>
+<b class="nc"><i class="no-highlight">999</i>&nbsp;            break;</b>
+<i class="no-highlight">1000</i>&nbsp;        case Opcodes.POP:
+<i class="no-highlight">1001</i>&nbsp;        case Opcodes.IFEQ:
+<i class="no-highlight">1002</i>&nbsp;        case Opcodes.IFNE:
+<i class="no-highlight">1003</i>&nbsp;        case Opcodes.IFLT:
+<i class="no-highlight">1004</i>&nbsp;        case Opcodes.IFGE:
+<i class="no-highlight">1005</i>&nbsp;        case Opcodes.IFGT:
+<i class="no-highlight">1006</i>&nbsp;        case Opcodes.IFLE:
+<i class="no-highlight">1007</i>&nbsp;        case Opcodes.IRETURN:
+<i class="no-highlight">1008</i>&nbsp;        case Opcodes.FRETURN:
+<i class="no-highlight">1009</i>&nbsp;        case Opcodes.ARETURN:
+<i class="no-highlight">1010</i>&nbsp;        case Opcodes.TABLESWITCH:
+<i class="no-highlight">1011</i>&nbsp;        case Opcodes.LOOKUPSWITCH:
+<i class="no-highlight">1012</i>&nbsp;        case Opcodes.ATHROW:
+<i class="no-highlight">1013</i>&nbsp;        case Opcodes.MONITORENTER:
+<i class="no-highlight">1014</i>&nbsp;        case Opcodes.MONITOREXIT:
+<i class="no-highlight">1015</i>&nbsp;        case Opcodes.IFNULL:
+<i class="no-highlight">1016</i>&nbsp;        case Opcodes.IFNONNULL:
+<b class="nc"><i class="no-highlight">1017</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;            break;</b>
+<i class="no-highlight">1019</i>&nbsp;        case Opcodes.POP2:
+<i class="no-highlight">1020</i>&nbsp;        case Opcodes.IF_ICMPEQ:
+<i class="no-highlight">1021</i>&nbsp;        case Opcodes.IF_ICMPNE:
+<i class="no-highlight">1022</i>&nbsp;        case Opcodes.IF_ICMPLT:
+<i class="no-highlight">1023</i>&nbsp;        case Opcodes.IF_ICMPGE:
+<i class="no-highlight">1024</i>&nbsp;        case Opcodes.IF_ICMPGT:
+<i class="no-highlight">1025</i>&nbsp;        case Opcodes.IF_ICMPLE:
+<i class="no-highlight">1026</i>&nbsp;        case Opcodes.IF_ACMPEQ:
+<i class="no-highlight">1027</i>&nbsp;        case Opcodes.IF_ACMPNE:
+<i class="no-highlight">1028</i>&nbsp;        case Opcodes.LRETURN:
+<i class="no-highlight">1029</i>&nbsp;        case Opcodes.DRETURN:
+<b class="nc"><i class="no-highlight">1030</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">1031</i>&nbsp;            break;</b>
+<i class="no-highlight">1032</i>&nbsp;        case Opcodes.DUP:
+<b class="nc"><i class="no-highlight">1033</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1035</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1036</i>&nbsp;            break;</b>
+<i class="no-highlight">1037</i>&nbsp;        case Opcodes.DUP_X1:
+<b class="nc"><i class="no-highlight">1038</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;            t2 = pop();</b>
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1041</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1042</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1043</i>&nbsp;            break;</b>
+<i class="no-highlight">1044</i>&nbsp;        case Opcodes.DUP_X2:
+<b class="nc"><i class="no-highlight">1045</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1046</i>&nbsp;            t2 = pop();</b>
+<b class="nc"><i class="no-highlight">1047</i>&nbsp;            t3 = pop();</b>
+<b class="nc"><i class="no-highlight">1048</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1049</i>&nbsp;            push(t3);</b>
+<b class="nc"><i class="no-highlight">1050</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1051</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1052</i>&nbsp;            break;</b>
+<i class="no-highlight">1053</i>&nbsp;        case Opcodes.DUP2:
+<b class="nc"><i class="no-highlight">1054</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1055</i>&nbsp;            t2 = pop();</b>
+<b class="nc"><i class="no-highlight">1056</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1059</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1060</i>&nbsp;            break;</b>
+<i class="no-highlight">1061</i>&nbsp;        case Opcodes.DUP2_X1:
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;            t2 = pop();</b>
+<b class="nc"><i class="no-highlight">1064</i>&nbsp;            t3 = pop();</b>
+<b class="nc"><i class="no-highlight">1065</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1067</i>&nbsp;            push(t3);</b>
+<b class="nc"><i class="no-highlight">1068</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1070</i>&nbsp;            break;</b>
+<i class="no-highlight">1071</i>&nbsp;        case Opcodes.DUP2_X2:
+<b class="nc"><i class="no-highlight">1072</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;            t2 = pop();</b>
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;            t3 = pop();</b>
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;            t4 = pop();</b>
+<b class="nc"><i class="no-highlight">1076</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;            push(t4);</b>
+<b class="nc"><i class="no-highlight">1079</i>&nbsp;            push(t3);</b>
+<b class="nc"><i class="no-highlight">1080</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1081</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1082</i>&nbsp;            break;</b>
+<i class="no-highlight">1083</i>&nbsp;        case Opcodes.SWAP:
+<b class="nc"><i class="no-highlight">1084</i>&nbsp;            t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1085</i>&nbsp;            t2 = pop();</b>
+<b class="nc"><i class="no-highlight">1086</i>&nbsp;            push(t1);</b>
+<b class="nc"><i class="no-highlight">1087</i>&nbsp;            push(t2);</b>
+<b class="nc"><i class="no-highlight">1088</i>&nbsp;            break;</b>
+<i class="no-highlight">1089</i>&nbsp;        case Opcodes.IADD:
+<i class="no-highlight">1090</i>&nbsp;        case Opcodes.ISUB:
+<i class="no-highlight">1091</i>&nbsp;        case Opcodes.IMUL:
+<i class="no-highlight">1092</i>&nbsp;        case Opcodes.IDIV:
+<i class="no-highlight">1093</i>&nbsp;        case Opcodes.IREM:
+<i class="no-highlight">1094</i>&nbsp;        case Opcodes.IAND:
+<i class="no-highlight">1095</i>&nbsp;        case Opcodes.IOR:
+<i class="no-highlight">1096</i>&nbsp;        case Opcodes.IXOR:
+<i class="no-highlight">1097</i>&nbsp;        case Opcodes.ISHL:
+<i class="no-highlight">1098</i>&nbsp;        case Opcodes.ISHR:
+<i class="no-highlight">1099</i>&nbsp;        case Opcodes.IUSHR:
+<i class="no-highlight">1100</i>&nbsp;        case Opcodes.L2I:
+<i class="no-highlight">1101</i>&nbsp;        case Opcodes.D2I:
+<i class="no-highlight">1102</i>&nbsp;        case Opcodes.FCMPL:
+<i class="no-highlight">1103</i>&nbsp;        case Opcodes.FCMPG:
+<b class="nc"><i class="no-highlight">1104</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;            push(INTEGER);</b>
+<b class="nc"><i class="no-highlight">1106</i>&nbsp;            break;</b>
+<i class="no-highlight">1107</i>&nbsp;        case Opcodes.LADD:
+<i class="no-highlight">1108</i>&nbsp;        case Opcodes.LSUB:
+<i class="no-highlight">1109</i>&nbsp;        case Opcodes.LMUL:
+<i class="no-highlight">1110</i>&nbsp;        case Opcodes.LDIV:
+<i class="no-highlight">1111</i>&nbsp;        case Opcodes.LREM:
+<i class="no-highlight">1112</i>&nbsp;        case Opcodes.LAND:
+<i class="no-highlight">1113</i>&nbsp;        case Opcodes.LOR:
+<i class="no-highlight">1114</i>&nbsp;        case Opcodes.LXOR:
+<b class="nc"><i class="no-highlight">1115</i>&nbsp;            pop(4);</b>
+<b class="nc"><i class="no-highlight">1116</i>&nbsp;            push(LONG);</b>
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">1118</i>&nbsp;            break;</b>
+<i class="no-highlight">1119</i>&nbsp;        case Opcodes.FADD:
+<i class="no-highlight">1120</i>&nbsp;        case Opcodes.FSUB:
+<i class="no-highlight">1121</i>&nbsp;        case Opcodes.FMUL:
+<i class="no-highlight">1122</i>&nbsp;        case Opcodes.FDIV:
+<i class="no-highlight">1123</i>&nbsp;        case Opcodes.FREM:
+<i class="no-highlight">1124</i>&nbsp;        case Opcodes.L2F:
+<i class="no-highlight">1125</i>&nbsp;        case Opcodes.D2F:
+<b class="nc"><i class="no-highlight">1126</i>&nbsp;            pop(2);</b>
+<b class="nc"><i class="no-highlight">1127</i>&nbsp;            push(FLOAT);</b>
+<b class="nc"><i class="no-highlight">1128</i>&nbsp;            break;</b>
+<i class="no-highlight">1129</i>&nbsp;        case Opcodes.DADD:
+<i class="no-highlight">1130</i>&nbsp;        case Opcodes.DSUB:
+<i class="no-highlight">1131</i>&nbsp;        case Opcodes.DMUL:
+<i class="no-highlight">1132</i>&nbsp;        case Opcodes.DDIV:
+<i class="no-highlight">1133</i>&nbsp;        case Opcodes.DREM:
+<b class="nc"><i class="no-highlight">1134</i>&nbsp;            pop(4);</b>
+<b class="nc"><i class="no-highlight">1135</i>&nbsp;            push(DOUBLE);</b>
+<b class="nc"><i class="no-highlight">1136</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">1137</i>&nbsp;            break;</b>
+<i class="no-highlight">1138</i>&nbsp;        case Opcodes.LSHL:
+<i class="no-highlight">1139</i>&nbsp;        case Opcodes.LSHR:
+<i class="no-highlight">1140</i>&nbsp;        case Opcodes.LUSHR:
+<b class="nc"><i class="no-highlight">1141</i>&nbsp;            pop(3);</b>
+<b class="nc"><i class="no-highlight">1142</i>&nbsp;            push(LONG);</b>
+<b class="nc"><i class="no-highlight">1143</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;            break;</b>
+<i class="no-highlight">1145</i>&nbsp;        case Opcodes.IINC:
+<b class="nc"><i class="no-highlight">1146</i>&nbsp;            set(arg, INTEGER);</b>
+<b class="nc"><i class="no-highlight">1147</i>&nbsp;            break;</b>
+<i class="no-highlight">1148</i>&nbsp;        case Opcodes.I2L:
+<i class="no-highlight">1149</i>&nbsp;        case Opcodes.F2L:
+<b class="nc"><i class="no-highlight">1150</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">1151</i>&nbsp;            push(LONG);</b>
+<b class="nc"><i class="no-highlight">1152</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">1153</i>&nbsp;            break;</b>
+<i class="no-highlight">1154</i>&nbsp;        case Opcodes.I2F:
+<b class="nc"><i class="no-highlight">1155</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">1156</i>&nbsp;            push(FLOAT);</b>
+<b class="nc"><i class="no-highlight">1157</i>&nbsp;            break;</b>
+<i class="no-highlight">1158</i>&nbsp;        case Opcodes.I2D:
+<i class="no-highlight">1159</i>&nbsp;        case Opcodes.F2D:
+<b class="nc"><i class="no-highlight">1160</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">1161</i>&nbsp;            push(DOUBLE);</b>
+<b class="nc"><i class="no-highlight">1162</i>&nbsp;            push(TOP);</b>
+<b class="nc"><i class="no-highlight">1163</i>&nbsp;            break;</b>
+<i class="no-highlight">1164</i>&nbsp;        case Opcodes.F2I:
+<i class="no-highlight">1165</i>&nbsp;        case Opcodes.ARRAYLENGTH:
+<i class="no-highlight">1166</i>&nbsp;        case Opcodes.INSTANCEOF:
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">1168</i>&nbsp;            push(INTEGER);</b>
+<b class="nc"><i class="no-highlight">1169</i>&nbsp;            break;</b>
+<i class="no-highlight">1170</i>&nbsp;        case Opcodes.LCMP:
+<i class="no-highlight">1171</i>&nbsp;        case Opcodes.DCMPL:
+<i class="no-highlight">1172</i>&nbsp;        case Opcodes.DCMPG:
+<b class="nc"><i class="no-highlight">1173</i>&nbsp;            pop(4);</b>
+<b class="nc"><i class="no-highlight">1174</i>&nbsp;            push(INTEGER);</b>
+<b class="nc"><i class="no-highlight">1175</i>&nbsp;            break;</b>
+<i class="no-highlight">1176</i>&nbsp;        case Opcodes.JSR:
+<i class="no-highlight">1177</i>&nbsp;        case Opcodes.RET:
+<b class="nc"><i class="no-highlight">1178</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">1179</i>&nbsp;                    &quot;JSR/RET are not supported with computeFrames option&quot;);
+<i class="no-highlight">1180</i>&nbsp;        case Opcodes.GETSTATIC:
+<b class="nc"><i class="no-highlight">1181</i>&nbsp;            push(cw, item.strVal3);</b>
+<b class="nc"><i class="no-highlight">1182</i>&nbsp;            break;</b>
+<i class="no-highlight">1183</i>&nbsp;        case Opcodes.PUTSTATIC:
+<b class="nc"><i class="no-highlight">1184</i>&nbsp;            pop(item.strVal3);</b>
+<b class="nc"><i class="no-highlight">1185</i>&nbsp;            break;</b>
+<i class="no-highlight">1186</i>&nbsp;        case Opcodes.GETFIELD:
+<b class="nc"><i class="no-highlight">1187</i>&nbsp;            pop(1);</b>
+<b class="nc"><i class="no-highlight">1188</i>&nbsp;            push(cw, item.strVal3);</b>
+<b class="nc"><i class="no-highlight">1189</i>&nbsp;            break;</b>
+<i class="no-highlight">1190</i>&nbsp;        case Opcodes.PUTFIELD:
+<b class="nc"><i class="no-highlight">1191</i>&nbsp;            pop(item.strVal3);</b>
+<b class="nc"><i class="no-highlight">1192</i>&nbsp;            pop();</b>
+<b class="nc"><i class="no-highlight">1193</i>&nbsp;            break;</b>
+<i class="no-highlight">1194</i>&nbsp;        case Opcodes.INVOKEVIRTUAL:
+<i class="no-highlight">1195</i>&nbsp;        case Opcodes.INVOKESPECIAL:
+<i class="no-highlight">1196</i>&nbsp;        case Opcodes.INVOKESTATIC:
+<i class="no-highlight">1197</i>&nbsp;        case Opcodes.INVOKEINTERFACE:
+<b class="nc"><i class="no-highlight">1198</i>&nbsp;            pop(item.strVal3);</b>
+<b class="nc"><i class="no-highlight">1199</i>&nbsp;            if (opcode != Opcodes.INVOKESTATIC) {</b>
+<b class="nc"><i class="no-highlight">1200</i>&nbsp;                t1 = pop();</b>
+<b class="nc"><i class="no-highlight">1201</i>&nbsp;                if (opcode == Opcodes.INVOKESPECIAL</b>
+<b class="nc"><i class="no-highlight">1202</i>&nbsp;                        &amp;&amp; item.strVal2.charAt(0) == &#39;&lt;&#39;) {</b>
+<b class="nc"><i class="no-highlight">1203</i>&nbsp;                    init(t1);</b>
+<i class="no-highlight">1204</i>&nbsp;                }
+<i class="no-highlight">1205</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1206</i>&nbsp;            push(cw, item.strVal3);</b>
+<b class="nc"><i class="no-highlight">1207</i>&nbsp;            break;</b>
+<i class="no-highlight">1208</i>&nbsp;        case Opcodes.INVOKEDYNAMIC:
+<b class="nc"><i class="no-highlight">1209</i>&nbsp;            pop(item.strVal2);</b>
+<b class="nc"><i class="no-highlight">1210</i>&nbsp;            push(cw, item.strVal2);</b>
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;            break;</b>
+<i class="no-highlight">1212</i>&nbsp;        case Opcodes.NEW:
+<b class="nc"><i class="no-highlight">1213</i>&nbsp;            push(UNINITIALIZED | cw.addUninitializedType(item.strVal1, arg));</b>
+<b class="nc"><i class="no-highlight">1214</i>&nbsp;            break;</b>
+<i class="no-highlight">1215</i>&nbsp;        case Opcodes.NEWARRAY:
+<b class="nc"><i class="no-highlight">1216</i>&nbsp;            pop();</b>
+<b class="nc"><i class="no-highlight">1217</i>&nbsp;            switch (arg) {</b>
+<i class="no-highlight">1218</i>&nbsp;            case Opcodes.T_BOOLEAN:
+<b class="nc"><i class="no-highlight">1219</i>&nbsp;                push(ARRAY_OF | BOOLEAN);</b>
+<b class="nc"><i class="no-highlight">1220</i>&nbsp;                break;</b>
+<i class="no-highlight">1221</i>&nbsp;            case Opcodes.T_CHAR:
+<b class="nc"><i class="no-highlight">1222</i>&nbsp;                push(ARRAY_OF | CHAR);</b>
+<b class="nc"><i class="no-highlight">1223</i>&nbsp;                break;</b>
+<i class="no-highlight">1224</i>&nbsp;            case Opcodes.T_BYTE:
+<b class="nc"><i class="no-highlight">1225</i>&nbsp;                push(ARRAY_OF | BYTE);</b>
+<b class="nc"><i class="no-highlight">1226</i>&nbsp;                break;</b>
+<i class="no-highlight">1227</i>&nbsp;            case Opcodes.T_SHORT:
+<b class="nc"><i class="no-highlight">1228</i>&nbsp;                push(ARRAY_OF | SHORT);</b>
+<b class="nc"><i class="no-highlight">1229</i>&nbsp;                break;</b>
+<i class="no-highlight">1230</i>&nbsp;            case Opcodes.T_INT:
+<b class="nc"><i class="no-highlight">1231</i>&nbsp;                push(ARRAY_OF | INTEGER);</b>
+<b class="nc"><i class="no-highlight">1232</i>&nbsp;                break;</b>
+<i class="no-highlight">1233</i>&nbsp;            case Opcodes.T_FLOAT:
+<b class="nc"><i class="no-highlight">1234</i>&nbsp;                push(ARRAY_OF | FLOAT);</b>
+<b class="nc"><i class="no-highlight">1235</i>&nbsp;                break;</b>
+<i class="no-highlight">1236</i>&nbsp;            case Opcodes.T_DOUBLE:
+<b class="nc"><i class="no-highlight">1237</i>&nbsp;                push(ARRAY_OF | DOUBLE);</b>
+<b class="nc"><i class="no-highlight">1238</i>&nbsp;                break;</b>
+<i class="no-highlight">1239</i>&nbsp;            // case Opcodes.T_LONG:
+<i class="no-highlight">1240</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">1241</i>&nbsp;                push(ARRAY_OF | LONG);</b>
+<b class="nc"><i class="no-highlight">1242</i>&nbsp;                break;</b>
+<i class="no-highlight">1243</i>&nbsp;            }
+<i class="no-highlight">1244</i>&nbsp;            break;
+<i class="no-highlight">1245</i>&nbsp;        case Opcodes.ANEWARRAY:
+<b class="nc"><i class="no-highlight">1246</i>&nbsp;            String s = item.strVal1;</b>
+<b class="nc"><i class="no-highlight">1247</i>&nbsp;            pop();</b>
+<b class="nc"><i class="no-highlight">1248</i>&nbsp;            if (s.charAt(0) == &#39;[&#39;) {</b>
+<b class="nc"><i class="no-highlight">1249</i>&nbsp;                push(cw, &#39;[&#39; + s);</b>
+<i class="no-highlight">1250</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1251</i>&nbsp;                push(ARRAY_OF | OBJECT | cw.addType(s));</b>
+<i class="no-highlight">1252</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1253</i>&nbsp;            break;</b>
+<i class="no-highlight">1254</i>&nbsp;        case Opcodes.CHECKCAST:
+<b class="nc"><i class="no-highlight">1255</i>&nbsp;            s = item.strVal1;</b>
+<b class="nc"><i class="no-highlight">1256</i>&nbsp;            pop();</b>
+<b class="nc"><i class="no-highlight">1257</i>&nbsp;            if (s.charAt(0) == &#39;[&#39;) {</b>
+<b class="nc"><i class="no-highlight">1258</i>&nbsp;                push(cw, s);</b>
+<i class="no-highlight">1259</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1260</i>&nbsp;                push(OBJECT | cw.addType(s));</b>
+<i class="no-highlight">1261</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1262</i>&nbsp;            break;</b>
+<i class="no-highlight">1263</i>&nbsp;        // case Opcodes.MULTIANEWARRAY:
+<i class="no-highlight">1264</i>&nbsp;        default:
+<b class="nc"><i class="no-highlight">1265</i>&nbsp;            pop(arg);</b>
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;            push(cw, item.strVal1);</b>
+<i class="no-highlight">1267</i>&nbsp;            break;
+<i class="no-highlight">1268</i>&nbsp;        }
+<i class="no-highlight">1269</i>&nbsp;    }
+<i class="no-highlight">1270</i>&nbsp;
+<i class="no-highlight">1271</i>&nbsp;    /**
+<i class="no-highlight">1272</i>&nbsp;     * Merges the input frame of the given basic block with the input and output
+<i class="no-highlight">1273</i>&nbsp;     * frames of this basic block. Returns &lt;tt&gt;true&lt;/tt&gt; if the input frame of
+<i class="no-highlight">1274</i>&nbsp;     * the given label has been changed by this operation.
+<i class="no-highlight">1275</i>&nbsp;     * 
+<i class="no-highlight">1276</i>&nbsp;     * @param cw
+<i class="no-highlight">1277</i>&nbsp;     *            the ClassWriter to which this label belongs.
+<i class="no-highlight">1278</i>&nbsp;     * @param frame
+<i class="no-highlight">1279</i>&nbsp;     *            the basic block whose input frame must be updated.
+<i class="no-highlight">1280</i>&nbsp;     * @param edge
+<i class="no-highlight">1281</i>&nbsp;     *            the kind of the {@link Edge} between this label and &#39;label&#39;.
+<i class="no-highlight">1282</i>&nbsp;     *            See {@link Edge#info}.
+<i class="no-highlight">1283</i>&nbsp;     * @return &lt;tt&gt;true&lt;/tt&gt; if the input frame of the given label has been
+<i class="no-highlight">1284</i>&nbsp;     *         changed by this operation.
+<i class="no-highlight">1285</i>&nbsp;     */
+<i class="no-highlight">1286</i>&nbsp;    boolean merge(final ClassWriter cw, final Frame frame, final int edge) {
+<b class="nc"><i class="no-highlight">1287</i>&nbsp;        boolean changed = false;</b>
+<i class="no-highlight">1288</i>&nbsp;        int i, s, dim, kind, t;
+<i class="no-highlight">1289</i>&nbsp;
+<b class="nc"><i class="no-highlight">1290</i>&nbsp;        int nLocal = inputLocals.length;</b>
+<b class="nc"><i class="no-highlight">1291</i>&nbsp;        int nStack = inputStack.length;</b>
+<b class="nc"><i class="no-highlight">1292</i>&nbsp;        if (frame.inputLocals == null) {</b>
+<b class="nc"><i class="no-highlight">1293</i>&nbsp;            frame.inputLocals = new int[nLocal];</b>
+<b class="nc"><i class="no-highlight">1294</i>&nbsp;            changed = true;</b>
+<i class="no-highlight">1295</i>&nbsp;        }
+<i class="no-highlight">1296</i>&nbsp;
+<b class="nc"><i class="no-highlight">1297</i>&nbsp;        for (i = 0; i &lt; nLocal; ++i) {</b>
+<b class="nc"><i class="no-highlight">1298</i>&nbsp;            if (outputLocals != null &amp;&amp; i &lt; outputLocals.length) {</b>
+<b class="nc"><i class="no-highlight">1299</i>&nbsp;                s = outputLocals[i];</b>
+<b class="nc"><i class="no-highlight">1300</i>&nbsp;                if (s == 0) {</b>
+<b class="nc"><i class="no-highlight">1301</i>&nbsp;                    t = inputLocals[i];</b>
+<i class="no-highlight">1302</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1303</i>&nbsp;                    dim = s &amp; DIM;</b>
+<b class="nc"><i class="no-highlight">1304</i>&nbsp;                    kind = s &amp; KIND;</b>
+<b class="nc"><i class="no-highlight">1305</i>&nbsp;                    if (kind == BASE) {</b>
+<b class="nc"><i class="no-highlight">1306</i>&nbsp;                        t = s;</b>
+<i class="no-highlight">1307</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">1308</i>&nbsp;                        if (kind == LOCAL) {</b>
+<b class="nc"><i class="no-highlight">1309</i>&nbsp;                            t = dim + inputLocals[s &amp; VALUE];</b>
+<i class="no-highlight">1310</i>&nbsp;                        } else {
+<b class="nc"><i class="no-highlight">1311</i>&nbsp;                            t = dim + inputStack[nStack - (s &amp; VALUE)];</b>
+<i class="no-highlight">1312</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">1313</i>&nbsp;                        if ((s &amp; TOP_IF_LONG_OR_DOUBLE) != 0</b>
+<i class="no-highlight">1314</i>&nbsp;                                &amp;&amp; (t == LONG || t == DOUBLE)) {
+<b class="nc"><i class="no-highlight">1315</i>&nbsp;                            t = TOP;</b>
+<i class="no-highlight">1316</i>&nbsp;                        }
+<i class="no-highlight">1317</i>&nbsp;                    }
+<i class="no-highlight">1318</i>&nbsp;                }
+<i class="no-highlight">1319</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1320</i>&nbsp;                t = inputLocals[i];</b>
+<i class="no-highlight">1321</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1322</i>&nbsp;            if (initializations != null) {</b>
+<b class="nc"><i class="no-highlight">1323</i>&nbsp;                t = init(cw, t);</b>
+<i class="no-highlight">1324</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1325</i>&nbsp;            changed |= merge(cw, t, frame.inputLocals, i);</b>
+<i class="no-highlight">1326</i>&nbsp;        }
+<i class="no-highlight">1327</i>&nbsp;
+<b class="nc"><i class="no-highlight">1328</i>&nbsp;        if (edge &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1329</i>&nbsp;            for (i = 0; i &lt; nLocal; ++i) {</b>
+<b class="nc"><i class="no-highlight">1330</i>&nbsp;                t = inputLocals[i];</b>
+<b class="nc"><i class="no-highlight">1331</i>&nbsp;                changed |= merge(cw, t, frame.inputLocals, i);</b>
+<i class="no-highlight">1332</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1333</i>&nbsp;            if (frame.inputStack == null) {</b>
+<b class="nc"><i class="no-highlight">1334</i>&nbsp;                frame.inputStack = new int[1];</b>
+<b class="nc"><i class="no-highlight">1335</i>&nbsp;                changed = true;</b>
+<i class="no-highlight">1336</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1337</i>&nbsp;            changed |= merge(cw, edge, frame.inputStack, 0);</b>
+<b class="nc"><i class="no-highlight">1338</i>&nbsp;            return changed;</b>
+<i class="no-highlight">1339</i>&nbsp;        }
+<i class="no-highlight">1340</i>&nbsp;
+<b class="nc"><i class="no-highlight">1341</i>&nbsp;        int nInputStack = inputStack.length + owner.inputStackTop;</b>
+<b class="nc"><i class="no-highlight">1342</i>&nbsp;        if (frame.inputStack == null) {</b>
+<b class="nc"><i class="no-highlight">1343</i>&nbsp;            frame.inputStack = new int[nInputStack + outputStackTop];</b>
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;            changed = true;</b>
+<i class="no-highlight">1345</i>&nbsp;        }
+<i class="no-highlight">1346</i>&nbsp;
+<b class="nc"><i class="no-highlight">1347</i>&nbsp;        for (i = 0; i &lt; nInputStack; ++i) {</b>
+<b class="nc"><i class="no-highlight">1348</i>&nbsp;            t = inputStack[i];</b>
+<b class="nc"><i class="no-highlight">1349</i>&nbsp;            if (initializations != null) {</b>
+<b class="nc"><i class="no-highlight">1350</i>&nbsp;                t = init(cw, t);</b>
+<i class="no-highlight">1351</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1352</i>&nbsp;            changed |= merge(cw, t, frame.inputStack, i);</b>
+<i class="no-highlight">1353</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1354</i>&nbsp;        for (i = 0; i &lt; outputStackTop; ++i) {</b>
+<b class="nc"><i class="no-highlight">1355</i>&nbsp;            s = outputStack[i];</b>
+<b class="nc"><i class="no-highlight">1356</i>&nbsp;            dim = s &amp; DIM;</b>
+<b class="nc"><i class="no-highlight">1357</i>&nbsp;            kind = s &amp; KIND;</b>
+<b class="nc"><i class="no-highlight">1358</i>&nbsp;            if (kind == BASE) {</b>
+<b class="nc"><i class="no-highlight">1359</i>&nbsp;                t = s;</b>
+<i class="no-highlight">1360</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1361</i>&nbsp;                if (kind == LOCAL) {</b>
+<b class="nc"><i class="no-highlight">1362</i>&nbsp;                    t = dim + inputLocals[s &amp; VALUE];</b>
+<i class="no-highlight">1363</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1364</i>&nbsp;                    t = dim + inputStack[nStack - (s &amp; VALUE)];</b>
+<i class="no-highlight">1365</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1366</i>&nbsp;                if ((s &amp; TOP_IF_LONG_OR_DOUBLE) != 0</b>
+<i class="no-highlight">1367</i>&nbsp;                        &amp;&amp; (t == LONG || t == DOUBLE)) {
+<b class="nc"><i class="no-highlight">1368</i>&nbsp;                    t = TOP;</b>
+<i class="no-highlight">1369</i>&nbsp;                }
+<i class="no-highlight">1370</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1371</i>&nbsp;            if (initializations != null) {</b>
+<b class="nc"><i class="no-highlight">1372</i>&nbsp;                t = init(cw, t);</b>
+<i class="no-highlight">1373</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;            changed |= merge(cw, t, frame.inputStack, nInputStack + i);</b>
+<i class="no-highlight">1375</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1376</i>&nbsp;        return changed;</b>
+<i class="no-highlight">1377</i>&nbsp;    }
+<i class="no-highlight">1378</i>&nbsp;
+<i class="no-highlight">1379</i>&nbsp;    /**
+<i class="no-highlight">1380</i>&nbsp;     * Merges the type at the given index in the given type array with the given
+<i class="no-highlight">1381</i>&nbsp;     * type. Returns &lt;tt&gt;true&lt;/tt&gt; if the type array has been modified by this
+<i class="no-highlight">1382</i>&nbsp;     * operation.
+<i class="no-highlight">1383</i>&nbsp;     * 
+<i class="no-highlight">1384</i>&nbsp;     * @param cw
+<i class="no-highlight">1385</i>&nbsp;     *            the ClassWriter to which this label belongs.
+<i class="no-highlight">1386</i>&nbsp;     * @param t
+<i class="no-highlight">1387</i>&nbsp;     *            the type with which the type array element must be merged.
+<i class="no-highlight">1388</i>&nbsp;     * @param types
+<i class="no-highlight">1389</i>&nbsp;     *            an array of types.
+<i class="no-highlight">1390</i>&nbsp;     * @param index
+<i class="no-highlight">1391</i>&nbsp;     *            the index of the type that must be merged in &#39;types&#39;.
+<i class="no-highlight">1392</i>&nbsp;     * @return &lt;tt&gt;true&lt;/tt&gt; if the type array has been modified by this
+<i class="no-highlight">1393</i>&nbsp;     *         operation.
+<i class="no-highlight">1394</i>&nbsp;     */
+<i class="no-highlight">1395</i>&nbsp;    private static boolean merge(final ClassWriter cw, int t,
+<i class="no-highlight">1396</i>&nbsp;            final int[] types, final int index) {
+<b class="nc"><i class="no-highlight">1397</i>&nbsp;        int u = types[index];</b>
+<b class="nc"><i class="no-highlight">1398</i>&nbsp;        if (u == t) {</b>
+<i class="no-highlight">1399</i>&nbsp;            // if the types are equal, merge(u,t)=u, so there is no change
+<b class="nc"><i class="no-highlight">1400</i>&nbsp;            return false;</b>
+<i class="no-highlight">1401</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1402</i>&nbsp;        if ((t &amp; ~DIM) == NULL) {</b>
+<b class="nc"><i class="no-highlight">1403</i>&nbsp;            if (u == NULL) {</b>
+<b class="nc"><i class="no-highlight">1404</i>&nbsp;                return false;</b>
+<i class="no-highlight">1405</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1406</i>&nbsp;            t = NULL;</b>
+<i class="no-highlight">1407</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1408</i>&nbsp;        if (u == 0) {</b>
+<i class="no-highlight">1409</i>&nbsp;            // if types[index] has never been assigned, merge(u,t)=t
+<b class="nc"><i class="no-highlight">1410</i>&nbsp;            types[index] = t;</b>
+<b class="nc"><i class="no-highlight">1411</i>&nbsp;            return true;</b>
+<i class="no-highlight">1412</i>&nbsp;        }
+<i class="no-highlight">1413</i>&nbsp;        int v;
+<b class="nc"><i class="no-highlight">1414</i>&nbsp;        if ((u &amp; BASE_KIND) == OBJECT || (u &amp; DIM) != 0) {</b>
+<i class="no-highlight">1415</i>&nbsp;            // if u is a reference type of any dimension
+<b class="nc"><i class="no-highlight">1416</i>&nbsp;            if (t == NULL) {</b>
+<i class="no-highlight">1417</i>&nbsp;                // if t is the NULL type, merge(u,t)=u, so there is no change
+<b class="nc"><i class="no-highlight">1418</i>&nbsp;                return false;</b>
+<b class="nc"><i class="no-highlight">1419</i>&nbsp;            } else if ((t &amp; (DIM | BASE_KIND)) == (u &amp; (DIM | BASE_KIND))) {</b>
+<i class="no-highlight">1420</i>&nbsp;                // if t and u have the same dimension and same base kind
+<b class="nc"><i class="no-highlight">1421</i>&nbsp;                if ((u &amp; BASE_KIND) == OBJECT) {</b>
+<i class="no-highlight">1422</i>&nbsp;                    // if t is also a reference type, and if u and t have the
+<i class="no-highlight">1423</i>&nbsp;                    // same dimension merge(u,t) = dim(t) | common parent of the
+<i class="no-highlight">1424</i>&nbsp;                    // element types of u and t
+<b class="nc"><i class="no-highlight">1425</i>&nbsp;                    v = (t &amp; DIM) | OBJECT</b>
+<b class="nc"><i class="no-highlight">1426</i>&nbsp;                            | cw.getMergedType(t &amp; BASE_VALUE, u &amp; BASE_VALUE);</b>
+<i class="no-highlight">1427</i>&nbsp;                } else {
+<i class="no-highlight">1428</i>&nbsp;                    // if u and t are array types, but not with the same element
+<i class="no-highlight">1429</i>&nbsp;                    // type, merge(u,t) = dim(u) - 1 | java/lang/Object
+<b class="nc"><i class="no-highlight">1430</i>&nbsp;                    int vdim = ELEMENT_OF + (u &amp; DIM);</b>
+<b class="nc"><i class="no-highlight">1431</i>&nbsp;                    v = vdim | OBJECT | cw.addType(&quot;java/lang/Object&quot;);</b>
+<b class="nc"><i class="no-highlight">1432</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">1433</i>&nbsp;            } else if ((t &amp; BASE_KIND) == OBJECT || (t &amp; DIM) != 0) {</b>
+<i class="no-highlight">1434</i>&nbsp;                // if t is any other reference or array type, the merged type
+<i class="no-highlight">1435</i>&nbsp;                // is min(udim, tdim) | java/lang/Object, where udim is the
+<i class="no-highlight">1436</i>&nbsp;                // array dimension of u, minus 1 if u is an array type with a
+<i class="no-highlight">1437</i>&nbsp;                // primitive element type (and similarly for tdim).
+<b class="nc"><i class="no-highlight">1438</i>&nbsp;                int tdim = (((t &amp; DIM) == 0 || (t &amp; BASE_KIND) == OBJECT) ? 0</b>
+<i class="no-highlight">1439</i>&nbsp;                        : ELEMENT_OF) + (t &amp; DIM);
+<b class="nc"><i class="no-highlight">1440</i>&nbsp;                int udim = (((u &amp; DIM) == 0 || (u &amp; BASE_KIND) == OBJECT) ? 0</b>
+<i class="no-highlight">1441</i>&nbsp;                        : ELEMENT_OF) + (u &amp; DIM);
+<b class="nc"><i class="no-highlight">1442</i>&nbsp;                v = Math.min(tdim, udim) | OBJECT</b>
+<b class="nc"><i class="no-highlight">1443</i>&nbsp;                        | cw.addType(&quot;java/lang/Object&quot;);</b>
+<b class="nc"><i class="no-highlight">1444</i>&nbsp;            } else {</b>
+<i class="no-highlight">1445</i>&nbsp;                // if t is any other type, merge(u,t)=TOP
+<b class="nc"><i class="no-highlight">1446</i>&nbsp;                v = TOP;</b>
+<i class="no-highlight">1447</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1448</i>&nbsp;        } else if (u == NULL) {</b>
+<i class="no-highlight">1449</i>&nbsp;            // if u is the NULL type, merge(u,t)=t,
+<i class="no-highlight">1450</i>&nbsp;            // or TOP if t is not a reference type
+<b class="nc"><i class="no-highlight">1451</i>&nbsp;            v = (t &amp; BASE_KIND) == OBJECT || (t &amp; DIM) != 0 ? t : TOP;</b>
+<i class="no-highlight">1452</i>&nbsp;        } else {
+<i class="no-highlight">1453</i>&nbsp;            // if u is any other type, merge(u,t)=TOP whatever t
+<b class="nc"><i class="no-highlight">1454</i>&nbsp;            v = TOP;</b>
+<i class="no-highlight">1455</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1456</i>&nbsp;        if (u != v) {</b>
+<b class="nc"><i class="no-highlight">1457</i>&nbsp;            types[index] = v;</b>
+<b class="nc"><i class="no-highlight">1458</i>&nbsp;            return true;</b>
+<i class="no-highlight">1459</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1460</i>&nbsp;        return false;</b>
+<i class="no-highlight">1461</i>&nbsp;    }
+<i class="no-highlight">1462</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

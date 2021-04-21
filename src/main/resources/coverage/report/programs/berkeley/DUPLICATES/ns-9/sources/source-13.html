@@ -1,0 +1,374 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > PackedOffsets</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: PackedOffsets (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">PackedOffsets</td>
+<td class="coverageStat">
+  <span class="percent">
+    57.1%
+  </span>
+  <span class="absValue">
+    (8/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    52.8%
+  </span>
+  <span class="absValue">
+    (38/72)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">PackedOffsets$Iterator</td>
+<td class="coverageStat">
+  <span class="percent">
+    75%
+  </span>
+  <span class="absValue">
+    (3/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    30.8%
+  </span>
+  <span class="absValue">
+    (4/13)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    61.1%
+  </span>
+  <span class="absValue">
+    (11/18)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    49.4%
+  </span>
+  <span class="absValue">
+    (42/85)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">17</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.log.LogUtils;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.log.Loggable;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;/**
+<i class="no-highlight">24</i>&nbsp; * Stores a sorted list of LSN offsets in a packed short representation.  Each
+<i class="no-highlight">25</i>&nbsp; * stored value is the difference between two consecutive offsets.  The stored
+<i class="no-highlight">26</i>&nbsp; * values are stored as one or more shorts where each short holds 0x7fff
+<i class="no-highlight">27</i>&nbsp; * values.  Shorts are in LSB order.  The value is negated if more shorts for
+<i class="no-highlight">28</i>&nbsp; * the same offset follow; this works because offsets are always positive
+<i class="no-highlight">29</i>&nbsp; * values.
+<i class="no-highlight">30</i>&nbsp; */
+<b class="fc"><i class="no-highlight">31</i>&nbsp;public class PackedOffsets implements Loggable {</b>
+<i class="no-highlight">32</i>&nbsp;
+<i class="no-highlight">33</i>&nbsp;    private short[] data;
+<i class="no-highlight">34</i>&nbsp;    private int size;
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;    /**
+<i class="no-highlight">37</i>&nbsp;     * Creates an empty object.
+<i class="no-highlight">38</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">39</i>&nbsp;    public PackedOffsets() {</b>
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;        /*
+<i class="no-highlight">42</i>&nbsp;         * Verify assumption in FileSummaryLN that a new PackedOffsets instance
+<i class="no-highlight">43</i>&nbsp;         * has no extra extra memory that must be budgeted.
+<i class="no-highlight">44</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">45</i>&nbsp;        assert getExtraMemorySize() == 0;</b>
+<b class="fc"><i class="no-highlight">46</i>&nbsp;    }</b>
+<i class="no-highlight">47</i>&nbsp;
+<i class="no-highlight">48</i>&nbsp;    /**
+<i class="no-highlight">49</i>&nbsp;     * Returns an iterator over all offsets.
+<i class="no-highlight">50</i>&nbsp;     */
+<i class="no-highlight">51</i>&nbsp;    Iterator iterator() {
+<b class="fc"><i class="no-highlight">52</i>&nbsp;        return new Iterator();</b>
+<i class="no-highlight">53</i>&nbsp;    }
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    /**
+<i class="no-highlight">56</i>&nbsp;     * Packs the given offsets, replacing any offsets stored in this object.
+<i class="no-highlight">57</i>&nbsp;     */
+<i class="no-highlight">58</i>&nbsp;    public void pack(long[] offsets) {
+<i class="no-highlight">59</i>&nbsp;
+<i class="no-highlight">60</i>&nbsp;        /* Allocate a maximum sized new data array. */
+<b class="fc"><i class="no-highlight">61</i>&nbsp;        short[] newData = new short[offsets.length * 3];</b>
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;        /* Pack the sorted offsets. */
+<b class="fc"><i class="no-highlight">64</i>&nbsp;        Arrays.sort(offsets);</b>
+<b class="fc"><i class="no-highlight">65</i>&nbsp;        int dataIndex = 0;</b>
+<b class="fc"><i class="no-highlight">66</i>&nbsp;        long priorVal = 0;</b>
+<b class="fc"><i class="no-highlight">67</i>&nbsp;        for (int i = 0; i &lt; offsets.length; i += 1) {</b>
+<b class="fc"><i class="no-highlight">68</i>&nbsp;            long val = offsets[i];</b>
+<b class="fc"><i class="no-highlight">69</i>&nbsp;            dataIndex = append(newData, dataIndex, val - priorVal);</b>
+<b class="fc"><i class="no-highlight">70</i>&nbsp;            priorVal = val;</b>
+<i class="no-highlight">71</i>&nbsp;        }
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;        /* Copy in the exact sized new data. */
+<b class="fc"><i class="no-highlight">74</i>&nbsp;        data = new short[dataIndex];</b>
+<b class="fc"><i class="no-highlight">75</i>&nbsp;        System.arraycopy(newData, 0, data, 0, dataIndex);</b>
+<b class="fc"><i class="no-highlight">76</i>&nbsp;        size = offsets.length;</b>
+<b class="fc"><i class="no-highlight">77</i>&nbsp;    }</b>
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    /**
+<i class="no-highlight">80</i>&nbsp;     * Returns the unpacked offsets.
+<i class="no-highlight">81</i>&nbsp;     */
+<i class="no-highlight">82</i>&nbsp;    long[] toArray() {
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        long[] offsets = new long[size];</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;        int index = 0;</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;        Iterator iter = iterator();</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;            offsets[index++] = iter.next();</b>
+<i class="no-highlight">88</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        assert index == size;</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        return offsets;</b>
+<i class="no-highlight">91</i>&nbsp;    }
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /**
+<i class="no-highlight">94</i>&nbsp;     * Copies the given value as a packed long to the array starting at the
+<i class="no-highlight">95</i>&nbsp;     * given index.  Returns the index of the next position in the array.
+<i class="no-highlight">96</i>&nbsp;     */
+<i class="no-highlight">97</i>&nbsp;    private int append(short[] to, int index, long val) {
+<i class="no-highlight">98</i>&nbsp;
+<b class="fc"><i class="no-highlight">99</i>&nbsp;        assert val &gt;= 0;</b>
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;        while (true) {
+<b class="fc"><i class="no-highlight">102</i>&nbsp;            short s = (short) (val &amp; 0x7fff);</b>
+<b class="fc"><i class="no-highlight">103</i>&nbsp;            val &gt;&gt;&gt;= 15;</b>
+<b class="fc"><i class="no-highlight">104</i>&nbsp;            if (val &gt; 0) {</b>
+<b class="fc"><i class="no-highlight">105</i>&nbsp;                to[index++] = (short) (-1 - s);</b>
+<i class="no-highlight">106</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">107</i>&nbsp;                to[index++] = s;</b>
+<b class="fc"><i class="no-highlight">108</i>&nbsp;                break;</b>
+<i class="no-highlight">109</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">110</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">111</i>&nbsp;        return index;</b>
+<i class="no-highlight">112</i>&nbsp;    }
+<i class="no-highlight">113</i>&nbsp;
+<i class="no-highlight">114</i>&nbsp;    /**
+<i class="no-highlight">115</i>&nbsp;     * An iterator over all offsets.
+<i class="no-highlight">116</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">117</i>&nbsp;    class Iterator {</b>
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;        private int index;
+<i class="no-highlight">120</i>&nbsp;        private long priorVal;
+<i class="no-highlight">121</i>&nbsp;
+<b class="fc"><i class="no-highlight">122</i>&nbsp;        private Iterator() {</b>
+<b class="fc"><i class="no-highlight">123</i>&nbsp;        }</b>
+<i class="no-highlight">124</i>&nbsp;
+<i class="no-highlight">125</i>&nbsp;        boolean hasNext() {
+<b class="fc"><i class="no-highlight">126</i>&nbsp;            return data != null &amp;&amp; index &lt; data.length;</b>
+<i class="no-highlight">127</i>&nbsp;        }
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;        long next() {
+<b class="nc"><i class="no-highlight">130</i>&nbsp;            long val = priorVal;</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;            for (int shift = 0;; shift += 15) {</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;                long s = data[index++];</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;                if (s &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;                    val += (-1 - s) &lt;&lt; shift;</b>
+<i class="no-highlight">135</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">136</i>&nbsp;                    val += s &lt;&lt; shift;</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;                    break;</b>
+<i class="no-highlight">138</i>&nbsp;                }
+<i class="no-highlight">139</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">140</i>&nbsp;            priorVal = val;</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;            return val;</b>
+<i class="no-highlight">142</i>&nbsp;        }
+<i class="no-highlight">143</i>&nbsp;    }
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;    /**
+<i class="no-highlight">146</i>&nbsp;     * Return the extra memory used by this object when the pack() method has
+<i class="no-highlight">147</i>&nbsp;     * been called to allocate the data array.
+<i class="no-highlight">148</i>&nbsp;     */
+<i class="no-highlight">149</i>&nbsp;    public int getExtraMemorySize() {
+<b class="fc"><i class="no-highlight">150</i>&nbsp;        if (data != null) {</b>
+<b class="fc"><i class="no-highlight">151</i>&nbsp;            return MemoryBudget.shortArraySize(data.length);</b>
+<i class="no-highlight">152</i>&nbsp;        } else {
+<b class="fc"><i class="no-highlight">153</i>&nbsp;            return 0;</b>
+<i class="no-highlight">154</i>&nbsp;        }
+<i class="no-highlight">155</i>&nbsp;    }
+<i class="no-highlight">156</i>&nbsp;
+<i class="no-highlight">157</i>&nbsp;    /**
+<i class="no-highlight">158</i>&nbsp;     * @see Loggable#getLogSize
+<i class="no-highlight">159</i>&nbsp;     */
+<i class="no-highlight">160</i>&nbsp;    public int getLogSize() {
+<i class="no-highlight">161</i>&nbsp;
+<b class="fc"><i class="no-highlight">162</i>&nbsp;        int len = (data != null) ? data.length : 0;</b>
+<b class="fc"><i class="no-highlight">163</i>&nbsp;        return  (LogUtils.getPackedIntLogSize(size) +</b>
+<b class="fc"><i class="no-highlight">164</i>&nbsp;                 LogUtils.getPackedIntLogSize(len) +</b>
+<i class="no-highlight">165</i>&nbsp;                 (len * LogUtils.SHORT_BYTES));
+<i class="no-highlight">166</i>&nbsp;    }
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;    /**
+<i class="no-highlight">169</i>&nbsp;     * @see Loggable#writeToLog
+<i class="no-highlight">170</i>&nbsp;     */
+<i class="no-highlight">171</i>&nbsp;    public void writeToLog(ByteBuffer buf) {
+<i class="no-highlight">172</i>&nbsp;
+<b class="fc"><i class="no-highlight">173</i>&nbsp;        LogUtils.writePackedInt(buf, size);</b>
+<b class="fc"><i class="no-highlight">174</i>&nbsp;        if (data != null) {</b>
+<b class="fc"><i class="no-highlight">175</i>&nbsp;            LogUtils.writePackedInt(buf, data.length);</b>
+<b class="fc"><i class="no-highlight">176</i>&nbsp;            for (int i = 0; i &lt; data.length; i += 1) {</b>
+<b class="fc"><i class="no-highlight">177</i>&nbsp;                LogUtils.writeShort(buf, data[i]);</b>
+<i class="no-highlight">178</i>&nbsp;            }
+<i class="no-highlight">179</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">180</i>&nbsp;            LogUtils.writePackedInt(buf, 0);</b>
+<i class="no-highlight">181</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">182</i>&nbsp;    }</b>
+<i class="no-highlight">183</i>&nbsp;
+<i class="no-highlight">184</i>&nbsp;    /**
+<i class="no-highlight">185</i>&nbsp;     * @see Loggable#readFromLog
+<i class="no-highlight">186</i>&nbsp;     */
+<i class="no-highlight">187</i>&nbsp;    public void readFromLog(ByteBuffer buf, int entryVersion) {
+<i class="no-highlight">188</i>&nbsp;
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        boolean unpacked = (entryVersion &lt; 6);</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        size = LogUtils.readInt(buf, unpacked);</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        int len = LogUtils.readInt(buf, unpacked);</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        if (len &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            data = new short[len];</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            for (int i = 0; i &lt; len; i += 1) {</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                data[i] = LogUtils.readShort(buf);</b>
+<i class="no-highlight">196</i>&nbsp;            }
+<i class="no-highlight">197</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">198</i>&nbsp;    }</b>
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;    /**
+<i class="no-highlight">201</i>&nbsp;     * @see Loggable#dumpLog
+<i class="no-highlight">202</i>&nbsp;     */
+<i class="no-highlight">203</i>&nbsp;    public void dumpLog(StringBuilder buf, boolean verbose) {
+<i class="no-highlight">204</i>&nbsp;
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        if (size &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;            Iterator i = iterator();</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            buf.append(&quot;&lt;offsets size=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;            buf.append(size);</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;            buf.append(&quot;\&quot;&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            while (i.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                buf.append(&quot;0x&quot;);</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;                buf.append(Long.toHexString(i.next()));</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                buf.append(&#39; &#39;);</b>
+<i class="no-highlight">214</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            buf.append(&quot;&lt;/offsets&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;            buf.append(&quot;&lt;offsets size=\&quot;0\&quot;/&gt;&quot;);</b>
+<i class="no-highlight">218</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">219</i>&nbsp;    }</b>
+<i class="no-highlight">220</i>&nbsp;
+<i class="no-highlight">221</i>&nbsp;    /**
+<i class="no-highlight">222</i>&nbsp;     * Never called.
+<i class="no-highlight">223</i>&nbsp;     * @see Loggable#getTransactionId
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    public long getTransactionId() {
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        return -1;</b>
+<i class="no-highlight">227</i>&nbsp;    }
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    /**
+<i class="no-highlight">230</i>&nbsp;     * @see Loggable#logicalEquals
+<i class="no-highlight">231</i>&nbsp;     * Always return false, this item should never be compared.
+<i class="no-highlight">232</i>&nbsp;     */
+<i class="no-highlight">233</i>&nbsp;    public boolean logicalEquals(Loggable other) {
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        return false;</b>
+<i class="no-highlight">235</i>&nbsp;    }
+<i class="no-highlight">236</i>&nbsp;
+<i class="no-highlight">237</i>&nbsp;    @Override
+<i class="no-highlight">238</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">239</i>&nbsp;        StringBuilder buf = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        dumpLog(buf, true);</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        return buf.toString();</b>
+<i class="no-highlight">242</i>&nbsp;    }
+<i class="no-highlight">243</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

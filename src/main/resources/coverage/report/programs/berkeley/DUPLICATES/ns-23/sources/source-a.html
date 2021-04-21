@@ -1,0 +1,1020 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SubscriptionThread</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.subscription</a>
+</div>
+
+<h1>Coverage Summary for Class: SubscriptionThread (com.sleepycat.je.rep.subscription)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">SubscriptionThread</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/16)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/280)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">SubscriptionThread$ConnectionException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">SubscriptionThread$SubFeederHandshakeConfig</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">SubscriptionThread$SubscriptionThreadExceptionHandler</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/302)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.subscription;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;import java.util.Timer;
+<i class="no-highlight">18</i>&nbsp;import java.util.concurrent.ArrayBlockingQueue;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.BlockingQueue;
+<i class="no-highlight">20</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">21</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.rep.GroupShutdownException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.rep.InsufficientLogException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.NodeType;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.RepInternal;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.rep.ReplicatedEnvironment;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.rep.ReplicationSecurityException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupImpl;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.rep.impl.node.ChannelTimeoutTask;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.impl.node.FeederManager;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.impl.node.ReplicaOutputThread;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.stream.ReplicaFeederHandshake;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.stream.ReplicaFeederHandshakeConfig;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.stream.SubscriberFeederSyncup;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.utilint.NamedChannel;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.utilint.NamedChannelWithTimeout;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.utilint.InternalException;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.utilint.StoppableThread;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;/**
+<i class="no-highlight">56</i>&nbsp; * Main thread created by Subscription to stream log entries from feeder
+<i class="no-highlight">57</i>&nbsp; */
+<b class="nc"><i class="no-highlight">58</i>&nbsp;class SubscriptionThread extends StoppableThread {</b>
+<i class="no-highlight">59</i>&nbsp;    
+<i class="no-highlight">60</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">61</i>&nbsp;    private final SubscriptionConfig config;
+<i class="no-highlight">62</i>&nbsp;    private final SubscriptionStat stats;
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;    /* communication queues and working threads */
+<i class="no-highlight">65</i>&nbsp;    private final BlockingQueue&lt;Long&gt; outputQueue;
+<i class="no-highlight">66</i>&nbsp;    private final BlockingQueue&lt;Object&gt; inputQueue;
+<i class="no-highlight">67</i>&nbsp;    private SubscriptionProcessMessageThread messageProcThread;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /* communication channel between subscriber and feeder */
+<i class="no-highlight">70</i>&nbsp;    private NamedChannelWithTimeout namedChannel;
+<i class="no-highlight">71</i>&nbsp;    /* task to register channel with timeout */
+<i class="no-highlight">72</i>&nbsp;    private ChannelTimeoutTask channelTimeoutTask;
+<i class="no-highlight">73</i>&nbsp;    /* protocol used to communicate with feeder */
+<i class="no-highlight">74</i>&nbsp;    private Protocol protocol;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /* requested VLSN from which to stream log entries */
+<i class="no-highlight">77</i>&nbsp;    private final VLSN reqVLSN;
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    /*
+<i class="no-highlight">80</i>&nbsp;     * volatile because it can be concurrently accessed by the subscription
+<i class="no-highlight">81</i>&nbsp;     * thread itself in checkOutputThread(), and another thread trying to
+<i class="no-highlight">82</i>&nbsp;     * shut down subscription by calling shutdown()
+<i class="no-highlight">83</i>&nbsp;     */
+<i class="no-highlight">84</i>&nbsp;    private volatile SubscriptionOutputThread outputThread;
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    private volatile SubscriptionStatus status;
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /* stored exception */
+<i class="no-highlight">89</i>&nbsp;    private volatile Exception storedException;
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;    /*
+<i class="no-highlight">92</i>&nbsp;     * For unit test only. The hook will be called by unit test to inject an
+<i class="no-highlight">93</i>&nbsp;     * exception into msg queue, which to be processed by the callback function
+<i class="no-highlight">94</i>&nbsp;     * defined in unit test.
+<i class="no-highlight">95</i>&nbsp;     */
+<i class="no-highlight">96</i>&nbsp;    private TestHook&lt;SubscriptionThread&gt; exceptionHandlingTestHook;
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    SubscriptionThread(ReplicatedEnvironment env,
+<i class="no-highlight">99</i>&nbsp;                       VLSN reqVLSN,
+<i class="no-highlight">100</i>&nbsp;                       SubscriptionConfig config,
+<i class="no-highlight">101</i>&nbsp;                       SubscriptionStat stats,
+<i class="no-highlight">102</i>&nbsp;                       Logger logger) {
+<i class="no-highlight">103</i>&nbsp;
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        super(RepInternal.getNonNullRepImpl(env), &quot;Subscription Main&quot;);</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        setUncaughtExceptionHandler(new SubscriptionThreadExceptionHandler());</b>
+<i class="no-highlight">106</i>&nbsp;        
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        this.reqVLSN = reqVLSN;</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        this.config = config;</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        this.stats = stats;</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        this.logger = logger;</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        protocol = null;</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        namedChannel = null;</b>
+<i class="no-highlight">113</i>&nbsp;        /* init subscription input and output queue */
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        inputQueue =</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;            new ArrayBlockingQueue&lt;&gt;(config.getInputMessageQueueSize());</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        outputQueue =</b>
+<b class="nc"><i class="no-highlight">117</i>&nbsp;            new ArrayBlockingQueue&lt;&gt;(config.getOutputMessageQueueSize());</b>
+<i class="no-highlight">118</i>&nbsp;
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        status = SubscriptionStatus.INIT;</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        storedException = null;</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        exceptionHandlingTestHook = null;</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /**
+<i class="no-highlight">125</i>&nbsp;     * Returns subscription status to client
+<i class="no-highlight">126</i>&nbsp;     *
+<i class="no-highlight">127</i>&nbsp;     * @return subscription status
+<i class="no-highlight">128</i>&nbsp;     */
+<i class="no-highlight">129</i>&nbsp;    public SubscriptionStatus getStatus() {
+<b class="nc"><i class="no-highlight">130</i>&nbsp;        return status;</b>
+<i class="no-highlight">131</i>&nbsp;    }
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;    /**
+<i class="no-highlight">134</i>&nbsp;     * Returns stored exception
+<i class="no-highlight">135</i>&nbsp;     *
+<i class="no-highlight">136</i>&nbsp;     * @return stored exception
+<i class="no-highlight">137</i>&nbsp;     */
+<i class="no-highlight">138</i>&nbsp;    public Exception getStoredException() {
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        return storedException;</b>
+<i class="no-highlight">140</i>&nbsp;    }
+<i class="no-highlight">141</i>&nbsp;
+<i class="no-highlight">142</i>&nbsp;    @Override
+<i class="no-highlight">143</i>&nbsp;    protected Logger getLogger() {
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        return logger;</b>
+<i class="no-highlight">145</i>&nbsp;    }
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;    @Override
+<i class="no-highlight">148</i>&nbsp;    public void run() {
+<i class="no-highlight">149</i>&nbsp;
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">151</i>&nbsp;                         &quot;Start subscription from VLSN &quot; + reqVLSN +
+<i class="no-highlight">152</i>&nbsp;                         &quot; from feeder at &quot; +
+<b class="nc"><i class="no-highlight">153</i>&nbsp;                         config.getFeederHost() + &quot;:&quot; + config.getFeederPort());</b>
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">156</i>&nbsp;            final int maxRetry = config.getMaxConnectRetries();</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            boolean auxThreadCreated = false;</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            int numRetry = 0;</b>
+<i class="no-highlight">159</i>&nbsp;
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            while (!isShutdown()) {</b>
+<i class="no-highlight">161</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                    initializeConnection();</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                    if (!auxThreadCreated) {</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                        LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">165</i>&nbsp;                                         &quot;Create auxiliary msg processing &quot; +
+<i class="no-highlight">166</i>&nbsp;                                         &quot;and output threads&quot;);
+<i class="no-highlight">167</i>&nbsp;
+<b class="nc"><i class="no-highlight">168</i>&nbsp;                        auxThreadCreated = createAuxThread();</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;                        if (auxThreadCreated) {</b>
+<i class="no-highlight">170</i>&nbsp;                            /* subscription succeed, start streaming data */
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                            status = SubscriptionStatus.SUCCESS;</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                            loopInternal();</b>
+<i class="no-highlight">173</i>&nbsp;                        } else {
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                            status = SubscriptionStatus.UNKNOWN_ERROR;</b>
+<i class="no-highlight">175</i>&nbsp;                        }
+<i class="no-highlight">176</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">177</i>&nbsp;                    break;</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;                } catch (ConnectionException e) {</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                    if (numRetry == maxRetry) {</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;                        LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">181</i>&nbsp;                                         &quot;Reaching the max retry &quot; + maxRetry +
+<i class="no-highlight">182</i>&nbsp;                                         &quot; to connect feeder &quot; +
+<b class="nc"><i class="no-highlight">183</i>&nbsp;                                         config.getFeederHost() +</b>
+<i class="no-highlight">184</i>&nbsp;                                         &quot;, shut down subscription&quot; +
+<b class="nc"><i class="no-highlight">185</i>&nbsp;                                         &quot;\n&quot; + LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                        storedException = e;</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                        status = SubscriptionStatus.CONNECTION_ERROR;</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                        break;</b>
+<i class="no-highlight">189</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">190</i>&nbsp;                        numRetry++;</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;                        LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">192</i>&nbsp;                                         &quot;Fail to connect feeder at &quot; +
+<b class="nc"><i class="no-highlight">193</i>&nbsp;                                         config.getFeederHost() +</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;                                         &quot; sleep for &quot; + e.getRetrySleepMs() +</b>
+<i class="no-highlight">195</i>&nbsp;                                         &quot; ms and re-connect again&quot;);
+<b class="nc"><i class="no-highlight">196</i>&nbsp;                        Thread.sleep(e.getRetrySleepMs());</b>
+<i class="no-highlight">197</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">198</i>&nbsp;                }</b>
+<i class="no-highlight">199</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        } catch (ReplicationSecurityException ure) {</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;            storedException = ure;</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;            LoggerUtils.warning(logger, envImpl,</b>
+<i class="no-highlight">203</i>&nbsp;                                &quot;Subscription exited due to security check &quot; +
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                                &quot;failure: &quot; + ure.getMessage());</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;            status = SubscriptionStatus.SECURITY_CHECK_ERROR;</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        } catch (GroupShutdownException e) {</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            if (messageProcThread.isAlive()) {</b>
+<i class="no-highlight">208</i>&nbsp;                try {
+<i class="no-highlight">209</i>&nbsp;                    /* let message processing thread finish up */
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                    messageProcThread.join();</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                } catch (InterruptedException ie) {</b>
+<i class="no-highlight">212</i>&nbsp;                    /* ignore since we will shut down, just log */
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                    LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">214</i>&nbsp;                                     &quot;exception in shutting down msg proc &quot; +
+<b class="nc"><i class="no-highlight">215</i>&nbsp;                                     &quot;thread &quot; + ie.getMessage() +</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                                     &quot;\n&quot; + LoggerUtils.getStackTrace(ie));</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                }</b>
+<i class="no-highlight">218</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">219</i>&nbsp;            storedException = e;</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;            LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;                             &quot;received group shutdown &quot; + e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;                             &quot;\n&quot; + LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            status = SubscriptionStatus.GRP_SHUTDOWN;</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        } catch (InsufficientLogException e) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            storedException = e;</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;            LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">227</i>&nbsp;                             &quot;unable to subscribe from requested VLSN &quot; +
+<i class="no-highlight">228</i>&nbsp;                             reqVLSN +
+<b class="nc"><i class="no-highlight">229</i>&nbsp;                             &quot;\n&quot; + LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;            status = SubscriptionStatus.VLSN_NOT_AVAILABLE;</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        } catch (EnvironmentFailureException e) {</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;            storedException = e;</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            LoggerUtils.warning(logger, envImpl,</b>
+<i class="no-highlight">234</i>&nbsp;                                &quot;unable to sync up with feeder due to EFE &quot; +
+<b class="nc"><i class="no-highlight">235</i>&nbsp;                                e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                                &quot;\n&quot; + LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            status = SubscriptionStatus.UNKNOWN_ERROR;</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            storedException = e;</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;            LoggerUtils.warning(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                                &quot;interrupted exception &quot; + e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                                &quot;\n&quot; + LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            status = SubscriptionStatus.UNKNOWN_ERROR;</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        } catch (InternalException e) {</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;            storedException = e;</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            LoggerUtils.warning(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;                                &quot;internal exception &quot; + e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;                                &quot;\n&quot; + LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;            status = SubscriptionStatus.UNKNOWN_ERROR;</b>
+<i class="no-highlight">250</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">251</i>&nbsp;            shutdown();</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        }</b>
+<i class="no-highlight">253</i>&nbsp;    }
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * For unit test
+<i class="no-highlight">257</i>&nbsp;     *
+<i class="no-highlight">258</i>&nbsp;     * @param exceptionHandlingTestHook test hook
+<i class="no-highlight">259</i>&nbsp;     */
+<i class="no-highlight">260</i>&nbsp;    void setExceptionHandlingTestHook(
+<i class="no-highlight">261</i>&nbsp;        TestHook&lt;SubscriptionThread&gt; exceptionHandlingTestHook) {
+<b class="nc"><i class="no-highlight">262</i>&nbsp;        this.exceptionHandlingTestHook = exceptionHandlingTestHook;</b>
+<i class="no-highlight">263</i>&nbsp;    }
+<i class="no-highlight">264</i>&nbsp;
+<i class="no-highlight">265</i>&nbsp;    /**
+<i class="no-highlight">266</i>&nbsp;     * Sets subscription status
+<i class="no-highlight">267</i>&nbsp;     *
+<i class="no-highlight">268</i>&nbsp;     * @param s subscription status
+<i class="no-highlight">269</i>&nbsp;     */
+<i class="no-highlight">270</i>&nbsp;    void setStatus(SubscriptionStatus s) {
+<b class="nc"><i class="no-highlight">271</i>&nbsp;        status = s;</b>
+<i class="no-highlight">272</i>&nbsp;    }
+<i class="no-highlight">273</i>&nbsp;
+<i class="no-highlight">274</i>&nbsp;    /**
+<i class="no-highlight">275</i>&nbsp;     * shutdown the subscriber and all auxiliary threads, close channel to
+<i class="no-highlight">276</i>&nbsp;     * the Feeder.
+<i class="no-highlight">277</i>&nbsp;     */
+<i class="no-highlight">278</i>&nbsp;    void shutdown() {
+<i class="no-highlight">279</i>&nbsp;
+<i class="no-highlight">280</i>&nbsp;        /* Note start of shutdown and return if already requested */
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        if (shutdownDone(logger)) {</b>
+<i class="no-highlight">282</i>&nbsp;            return;
+<i class="no-highlight">283</i>&nbsp;        }
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;        /* shutdown aux threads */
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        if (messageProcThread != null) {</b>
+<i class="no-highlight">287</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                messageProcThread.shutdownThread(logger);</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">290</i>&nbsp;                                 &quot;message processing thread has shut down.&quot;);
+<b class="nc"><i class="no-highlight">291</i>&nbsp;            } catch (Exception e) {</b>
+<i class="no-highlight">292</i>&nbsp;                /* Ignore so shutdown can continue */
+<b class="nc"><i class="no-highlight">293</i>&nbsp;                LoggerUtils.warning(logger, envImpl,</b>
+<i class="no-highlight">294</i>&nbsp;                                    &quot;error in shutdown msg proc thread: &quot; +
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                                    e.getMessage() + &quot;, continue shutdown the&quot; +</b>
+<i class="no-highlight">296</i>&nbsp;                                    &quot; subscription thread.&quot;);
+<i class="no-highlight">297</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">298</i>&nbsp;                messageProcThread = null;</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;            }</b>
+<i class="no-highlight">300</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        if (outputThread != null) {</b>
+<i class="no-highlight">302</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">303</i>&nbsp;                outputThread.shutdownThread(logger);</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;                LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">305</i>&nbsp;                                 &quot;output thread has shut down.&quot;);
+<i class="no-highlight">306</i>&nbsp;
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            } catch (Exception e) {</b>
+<i class="no-highlight">308</i>&nbsp;                /* Ignore we will clean up via killing IO channel anyway. */
+<b class="nc"><i class="no-highlight">309</i>&nbsp;                LoggerUtils.warning(logger, envImpl,</b>
+<i class="no-highlight">310</i>&nbsp;                                    &quot;error in shutdown output thread: &quot; +
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                                    e.getMessage() + &quot;, continue shutdown &quot; +</b>
+<i class="no-highlight">312</i>&nbsp;                                    &quot;subscription thread.&quot;);
+<i class="no-highlight">313</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">314</i>&nbsp;                outputThread = null;</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            }</b>
+<i class="no-highlight">316</i>&nbsp;        }
+<i class="no-highlight">317</i>&nbsp;
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        inputQueue.clear();</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        outputQueue.clear();</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        RepUtils.shutdownChannel(namedChannel);</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;        if (channelTimeoutTask != null) {</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;            channelTimeoutTask.cancel();</b>
+<i class="no-highlight">323</i>&nbsp;        }
+<i class="no-highlight">324</i>&nbsp;
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        shutdownThread(logger);</b>
+<i class="no-highlight">326</i>&nbsp;
+<b class="nc"><i class="no-highlight">327</i>&nbsp;        LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">328</i>&nbsp;                         &quot;queues cleared and channel closed, subscription &quot; +
+<i class="no-highlight">329</i>&nbsp;                         &quot;thread has completely shut down&quot;);
+<i class="no-highlight">330</i>&nbsp;    }
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;    /**
+<i class="no-highlight">333</i>&nbsp;     * Enqueue message received from feeder into input queue
+<i class="no-highlight">334</i>&nbsp;     *
+<i class="no-highlight">335</i>&nbsp;     * @param message  message received from feeder
+<i class="no-highlight">336</i>&nbsp;     *
+<i class="no-highlight">337</i>&nbsp;     * @throws InterruptedException if enqueue is interrupted
+<i class="no-highlight">338</i>&nbsp;     * @throws GroupShutdownException if receive shutdown message from feeder
+<i class="no-highlight">339</i>&nbsp;     */
+<i class="no-highlight">340</i>&nbsp;    void offer(Object message)
+<i class="no-highlight">341</i>&nbsp;        throws InterruptedException, GroupShutdownException {
+<i class="no-highlight">342</i>&nbsp;
+<b class="nc"><i class="no-highlight">343</i>&nbsp;        RepImpl repImpl = (RepImpl)envImpl;</b>
+<i class="no-highlight">344</i>&nbsp;
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        while (!isShutdown() &amp;&amp;     /* stop enqueue msg if thread is shutdown */</b>
+<b class="nc"><i class="no-highlight">346</i>&nbsp;               !inputQueue.offer(message,</b>
+<i class="no-highlight">347</i>&nbsp;                                 SubscriptionConfig.QUEUE_POLL_INTERVAL_MS,
+<i class="no-highlight">348</i>&nbsp;                                 TimeUnit.MILLISECONDS)) {
+<i class="no-highlight">349</i>&nbsp;            /* Offer timed out. */
+<b class="nc"><i class="no-highlight">350</i>&nbsp;            if (!messageProcThread.isAlive()) {</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;                LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">352</i>&nbsp;                                 &quot;Thread consuming input queue is gone, start&quot; +
+<i class="no-highlight">353</i>&nbsp;                                 &quot; shutdown process&quot;);
+<b class="nc"><i class="no-highlight">354</i>&nbsp;                throw new GroupShutdownException(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">355</i>&nbsp;                                                 config.getFeederHost(),</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;                                                 stats.getHighVLSN(), 0);</b>
+<i class="no-highlight">357</i>&nbsp;            } else {
+<i class="no-highlight">358</i>&nbsp;                /* count the overflow and retry */
+<b class="nc"><i class="no-highlight">359</i>&nbsp;                stats.getNumReplayQueueOverflow().increment();</b>
+<i class="no-highlight">360</i>&nbsp;            }
+<i class="no-highlight">361</i>&nbsp;        }
+<i class="no-highlight">362</i>&nbsp;    }
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;    /**
+<i class="no-highlight">365</i>&nbsp;     * Create connection to feeder and execute handshake
+<i class="no-highlight">366</i>&nbsp;     *
+<i class="no-highlight">367</i>&nbsp;     * @throws InternalException if unable to connect to source node due to
+<i class="no-highlight">368</i>&nbsp;     * protocol error
+<i class="no-highlight">369</i>&nbsp;     * @throws EnvironmentFailureException if fail to handshake with source, or
+<i class="no-highlight">370</i>&nbsp;     * source does not have enough log to start streaming
+<i class="no-highlight">371</i>&nbsp;     * @throws ConnectionException if unable to connect to source node
+<i class="no-highlight">372</i>&nbsp;     * @throws ReplicationSecurityException if authentication failure
+<i class="no-highlight">373</i>&nbsp;     */
+<i class="no-highlight">374</i>&nbsp;    private void initializeConnection() throws InternalException,
+<i class="no-highlight">375</i>&nbsp;        EnvironmentFailureException, ConnectionException,
+<i class="no-highlight">376</i>&nbsp;        ReplicationSecurityException {
+<i class="no-highlight">377</i>&nbsp;
+<i class="no-highlight">378</i>&nbsp;        /* open a channel to feeder */
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        LoggerUtils.fine(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;                         &quot;Subscription &quot; + config.getSubNodeName() +</b>
+<i class="no-highlight">381</i>&nbsp;                         &quot; start open channel and handshake with feeder&quot;);
+<i class="no-highlight">382</i>&nbsp;
+<i class="no-highlight">383</i>&nbsp;        try {
+<i class="no-highlight">384</i>&nbsp;
+<b class="nc"><i class="no-highlight">385</i>&nbsp;            openChannel();</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            ReplicaFeederHandshake handshake =</b>
+<i class="no-highlight">387</i>&nbsp;                new ReplicaFeederHandshake(new SubFeederHandshakeConfig
+<b class="nc"><i class="no-highlight">388</i>&nbsp;                                               (config.getNodeType()));</b>
+<i class="no-highlight">389</i>&nbsp;
+<b class="nc"><i class="no-highlight">390</i>&nbsp;            protocol = handshake.execute();</b>
+<i class="no-highlight">391</i>&nbsp;
+<i class="no-highlight">392</i>&nbsp;            /* check if negociated protocol version is high enough */
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            final int minReqVersion = config.getMinProtocolVersion();</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;            if (protocol.getVersion() &lt; minReqVersion) {</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                throw new BinaryProtocol.ProtocolException(</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                    &quot;HA protocol version (&quot; + protocol.getVersion() + &quot;) is &quot; +</b>
+<i class="no-highlight">397</i>&nbsp;                    &quot;lower than minimal required version (&quot; + minReqVersion +
+<i class="no-highlight">398</i>&nbsp;                    &quot;)&quot;);
+<i class="no-highlight">399</i>&nbsp;            }
+<i class="no-highlight">400</i>&nbsp;
+<b class="nc"><i class="no-highlight">401</i>&nbsp;            LoggerUtils.fine(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;                             &quot;subscription &quot; + config.getSubNodeName() +</b>
+<i class="no-highlight">403</i>&nbsp;                             &quot; sync-up with feeder at vlsn: &quot; + reqVLSN);
+<b class="nc"><i class="no-highlight">404</i>&nbsp;            SubscriberFeederSyncup syncup =</b>
+<i class="no-highlight">405</i>&nbsp;                new SubscriberFeederSyncup(namedChannel, protocol,
+<b class="nc"><i class="no-highlight">406</i>&nbsp;                                           config.getFeederFilter(),</b>
+<i class="no-highlight">407</i>&nbsp;                                           (RepImpl) envImpl,
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                                           config.getStreamMode(),</b>
+<i class="no-highlight">409</i>&nbsp;                                           logger);
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            final VLSN startVLSN = syncup.execute(reqVLSN);</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;            LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">412</i>&nbsp;                             &quot;sync-up with feeder done, start vlsn: &quot; +
+<i class="no-highlight">413</i>&nbsp;                             startVLSN);
+<i class="no-highlight">414</i>&nbsp;
+<b class="nc"><i class="no-highlight">415</i>&nbsp;            if (!startVLSN.equals(VLSN.NULL_VLSN)) {</b>
+<i class="no-highlight">416</i>&nbsp;
+<b class="nc"><i class="no-highlight">417</i>&nbsp;                stats.setStartVLSN(startVLSN);</b>
+<i class="no-highlight">418</i>&nbsp;
+<i class="no-highlight">419</i>&nbsp;                /* read heartbeat and respond */
+<b class="nc"><i class="no-highlight">420</i>&nbsp;                protocol.read(namedChannel.getChannel(),</b>
+<i class="no-highlight">421</i>&nbsp;                              Protocol.Heartbeat.class);
+<b class="nc"><i class="no-highlight">422</i>&nbsp;                queueAck(ReplicaOutputThread.HEARTBEAT_ACK);</b>
+<i class="no-highlight">423</i>&nbsp;
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;                                 &quot;Subscription &quot; + config.getSubNodeName() +</b>
+<i class="no-highlight">426</i>&nbsp;                                 &quot; successfully connect to feeder at &quot; +
+<b class="nc"><i class="no-highlight">427</i>&nbsp;                                 config.getFeederHost() + &quot;:&quot; +</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;                                 config.getFeederPort() +</b>
+<i class="no-highlight">429</i>&nbsp;                                 &quot;, reqVLSN: &quot; + reqVLSN +
+<i class="no-highlight">430</i>&nbsp;                                 &quot;, start VLSN: &quot; + startVLSN);
+<i class="no-highlight">431</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">432</i>&nbsp;                throw new InsufficientLogException((RepImpl) envImpl, reqVLSN);</b>
+<i class="no-highlight">433</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">434</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;            throw new ConnectionException(&quot;Unable to connect due to &quot; +</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;                                          e.getMessage() +</b>
+<i class="no-highlight">437</i>&nbsp;                                          &quot;,  will retry later.&quot;,
+<b class="nc"><i class="no-highlight">438</i>&nbsp;                                          config.getSleepBeforeRetryMs(),</b>
+<i class="no-highlight">439</i>&nbsp;                                          e);
+<b class="nc"><i class="no-highlight">440</i>&nbsp;        } catch (EnvironmentFailureException e) {</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;            logger.warning(&quot;Fail to handshake with feeder: &quot; +</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;                           e.getMessage());</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        } catch (BinaryProtocol.ProtocolException e) {</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;            final String msg = (&quot;Unable to connect to feeder &quot; +</b>
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                                config.getFeederHost() +</b>
+<i class="no-highlight">447</i>&nbsp;                                &quot; due to protocol exception &quot; +
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                                e.getMessage());</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;            LoggerUtils.warning(logger, envImpl, msg);</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;            throw new InternalException(msg, e);</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        }</b>
+<i class="no-highlight">452</i>&nbsp;    }
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;    /**
+<i class="no-highlight">455</i>&nbsp;     * Create auxiliary message processing and output thread
+<i class="no-highlight">456</i>&nbsp;     */
+<i class="no-highlight">457</i>&nbsp;    private boolean createAuxThread() {
+<i class="no-highlight">458</i>&nbsp;
+<b class="nc"><i class="no-highlight">459</i>&nbsp;        RepImpl repImpl = (RepImpl)envImpl;</b>
+<i class="no-highlight">460</i>&nbsp;
+<b class="nc"><i class="no-highlight">461</i>&nbsp;        inputQueue.clear();</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;        outputQueue.clear();</b>
+<i class="no-highlight">463</i>&nbsp;
+<i class="no-highlight">464</i>&nbsp;        /* start output thread over data channel to send response to feeder */
+<b class="nc"><i class="no-highlight">465</i>&nbsp;        outputThread =</b>
+<i class="no-highlight">466</i>&nbsp;                new SubscriptionOutputThread(this,
+<i class="no-highlight">467</i>&nbsp;                                             repImpl, outputQueue, protocol,
+<b class="nc"><i class="no-highlight">468</i>&nbsp;                                             namedChannel.getChannel(),</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;                                             config.getAuthenticator(), stats);</b>
+<i class="no-highlight">470</i>&nbsp;        /*
+<i class="no-highlight">471</i>&nbsp;         * output thread can be shutdown and set to null anytime, thus
+<i class="no-highlight">472</i>&nbsp;         * use a cached copy to ensure it is alive before start it
+<i class="no-highlight">473</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">474</i>&nbsp;        final SubscriptionOutputThread cachedOutputThread = outputThread;</b>
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        if (cachedOutputThread != null) {</b>
+<b class="nc"><i class="no-highlight">476</i>&nbsp;            cachedOutputThread.start();</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;            LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">478</i>&nbsp;                             &quot;output thread created for subscription &quot; +
+<b class="nc"><i class="no-highlight">479</i>&nbsp;                             config.getSubNodeName());</b>
+<i class="no-highlight">480</i>&nbsp;            /* start thread to consume data in input queue */
+<b class="nc"><i class="no-highlight">481</i>&nbsp;            messageProcThread =</b>
+<i class="no-highlight">482</i>&nbsp;                new SubscriptionProcessMessageThread(repImpl, inputQueue,
+<i class="no-highlight">483</i>&nbsp;                                                     config,
+<i class="no-highlight">484</i>&nbsp;                                                     stats, logger);
+<b class="nc"><i class="no-highlight">485</i>&nbsp;            messageProcThread.start();</b>
+<b class="nc"><i class="no-highlight">486</i>&nbsp;            LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">487</i>&nbsp;                             &quot;message processing thread created for subscription &quot; +
+<b class="nc"><i class="no-highlight">488</i>&nbsp;                             config.getSubNodeName());</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;            return true;</b>
+<i class="no-highlight">490</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">491</i>&nbsp;            LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;                             &quot;subscription &quot; +  config.getSubNodeName() + &quot; &quot; +</b>
+<i class="no-highlight">493</i>&nbsp;                             &quot;just shut down, no need to create auxiliary &quot; +
+<i class="no-highlight">494</i>&nbsp;                             &quot;threads&quot;);
+<b class="nc"><i class="no-highlight">495</i>&nbsp;            return false;</b>
+<i class="no-highlight">496</i>&nbsp;        }
+<i class="no-highlight">497</i>&nbsp;    }
+<i class="no-highlight">498</i>&nbsp;
+<i class="no-highlight">499</i>&nbsp;    /**
+<i class="no-highlight">500</i>&nbsp;     * Open a data channel to feeder
+<i class="no-highlight">501</i>&nbsp;     *
+<i class="no-highlight">502</i>&nbsp;     * @return created name channel
+<i class="no-highlight">503</i>&nbsp;     *
+<i class="no-highlight">504</i>&nbsp;     * @throws ConnectionException unable to connect due to error and need retry
+<i class="no-highlight">505</i>&nbsp;     * @throws InternalException fail to handshake with feeder
+<i class="no-highlight">506</i>&nbsp;     * @throws ReplicationSecurityException if unauthorized to stream
+<i class="no-highlight">507</i>&nbsp;     * from feeder
+<i class="no-highlight">508</i>&nbsp;     */
+<i class="no-highlight">509</i>&nbsp;    private NamedChannel openChannel() throws ConnectionException,
+<i class="no-highlight">510</i>&nbsp;        InternalException, ReplicationSecurityException {
+<i class="no-highlight">511</i>&nbsp;
+<b class="nc"><i class="no-highlight">512</i>&nbsp;        RepImpl repImpl = (RepImpl)envImpl;</b>
+<i class="no-highlight">513</i>&nbsp;
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        if (repImpl == null) {</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            throw new IllegalStateException(&quot;Replication env is unavailable.&quot;);</b>
+<i class="no-highlight">516</i>&nbsp;        }
+<i class="no-highlight">517</i>&nbsp;
+<i class="no-highlight">518</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            DataChannelFactory.ConnectOptions connectOpts =</b>
+<i class="no-highlight">520</i>&nbsp;                new DataChannelFactory
+<i class="no-highlight">521</i>&nbsp;                    .ConnectOptions()
+<b class="nc"><i class="no-highlight">522</i>&nbsp;                    .setTcpNoDelay(config.TCP_NO_DELAY)</b>
+<b class="nc"><i class="no-highlight">523</i>&nbsp;                    .setReceiveBufferSize(config.getReceiveBufferSize())</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;                    .setOpenTimeout((int) config</b>
+<b class="nc"><i class="no-highlight">525</i>&nbsp;                        .getStreamOpenTimeout(TimeUnit.MILLISECONDS))</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;                    .setBlocking(config.BLOCKING_MODE_CHANNEL);</b>
+<i class="no-highlight">527</i>&nbsp;
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            final DataChannel channel =</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                repImpl.getChannelFactory()</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;                       .connect(config.getInetSocketAddress(), connectOpts);</b>
+<i class="no-highlight">531</i>&nbsp;
+<b class="nc"><i class="no-highlight">532</i>&nbsp;            ServiceDispatcher.doServiceHandshake(channel,</b>
+<i class="no-highlight">533</i>&nbsp;                                                 FeederManager.FEEDER_SERVICE,
+<b class="nc"><i class="no-highlight">534</i>&nbsp;                                                 config.getAuthInfo());</b>
+<b class="nc"><i class="no-highlight">535</i>&nbsp;            LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">536</i>&nbsp;                             &quot;channel opened to service &quot; +
+<i class="no-highlight">537</i>&nbsp;                             FeederManager.FEEDER_SERVICE + &quot;@&quot; +
+<b class="nc"><i class="no-highlight">538</i>&nbsp;                             config.getFeederHost() +</b>
+<b class="nc"><i class="no-highlight">539</i>&nbsp;                             &quot;[address: &quot; + config.getFeederHostAddr() +</b>
+<b class="nc"><i class="no-highlight">540</i>&nbsp;                             &quot; port: &quot; + config.getFeederPort() + &quot;]&quot;);</b>
+<i class="no-highlight">541</i>&nbsp;
+<b class="nc"><i class="no-highlight">542</i>&nbsp;            final int timeoutMs = repImpl.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">543</i>&nbsp;                getDuration(RepParams.PRE_HEARTBEAT_TIMEOUT);</b>
+<i class="no-highlight">544</i>&nbsp;
+<b class="nc"><i class="no-highlight">545</i>&nbsp;            channelTimeoutTask = new ChannelTimeoutTask(new Timer(true));</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;            namedChannel =</b>
+<i class="no-highlight">547</i>&nbsp;                new NamedChannelWithTimeout(repImpl, logger, channelTimeoutTask,
+<i class="no-highlight">548</i>&nbsp;                                            channel, timeoutMs);
+<b class="nc"><i class="no-highlight">549</i>&nbsp;        } catch (IOException cause) {</b>
+<i class="no-highlight">550</i>&nbsp;            /* retry if unable to connect to feeder */
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            throw new ConnectionException(&quot;Fail to open channel to feeder &quot; +</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;                                          &quot;due to &quot; + cause.getMessage() +</b>
+<i class="no-highlight">553</i>&nbsp;                                          &quot;, will retry later&quot;,
+<b class="nc"><i class="no-highlight">554</i>&nbsp;                                          config.getSleepBeforeRetryMs(),</b>
+<i class="no-highlight">555</i>&nbsp;                                          cause);
+<b class="nc"><i class="no-highlight">556</i>&nbsp;        } catch (ServiceDispatcher.ServiceConnectFailedException cause) {</b>
+<i class="no-highlight">557</i>&nbsp;
+<i class="no-highlight">558</i>&nbsp;            /*
+<i class="no-highlight">559</i>&nbsp;             * The feeder may not have established the Feeder Service
+<i class="no-highlight">560</i>&nbsp;             * as yet. For example, the transition to the master may not have
+<i class="no-highlight">561</i>&nbsp;             * been completed.
+<i class="no-highlight">562</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">563</i>&nbsp;            if (cause.getResponse() ==</b>
+<i class="no-highlight">564</i>&nbsp;                ServiceDispatcher.Response.UNKNOWN_SERVICE) {
+<b class="nc"><i class="no-highlight">565</i>&nbsp;                throw new ConnectionException(&quot;Service exception: &quot; +</b>
+<b class="nc"><i class="no-highlight">566</i>&nbsp;                                              cause.getMessage() +</b>
+<i class="no-highlight">567</i>&nbsp;                                              &quot;, wait longer and will retry &quot; +
+<i class="no-highlight">568</i>&nbsp;                                              &quot;later&quot;,
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                                              config.getSleepBeforeRetryMs(),</b>
+<i class="no-highlight">570</i>&nbsp;                                              cause);
+<i class="no-highlight">571</i>&nbsp;            }
+<i class="no-highlight">572</i>&nbsp;
+<b class="nc"><i class="no-highlight">573</i>&nbsp;            if (cause.getResponse() ==</b>
+<i class="no-highlight">574</i>&nbsp;                ServiceDispatcher.Response.INVALID) {
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                throw new ReplicationSecurityException(</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;                    &quot;Security check failure:&quot;  + cause.getMessage(),</b>
+<b class="nc"><i class="no-highlight">577</i>&nbsp;                    config.getSubNodeName(),</b>
+<i class="no-highlight">578</i>&nbsp;                    cause);
+<i class="no-highlight">579</i>&nbsp;            }
+<i class="no-highlight">580</i>&nbsp;
+<b class="nc"><i class="no-highlight">581</i>&nbsp;            throw new InternalException(&quot;Subscription &quot; +</b>
+<b class="nc"><i class="no-highlight">582</i>&nbsp;                                        config.getSubNodeName() +</b>
+<i class="no-highlight">583</i>&nbsp;                                        &quot;failed to handshake for service &quot; +
+<i class="no-highlight">584</i>&nbsp;                                        FeederManager.FEEDER_SERVICE +
+<i class="no-highlight">585</i>&nbsp;                                        &quot; with feeder &quot; +
+<b class="nc"><i class="no-highlight">586</i>&nbsp;                                        config.getFeederHost(),</b>
+<i class="no-highlight">587</i>&nbsp;                                        cause);
+<b class="nc"><i class="no-highlight">588</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">589</i>&nbsp;        LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">590</i>&nbsp;                         &quot;Subscription &quot; + config.getSubNodeName() +</b>
+<i class="no-highlight">591</i>&nbsp;                         &quot; has successfully created a channel to feeder at &quot; +
+<b class="nc"><i class="no-highlight">592</i>&nbsp;                         config.getFeederHost() + &quot;:&quot; + config.getFeederPort());</b>
+<i class="no-highlight">593</i>&nbsp;
+<b class="nc"><i class="no-highlight">594</i>&nbsp;        return namedChannel;</b>
+<i class="no-highlight">595</i>&nbsp;    }
+<i class="no-highlight">596</i>&nbsp;
+<i class="no-highlight">597</i>&nbsp;    /**
+<i class="no-highlight">598</i>&nbsp;     * Internal loop to dequeue message from channel to the feeder,
+<i class="no-highlight">599</i>&nbsp;     * process shutdown and heartbeat messages, and relay data operations to
+<i class="no-highlight">600</i>&nbsp;     * the input queue to be consumed by input thread.
+<i class="no-highlight">601</i>&nbsp;     *
+<i class="no-highlight">602</i>&nbsp;     * @throws InternalException if error in reading messages from channel or
+<i class="no-highlight">603</i>&nbsp;     *                           enqueue message into input queue
+<i class="no-highlight">604</i>&nbsp;     * @throws GroupShutdownException if receive shutdown message from feeder
+<i class="no-highlight">605</i>&nbsp;     * @throws ReplicationSecurityException if output thread exits due to
+<i class="no-highlight">606</i>&nbsp;     * security check failure. In this case the main subscription need to
+<i class="no-highlight">607</i>&nbsp;     * exit without retry.
+<i class="no-highlight">608</i>&nbsp;     */
+<i class="no-highlight">609</i>&nbsp;    private void loopInternal() throws InternalException,
+<i class="no-highlight">610</i>&nbsp;        GroupShutdownException, ReplicationSecurityException {
+<i class="no-highlight">611</i>&nbsp;
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        RepImpl repImpl = (RepImpl)envImpl;</b>
+<i class="no-highlight">613</i>&nbsp;
+<i class="no-highlight">614</i>&nbsp;        try {
+<i class="no-highlight">615</i>&nbsp;
+<b class="nc"><i class="no-highlight">616</i>&nbsp;            LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">617</i>&nbsp;                             &quot;Start reading messages from feeder &quot; +
+<b class="nc"><i class="no-highlight">618</i>&nbsp;                             config.getFeederHost() + &quot;:&quot; +</b>
+<b class="nc"><i class="no-highlight">619</i>&nbsp;                             config.getFeederPort());</b>
+<b class="nc"><i class="no-highlight">620</i>&nbsp;            while (!isShutdown()) {</b>
+<i class="no-highlight">621</i>&nbsp;
+<b class="nc"><i class="no-highlight">622</i>&nbsp;                checkOutputThread();</b>
+<i class="no-highlight">623</i>&nbsp;
+<b class="nc"><i class="no-highlight">624</i>&nbsp;                BinaryProtocol.Message message = protocol.read(namedChannel);</b>
+<i class="no-highlight">625</i>&nbsp;
+<b class="nc"><i class="no-highlight">626</i>&nbsp;                if ((message == null)) {</b>
+<b class="nc"><i class="no-highlight">627</i>&nbsp;                    LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">628</i>&nbsp;                                     &quot;Subscription &quot; + config.getSubNodeName() +</b>
+<i class="no-highlight">629</i>&nbsp;                                     &quot; has nothing stream, exit loop.&quot;);
+<i class="no-highlight">630</i>&nbsp;                    return;
+<i class="no-highlight">631</i>&nbsp;                }
+<i class="no-highlight">632</i>&nbsp;
+<b class="nc"><i class="no-highlight">633</i>&nbsp;                assert TestHookExecute.doHookIfSet(exceptionHandlingTestHook,</b>
+<i class="no-highlight">634</i>&nbsp;                                                   this);
+<i class="no-highlight">635</i>&nbsp;
+<b class="nc"><i class="no-highlight">636</i>&nbsp;                stats.getNumMsgReceived().increment();</b>
+<i class="no-highlight">637</i>&nbsp;
+<b class="nc"><i class="no-highlight">638</i>&nbsp;                BinaryProtocol.MessageOp messageOp = message.getOp();</b>
+<b class="nc"><i class="no-highlight">639</i>&nbsp;                if (messageOp == Protocol.HEARTBEAT) {</b>
+<b class="nc"><i class="no-highlight">640</i>&nbsp;                    LoggerUtils.finest(logger, envImpl,</b>
+<i class="no-highlight">641</i>&nbsp;                                       &quot;receive heartbeat from &quot; +
+<b class="nc"><i class="no-highlight">642</i>&nbsp;                                       namedChannel.getNameIdPair());</b>
+<b class="nc"><i class="no-highlight">643</i>&nbsp;                    queueAck(ReplicaOutputThread.HEARTBEAT_ACK);</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                } else if (messageOp == Protocol.SHUTDOWN_REQUEST) {</b>
+<i class="no-highlight">645</i>&nbsp;
+<b class="nc"><i class="no-highlight">646</i>&nbsp;                    LoggerUtils.info(logger, envImpl,</b>
+<i class="no-highlight">647</i>&nbsp;                                     &quot;Receive shutdown request from feeder &quot; +
+<b class="nc"><i class="no-highlight">648</i>&nbsp;                                     config.getFeederHost() +</b>
+<i class="no-highlight">649</i>&nbsp;                                     &quot;, shutdown subscriber&quot;);
+<i class="no-highlight">650</i>&nbsp;                    
+<i class="no-highlight">651</i>&nbsp;                    /*
+<i class="no-highlight">652</i>&nbsp;                     * create a shutdown request, make it in the queue so
+<i class="no-highlight">653</i>&nbsp;                     * client is able to see that in callback, and throw an
+<i class="no-highlight">654</i>&nbsp;                     * exception.
+<i class="no-highlight">655</i>&nbsp;                     *
+<i class="no-highlight">656</i>&nbsp;                     * The message processing thread will exit when seeing a
+<i class="no-highlight">657</i>&nbsp;                     * GroupShutdownException
+<i class="no-highlight">658</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">659</i>&nbsp;                    Protocol.ShutdownRequest req =</b>
+<i class="no-highlight">660</i>&nbsp;                        (Protocol.ShutdownRequest) message;
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                    Exception exp =</b>
+<i class="no-highlight">662</i>&nbsp;                        new GroupShutdownException(logger, repImpl,
+<b class="nc"><i class="no-highlight">663</i>&nbsp;                                                   config.getFeederHost(),</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;                                                   stats.getHighVLSN(),</b>
+<b class="nc"><i class="no-highlight">665</i>&nbsp;                                                   req.getShutdownTimeMs());</b>
+<b class="nc"><i class="no-highlight">666</i>&nbsp;                    offer(exp);</b>
+<b class="nc"><i class="no-highlight">667</i>&nbsp;                    throw exp;</b>
+<i class="no-highlight">668</i>&nbsp;                } else {
+<i class="no-highlight">669</i>&nbsp;                    /* a regular data entry message */
+<b class="nc"><i class="no-highlight">670</i>&nbsp;                    offer(message);</b>
+<i class="no-highlight">671</i>&nbsp;
+<b class="nc"><i class="no-highlight">672</i>&nbsp;                    final long pending = inputQueue.size();</b>
+<b class="nc"><i class="no-highlight">673</i>&nbsp;                    if (pending &gt; stats.getMaxPendingInput().get()) {</b>
+<b class="nc"><i class="no-highlight">674</i>&nbsp;                        stats.getMaxPendingInput().set(pending);</b>
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                        LoggerUtils.finest(logger, envImpl,</b>
+<i class="no-highlight">676</i>&nbsp;                                           &quot;Max pending request log items:&quot; +
+<i class="no-highlight">677</i>&nbsp;                                           pending);
+<i class="no-highlight">678</i>&nbsp;                    }
+<i class="no-highlight">679</i>&nbsp;                }
+<i class="no-highlight">680</i>&nbsp;
+<b class="nc"><i class="no-highlight">681</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">682</i>&nbsp;        } catch (GroupShutdownException | ReplicationSecurityException exp) {</b>
+<i class="no-highlight">683</i>&nbsp;            /* throw to caller, let caller deal with it */
+<b class="nc"><i class="no-highlight">684</i>&nbsp;            throw exp;</b>
+<b class="nc"><i class="no-highlight">685</i>&nbsp;        } catch (Exception e) {</b>
+<i class="no-highlight">686</i>&nbsp;            /* other exception is thrown as IE */
+<b class="nc"><i class="no-highlight">687</i>&nbsp;            throw new InternalException(e.getMessage(), e);</b>
+<b class="nc"><i class="no-highlight">688</i>&nbsp;        }</b>
+<i class="no-highlight">689</i>&nbsp;    }
+<i class="no-highlight">690</i>&nbsp;
+<i class="no-highlight">691</i>&nbsp;    /**
+<i class="no-highlight">692</i>&nbsp;     * Checks status of output thread and propagates RSE to main
+<i class="no-highlight">693</i>&nbsp;     * loop. If output thread exited due to RSE, the main thread need to
+<i class="no-highlight">694</i>&nbsp;     * capture it to set the subscription status correctly. For other
+<i class="no-highlight">695</i>&nbsp;     * exceptions, output thread uses the traditional mechanism to notify the
+<i class="no-highlight">696</i>&nbsp;     * main subscription thread: simply shut down channel.
+<i class="no-highlight">697</i>&nbsp;     */
+<i class="no-highlight">698</i>&nbsp;    private void checkOutputThread()
+<i class="no-highlight">699</i>&nbsp;        throws InternalException, ReplicationSecurityException {
+<i class="no-highlight">700</i>&nbsp;
+<i class="no-highlight">701</i>&nbsp;        /*
+<i class="no-highlight">702</i>&nbsp;         * output thread can be shutdown and set to null anytime, thus
+<i class="no-highlight">703</i>&nbsp;         * use a cached copy to avoid NPE after the first check
+<i class="no-highlight">704</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">705</i>&nbsp;        final SubscriptionOutputThread cachedOutputThread = outputThread;</b>
+<i class="no-highlight">706</i>&nbsp;
+<i class="no-highlight">707</i>&nbsp;        /* output thread already gone */
+<b class="nc"><i class="no-highlight">708</i>&nbsp;        if (cachedOutputThread == null) {</b>
+<i class="no-highlight">709</i>&nbsp;            /*
+<i class="no-highlight">710</i>&nbsp;             * if output thread is set to null only when subscription thread
+<i class="no-highlight">711</i>&nbsp;             * shut down. If we reach here, it means the subscription thread
+<i class="no-highlight">712</i>&nbsp;             * is shut down right after isShutdown check in loopInternal().
+<i class="no-highlight">713</i>&nbsp;             * We simply return and subscription thread would detect the shut
+<i class="no-highlight">714</i>&nbsp;             * down in next check of isShutdown in loopInternal().
+<i class="no-highlight">715</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            LoggerUtils.fine(logger, envImpl,</b>
+<i class="no-highlight">717</i>&nbsp;                             &quot;output thread no longer exists&quot;);
+<i class="no-highlight">718</i>&nbsp;            return;
+<i class="no-highlight">719</i>&nbsp;        }
+<i class="no-highlight">720</i>&nbsp;
+<b class="nc"><i class="no-highlight">721</i>&nbsp;        if (cachedOutputThread.getException() instanceof</b>
+<i class="no-highlight">722</i>&nbsp;                ReplicationSecurityException) {
+<b class="nc"><i class="no-highlight">723</i>&nbsp;            final ReplicationSecurityException rse =</b>
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                (ReplicationSecurityException) cachedOutputThread.getException();</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;            LoggerUtils.warning(logger, envImpl,</b>
+<i class="no-highlight">726</i>&nbsp;                                &quot;Output thread exited due to security check &quot; +
+<b class="nc"><i class="no-highlight">727</i>&nbsp;                                &quot;failure: &quot; + rse.getMessage());</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;            throw rse;</b>
+<i class="no-highlight">729</i>&nbsp;        }
+<i class="no-highlight">730</i>&nbsp;    }
+<i class="no-highlight">731</i>&nbsp;
+<i class="no-highlight">732</i>&nbsp;    /**
+<i class="no-highlight">733</i>&nbsp;     * Enqueue an ack message in output queue
+<i class="no-highlight">734</i>&nbsp;     *
+<i class="no-highlight">735</i>&nbsp;     * @param xid txn id to enqueue
+<i class="no-highlight">736</i>&nbsp;     *
+<i class="no-highlight">737</i>&nbsp;     * @throws IOException if fail to queue the msg
+<i class="no-highlight">738</i>&nbsp;     */
+<i class="no-highlight">739</i>&nbsp;    private void queueAck(Long xid) throws IOException {
+<i class="no-highlight">740</i>&nbsp;
+<i class="no-highlight">741</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">742</i>&nbsp;            outputQueue.put(xid);</b>
+<b class="nc"><i class="no-highlight">743</i>&nbsp;        } catch (InterruptedException ie) {</b>
+<i class="no-highlight">744</i>&nbsp;
+<i class="no-highlight">745</i>&nbsp;            /*
+<i class="no-highlight">746</i>&nbsp;             * If interrupted while waiting, have the higher levels treat
+<i class="no-highlight">747</i>&nbsp;             * it like an IOE and exit the thread.
+<i class="no-highlight">748</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">749</i>&nbsp;            throw new IOException(&quot;Ack I/O interrupted&quot;, ie);</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;        }</b>
+<i class="no-highlight">751</i>&nbsp;    }
+<i class="no-highlight">752</i>&nbsp;
+<i class="no-highlight">753</i>&nbsp;    /*-----------------------------------*/
+<i class="no-highlight">754</i>&nbsp;    /*-         Inner Classes           -*/
+<i class="no-highlight">755</i>&nbsp;    /*-----------------------------------*/
+<i class="no-highlight">756</i>&nbsp;
+<i class="no-highlight">757</i>&nbsp;    /**
+<i class="no-highlight">758</i>&nbsp;     * Subscriber-Feeder handshake config
+<i class="no-highlight">759</i>&nbsp;     */
+<i class="no-highlight">760</i>&nbsp;    private class SubFeederHandshakeConfig
+<i class="no-highlight">761</i>&nbsp;            implements ReplicaFeederHandshakeConfig {
+<i class="no-highlight">762</i>&nbsp;
+<i class="no-highlight">763</i>&nbsp;        private final NodeType nodeType;
+<i class="no-highlight">764</i>&nbsp;        private final RepImpl repImpl;
+<b class="nc"><i class="no-highlight">765</i>&nbsp;        SubFeederHandshakeConfig(NodeType nodeType) {</b>
+<b class="nc"><i class="no-highlight">766</i>&nbsp;            this.nodeType = nodeType;</b>
+<b class="nc"><i class="no-highlight">767</i>&nbsp;            repImpl = (RepImpl)envImpl;</b>
+<i class="no-highlight">768</i>&nbsp;        }
+<i class="no-highlight">769</i>&nbsp;
+<i class="no-highlight">770</i>&nbsp;        public RepImpl getRepImpl() {
+<b class="nc"><i class="no-highlight">771</i>&nbsp;            return repImpl;</b>
+<i class="no-highlight">772</i>&nbsp;        }
+<i class="no-highlight">773</i>&nbsp;
+<i class="no-highlight">774</i>&nbsp;        public NameIdPair getNameIdPair() {
+<b class="nc"><i class="no-highlight">775</i>&nbsp;            return getRepImpl().getNameIdPair();</b>
+<i class="no-highlight">776</i>&nbsp;        }
+<i class="no-highlight">777</i>&nbsp;
+<i class="no-highlight">778</i>&nbsp;        public RepUtils.Clock getClock() {
+<b class="nc"><i class="no-highlight">779</i>&nbsp;            return new RepUtils.Clock(RepImpl.getClockSkewMs());</b>
+<i class="no-highlight">780</i>&nbsp;        }
+<i class="no-highlight">781</i>&nbsp;
+<i class="no-highlight">782</i>&nbsp;        public NodeType getNodeType() {
+<b class="nc"><i class="no-highlight">783</i>&nbsp;            return nodeType;</b>
+<i class="no-highlight">784</i>&nbsp;        }
+<i class="no-highlight">785</i>&nbsp;
+<i class="no-highlight">786</i>&nbsp;        public NamedChannel getNamedChannel() {
+<b class="nc"><i class="no-highlight">787</i>&nbsp;            return namedChannel;</b>
+<i class="no-highlight">788</i>&nbsp;        }
+<i class="no-highlight">789</i>&nbsp;
+<i class="no-highlight">790</i>&nbsp;        /* create a group impl from group name and group uuid */
+<i class="no-highlight">791</i>&nbsp;        public RepGroupImpl getGroup() {
+<i class="no-highlight">792</i>&nbsp;
+<b class="nc"><i class="no-highlight">793</i>&nbsp;            RepGroupImpl repGroupImpl = new RepGroupImpl(</b>
+<b class="nc"><i class="no-highlight">794</i>&nbsp;                    config.getGroupName(),</b>
+<i class="no-highlight">795</i>&nbsp;                    true, /* unknown group uuid */
+<b class="nc"><i class="no-highlight">796</i>&nbsp;                    repImpl.getCurrentJEVersion());</b>
+<i class="no-highlight">797</i>&nbsp;
+<i class="no-highlight">798</i>&nbsp;            /* use uuid if specified, otherwise unknown uuid will be used */
+<b class="nc"><i class="no-highlight">799</i>&nbsp;            if (config.getGroupUUID() != null) {</b>
+<b class="nc"><i class="no-highlight">800</i>&nbsp;                repGroupImpl.setUUID(config.getGroupUUID());</b>
+<i class="no-highlight">801</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">802</i>&nbsp;            return repGroupImpl;</b>
+<i class="no-highlight">803</i>&nbsp;        }
+<i class="no-highlight">804</i>&nbsp;    }
+<i class="no-highlight">805</i>&nbsp;
+<i class="no-highlight">806</i>&nbsp;    /**
+<i class="no-highlight">807</i>&nbsp;     * Thrown to indicate that the Subscriber must retry connecting to the same
+<i class="no-highlight">808</i>&nbsp;     * master, after some period of time.
+<i class="no-highlight">809</i>&nbsp;     */
+<i class="no-highlight">810</i>&nbsp;    private class ConnectionException extends RuntimeException {
+<i class="no-highlight">811</i>&nbsp;
+<i class="no-highlight">812</i>&nbsp;        private final long retrySleepMs;
+<i class="no-highlight">813</i>&nbsp;
+<i class="no-highlight">814</i>&nbsp;        ConnectionException(String message,
+<i class="no-highlight">815</i>&nbsp;                            long retrySleepMs,
+<b class="nc"><i class="no-highlight">816</i>&nbsp;                            Throwable cause) {</b>
+<b class="nc"><i class="no-highlight">817</i>&nbsp;            super(message, cause);</b>
+<b class="nc"><i class="no-highlight">818</i>&nbsp;            this.retrySleepMs = retrySleepMs;</b>
+<i class="no-highlight">819</i>&nbsp;        }
+<i class="no-highlight">820</i>&nbsp;
+<i class="no-highlight">821</i>&nbsp;        /**
+<i class="no-highlight">822</i>&nbsp;         * Get thread sleep time before retry
+<i class="no-highlight">823</i>&nbsp;         *
+<i class="no-highlight">824</i>&nbsp;         * @return sleep time in ms
+<i class="no-highlight">825</i>&nbsp;         */
+<i class="no-highlight">826</i>&nbsp;        long getRetrySleepMs() {
+<b class="nc"><i class="no-highlight">827</i>&nbsp;            return retrySleepMs;</b>
+<i class="no-highlight">828</i>&nbsp;        }
+<i class="no-highlight">829</i>&nbsp;
+<i class="no-highlight">830</i>&nbsp;        @Override
+<i class="no-highlight">831</i>&nbsp;        public String getMessage() {
+<b class="nc"><i class="no-highlight">832</i>&nbsp;            return &quot;Failed to connect, will retry after sleeping &quot; +</b>
+<i class="no-highlight">833</i>&nbsp;                   retrySleepMs + &quot; ms&quot;;
+<i class="no-highlight">834</i>&nbsp;        }
+<i class="no-highlight">835</i>&nbsp;    }
+<i class="no-highlight">836</i>&nbsp;
+<i class="no-highlight">837</i>&nbsp;    /**
+<i class="no-highlight">838</i>&nbsp;     * Handle exceptions uncaught in SubscriptionThread
+<i class="no-highlight">839</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">840</i>&nbsp;    private class SubscriptionThreadExceptionHandler</b>
+<i class="no-highlight">841</i>&nbsp;        implements UncaughtExceptionHandler {
+<i class="no-highlight">842</i>&nbsp;
+<i class="no-highlight">843</i>&nbsp;        public void uncaughtException(Thread t, Throwable e) {
+<b class="nc"><i class="no-highlight">844</i>&nbsp;            logger.severe(&quot;Error { &quot; + e.getMessage() +</b>
+<i class="no-highlight">845</i>&nbsp;                          &quot; } in SubscriptionThread {&quot; +
+<i class="no-highlight">846</i>&nbsp;                          t + &quot; } was uncaught.\nstack trace:\n&quot; +
+<b class="nc"><i class="no-highlight">847</i>&nbsp;                          LoggerUtils.getStackTrace(e));</b>
+<i class="no-highlight">848</i>&nbsp;        }
+<i class="no-highlight">849</i>&nbsp;    }
+<i class="no-highlight">850</i>&nbsp;}
+<i class="no-highlight">851</i>&nbsp;
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,2140 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FileProcessor</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: FileProcessor (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FileProcessor</td>
+<td class="coverageStat">
+  <span class="percent">
+    29.4%
+  </span>
+  <span class="absValue">
+    (5/17)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    19.1%
+  </span>
+  <span class="absValue">
+    (116/607)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">FileProcessor$LookAheadCache</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/15)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">FileProcessor$RootDoWork</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    20%
+  </span>
+  <span class="absValue">
+    (5/25)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    18.2%
+  </span>
+  <span class="absValue">
+    (116/636)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.FileNotFoundException;
+<i class="no-highlight">17</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;import java.util.Set;
+<i class="no-highlight">22</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">23</i>&nbsp;import java.util.TreeMap;
+<i class="no-highlight">24</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.CacheMode;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.DiskLimitException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.CursorImpl;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.DbTree;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.log.ChecksumException;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.log.CleanerFileReader;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.log.LogItem;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.log.Trace;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.tree.BIN;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.tree.ChildReference;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.tree.IN;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.tree.LN;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.tree.MapLN;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.tree.OldBINDelta;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.tree.SearchResult;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.tree.Tree;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.tree.TreeLocation;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.tree.WithRootLatched;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.txn.BasicLocker;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.txn.LockGrantType;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.txn.LockManager;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.txn.LockResult;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.txn.LockType;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.utilint.DaemonThread;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.utilint.Pair;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;/**
+<i class="no-highlight">64</i>&nbsp; * Reads all entries in a log file and either determines them to be obsolete or
+<i class="no-highlight">65</i>&nbsp; * active. Active LNs are migrated immediately (by logging them). Active INs
+<i class="no-highlight">66</i>&nbsp; * are marked for migration by setting the dirty flag.
+<i class="no-highlight">67</i>&nbsp; *
+<i class="no-highlight">68</i>&nbsp; * May be invoked explicitly by calling doClean, or woken up if used as a
+<i class="no-highlight">69</i>&nbsp; * daemon thread.
+<i class="no-highlight">70</i>&nbsp; */
+<b class="fc"><i class="no-highlight">71</i>&nbsp;public class FileProcessor extends DaemonThread {</b>
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;    /**
+<i class="no-highlight">74</i>&nbsp;     * The number of LN log entries after we process pending LNs.  If we do
+<i class="no-highlight">75</i>&nbsp;     * this too seldom, the pending LN queue may grow large, and it isn&#39;t
+<i class="no-highlight">76</i>&nbsp;     * budgeted memory.  If we process it too often, we will repeatedly request
+<i class="no-highlight">77</i>&nbsp;     * a non-blocking lock for the same locked node.
+<i class="no-highlight">78</i>&nbsp;     */
+<i class="no-highlight">79</i>&nbsp;    private static final int PROCESS_PENDING_EVERY_N_LNS = 100;
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    private final Cleaner cleaner;
+<i class="no-highlight">82</i>&nbsp;    private final FileSelector fileSelector;
+<i class="no-highlight">83</i>&nbsp;    private final UtilizationProfile profile;
+<i class="no-highlight">84</i>&nbsp;    private final UtilizationCalculator calculator;
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /** @see #onWakeup() */
+<b class="fc"><i class="no-highlight">87</i>&nbsp;    private volatile boolean activate = false;</b>
+<b class="fc"><i class="no-highlight">88</i>&nbsp;    private long lastWakeupLsn = 0;</b>
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;    /*
+<i class="no-highlight">91</i>&nbsp;     * The first thread (out of N cleaner threads) does certain housekeeping
+<i class="no-highlight">92</i>&nbsp;     * duties that don&#39;t need to be done by all threads.
+<i class="no-highlight">93</i>&nbsp;     */
+<i class="no-highlight">94</i>&nbsp;    private final boolean firstThread;
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    /* Log version for the target file. */
+<i class="no-highlight">97</i>&nbsp;    private int fileLogVersion;
+<i class="no-highlight">98</i>&nbsp;
+<i class="no-highlight">99</i>&nbsp;    /* Per Run counters. Reset before each file is processed. */
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    /*
+<i class="no-highlight">102</i>&nbsp;     * Number of full IN (BIN or UIN) logrecs that were known to be apriory
+<i class="no-highlight">103</i>&nbsp;     * obsolete and did not need any further processing (i.e., they did not
+<i class="no-highlight">104</i>&nbsp;     * need to be searched-for in the tree). These include logrecs whose
+<i class="no-highlight">105</i>&nbsp;     * offset is recorded in the FS DB, or whose DB has been deleted or is
+<i class="no-highlight">106</i>&nbsp;     * being deleted.
+<i class="no-highlight">107</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">108</i>&nbsp;    private int nINsObsoleteThisRun = 0;</b>
+<i class="no-highlight">109</i>&nbsp;
+<i class="no-highlight">110</i>&nbsp;    /*
+<i class="no-highlight">111</i>&nbsp;     * Number of full IN (BIN or UIN) logrecs that were not known apriory to
+<i class="no-highlight">112</i>&nbsp;     * be obsolete, and as a result, needed further processing.
+<i class="no-highlight">113</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">114</i>&nbsp;    private int nINsCleanedThisRun = 0;</b>
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;    /*
+<i class="no-highlight">117</i>&nbsp;     * Number of full IN (BIN or UIN) logrecs that were found to be obsolete
+<i class="no-highlight">118</i>&nbsp;     * after having been looked up in the tree.
+<i class="no-highlight">119</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">120</i>&nbsp;    private int nINsDeadThisRun = 0;</b>
+<i class="no-highlight">121</i>&nbsp;
+<i class="no-highlight">122</i>&nbsp;    /*
+<i class="no-highlight">123</i>&nbsp;     * Number of full IN (BIN or UIN) logrecs that were still active and were
+<i class="no-highlight">124</i>&nbsp;     * marked dirty so that they will be migrated during the next ckpt.
+<i class="no-highlight">125</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">126</i>&nbsp;    private int nINsMigratedThisRun = 0;</b>
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    /*
+<i class="no-highlight">129</i>&nbsp;     * Number of BIN-delta logrecs that were known to be apriory
+<i class="no-highlight">130</i>&nbsp;     * obsolete and did not need any further processing (i.e., they did not
+<i class="no-highlight">131</i>&nbsp;     * need to be searched-for in the tree). These include logrecs whose
+<i class="no-highlight">132</i>&nbsp;     * offset is recorded in the FS DB, or whose DB has been deleted or is
+<i class="no-highlight">133</i>&nbsp;     * being deleted.
+<i class="no-highlight">134</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">135</i>&nbsp;    private int nBINDeltasObsoleteThisRun = 0;</b>
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;    /*
+<i class="no-highlight">138</i>&nbsp;     * Number of BIN-delta logrecs that were not known apriory to be obsolete,
+<i class="no-highlight">139</i>&nbsp;     * and as a result, needed further processing.
+<i class="no-highlight">140</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">141</i>&nbsp;    private int nBINDeltasCleanedThisRun = 0;</b>
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /*
+<i class="no-highlight">144</i>&nbsp;     * Number of BIN-delta logrecs that were found to be obsolete after having
+<i class="no-highlight">145</i>&nbsp;     * been looked up in the tree.
+<i class="no-highlight">146</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">147</i>&nbsp;    private int nBINDeltasDeadThisRun = 0;</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /*
+<i class="no-highlight">150</i>&nbsp;     * Number of BIN-delta logrecs that were still active and were marked
+<i class="no-highlight">151</i>&nbsp;     * dirty so that they will be migrated during the next ckpt.
+<i class="no-highlight">152</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">153</i>&nbsp;    private int nBINDeltasMigratedThisRun = 0;</b>
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;    /*
+<i class="no-highlight">156</i>&nbsp;     * Number of LN logrecs that were known to be apriory obsolete and did not
+<i class="no-highlight">157</i>&nbsp;     * need any further processing (for example, they did not need to be
+<i class="no-highlight">158</i>&nbsp;     * searched-for in the tree). These include logrecs that are immediately
+<i class="no-highlight">159</i>&nbsp;     * obsolete, or whose offset is recorded in the FS DB, or whose DB has been
+<i class="no-highlight">160</i>&nbsp;     * deleted or is being deleted.
+<i class="no-highlight">161</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">162</i>&nbsp;    private int nLNsObsoleteThisRun = 0;</b>
+<i class="no-highlight">163</i>&nbsp;
+<i class="no-highlight">164</i>&nbsp;    /*
+<i class="no-highlight">165</i>&nbsp;     * Number of LN logrecs that were expired.
+<i class="no-highlight">166</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">167</i>&nbsp;    private int nLNsExpiredThisRun = 0;</b>
+<i class="no-highlight">168</i>&nbsp;
+<i class="no-highlight">169</i>&nbsp;    /*
+<i class="no-highlight">170</i>&nbsp;     * Number of LN logrecs that were not known apriory to be obsolete, and as
+<i class="no-highlight">171</i>&nbsp;     * a result, needed further processing. These include LNs that had to be
+<i class="no-highlight">172</i>&nbsp;     * searched-for in the tree as well as the nLNQueueHitsThisRun (see below).
+<i class="no-highlight">173</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">174</i>&nbsp;    private int nLNsCleanedThisRun = 0;</b>
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;    /*
+<i class="no-highlight">177</i>&nbsp;     * Number of LN logrecs that were processed without tree search. Let L1 and
+<i class="no-highlight">178</i>&nbsp;     * L2 be two LN logrecs and R1 and R2 be their associated records. We will 
+<i class="no-highlight">179</i>&nbsp;     * avoid a tree search for L1 if L1 is in the to-be-proccessed cache when
+<i class="no-highlight">180</i>&nbsp;     * L2 is processed, R2 must be searched-for in the tree, R2 is found in a
+<i class="no-highlight">181</i>&nbsp;     * BIN B, and L1 is also pointed-to by a slot in B.
+<i class="no-highlight">182</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">183</i>&nbsp;    private int nLNQueueHitsThisRun = 0;</b>
+<i class="no-highlight">184</i>&nbsp;
+<i class="no-highlight">185</i>&nbsp;    /*
+<i class="no-highlight">186</i>&nbsp;     * Number of LN logrecs that were found to be obsolete after haning been
+<i class="no-highlight">187</i>&nbsp;     * processed further.
+<i class="no-highlight">188</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">189</i>&nbsp;    private int nLNsDeadThisRun = 0;</b>
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    /*
+<i class="no-highlight">192</i>&nbsp;     * Number of LN logrecs whose LSN had to be locked in order to check their
+<i class="no-highlight">193</i>&nbsp;     * obsoleteness, and this non-blocking lock request was denied (and as a
+<i class="no-highlight">194</i>&nbsp;     * result, the logrec was placed in the &quot;pending LNs&quot; queue.
+<i class="no-highlight">195</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">196</i>&nbsp;    private int nLNsLockedThisRun = 0;</b>
+<i class="no-highlight">197</i>&nbsp;
+<i class="no-highlight">198</i>&nbsp;    /*
+<i class="no-highlight">199</i>&nbsp;     * Number of LN logrecs that were still active and were migrated.
+<i class="no-highlight">200</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">201</i>&nbsp;    private int nLNsMigratedThisRun = 0;</b>
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    /*
+<i class="no-highlight">204</i>&nbsp;     * This applies to temporary DBs only. It is the number of LN logrecs that
+<i class="no-highlight">205</i>&nbsp;     * were still active, but intead of migrating them, we attached the LN to
+<i class="no-highlight">206</i>&nbsp;     * the meory-resident tree and marked the LN as dirty.
+<i class="no-highlight">207</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">208</i>&nbsp;    private int nLNsMarkedThisRun = 0;</b>
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;    /*
+<i class="no-highlight">211</i>&nbsp;     * Number of log entries read during cleaning.
+<i class="no-highlight">212</i>&nbsp;     */
+<i class="no-highlight">213</i>&nbsp;    private int nEntriesReadThisRun;
+<i class="no-highlight">214</i>&nbsp;
+<i class="no-highlight">215</i>&nbsp;    private long nRepeatIteratorReadsThisRun;
+<i class="no-highlight">216</i>&nbsp;
+<i class="no-highlight">217</i>&nbsp;    FileProcessor(String name,
+<i class="no-highlight">218</i>&nbsp;                  boolean firstThread,
+<i class="no-highlight">219</i>&nbsp;                  EnvironmentImpl env,
+<i class="no-highlight">220</i>&nbsp;                  Cleaner cleaner,
+<i class="no-highlight">221</i>&nbsp;                  UtilizationProfile profile,
+<i class="no-highlight">222</i>&nbsp;                  UtilizationCalculator calculator,
+<i class="no-highlight">223</i>&nbsp;                  FileSelector fileSelector) {
+<b class="fc"><i class="no-highlight">224</i>&nbsp;        super(0, name, env);</b>
+<b class="fc"><i class="no-highlight">225</i>&nbsp;        this.cleaner = cleaner;</b>
+<b class="fc"><i class="no-highlight">226</i>&nbsp;        this.fileSelector = fileSelector;</b>
+<b class="fc"><i class="no-highlight">227</i>&nbsp;        this.profile = profile;</b>
+<b class="fc"><i class="no-highlight">228</i>&nbsp;        this.calculator = calculator;</b>
+<b class="fc"><i class="no-highlight">229</i>&nbsp;        this.firstThread = firstThread;</b>
+<b class="fc"><i class="no-highlight">230</i>&nbsp;    }</b>
+<i class="no-highlight">231</i>&nbsp;
+<i class="no-highlight">232</i>&nbsp;    /**
+<i class="no-highlight">233</i>&nbsp;     * Return the number of retries when a deadlock exception occurs.
+<i class="no-highlight">234</i>&nbsp;     */
+<i class="no-highlight">235</i>&nbsp;    @Override
+<i class="no-highlight">236</i>&nbsp;    protected long nDeadlockRetries() {
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        return cleaner.nDeadlockRetries;</b>
+<i class="no-highlight">238</i>&nbsp;    }
+<i class="no-highlight">239</i>&nbsp;
+<i class="no-highlight">240</i>&nbsp;    void activateOnWakeup() {
+<b class="fc"><i class="no-highlight">241</i>&nbsp;        activate = true;</b>
+<b class="fc"><i class="no-highlight">242</i>&nbsp;    }</b>
+<i class="no-highlight">243</i>&nbsp;
+<i class="no-highlight">244</i>&nbsp;    /**
+<i class="no-highlight">245</i>&nbsp;     * The thread is woken, either by an explicit notify (call to {@link
+<i class="no-highlight">246</i>&nbsp;     * Cleaner#wakeupActivate()}, or when the timed wakeup interval elapses.
+<i class="no-highlight">247</i>&nbsp;     *
+<i class="no-highlight">248</i>&nbsp;     * In the former case (a call to wakeupActivate), the &#39;activate&#39; field will
+<i class="no-highlight">249</i>&nbsp;     * be true and the doClean method is called here. This happens when the
+<i class="no-highlight">250</i>&nbsp;     * number of bytes written exceeds the cleanerBytesInterval, a config
+<i class="no-highlight">251</i>&nbsp;     * change is made that could impact cleaning, etc.
+<i class="no-highlight">252</i>&nbsp;     *
+<i class="no-highlight">253</i>&nbsp;     * In the latter case (the wakeup interval elapsed), &#39;activate&#39; will be
+<i class="no-highlight">254</i>&nbsp;     * false. In this case, when there has been no writing since the last
+<i class="no-highlight">255</i>&nbsp;     * wakeup, we perform cleaning and checkpointing, if needed to reclaim
+<i class="no-highlight">256</i>&nbsp;     * space. This handles the situation where writing stops, but cleaning
+<i class="no-highlight">257</i>&nbsp;     * or checkpointing or reserved file deletion may be needed. See {@link
+<i class="no-highlight">258</i>&nbsp;     * com.sleepycat.je.EnvironmentConfig#CLEANER_WAKEUP_INTERVAL}.
+<i class="no-highlight">259</i>&nbsp;     *
+<i class="no-highlight">260</i>&nbsp;     * In all cases, when a disk limit is in violation we always call the
+<i class="no-highlight">261</i>&nbsp;     * doClean method to ensure that {@link Cleaner#manageDiskUsage()} is
+<i class="no-highlight">262</i>&nbsp;     * called in this situation. This is important to free disk space whenever
+<i class="no-highlight">263</i>&nbsp;     * possible.
+<i class="no-highlight">264</i>&nbsp;     */
+<i class="no-highlight">265</i>&nbsp;    @Override
+<i class="no-highlight">266</i>&nbsp;    protected synchronized void onWakeup() {
+<i class="no-highlight">267</i>&nbsp;
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        if (!activate &amp;&amp; cleaner.getDiskLimitViolation() == null) {</b>
+<i class="no-highlight">269</i>&nbsp;            /*
+<i class="no-highlight">270</i>&nbsp;             * This is a timed wakeup and no disk limit is violated. We should
+<i class="no-highlight">271</i>&nbsp;             * only call doClean if writing has stopped.
+<i class="no-highlight">272</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            final long nextLsn = envImpl.getFileManager().getNextLsn();</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            if (lastWakeupLsn != nextLsn) {</b>
+<i class="no-highlight">275</i>&nbsp;                /*
+<i class="no-highlight">276</i>&nbsp;                 * If the last LSN in the log has changed since the last timed
+<i class="no-highlight">277</i>&nbsp;                 * wakeup, do nothing, because writing has not stopped. As long
+<i class="no-highlight">278</i>&nbsp;                 * as writing continues, we expect the cleaner and checkpointer
+<i class="no-highlight">279</i>&nbsp;                 * to be woken via their byte interval params.
+<i class="no-highlight">280</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">281</i>&nbsp;                lastWakeupLsn = nextLsn;</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                return;</b>
+<i class="no-highlight">283</i>&nbsp;            }
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;            /*
+<i class="no-highlight">286</i>&nbsp;             * There has been no writing since the last wakeup. Schedule a
+<i class="no-highlight">287</i>&nbsp;             * checkpoint, if needed to reclaim disk space for already cleaned
+<i class="no-highlight">288</i>&nbsp;             * files. Then fall through and activate (call doClean).
+<i class="no-highlight">289</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">290</i>&nbsp;            envImpl.getCheckpointer().wakeupAfterNoWrites();</b>
+<i class="no-highlight">291</i>&nbsp;        }
+<i class="no-highlight">292</i>&nbsp;
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        doClean(</b>
+<i class="no-highlight">294</i>&nbsp;            true /*invokedFromDaemon*/,
+<i class="no-highlight">295</i>&nbsp;            true /*cleanMultipleFiles*/,
+<i class="no-highlight">296</i>&nbsp;            false /*forceCleaning*/);
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        activate = false;</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;    }</b>
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;    /**
+<i class="no-highlight">302</i>&nbsp;     * Selects files to clean and cleans them. It returns the number of
+<i class="no-highlight">303</i>&nbsp;     * successfully cleaned files. May be called by the daemon thread or
+<i class="no-highlight">304</i>&nbsp;     * programatically.
+<i class="no-highlight">305</i>&nbsp;     *
+<i class="no-highlight">306</i>&nbsp;     * @param invokedFromDaemon currently has no effect.
+<i class="no-highlight">307</i>&nbsp;     *
+<i class="no-highlight">308</i>&nbsp;     * @param cleanMultipleFiles is true to clean until we&#39;re under budget,
+<i class="no-highlight">309</i>&nbsp;     * or false to clean at most one file.
+<i class="no-highlight">310</i>&nbsp;     *
+<i class="no-highlight">311</i>&nbsp;     * @param forceCleaning is true to clean even if we&#39;re not under the
+<i class="no-highlight">312</i>&nbsp;     * utilization threshold.
+<i class="no-highlight">313</i>&nbsp;     *
+<i class="no-highlight">314</i>&nbsp;     * @return the number of files cleaned, not including files cleaned
+<i class="no-highlight">315</i>&nbsp;     * unsuccessfully.
+<i class="no-highlight">316</i>&nbsp;     */
+<i class="no-highlight">317</i>&nbsp;    synchronized int doClean(
+<i class="no-highlight">318</i>&nbsp;        boolean invokedFromDaemon,
+<i class="no-highlight">319</i>&nbsp;        boolean cleanMultipleFiles,
+<i class="no-highlight">320</i>&nbsp;        boolean forceCleaning) {
+<i class="no-highlight">321</i>&nbsp;
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        if (envImpl.isClosed()) {</b>
+<b class="nc"><i class="no-highlight">323</i>&nbsp;            return 0;</b>
+<i class="no-highlight">324</i>&nbsp;        }
+<i class="no-highlight">325</i>&nbsp;
+<i class="no-highlight">326</i>&nbsp;        /*
+<i class="no-highlight">327</i>&nbsp;         * Get all file summaries including tracked files.  Tracked files may
+<i class="no-highlight">328</i>&nbsp;         * be ready for cleaning if there is a large cache and many files have
+<i class="no-highlight">329</i>&nbsp;         * not yet been flushed and do not yet appear in the profile map.
+<i class="no-highlight">330</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        SortedMap&lt;Long, FileSummary&gt; fileSummaryMap =</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;            profile.getFileSummaryMap(true /*includeTrackedFiles*/);</b>
+<i class="no-highlight">333</i>&nbsp;
+<i class="no-highlight">334</i>&nbsp;        /* Clean until no more files are selected.  */
+<b class="nc"><i class="no-highlight">335</i>&nbsp;        final int nOriginalLogFiles = fileSummaryMap.size();</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        int nFilesCleaned = 0;</b>
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;        while (true) {
+<i class="no-highlight">339</i>&nbsp;
+<i class="no-highlight">340</i>&nbsp;            /* Stop if the daemon is paused or the environment is closing. */
+<b class="nc"><i class="no-highlight">341</i>&nbsp;            if ((invokedFromDaemon &amp;&amp; isPaused()) || envImpl.isClosing()) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;                break;</b>
+<i class="no-highlight">343</i>&nbsp;            }
+<i class="no-highlight">344</i>&nbsp;
+<i class="no-highlight">345</i>&nbsp;            /*
+<i class="no-highlight">346</i>&nbsp;             * Manage disk usage (refresh stats and delete files) periodically.
+<i class="no-highlight">347</i>&nbsp;             *
+<i class="no-highlight">348</i>&nbsp;             * Do this before cleaning, to reduce the chance of filling the
+<i class="no-highlight">349</i>&nbsp;             * disk while cleaning and migrating/logging LNs. Also do it after
+<i class="no-highlight">350</i>&nbsp;             * cleaning (before deciding whether to clean another file), even
+<i class="no-highlight">351</i>&nbsp;             * if there are no more files to clean, to ensure space is freed
+<i class="no-highlight">352</i>&nbsp;             * after a long run.
+<i class="no-highlight">353</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">354</i>&nbsp;            cleaner.manageDiskUsage();</b>
+<i class="no-highlight">355</i>&nbsp;
+<i class="no-highlight">356</i>&nbsp;            /*
+<i class="no-highlight">357</i>&nbsp;             * Stop if we cannot write because of a disk limit violation. */
+<i class="no-highlight">358</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">359</i>&nbsp;                envImpl.checkDiskLimitViolation();</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;            } catch (DiskLimitException e) {</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;                if (!invokedFromDaemon) {</b>
+<b class="nc"><i class="no-highlight">362</i>&nbsp;                    throw e;</b>
+<i class="no-highlight">363</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">364</i>&nbsp;                break;</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;            }</b>
+<i class="no-highlight">366</i>&nbsp;
+<i class="no-highlight">367</i>&nbsp;            /*
+<i class="no-highlight">368</i>&nbsp;             * Process pending LNs periodically.  Pending LNs can prevent file
+<i class="no-highlight">369</i>&nbsp;             * deletion.
+<i class="no-highlight">370</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">371</i>&nbsp;            cleaner.processPending();</b>
+<i class="no-highlight">372</i>&nbsp;
+<b class="nc"><i class="no-highlight">373</i>&nbsp;            if (nFilesCleaned &gt; 0) {</b>
+<i class="no-highlight">374</i>&nbsp;
+<i class="no-highlight">375</i>&nbsp;                /* If we should only clean one file, stop now. */
+<b class="nc"><i class="no-highlight">376</i>&nbsp;                if (!cleanMultipleFiles) {</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;                    break;</b>
+<i class="no-highlight">378</i>&nbsp;                }
+<i class="no-highlight">379</i>&nbsp;
+<i class="no-highlight">380</i>&nbsp;                /* Don&#39;t clean forever. */
+<b class="nc"><i class="no-highlight">381</i>&nbsp;                if (nFilesCleaned &gt;= nOriginalLogFiles) {</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;                    break;</b>
+<i class="no-highlight">383</i>&nbsp;                }
+<i class="no-highlight">384</i>&nbsp;
+<i class="no-highlight">385</i>&nbsp;                /* Refresh file summary info for next file selection. */
+<b class="nc"><i class="no-highlight">386</i>&nbsp;                fileSummaryMap =</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;                    profile.getFileSummaryMap(true /*includeTrackedFiles*/);</b>
+<i class="no-highlight">388</i>&nbsp;            }
+<i class="no-highlight">389</i>&nbsp;
+<i class="no-highlight">390</i>&nbsp;            /*
+<i class="no-highlight">391</i>&nbsp;             * Select the next file for cleaning and update the Cleaner&#39;s
+<i class="no-highlight">392</i>&nbsp;             * read-only file collections.
+<i class="no-highlight">393</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">394</i>&nbsp;            final Pair&lt;Long, Integer&gt; result =</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                fileSelector.selectFileForCleaning(</b>
+<i class="no-highlight">396</i>&nbsp;                    calculator, fileSummaryMap, forceCleaning);
+<i class="no-highlight">397</i>&nbsp;
+<i class="no-highlight">398</i>&nbsp;            /* Stop if no file is selected for cleaning. */
+<b class="nc"><i class="no-highlight">399</i>&nbsp;            if (result == null) {</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;                break;</b>
+<i class="no-highlight">401</i>&nbsp;            }
+<i class="no-highlight">402</i>&nbsp;
+<b class="nc"><i class="no-highlight">403</i>&nbsp;            final Long fileNum = result.first();</b>
+<b class="nc"><i class="no-highlight">404</i>&nbsp;            final int requiredUtil = result.second();</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;            final boolean twoPass = (requiredUtil &gt;= 0);</b>
+<i class="no-highlight">406</i>&nbsp;
+<b class="nc"><i class="no-highlight">407</i>&nbsp;            boolean finished = false;</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;            boolean fileDeleted = false;</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            final long fileNumValue = fileNum;</b>
+<i class="no-highlight">410</i>&nbsp;
+<b class="nc"><i class="no-highlight">411</i>&nbsp;            final long runId = cleaner.totalRuns.incrementAndGet();</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            final MemoryBudget budget = envImpl.getMemoryBudget();</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;            nFilesCleaned += 1;</b>
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">416</i>&nbsp;                TestHookExecute.doHookIfSet(cleaner.fileChosenHook);</b>
+<i class="no-highlight">417</i>&nbsp;
+<i class="no-highlight">418</i>&nbsp;                /* Perform 1st pass of 2-pass cleaning. */
+<b class="nc"><i class="no-highlight">419</i>&nbsp;                String passOneMsg = &quot;&quot;;</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;                if (twoPass) {</b>
+<i class="no-highlight">421</i>&nbsp;
+<b class="nc"><i class="no-highlight">422</i>&nbsp;                    final FileSummary recalcSummary = new FileSummary();</b>
+<i class="no-highlight">423</i>&nbsp;
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                    final ExpirationTracker expTracker =</b>
+<i class="no-highlight">425</i>&nbsp;                        new ExpirationTracker(fileNumValue);
+<i class="no-highlight">426</i>&nbsp;
+<b class="nc"><i class="no-highlight">427</i>&nbsp;                    processFile(</b>
+<i class="no-highlight">428</i>&nbsp;                        fileNum, recalcSummary, new INSummary(), expTracker);
+<i class="no-highlight">429</i>&nbsp;
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                    final int expiredSize =</b>
+<b class="nc"><i class="no-highlight">431</i>&nbsp;                        expTracker.getExpiredBytes(TTL.currentSystemTime());</b>
+<i class="no-highlight">432</i>&nbsp;
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                    final int obsoleteSize = recalcSummary.getObsoleteSize();</b>
+<i class="no-highlight">434</i>&nbsp;
+<b class="nc"><i class="no-highlight">435</i>&nbsp;                    final int recalcUtil = FileSummary.utilization(</b>
+<i class="no-highlight">436</i>&nbsp;                        obsoleteSize + expiredSize, recalcSummary.totalSize);
+<i class="no-highlight">437</i>&nbsp;
+<b class="nc"><i class="no-highlight">438</i>&nbsp;                    passOneMsg =</b>
+<i class="no-highlight">439</i>&nbsp;                        &quot; pass1RecalcObsolete=&quot; + obsoleteSize +
+<i class="no-highlight">440</i>&nbsp;                        &quot; pass1RecalcExpired=&quot; + expiredSize +
+<i class="no-highlight">441</i>&nbsp;                        &quot; pass1RecalcUtil=&quot; + recalcUtil +
+<i class="no-highlight">442</i>&nbsp;                        &quot; pass1RequiredUtil=&quot; + requiredUtil;
+<i class="no-highlight">443</i>&nbsp;
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                    if (recalcUtil &gt; requiredUtil) {</b>
+<i class="no-highlight">445</i>&nbsp;
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                        cleaner.nRevisalRuns.increment();</b>
+<i class="no-highlight">447</i>&nbsp;
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                        cleaner.getExpirationProfile().putFile(</b>
+<i class="no-highlight">449</i>&nbsp;                            expTracker, expiredSize);
+<i class="no-highlight">450</i>&nbsp;
+<b class="nc"><i class="no-highlight">451</i>&nbsp;                        final String logMsg = &quot;CleanerRevisalRun &quot; + runId +</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;                            &quot; on file 0x&quot; + Long.toHexString(fileNumValue) +</b>
+<i class="no-highlight">453</i>&nbsp;                            &quot; ends:&quot; + passOneMsg;
+<i class="no-highlight">454</i>&nbsp;
+<b class="nc"><i class="no-highlight">455</i>&nbsp;                        LoggerUtils.logMsg(logger, envImpl, Level.INFO, logMsg);</b>
+<i class="no-highlight">456</i>&nbsp;
+<b class="nc"><i class="no-highlight">457</i>&nbsp;                        fileSelector.removeFile(fileNum, budget);</b>
+<i class="no-highlight">458</i>&nbsp;
+<b class="nc"><i class="no-highlight">459</i>&nbsp;                        finished = true;</b>
+<i class="no-highlight">460</i>&nbsp;                        continue;
+<i class="no-highlight">461</i>&nbsp;                    }
+<i class="no-highlight">462</i>&nbsp;                }
+<i class="no-highlight">463</i>&nbsp;
+<b class="nc"><i class="no-highlight">464</i>&nbsp;                resetPerRunCounters();</b>
+<b class="nc"><i class="no-highlight">465</i>&nbsp;                cleaner.nCleanerRuns.increment();</b>
+<i class="no-highlight">466</i>&nbsp;
+<b class="nc"><i class="no-highlight">467</i>&nbsp;                if (twoPass) {</b>
+<b class="nc"><i class="no-highlight">468</i>&nbsp;                    cleaner.nTwoPassRuns.increment();</b>
+<i class="no-highlight">469</i>&nbsp;                }
+<i class="no-highlight">470</i>&nbsp;
+<i class="no-highlight">471</i>&nbsp;                /* Keep track of estimated and true utilization. */
+<b class="nc"><i class="no-highlight">472</i>&nbsp;                final FileSummary estimatedFileSummary =</b>
+<b class="nc"><i class="no-highlight">473</i>&nbsp;                    fileSummaryMap.containsKey(fileNum) ?</b>
+<b class="nc"><i class="no-highlight">474</i>&nbsp;                    fileSummaryMap.get(fileNum).clone() : null;</b>
+<i class="no-highlight">475</i>&nbsp;
+<b class="nc"><i class="no-highlight">476</i>&nbsp;                final FileSummary recalculatedFileSummary = new FileSummary();</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;                final INSummary inSummary = new INSummary();</b>
+<i class="no-highlight">478</i>&nbsp;
+<b class="nc"><i class="no-highlight">479</i>&nbsp;                final String msgHeader =</b>
+<i class="no-highlight">480</i>&nbsp;                    (twoPass ? &quot;CleanerTwoPassRun &quot; : &quot;CleanerRun &quot;) +
+<b class="nc"><i class="no-highlight">481</i>&nbsp;                    runId + &quot; on file 0x&quot; + Long.toHexString(fileNumValue);</b>
+<i class="no-highlight">482</i>&nbsp;
+<b class="nc"><i class="no-highlight">483</i>&nbsp;                final String beginMsg = msgHeader + &quot; begins:&quot;;</b>
+<i class="no-highlight">484</i>&nbsp;
+<i class="no-highlight">485</i>&nbsp;                /* Trace is unconditional for log-based debugging. */
+<b class="nc"><i class="no-highlight">486</i>&nbsp;                LoggerUtils.traceAndLog(logger, envImpl, Level.FINE, beginMsg);</b>
+<i class="no-highlight">487</i>&nbsp;
+<i class="no-highlight">488</i>&nbsp;                /* Process all log entries in the file. */
+<b class="nc"><i class="no-highlight">489</i>&nbsp;                if (!processFile(</b>
+<i class="no-highlight">490</i>&nbsp;                    fileNum, recalculatedFileSummary, inSummary, null)) {
+<b class="nc"><i class="no-highlight">491</i>&nbsp;                    return nFilesCleaned;</b>
+<i class="no-highlight">492</i>&nbsp;                }
+<i class="no-highlight">493</i>&nbsp;
+<i class="no-highlight">494</i>&nbsp;                /* File is fully processed, update stats. */
+<b class="nc"><i class="no-highlight">495</i>&nbsp;                accumulatePerRunCounters();</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;                finished = true;</b>
+<i class="no-highlight">497</i>&nbsp;
+<i class="no-highlight">498</i>&nbsp;                /* Trace is unconditional for log-based debugging. */
+<b class="nc"><i class="no-highlight">499</i>&nbsp;                final String endMsg = msgHeader + &quot; ends:&quot; +</b>
+<i class="no-highlight">500</i>&nbsp;                    &quot; invokedFromDaemon=&quot; + invokedFromDaemon +
+<i class="no-highlight">501</i>&nbsp;                    &quot; finished=&quot; + finished +
+<i class="no-highlight">502</i>&nbsp;                    &quot; fileDeleted=&quot; + fileDeleted +
+<i class="no-highlight">503</i>&nbsp;                    &quot; nEntriesRead=&quot; + nEntriesReadThisRun +
+<i class="no-highlight">504</i>&nbsp;                    &quot; nINsObsolete=&quot; + nINsObsoleteThisRun +
+<i class="no-highlight">505</i>&nbsp;                    &quot; nINsCleaned=&quot; + nINsCleanedThisRun +
+<i class="no-highlight">506</i>&nbsp;                    &quot; nINsDead=&quot; + nINsDeadThisRun +
+<i class="no-highlight">507</i>&nbsp;                    &quot; nINsMigrated=&quot; + nINsMigratedThisRun +
+<i class="no-highlight">508</i>&nbsp;                    &quot; nBINDeltasObsolete=&quot; + nBINDeltasObsoleteThisRun +
+<i class="no-highlight">509</i>&nbsp;                    &quot; nBINDeltasCleaned=&quot; + nBINDeltasCleanedThisRun +
+<i class="no-highlight">510</i>&nbsp;                    &quot; nBINDeltasDead=&quot; + nBINDeltasDeadThisRun +
+<i class="no-highlight">511</i>&nbsp;                    &quot; nBINDeltasMigrated=&quot; + nBINDeltasMigratedThisRun +
+<i class="no-highlight">512</i>&nbsp;                    &quot; nLNsObsolete=&quot; + nLNsObsoleteThisRun +
+<i class="no-highlight">513</i>&nbsp;                    &quot; nLNsCleaned=&quot; + nLNsCleanedThisRun +
+<i class="no-highlight">514</i>&nbsp;                    &quot; nLNsDead=&quot; + nLNsDeadThisRun +
+<i class="no-highlight">515</i>&nbsp;                    &quot; nLNsExpired=&quot; + nLNsExpiredThisRun +
+<i class="no-highlight">516</i>&nbsp;                    &quot; nLNsMigrated=&quot; + nLNsMigratedThisRun +
+<i class="no-highlight">517</i>&nbsp;                    &quot; nLNsMarked=&quot; + nLNsMarkedThisRun +
+<i class="no-highlight">518</i>&nbsp;                    &quot; nLNQueueHits=&quot; + nLNQueueHitsThisRun +
+<i class="no-highlight">519</i>&nbsp;                    &quot; nLNsLocked=&quot; + nLNsLockedThisRun;
+<i class="no-highlight">520</i>&nbsp;
+<b class="nc"><i class="no-highlight">521</i>&nbsp;                Trace.trace(envImpl, endMsg);</b>
+<i class="no-highlight">522</i>&nbsp;
+<i class="no-highlight">523</i>&nbsp;                /* Only construct INFO level message if needed. */
+<b class="nc"><i class="no-highlight">524</i>&nbsp;                if (logger.isLoggable(Level.INFO)) {</b>
+<i class="no-highlight">525</i>&nbsp;
+<b class="nc"><i class="no-highlight">526</i>&nbsp;                    final int estUtil = (estimatedFileSummary != null) ?</b>
+<b class="nc"><i class="no-highlight">527</i>&nbsp;                        estimatedFileSummary.utilization() : -1;</b>
+<i class="no-highlight">528</i>&nbsp;
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                    final int recalcUtil =</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;                        recalculatedFileSummary.utilization();</b>
+<i class="no-highlight">531</i>&nbsp;
+<b class="nc"><i class="no-highlight">532</i>&nbsp;                    LoggerUtils.logMsg(</b>
+<i class="no-highlight">533</i>&nbsp;                        logger, envImpl, Level.INFO,
+<i class="no-highlight">534</i>&nbsp;                        endMsg +
+<i class="no-highlight">535</i>&nbsp;                        &quot; inSummary=&quot; + inSummary +
+<i class="no-highlight">536</i>&nbsp;                        &quot; estSummary=&quot; + estimatedFileSummary +
+<i class="no-highlight">537</i>&nbsp;                        &quot; recalcSummary=&quot; + recalculatedFileSummary +
+<i class="no-highlight">538</i>&nbsp;                        &quot; estimatedUtil=&quot; + estUtil +
+<i class="no-highlight">539</i>&nbsp;                        &quot; recalcUtil=&quot; + recalcUtil +
+<i class="no-highlight">540</i>&nbsp;                        passOneMsg);
+<i class="no-highlight">541</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">542</i>&nbsp;            } catch (FileNotFoundException e) {</b>
+<i class="no-highlight">543</i>&nbsp;
+<i class="no-highlight">544</i>&nbsp;                /*
+<i class="no-highlight">545</i>&nbsp;                 * File was deleted.  Although it is possible that the file was
+<i class="no-highlight">546</i>&nbsp;                 * deleted externally it is much more likely that the file was
+<i class="no-highlight">547</i>&nbsp;                 * deleted normally after being cleaned earlier.  This can
+<i class="no-highlight">548</i>&nbsp;                 * occur when tracked obsolete information is collected and
+<i class="no-highlight">549</i>&nbsp;                 * processed after the file has been cleaned and deleted.
+<i class="no-highlight">550</i>&nbsp;                 * Since the file does not exist, ignore the error so that the
+<i class="no-highlight">551</i>&nbsp;                 * cleaner will continue.  Remove the file completely from the
+<i class="no-highlight">552</i>&nbsp;                 * FileSelector, UtilizationProfile and ExpirationProfile so
+<i class="no-highlight">553</i>&nbsp;                 * that we don&#39;t repeatedly attempt to process it. [#15528]
+<i class="no-highlight">554</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">555</i>&nbsp;                fileDeleted = true;</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;                profile.removeDeletedFile(fileNum);</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;                cleaner.getExpirationProfile().removeFile(fileNum);</b>
+<b class="nc"><i class="no-highlight">558</i>&nbsp;                fileSelector.removeFile(fileNum, budget);</b>
+<i class="no-highlight">559</i>&nbsp;
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                LoggerUtils.logMsg(</b>
+<i class="no-highlight">561</i>&nbsp;                    logger, envImpl, Level.INFO,
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                    &quot;Missing file 0x&quot; + Long.toHexString(fileNum) +</b>
+<i class="no-highlight">563</i>&nbsp;                        &quot; ignored by cleaner&quot;);
+<i class="no-highlight">564</i>&nbsp;
+<b class="nc"><i class="no-highlight">565</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">566</i>&nbsp;
+<b class="nc"><i class="no-highlight">567</i>&nbsp;                LoggerUtils.traceAndLogException(</b>
+<i class="no-highlight">568</i>&nbsp;                    envImpl, &quot;Cleaner&quot;, &quot;doClean&quot;, &quot;&quot;, e);
+<i class="no-highlight">569</i>&nbsp;
+<b class="nc"><i class="no-highlight">570</i>&nbsp;                throw new EnvironmentFailureException(</b>
+<i class="no-highlight">571</i>&nbsp;                    envImpl, EnvironmentFailureReason.LOG_INTEGRITY, e);
+<i class="no-highlight">572</i>&nbsp;
+<b class="nc"><i class="no-highlight">573</i>&nbsp;            } catch (DiskLimitException e) {</b>
+<i class="no-highlight">574</i>&nbsp;
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                LoggerUtils.logMsg(</b>
+<i class="no-highlight">576</i>&nbsp;                    logger, envImpl, Level.WARNING,
+<b class="nc"><i class="no-highlight">577</i>&nbsp;                    &quot;Cleaning of file 0x&quot; + Long.toHexString(fileNum) +</b>
+<i class="no-highlight">578</i>&nbsp;                    &quot; aborted because of disk limit violation: &quot; + e);
+<i class="no-highlight">579</i>&nbsp;
+<b class="nc"><i class="no-highlight">580</i>&nbsp;                if (!invokedFromDaemon) {</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;                    throw e;</b>
+<i class="no-highlight">582</i>&nbsp;                }
+<i class="no-highlight">583</i>&nbsp;
+<b class="nc"><i class="no-highlight">584</i>&nbsp;            } catch (RuntimeException e) {</b>
+<i class="no-highlight">585</i>&nbsp;
+<b class="nc"><i class="no-highlight">586</i>&nbsp;                LoggerUtils.traceAndLogException(</b>
+<i class="no-highlight">587</i>&nbsp;                    envImpl, &quot;Cleaner&quot;, &quot;doClean&quot;, &quot;&quot;, e);
+<i class="no-highlight">588</i>&nbsp;
+<b class="nc"><i class="no-highlight">589</i>&nbsp;                throw e;</b>
+<i class="no-highlight">590</i>&nbsp;
+<i class="no-highlight">591</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">592</i>&nbsp;                if (!finished &amp;&amp; !fileDeleted) {</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;                    fileSelector.putBackFileForCleaning(fileNum);</b>
+<i class="no-highlight">594</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">595</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        }</b>
+<i class="no-highlight">597</i>&nbsp;
+<b class="nc"><i class="no-highlight">598</i>&nbsp;        return nFilesCleaned;</b>
+<i class="no-highlight">599</i>&nbsp;    }
+<i class="no-highlight">600</i>&nbsp;
+<i class="no-highlight">601</i>&nbsp;    /**
+<i class="no-highlight">602</i>&nbsp;     * Calculates expired bytes without performing any migration or other side
+<i class="no-highlight">603</i>&nbsp;     * effects. The expired sizes will not overlap with obsolete data, because
+<i class="no-highlight">604</i>&nbsp;     * expired sizes are accumulated only for non-obsolete entries.
+<i class="no-highlight">605</i>&nbsp;     *
+<i class="no-highlight">606</i>&nbsp;     * @param fileNum file to read.
+<i class="no-highlight">607</i>&nbsp;     *
+<i class="no-highlight">608</i>&nbsp;     * @return the expiration tracker.
+<i class="no-highlight">609</i>&nbsp;     */
+<i class="no-highlight">610</i>&nbsp;    public ExpirationTracker countExpiration(long fileNum) {
+<i class="no-highlight">611</i>&nbsp;
+<b class="fc"><i class="no-highlight">612</i>&nbsp;        final ExpirationTracker tracker = new ExpirationTracker(fileNum);</b>
+<i class="no-highlight">613</i>&nbsp;
+<i class="no-highlight">614</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">615</i>&nbsp;            final boolean result = processFile(</b>
+<b class="fc"><i class="no-highlight">616</i>&nbsp;                fileNum, new FileSummary(), new INSummary(), tracker);</b>
+<i class="no-highlight">617</i>&nbsp;
+<b class="fc"><i class="no-highlight">618</i>&nbsp;            assert result;</b>
+<i class="no-highlight">619</i>&nbsp;
+<b class="nc"><i class="no-highlight">620</i>&nbsp;        } catch (IOException e) {</b>
+<i class="no-highlight">621</i>&nbsp;
+<b class="nc"><i class="no-highlight">622</i>&nbsp;            LoggerUtils.traceAndLogException(</b>
+<i class="no-highlight">623</i>&nbsp;                envImpl, &quot;Cleaner&quot;, &quot;countExpiration&quot;, &quot;&quot;, e);
+<i class="no-highlight">624</i>&nbsp;
+<b class="nc"><i class="no-highlight">625</i>&nbsp;            throw new EnvironmentFailureException(</b>
+<i class="no-highlight">626</i>&nbsp;                envImpl, EnvironmentFailureReason.LOG_INTEGRITY, e);
+<b class="fc"><i class="no-highlight">627</i>&nbsp;        }</b>
+<i class="no-highlight">628</i>&nbsp;
+<b class="fc"><i class="no-highlight">629</i>&nbsp;        return tracker;</b>
+<i class="no-highlight">630</i>&nbsp;    }
+<i class="no-highlight">631</i>&nbsp;
+<i class="no-highlight">632</i>&nbsp;    /**
+<i class="no-highlight">633</i>&nbsp;     * Process all log entries in the given file.
+<i class="no-highlight">634</i>&nbsp;     *
+<i class="no-highlight">635</i>&nbsp;     * Note that we gather obsolete offsets at the beginning of the method and
+<i class="no-highlight">636</i>&nbsp;     * do not check for obsolete offsets of entries that become obsolete while
+<i class="no-highlight">637</i>&nbsp;     * the file is being processed.  An entry in this file can become obsolete
+<i class="no-highlight">638</i>&nbsp;     * before we process it when normal application activity deletes or
+<i class="no-highlight">639</i>&nbsp;     * updates the entry.  Also, large numbers of entries also become obsolete
+<i class="no-highlight">640</i>&nbsp;     * as the result of LN migration while processing the file, but these
+<i class="no-highlight">641</i>&nbsp;     * Checking the TrackedFileSummary while processing the file would be
+<i class="no-highlight">642</i>&nbsp;     * expensive if it has many entries, because we perform a linear search in
+<i class="no-highlight">643</i>&nbsp;     * the TFS.  There is a tradeoff between the cost of the TFS lookup and its
+<i class="no-highlight">644</i>&nbsp;     * benefit, which is to avoid a tree search if the entry is obsolete.  Many
+<i class="no-highlight">645</i>&nbsp;     * more lookups for non-obsolete entries than obsolete entries will
+<i class="no-highlight">646</i>&nbsp;     * typically be done.  Because of the high cost of the linear search,
+<i class="no-highlight">647</i>&nbsp;     * especially when processing large log files, we do not check the TFS.
+<i class="no-highlight">648</i>&nbsp;     * [#19626]
+<i class="no-highlight">649</i>&nbsp;     *
+<i class="no-highlight">650</i>&nbsp;     * @param fileNum the file being cleaned.
+<i class="no-highlight">651</i>&nbsp;     *
+<i class="no-highlight">652</i>&nbsp;     * @param fileSummary used to return the true utilization.
+<i class="no-highlight">653</i>&nbsp;     *
+<i class="no-highlight">654</i>&nbsp;     * @param inSummary used to return IN utilization info for debugging.
+<i class="no-highlight">655</i>&nbsp;     *
+<i class="no-highlight">656</i>&nbsp;     * @param expTracker if non-null, enables countOnly mode, in which
+<i class="no-highlight">657</i>&nbsp;     * expiration info is returned via this param, obsolete info returned via
+<i class="no-highlight">658</i>&nbsp;     * fileSummary does not include expired data, and no migration is
+<i class="no-highlight">659</i>&nbsp;     * performed, i.e., there are no side effects.
+<i class="no-highlight">660</i>&nbsp;     *
+<i class="no-highlight">661</i>&nbsp;     * @return false if we aborted file processing because the environment is
+<i class="no-highlight">662</i>&nbsp;     * being closed.
+<i class="no-highlight">663</i>&nbsp;     */
+<i class="no-highlight">664</i>&nbsp;    private boolean processFile(Long fileNum,
+<i class="no-highlight">665</i>&nbsp;                                FileSummary fileSummary,
+<i class="no-highlight">666</i>&nbsp;                                INSummary inSummary,
+<i class="no-highlight">667</i>&nbsp;                                ExpirationTracker expTracker)
+<i class="no-highlight">668</i>&nbsp;        throws IOException {
+<i class="no-highlight">669</i>&nbsp;
+<b class="fc"><i class="no-highlight">670</i>&nbsp;        final boolean countOnly = (expTracker != null);</b>
+<b class="fc"><i class="no-highlight">671</i>&nbsp;        final LockManager lockManager = envImpl.getTxnManager().getLockManager();</b>
+<i class="no-highlight">672</i>&nbsp;
+<i class="no-highlight">673</i>&nbsp;        /* Get the current obsolete offsets for this file. */
+<b class="fc"><i class="no-highlight">674</i>&nbsp;        final PackedOffsets obsoleteOffsets =</b>
+<b class="fc"><i class="no-highlight">675</i>&nbsp;            profile.getObsoleteDetailPacked(fileNum, !countOnly /*logUpdate*/);</b>
+<i class="no-highlight">676</i>&nbsp;
+<b class="fc"><i class="no-highlight">677</i>&nbsp;        final PackedOffsets.Iterator obsoleteIter = obsoleteOffsets.iterator();</b>
+<b class="fc"><i class="no-highlight">678</i>&nbsp;        long nextObsolete = -1;</b>
+<i class="no-highlight">679</i>&nbsp;
+<i class="no-highlight">680</i>&nbsp;        /* Copy to local variables because they are mutable properties. */
+<b class="fc"><i class="no-highlight">681</i>&nbsp;        final int readBufferSize = cleaner.readBufferSize;</b>
+<b class="fc"><i class="no-highlight">682</i>&nbsp;        final int lookAheadCacheSize =</b>
+<i class="no-highlight">683</i>&nbsp;            countOnly ? 0 : cleaner.lookAheadCacheSize;
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;        /*
+<i class="no-highlight">686</i>&nbsp;         * Add the overhead of this method to the budget.  Two read buffers are
+<i class="no-highlight">687</i>&nbsp;         * allocated by the file reader. The log size of the offsets happens to
+<i class="no-highlight">688</i>&nbsp;         * be the same as the memory overhead.
+<i class="no-highlight">689</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">690</i>&nbsp;        final int adjustMem = (2 * readBufferSize) +</b>
+<b class="fc"><i class="no-highlight">691</i>&nbsp;                               obsoleteOffsets.getLogSize() +</b>
+<i class="no-highlight">692</i>&nbsp;                               lookAheadCacheSize;
+<b class="fc"><i class="no-highlight">693</i>&nbsp;        final MemoryBudget budget = envImpl.getMemoryBudget();</b>
+<b class="fc"><i class="no-highlight">694</i>&nbsp;        budget.updateAdminMemoryUsage(adjustMem);</b>
+<i class="no-highlight">695</i>&nbsp;
+<i class="no-highlight">696</i>&nbsp;        /* Evict after updating the budget. */
+<i class="no-highlight">697</i>&nbsp;        if (Cleaner.DO_CRITICAL_EVICTION) {
+<b class="fc"><i class="no-highlight">698</i>&nbsp;            envImpl.daemonEviction(true /*backgroundIO*/);</b>
+<i class="no-highlight">699</i>&nbsp;        }
+<i class="no-highlight">700</i>&nbsp;
+<i class="no-highlight">701</i>&nbsp;        /*
+<i class="no-highlight">702</i>&nbsp;         * We keep a look ahead cache of non-obsolete LNs.  When we lookup a
+<i class="no-highlight">703</i>&nbsp;         * BIN in processLN, we also process any other LNs in that BIN that are
+<i class="no-highlight">704</i>&nbsp;         * in the cache.  This can reduce the number of tree lookups.
+<i class="no-highlight">705</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">706</i>&nbsp;        final LookAheadCache lookAheadCache =</b>
+<i class="no-highlight">707</i>&nbsp;            countOnly ? null : new LookAheadCache(lookAheadCacheSize);
+<i class="no-highlight">708</i>&nbsp;
+<i class="no-highlight">709</i>&nbsp;        /*
+<i class="no-highlight">710</i>&nbsp;         * For obsolete entries we must check for pending deleted DBs.  To
+<i class="no-highlight">711</i>&nbsp;         * avoid the overhead of DbTree.getDb on every entry we keep a set of
+<i class="no-highlight">712</i>&nbsp;         * all DB IDs encountered and do the check once per DB at the end.
+<i class="no-highlight">713</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">714</i>&nbsp;        final Set&lt;DatabaseId&gt; checkPendingDbSet =</b>
+<i class="no-highlight">715</i>&nbsp;            countOnly ? null : new HashSet&lt;&gt;();
+<i class="no-highlight">716</i>&nbsp;
+<i class="no-highlight">717</i>&nbsp;        /*
+<i class="no-highlight">718</i>&nbsp;         * Use local caching to reduce DbTree.getDb overhead.  Do not call
+<i class="no-highlight">719</i>&nbsp;         * releaseDb after getDb with the dbCache, since the entire dbCache
+<i class="no-highlight">720</i>&nbsp;         * will be released at the end of this method.
+<i class="no-highlight">721</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">722</i>&nbsp;        final Map&lt;DatabaseId, DatabaseImpl&gt; dbCache = new HashMap&lt;&gt;();</b>
+<b class="fc"><i class="no-highlight">723</i>&nbsp;        final DbTree dbMapTree = envImpl.getDbTree();</b>
+<i class="no-highlight">724</i>&nbsp;
+<i class="no-highlight">725</i>&nbsp;        /*
+<i class="no-highlight">726</i>&nbsp;         * Expired entries are counted obsolete so that this is reflected in
+<i class="no-highlight">727</i>&nbsp;         * total utilization. A separate tracker is used so it can be added in
+<i class="no-highlight">728</i>&nbsp;         * a single call under the log write latch.
+<i class="no-highlight">729</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">730</i>&nbsp;        final LocalUtilizationTracker localTracker =</b>
+<i class="no-highlight">731</i>&nbsp;            countOnly ? null : new LocalUtilizationTracker(envImpl);
+<i class="no-highlight">732</i>&nbsp;
+<i class="no-highlight">733</i>&nbsp;        /* Keep track of all database IDs encountered. */
+<b class="fc"><i class="no-highlight">734</i>&nbsp;        final Set&lt;DatabaseId&gt; databases = new HashSet&lt;&gt;();</b>
+<i class="no-highlight">735</i>&nbsp;
+<i class="no-highlight">736</i>&nbsp;        /* Create the file reader. */
+<b class="fc"><i class="no-highlight">737</i>&nbsp;        final CleanerFileReader reader = new CleanerFileReader(</b>
+<b class="fc"><i class="no-highlight">738</i>&nbsp;            envImpl, readBufferSize, DbLsn.makeLsn(fileNum, 0), fileNum,</b>
+<i class="no-highlight">739</i>&nbsp;            fileSummary, inSummary, expTracker);
+<i class="no-highlight">740</i>&nbsp;
+<i class="no-highlight">741</i>&nbsp;        /* Validate all entries before ever deleting a file. */
+<b class="fc"><i class="no-highlight">742</i>&nbsp;        reader.setAlwaysValidateChecksum(true);</b>
+<i class="no-highlight">743</i>&nbsp;
+<i class="no-highlight">744</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">745</i>&nbsp;            final TreeLocation location = new TreeLocation();</b>
+<i class="no-highlight">746</i>&nbsp;
+<b class="fc"><i class="no-highlight">747</i>&nbsp;            int nProcessedLNs = 0;</b>
+<b class="fc"><i class="no-highlight">748</i>&nbsp;            int nProcessedEntries = 0;</b>
+<i class="no-highlight">749</i>&nbsp;
+<b class="fc"><i class="no-highlight">750</i>&nbsp;            while (reader.readNextEntryAllowExceptions()) {</b>
+<i class="no-highlight">751</i>&nbsp;
+<b class="fc"><i class="no-highlight">752</i>&nbsp;                nProcessedEntries += 1;</b>
+<b class="fc"><i class="no-highlight">753</i>&nbsp;                cleaner.nEntriesRead.increment();</b>
+<i class="no-highlight">754</i>&nbsp;
+<b class="fc"><i class="no-highlight">755</i>&nbsp;                int nReads = reader.getAndResetNReads();</b>
+<b class="fc"><i class="no-highlight">756</i>&nbsp;                if (nReads &gt; 0) {</b>
+<b class="fc"><i class="no-highlight">757</i>&nbsp;                    cleaner.nDiskReads.add(nReads);</b>
+<i class="no-highlight">758</i>&nbsp;                }
+<i class="no-highlight">759</i>&nbsp;
+<b class="fc"><i class="no-highlight">760</i>&nbsp;                long logLsn = reader.getLastLsn();</b>
+<b class="fc"><i class="no-highlight">761</i>&nbsp;                long fileOffset = DbLsn.getFileOffset(logLsn);</b>
+<b class="fc"><i class="no-highlight">762</i>&nbsp;                boolean isLN = reader.isLN();</b>
+<b class="fc"><i class="no-highlight">763</i>&nbsp;                boolean isIN = reader.isIN();</b>
+<b class="fc"><i class="no-highlight">764</i>&nbsp;                boolean isBINDelta = reader.isBINDelta();</b>
+<b class="fc"><i class="no-highlight">765</i>&nbsp;                boolean isOldBINDelta = reader.isOldBINDelta();</b>
+<b class="fc"><i class="no-highlight">766</i>&nbsp;                boolean isDbTree = reader.isDbTree();</b>
+<b class="fc"><i class="no-highlight">767</i>&nbsp;                boolean isObsolete = false;</b>
+<b class="fc"><i class="no-highlight">768</i>&nbsp;                long expirationTime = 0;</b>
+<i class="no-highlight">769</i>&nbsp;
+<i class="no-highlight">770</i>&nbsp;                /* Remember the version of the log file. */
+<b class="fc"><i class="no-highlight">771</i>&nbsp;                if (reader.isFileHeader()) {</b>
+<b class="fc"><i class="no-highlight">772</i>&nbsp;                    fileLogVersion = reader.getFileHeader().getLogVersion();</b>
+<i class="no-highlight">773</i>&nbsp;                    /* No expiration info exists before version 12. */
+<b class="fc"><i class="no-highlight">774</i>&nbsp;                    if (countOnly &amp;&amp; fileLogVersion &lt; 12) {</b>
+<b class="nc"><i class="no-highlight">775</i>&nbsp;                        return true; // TODO caller must abort also</b>
+<i class="no-highlight">776</i>&nbsp;                    }
+<i class="no-highlight">777</i>&nbsp;                }
+<i class="no-highlight">778</i>&nbsp;
+<i class="no-highlight">779</i>&nbsp;                /* Stop if the daemon is shut down. */
+<b class="fc"><i class="no-highlight">780</i>&nbsp;                if (!countOnly &amp;&amp; envImpl.isClosing()) {</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;                    return false;</b>
+<i class="no-highlight">782</i>&nbsp;                }
+<i class="no-highlight">783</i>&nbsp;
+<i class="no-highlight">784</i>&nbsp;                /* Exit loop if we can&#39;t write. */
+<b class="fc"><i class="no-highlight">785</i>&nbsp;                if (!countOnly) {</b>
+<b class="nc"><i class="no-highlight">786</i>&nbsp;                    envImpl.checkDiskLimitViolation();</b>
+<i class="no-highlight">787</i>&nbsp;                }
+<i class="no-highlight">788</i>&nbsp;
+<i class="no-highlight">789</i>&nbsp;                /* Update background reads. */
+<b class="fc"><i class="no-highlight">790</i>&nbsp;                if (nReads &gt; 0) {</b>
+<b class="fc"><i class="no-highlight">791</i>&nbsp;                    envImpl.updateBackgroundReads(nReads);</b>
+<i class="no-highlight">792</i>&nbsp;                }
+<i class="no-highlight">793</i>&nbsp;
+<i class="no-highlight">794</i>&nbsp;                /* Sleep if background read/write limit was exceeded. */
+<b class="fc"><i class="no-highlight">795</i>&nbsp;                envImpl.sleepAfterBackgroundIO();</b>
+<i class="no-highlight">796</i>&nbsp;
+<i class="no-highlight">797</i>&nbsp;                /* Check for a known obsolete node. */
+<b class="fc"><i class="no-highlight">798</i>&nbsp;                while (nextObsolete &lt; fileOffset &amp;&amp; obsoleteIter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">799</i>&nbsp;                    nextObsolete = obsoleteIter.next();</b>
+<i class="no-highlight">800</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">801</i>&nbsp;                if (nextObsolete == fileOffset) {</b>
+<b class="nc"><i class="no-highlight">802</i>&nbsp;                    isObsolete = true;</b>
+<i class="no-highlight">803</i>&nbsp;                }
+<i class="no-highlight">804</i>&nbsp;
+<i class="no-highlight">805</i>&nbsp;                /* Check for the entry type next because it is very cheap. */
+<b class="fc"><i class="no-highlight">806</i>&nbsp;                if (!isObsolete &amp;&amp;</b>
+<i class="no-highlight">807</i>&nbsp;                    !isLN &amp;&amp;
+<i class="no-highlight">808</i>&nbsp;                    !isIN &amp;&amp;
+<i class="no-highlight">809</i>&nbsp;                    !isBINDelta &amp;&amp;
+<i class="no-highlight">810</i>&nbsp;                    !isOldBINDelta &amp;&amp;
+<i class="no-highlight">811</i>&nbsp;                    !isDbTree) {
+<i class="no-highlight">812</i>&nbsp;                    /* Consider all entries we do not process as obsolete. */
+<b class="fc"><i class="no-highlight">813</i>&nbsp;                    isObsolete = true;</b>
+<i class="no-highlight">814</i>&nbsp;                }
+<i class="no-highlight">815</i>&nbsp;
+<i class="no-highlight">816</i>&nbsp;                /*
+<i class="no-highlight">817</i>&nbsp;                 * Ignore deltas before log version 8.  Before the change to
+<i class="no-highlight">818</i>&nbsp;                 * place deltas in the Btree (in JE 5.0), all deltas were
+<i class="no-highlight">819</i>&nbsp;                 * considered obsolete by the cleaner.  Processing an old delta
+<i class="no-highlight">820</i>&nbsp;                 * would be very wasteful (a Btree lookup, and possibly
+<i class="no-highlight">821</i>&nbsp;                 * dirtying and flushing a BIN), and for duplicates databases
+<i class="no-highlight">822</i>&nbsp;                 * could cause an exception due to the key format change.
+<i class="no-highlight">823</i>&nbsp;                 * [#21405]
+<i class="no-highlight">824</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">825</i>&nbsp;                if (!isObsolete &amp;&amp;</b>
+<i class="no-highlight">826</i>&nbsp;                    isOldBINDelta &amp;&amp;
+<i class="no-highlight">827</i>&nbsp;                    fileLogVersion &lt; 8) {
+<b class="nc"><i class="no-highlight">828</i>&nbsp;                    isObsolete = true;</b>
+<i class="no-highlight">829</i>&nbsp;                }
+<i class="no-highlight">830</i>&nbsp;
+<i class="no-highlight">831</i>&nbsp;                /* Maintain a set of all databases encountered. */
+<b class="fc"><i class="no-highlight">832</i>&nbsp;                final DatabaseId dbId = reader.getDatabaseId();</b>
+<b class="fc"><i class="no-highlight">833</i>&nbsp;                if (dbId != null) {</b>
+<b class="fc"><i class="no-highlight">834</i>&nbsp;                    databases.add(dbId);</b>
+<i class="no-highlight">835</i>&nbsp;                }
+<i class="no-highlight">836</i>&nbsp;
+<i class="no-highlight">837</i>&nbsp;                /*
+<i class="no-highlight">838</i>&nbsp;                 * Get database. This is postponed until we need it, to reduce
+<i class="no-highlight">839</i>&nbsp;                 * contention in DbTree.getDb.
+<i class="no-highlight">840</i>&nbsp;                 */
+<i class="no-highlight">841</i>&nbsp;                final DatabaseImpl db;
+<b class="fc"><i class="no-highlight">842</i>&nbsp;                if (!isObsolete &amp;&amp; dbId != null) {</b>
+<i class="no-highlight">843</i>&nbsp;
+<i class="no-highlight">844</i>&nbsp;
+<i class="no-highlight">845</i>&nbsp;                    /*
+<i class="no-highlight">846</i>&nbsp;                     * Clear DB cache after dbCacheClearCount entries, to
+<i class="no-highlight">847</i>&nbsp;                     * prevent starving other threads that need exclusive
+<i class="no-highlight">848</i>&nbsp;                     * access to the MapLN (for example, DbTree.deleteMapLN).
+<i class="no-highlight">849</i>&nbsp;                     * [#21015]
+<i class="no-highlight">850</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">851</i>&nbsp;                    if ((nProcessedEntries % cleaner.dbCacheClearCount) == 0) {</b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;                        dbMapTree.releaseDbs(dbCache);</b>
+<b class="nc"><i class="no-highlight">853</i>&nbsp;                        dbCache.clear();</b>
+<i class="no-highlight">854</i>&nbsp;                    }
+<i class="no-highlight">855</i>&nbsp;
+<b class="fc"><i class="no-highlight">856</i>&nbsp;                    db = dbMapTree.getDb(dbId, cleaner.lockTimeout, dbCache);</b>
+<i class="no-highlight">857</i>&nbsp;
+<i class="no-highlight">858</i>&nbsp;                    /*
+<i class="no-highlight">859</i>&nbsp;                     * If the DB is gone, this entry is obsolete.  If delete
+<i class="no-highlight">860</i>&nbsp;                     * cleanup is in progress, we will put the DB into the DB
+<i class="no-highlight">861</i>&nbsp;                     * pending set further below.  This entry will be declared
+<i class="no-highlight">862</i>&nbsp;                     * deleted after the delete cleanup is finished.
+<i class="no-highlight">863</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">864</i>&nbsp;                    if (db == null || db.isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">865</i>&nbsp;                        isObsolete = true;</b>
+<i class="no-highlight">866</i>&nbsp;                    }
+<i class="no-highlight">867</i>&nbsp;                } else {
+<b class="fc"><i class="no-highlight">868</i>&nbsp;                    db = null;</b>
+<i class="no-highlight">869</i>&nbsp;                }
+<i class="no-highlight">870</i>&nbsp;
+<i class="no-highlight">871</i>&nbsp;                /*
+<i class="no-highlight">872</i>&nbsp;                 * Also ignore INs in dup DBs before log version 8.  These must
+<i class="no-highlight">873</i>&nbsp;                 * be obsolete, just as DINs and DBINs must be obsolete (and
+<i class="no-highlight">874</i>&nbsp;                 * are also ignored here) after dup DB conversion.  Also, the
+<i class="no-highlight">875</i>&nbsp;                 * old format IN key cannot be used for lookups. [#21405]
+<i class="no-highlight">876</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">877</i>&nbsp;                if (!isObsolete &amp;&amp;</b>
+<i class="no-highlight">878</i>&nbsp;                    isIN &amp;&amp;
+<b class="fc"><i class="no-highlight">879</i>&nbsp;                    db.getSortedDuplicates() &amp;&amp;</b>
+<i class="no-highlight">880</i>&nbsp;                    fileLogVersion &lt; 8) {
+<b class="nc"><i class="no-highlight">881</i>&nbsp;                    isObsolete = true;</b>
+<i class="no-highlight">882</i>&nbsp;                }
+<i class="no-highlight">883</i>&nbsp;
+<b class="fc"><i class="no-highlight">884</i>&nbsp;                if (!isObsolete &amp;&amp; isLN) {</b>
+<i class="no-highlight">885</i>&nbsp;
+<b class="fc"><i class="no-highlight">886</i>&nbsp;                    final LNLogEntry&lt;?&gt; lnEntry = reader.getLNLogEntry();</b>
+<i class="no-highlight">887</i>&nbsp;
+<i class="no-highlight">888</i>&nbsp;                    /*
+<i class="no-highlight">889</i>&nbsp;                     * SR 14583: In JE 2.0 and later we can assume that all
+<i class="no-highlight">890</i>&nbsp;                     * deleted LNs are obsolete. Either the delete committed
+<i class="no-highlight">891</i>&nbsp;                     * and the BIN parent is marked with a pending deleted bit,
+<i class="no-highlight">892</i>&nbsp;                     * or the delete rolled back, in which case there is no
+<i class="no-highlight">893</i>&nbsp;                     * reference to this entry. JE 1.7.1 and earlier require a
+<i class="no-highlight">894</i>&nbsp;                     * tree lookup because deleted LNs may still be reachable
+<i class="no-highlight">895</i>&nbsp;                     * through their BIN parents.
+<i class="no-highlight">896</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">897</i>&nbsp;                    if (lnEntry.isDeleted() &amp;&amp; fileLogVersion &gt; 2) {</b>
+<b class="nc"><i class="no-highlight">898</i>&nbsp;                        isObsolete = true;</b>
+<i class="no-highlight">899</i>&nbsp;                    }
+<i class="no-highlight">900</i>&nbsp;
+<i class="no-highlight">901</i>&nbsp;                    /* &quot;Immediately obsolete&quot; LNs can be discarded. */
+<b class="fc"><i class="no-highlight">902</i>&nbsp;                    if (!isObsolete &amp;&amp; </b>
+<b class="fc"><i class="no-highlight">903</i>&nbsp;                        (db.isLNImmediatelyObsolete() ||</b>
+<b class="fc"><i class="no-highlight">904</i>&nbsp;                         lnEntry.isEmbeddedLN())) {</b>
+<b class="nc"><i class="no-highlight">905</i>&nbsp;                        isObsolete = true;</b>
+<i class="no-highlight">906</i>&nbsp;                    }
+<i class="no-highlight">907</i>&nbsp;
+<i class="no-highlight">908</i>&nbsp;                    /*
+<i class="no-highlight">909</i>&nbsp;                     * Check for expired LN. If locked, add to pending queue.
+<i class="no-highlight">910</i>&nbsp;                     */
+<b class="fc"><i class="no-highlight">911</i>&nbsp;                    if (!isObsolete &amp;&amp; !countOnly) {</b>
+<i class="no-highlight">912</i>&nbsp;
+<b class="nc"><i class="no-highlight">913</i>&nbsp;                        expirationTime = TTL.expirationToSystemTime(</b>
+<b class="nc"><i class="no-highlight">914</i>&nbsp;                            lnEntry.getExpiration(),</b>
+<b class="nc"><i class="no-highlight">915</i>&nbsp;                            lnEntry.isExpirationInHours());</b>
+<i class="no-highlight">916</i>&nbsp;
+<b class="nc"><i class="no-highlight">917</i>&nbsp;                        if (envImpl.expiresWithin(</b>
+<i class="no-highlight">918</i>&nbsp;                            expirationTime,
+<b class="nc"><i class="no-highlight">919</i>&nbsp;                            0 - envImpl.getTtlLnPurgeDelay())) {</b>
+<i class="no-highlight">920</i>&nbsp;
+<b class="nc"><i class="no-highlight">921</i>&nbsp;                            if (!lockManager.isLockUncontended(logLsn)) {</b>
+<b class="nc"><i class="no-highlight">922</i>&nbsp;                                fileSelector.addPendingLN(</b>
+<i class="no-highlight">923</i>&nbsp;                                    logLsn,
+<i class="no-highlight">924</i>&nbsp;                                    new LNInfo(null /*LN*/, dbId,
+<b class="nc"><i class="no-highlight">925</i>&nbsp;                                        lnEntry.getKey(), expirationTime));</b>
+<b class="nc"><i class="no-highlight">926</i>&nbsp;                                nLNsLockedThisRun++;</b>
+<b class="nc"><i class="no-highlight">927</i>&nbsp;                                continue;</b>
+<i class="no-highlight">928</i>&nbsp;                            }
+<i class="no-highlight">929</i>&nbsp;
+<b class="nc"><i class="no-highlight">930</i>&nbsp;                            isObsolete = true;</b>
+<b class="nc"><i class="no-highlight">931</i>&nbsp;                            nLNsExpiredThisRun += 1;</b>
+<i class="no-highlight">932</i>&nbsp;
+<i class="no-highlight">933</i>&nbsp;                            /*
+<i class="no-highlight">934</i>&nbsp;                             * Inexact counting is used to avoid overhead of
+<i class="no-highlight">935</i>&nbsp;                             * adding obsolete offset.
+<i class="no-highlight">936</i>&nbsp;                             */
+<b class="nc"><i class="no-highlight">937</i>&nbsp;                            localTracker.countObsoleteNodeInexact(</b>
+<i class="no-highlight">938</i>&nbsp;                                logLsn, null /*type*/,
+<b class="nc"><i class="no-highlight">939</i>&nbsp;                                reader.getLastEntrySize(), db);</b>
+<i class="no-highlight">940</i>&nbsp;                        }
+<i class="no-highlight">941</i>&nbsp;                    }
+<i class="no-highlight">942</i>&nbsp;                }
+<i class="no-highlight">943</i>&nbsp;
+<i class="no-highlight">944</i>&nbsp;                /* Skip known obsolete nodes. */
+<b class="fc"><i class="no-highlight">945</i>&nbsp;                if (isObsolete) {</b>
+<i class="no-highlight">946</i>&nbsp;                    /* Count obsolete stats. */
+<b class="fc"><i class="no-highlight">947</i>&nbsp;                    if (!countOnly) {</b>
+<b class="nc"><i class="no-highlight">948</i>&nbsp;                        if (isLN) {</b>
+<b class="nc"><i class="no-highlight">949</i>&nbsp;                            nLNsObsoleteThisRun++;</b>
+<b class="nc"><i class="no-highlight">950</i>&nbsp;                        } else if (isBINDelta || isOldBINDelta) {</b>
+<b class="nc"><i class="no-highlight">951</i>&nbsp;                            nBINDeltasObsoleteThisRun++;</b>
+<b class="nc"><i class="no-highlight">952</i>&nbsp;                        } else if (isIN) {</b>
+<b class="nc"><i class="no-highlight">953</i>&nbsp;                            nINsObsoleteThisRun++;</b>
+<i class="no-highlight">954</i>&nbsp;                        }
+<i class="no-highlight">955</i>&nbsp;                    }
+<i class="no-highlight">956</i>&nbsp;                    /* Update the pending DB set for obsolete entries. */
+<b class="fc"><i class="no-highlight">957</i>&nbsp;                    if (checkPendingDbSet != null &amp;&amp; dbId != null) {</b>
+<b class="nc"><i class="no-highlight">958</i>&nbsp;                        checkPendingDbSet.add(dbId);</b>
+<i class="no-highlight">959</i>&nbsp;                    }
+<i class="no-highlight">960</i>&nbsp;                    /* Count utilization for obsolete entry. */
+<b class="fc"><i class="no-highlight">961</i>&nbsp;                    reader.countObsolete();</b>
+<b class="fc"><i class="no-highlight">962</i>&nbsp;                    continue;</b>
+<i class="no-highlight">963</i>&nbsp;                }
+<i class="no-highlight">964</i>&nbsp;
+<i class="no-highlight">965</i>&nbsp;                /* If not obsolete, count expired. */
+<b class="fc"><i class="no-highlight">966</i>&nbsp;                reader.countExpired();</b>
+<i class="no-highlight">967</i>&nbsp;
+<i class="no-highlight">968</i>&nbsp;                /* Don&#39;t process further if we are only calculating. */
+<b class="fc"><i class="no-highlight">969</i>&nbsp;                if (countOnly) {</b>
+<b class="fc"><i class="no-highlight">970</i>&nbsp;                    continue;</b>
+<i class="no-highlight">971</i>&nbsp;                }
+<i class="no-highlight">972</i>&nbsp;
+<i class="no-highlight">973</i>&nbsp;                /* Evict before processing each entry. */
+<i class="no-highlight">974</i>&nbsp;                if (Cleaner.DO_CRITICAL_EVICTION) {
+<b class="nc"><i class="no-highlight">975</i>&nbsp;                    envImpl.daemonEviction(true /*backgroundIO*/);</b>
+<i class="no-highlight">976</i>&nbsp;                }
+<i class="no-highlight">977</i>&nbsp;
+<i class="no-highlight">978</i>&nbsp;                /* The entry is not known to be obsolete -- process it now. */
+<b class="nc"><i class="no-highlight">979</i>&nbsp;                assert lookAheadCache != null;</b>
+<b class="nc"><i class="no-highlight">980</i>&nbsp;                assert checkPendingDbSet != null;</b>
+<i class="no-highlight">981</i>&nbsp;
+<b class="nc"><i class="no-highlight">982</i>&nbsp;                if (isLN) {</b>
+<i class="no-highlight">983</i>&nbsp;
+<b class="nc"><i class="no-highlight">984</i>&nbsp;                    final LNLogEntry&lt;?&gt; lnEntry = reader.getLNLogEntry();</b>
+<b class="nc"><i class="no-highlight">985</i>&nbsp;                    lnEntry.postFetchInit(db);</b>
+<i class="no-highlight">986</i>&nbsp;
+<b class="nc"><i class="no-highlight">987</i>&nbsp;                    final LN targetLN = lnEntry.getLN();</b>
+<b class="nc"><i class="no-highlight">988</i>&nbsp;                    final byte[] key = lnEntry.getKey();</b>
+<i class="no-highlight">989</i>&nbsp;
+<b class="nc"><i class="no-highlight">990</i>&nbsp;                    lookAheadCache.add(</b>
+<b class="nc"><i class="no-highlight">991</i>&nbsp;                        DbLsn.getFileOffset(logLsn),</b>
+<i class="no-highlight">992</i>&nbsp;                        new LNInfo(targetLN, dbId, key, expirationTime));
+<i class="no-highlight">993</i>&nbsp;
+<b class="nc"><i class="no-highlight">994</i>&nbsp;                    if (lookAheadCache.isFull()) {</b>
+<b class="nc"><i class="no-highlight">995</i>&nbsp;                        processLN(fileNum, location, lookAheadCache, dbCache,</b>
+<i class="no-highlight">996</i>&nbsp;                                  checkPendingDbSet);
+<i class="no-highlight">997</i>&nbsp;                    }
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;                    /*
+<i class="no-highlight">1000</i>&nbsp;                     * Process pending LNs before proceeding in order to
+<i class="no-highlight">1001</i>&nbsp;                     * prevent the pending list from growing too large.
+<i class="no-highlight">1002</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1003</i>&nbsp;                    nProcessedLNs += 1;</b>
+<b class="nc"><i class="no-highlight">1004</i>&nbsp;                    if (nProcessedLNs % PROCESS_PENDING_EVERY_N_LNS == 0) {</b>
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;                        cleaner.processPending();</b>
+<i class="no-highlight">1006</i>&nbsp;                    }
+<i class="no-highlight">1007</i>&nbsp;
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;                } else if (isIN) {</b>
+<i class="no-highlight">1009</i>&nbsp;
+<b class="nc"><i class="no-highlight">1010</i>&nbsp;                    final IN targetIN = reader.getIN(db);</b>
+<b class="nc"><i class="no-highlight">1011</i>&nbsp;                    targetIN.setDatabase(db);</b>
+<i class="no-highlight">1012</i>&nbsp;
+<b class="nc"><i class="no-highlight">1013</i>&nbsp;                    processIN(targetIN, db, logLsn);</b>
+<i class="no-highlight">1014</i>&nbsp;
+<b class="nc"><i class="no-highlight">1015</i>&nbsp;                } else if (isOldBINDelta) {</b>
+<i class="no-highlight">1016</i>&nbsp;
+<b class="nc"><i class="no-highlight">1017</i>&nbsp;                    final OldBINDelta delta = reader.getOldBINDelta();</b>
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;                    processOldBINDelta(delta, db, logLsn);</b>
+<i class="no-highlight">1019</i>&nbsp;
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;                } else if (isBINDelta) {</b>
+<i class="no-highlight">1021</i>&nbsp;
+<b class="nc"><i class="no-highlight">1022</i>&nbsp;                    final BIN delta = reader.getBINDelta();</b>
+<b class="nc"><i class="no-highlight">1023</i>&nbsp;                    processBINDelta(delta, db, logLsn);</b>
+<i class="no-highlight">1024</i>&nbsp;
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;                } else if (isDbTree) {</b>
+<i class="no-highlight">1026</i>&nbsp;
+<b class="nc"><i class="no-highlight">1027</i>&nbsp;                    envImpl.rewriteMapTreeRoot(logLsn);</b>
+<i class="no-highlight">1028</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;                    assert false;</b>
+<i class="no-highlight">1030</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1031</i>&nbsp;            }</b>
+<i class="no-highlight">1032</i>&nbsp;
+<i class="no-highlight">1033</i>&nbsp;            /* Don&#39;t process further if we are only calculating. */
+<b class="fc"><i class="no-highlight">1034</i>&nbsp;            if (countOnly) {</b>
+<b class="fc"><i class="no-highlight">1035</i>&nbsp;                return true;</b>
+<i class="no-highlight">1036</i>&nbsp;            }
+<i class="no-highlight">1037</i>&nbsp;
+<i class="no-highlight">1038</i>&nbsp;            /* Process remaining queued LNs. */
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;            while (!lookAheadCache.isEmpty()) {</b>
+<i class="no-highlight">1040</i>&nbsp;                if (Cleaner.DO_CRITICAL_EVICTION) {
+<b class="nc"><i class="no-highlight">1041</i>&nbsp;                    envImpl.daemonEviction(true /*backgroundIO*/);</b>
+<i class="no-highlight">1042</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1043</i>&nbsp;                processLN(fileNum, location, lookAheadCache, dbCache,</b>
+<i class="no-highlight">1044</i>&nbsp;                          checkPendingDbSet);
+<i class="no-highlight">1045</i>&nbsp;                /* Sleep if background read/write limit was exceeded. */
+<b class="nc"><i class="no-highlight">1046</i>&nbsp;                envImpl.sleepAfterBackgroundIO();</b>
+<i class="no-highlight">1047</i>&nbsp;            }
+<i class="no-highlight">1048</i>&nbsp;
+<i class="no-highlight">1049</i>&nbsp;            /* Update the pending DB set. */
+<b class="nc"><i class="no-highlight">1050</i>&nbsp;            for (final DatabaseId pendingDbId : checkPendingDbSet) {</b>
+<b class="nc"><i class="no-highlight">1051</i>&nbsp;                final DatabaseImpl db = dbMapTree.getDb</b>
+<b class="nc"><i class="no-highlight">1052</i>&nbsp;                    (pendingDbId, cleaner.lockTimeout, dbCache);</b>
+<b class="nc"><i class="no-highlight">1053</i>&nbsp;                cleaner.addPendingDB(db);</b>
+<b class="nc"><i class="no-highlight">1054</i>&nbsp;            }</b>
+<i class="no-highlight">1055</i>&nbsp;
+<i class="no-highlight">1056</i>&nbsp;            /* Update reader stats. */
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;            nEntriesReadThisRun = reader.getNumRead();</b>
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;            nRepeatIteratorReadsThisRun = reader.getNRepeatIteratorReads();</b>
+<i class="no-highlight">1059</i>&nbsp;
+<b class="nc"><i class="no-highlight">1060</i>&nbsp;            envImpl.getUtilizationProfile().flushLocalTracker(localTracker);</b>
+<i class="no-highlight">1061</i>&nbsp;
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;        } catch (ChecksumException e) {</b>
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;            throw new EnvironmentFailureException</b>
+<i class="no-highlight">1064</i>&nbsp;                (envImpl, EnvironmentFailureReason.LOG_CHECKSUM, e);
+<i class="no-highlight">1065</i>&nbsp;        } finally {
+<i class="no-highlight">1066</i>&nbsp;            /* Subtract the overhead of this method from the budget. */
+<b class="fc"><i class="no-highlight">1067</i>&nbsp;            budget.updateAdminMemoryUsage(0 - adjustMem);</b>
+<i class="no-highlight">1068</i>&nbsp;
+<i class="no-highlight">1069</i>&nbsp;            /* Release all cached DBs. */
+<b class="fc"><i class="no-highlight">1070</i>&nbsp;            dbMapTree.releaseDbs(dbCache);</b>
+<b class="nc"><i class="no-highlight">1071</i>&nbsp;        }</b>
+<i class="no-highlight">1072</i>&nbsp;
+<i class="no-highlight">1073</i>&nbsp;        /* File is fully processed, update status information. */
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;        fileSelector.addCleanedFile(</b>
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;            fileNum, databases, reader.getFirstVLSN(), reader.getLastVLSN(),</b>
+<i class="no-highlight">1076</i>&nbsp;            budget);
+<i class="no-highlight">1077</i>&nbsp;
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;        return true;</b>
+<i class="no-highlight">1079</i>&nbsp;    }
+<i class="no-highlight">1080</i>&nbsp;
+<i class="no-highlight">1081</i>&nbsp;    /**
+<i class="no-highlight">1082</i>&nbsp;     * Processes the first LN in the look ahead cache and removes it from the
+<i class="no-highlight">1083</i>&nbsp;     * cache. While the BIN is latched, look through the BIN for other LNs in
+<i class="no-highlight">1084</i>&nbsp;     * the cache; if any match, process them to avoid a tree search later.
+<i class="no-highlight">1085</i>&nbsp;     */
+<i class="no-highlight">1086</i>&nbsp;    private void processLN(
+<i class="no-highlight">1087</i>&nbsp;        final Long fileNum,
+<i class="no-highlight">1088</i>&nbsp;        final TreeLocation location,
+<i class="no-highlight">1089</i>&nbsp;        final LookAheadCache lookAheadCache,
+<i class="no-highlight">1090</i>&nbsp;        final Map&lt;DatabaseId, DatabaseImpl&gt; dbCache,
+<i class="no-highlight">1091</i>&nbsp;        final Set&lt;DatabaseId&gt; checkPendingDbSet) {
+<i class="no-highlight">1092</i>&nbsp;
+<i class="no-highlight">1093</i>&nbsp;        /* Get the first LN from the queue. */
+<b class="nc"><i class="no-highlight">1094</i>&nbsp;        final Long offset = lookAheadCache.nextOffset();</b>
+<b class="nc"><i class="no-highlight">1095</i>&nbsp;        final LNInfo info = lookAheadCache.remove(offset);</b>
+<i class="no-highlight">1096</i>&nbsp;
+<b class="nc"><i class="no-highlight">1097</i>&nbsp;        final LN lnFromLog = info.getLN();</b>
+<b class="nc"><i class="no-highlight">1098</i>&nbsp;        final byte[] keyFromLog = info.getKey();</b>
+<b class="nc"><i class="no-highlight">1099</i>&nbsp;        final long logLsn = DbLsn.makeLsn(fileNum, offset);</b>
+<i class="no-highlight">1100</i>&nbsp;
+<i class="no-highlight">1101</i>&nbsp;        /*
+<i class="no-highlight">1102</i>&nbsp;         * Refresh the DB before processing an LN, in case the DB has been
+<i class="no-highlight">1103</i>&nbsp;         * deleted since it was added to the lookAheadCache.  If the DB has
+<i class="no-highlight">1104</i>&nbsp;         * been deleted, perform the housekeeping tasks for an obsolete LN.
+<i class="no-highlight">1105</i>&nbsp;         *
+<i class="no-highlight">1106</i>&nbsp;         * Normally the DB will already be present (and non-deleted) in the
+<i class="no-highlight">1107</i>&nbsp;         * dbCache. But because of the lookAheadCache and the periodic clearing
+<i class="no-highlight">1108</i>&nbsp;         * of the dbCache in processFile, it&#39;s possible for a DB to be deleted
+<i class="no-highlight">1109</i>&nbsp;         * in between placing it in the lookAheadCache and the call to
+<i class="no-highlight">1110</i>&nbsp;         * processLN. [#22202]
+<i class="no-highlight">1111</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1112</i>&nbsp;        final DatabaseId dbId = info.getDbId();</b>
+<i class="no-highlight">1113</i>&nbsp;
+<b class="nc"><i class="no-highlight">1114</i>&nbsp;        final DatabaseImpl db = envImpl.getDbTree().getDb(</b>
+<i class="no-highlight">1115</i>&nbsp;            dbId, cleaner.lockTimeout, dbCache);
+<i class="no-highlight">1116</i>&nbsp;
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;        if (db == null || db.isDeleted()) {</b>
+<b class="nc"><i class="no-highlight">1118</i>&nbsp;            nLNsObsoleteThisRun++;</b>
+<b class="nc"><i class="no-highlight">1119</i>&nbsp;            if (checkPendingDbSet != null) {</b>
+<b class="nc"><i class="no-highlight">1120</i>&nbsp;                checkPendingDbSet.add(dbId);</b>
+<i class="no-highlight">1121</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1122</i>&nbsp;            return;</b>
+<i class="no-highlight">1123</i>&nbsp;        }
+<i class="no-highlight">1124</i>&nbsp;
+<b class="nc"><i class="no-highlight">1125</i>&nbsp;        nLNsCleanedThisRun++;</b>
+<i class="no-highlight">1126</i>&nbsp;
+<i class="no-highlight">1127</i>&nbsp;        /* Status variables are used to generate debug tracing info. */
+<b class="nc"><i class="no-highlight">1128</i>&nbsp;        boolean processedHere = true; // The LN was cleaned here.</b>
+<b class="nc"><i class="no-highlight">1129</i>&nbsp;        boolean obsolete = false;     // The LN is no longer in use.</b>
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;        boolean completed = false;    // This method completed.</b>
+<i class="no-highlight">1131</i>&nbsp;
+<b class="nc"><i class="no-highlight">1132</i>&nbsp;        BIN bin = null;</b>
+<b class="nc"><i class="no-highlight">1133</i>&nbsp;        Map&lt;Long, LNInfo&gt; pendingLNs = null;</b>
+<i class="no-highlight">1134</i>&nbsp;
+<i class="no-highlight">1135</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1136</i>&nbsp;            final Tree tree = db.getTree();</b>
+<b class="nc"><i class="no-highlight">1137</i>&nbsp;            assert tree != null;</b>
+<i class="no-highlight">1138</i>&nbsp;
+<i class="no-highlight">1139</i>&nbsp;            /* Find parent of this LN. */
+<b class="nc"><i class="no-highlight">1140</i>&nbsp;            final boolean parentFound = tree.getParentBINForChildLN(</b>
+<i class="no-highlight">1141</i>&nbsp;                location, keyFromLog, false /*splitsAllowed*/,
+<i class="no-highlight">1142</i>&nbsp;                false /*blindDeltaOps*/, Cleaner.UPDATE_GENERATION);
+<i class="no-highlight">1143</i>&nbsp;
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;            bin = location.bin;</b>
+<b class="nc"><i class="no-highlight">1145</i>&nbsp;            final int index = location.index;</b>
+<i class="no-highlight">1146</i>&nbsp;
+<b class="nc"><i class="no-highlight">1147</i>&nbsp;            if (!parentFound) {</b>
+<i class="no-highlight">1148</i>&nbsp;
+<b class="nc"><i class="no-highlight">1149</i>&nbsp;                nLNsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1150</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1151</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1152</i>&nbsp;                return;</b>
+<i class="no-highlight">1153</i>&nbsp;            }
+<i class="no-highlight">1154</i>&nbsp;
+<i class="no-highlight">1155</i>&nbsp;            /*
+<i class="no-highlight">1156</i>&nbsp;             * Now we&#39;re at the BIN parent for this LN.  If knownDeleted, LN is
+<i class="no-highlight">1157</i>&nbsp;             * deleted and can be purged.
+<i class="no-highlight">1158</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1159</i>&nbsp;            if (bin.isEntryKnownDeleted(index)) {</b>
+<b class="nc"><i class="no-highlight">1160</i>&nbsp;                nLNsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1161</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1162</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1163</i>&nbsp;                return;</b>
+<i class="no-highlight">1164</i>&nbsp;            }
+<i class="no-highlight">1165</i>&nbsp;
+<i class="no-highlight">1166</i>&nbsp;            /* Process this LN that was found in the tree. */
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;            processedHere = false;</b>
+<i class="no-highlight">1168</i>&nbsp;
+<b class="nc"><i class="no-highlight">1169</i>&nbsp;            LNInfo pendingLN =</b>
+<b class="nc"><i class="no-highlight">1170</i>&nbsp;                processFoundLN(info, logLsn, bin.getLsn(index), bin, index);</b>
+<i class="no-highlight">1171</i>&nbsp;
+<b class="nc"><i class="no-highlight">1172</i>&nbsp;            if (pendingLN != null) {</b>
+<b class="nc"><i class="no-highlight">1173</i>&nbsp;                pendingLNs = new HashMap&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">1174</i>&nbsp;                pendingLNs.put(logLsn, pendingLN);</b>
+<i class="no-highlight">1175</i>&nbsp;            }
+<i class="no-highlight">1176</i>&nbsp;
+<b class="nc"><i class="no-highlight">1177</i>&nbsp;            completed = true;</b>
+<i class="no-highlight">1178</i>&nbsp;
+<i class="no-highlight">1179</i>&nbsp;            /*
+<i class="no-highlight">1180</i>&nbsp;             * For all other non-deleted LNs in this BIN, lookup their LSN
+<i class="no-highlight">1181</i>&nbsp;             * in the LN queue and process any matches.
+<i class="no-highlight">1182</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1183</i>&nbsp;            for (int i = 0; i &lt; bin.getNEntries(); i += 1) {</b>
+<i class="no-highlight">1184</i>&nbsp;
+<b class="nc"><i class="no-highlight">1185</i>&nbsp;                final long binLsn = bin.getLsn(i);</b>
+<i class="no-highlight">1186</i>&nbsp;
+<b class="nc"><i class="no-highlight">1187</i>&nbsp;                if (i != index &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1188</i>&nbsp;                    !bin.isEntryKnownDeleted(i) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1189</i>&nbsp;                    !bin.isEntryPendingDeleted(i) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1190</i>&nbsp;                    DbLsn.getFileNumber(binLsn) == fileNum) {</b>
+<i class="no-highlight">1191</i>&nbsp;
+<b class="nc"><i class="no-highlight">1192</i>&nbsp;                    final Long myOffset = DbLsn.getFileOffset(binLsn);</b>
+<b class="nc"><i class="no-highlight">1193</i>&nbsp;                    final LNInfo myInfo = lookAheadCache.remove(myOffset);</b>
+<i class="no-highlight">1194</i>&nbsp;
+<i class="no-highlight">1195</i>&nbsp;                    /* If the offset is in the cache, it&#39;s a match. */
+<b class="nc"><i class="no-highlight">1196</i>&nbsp;                    if (myInfo != null) {</b>
+<b class="nc"><i class="no-highlight">1197</i>&nbsp;                        nLNQueueHitsThisRun++;</b>
+<b class="nc"><i class="no-highlight">1198</i>&nbsp;                        nLNsCleanedThisRun++;</b>
+<i class="no-highlight">1199</i>&nbsp;
+<b class="nc"><i class="no-highlight">1200</i>&nbsp;                        pendingLN =</b>
+<b class="nc"><i class="no-highlight">1201</i>&nbsp;                            processFoundLN(myInfo, binLsn, binLsn, bin, i);</b>
+<i class="no-highlight">1202</i>&nbsp;
+<b class="nc"><i class="no-highlight">1203</i>&nbsp;                        if (pendingLN != null) {</b>
+<b class="nc"><i class="no-highlight">1204</i>&nbsp;                            if (pendingLNs == null) {</b>
+<b class="nc"><i class="no-highlight">1205</i>&nbsp;                                pendingLNs = new HashMap&lt;&gt;();</b>
+<i class="no-highlight">1206</i>&nbsp;                            }
+<b class="nc"><i class="no-highlight">1207</i>&nbsp;                            pendingLNs.put(binLsn, pendingLN);</b>
+<i class="no-highlight">1208</i>&nbsp;                        }
+<i class="no-highlight">1209</i>&nbsp;                    }
+<i class="no-highlight">1210</i>&nbsp;                }
+<i class="no-highlight">1211</i>&nbsp;            }
+<i class="no-highlight">1212</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1213</i>&nbsp;            if (bin != null) {</b>
+<b class="nc"><i class="no-highlight">1214</i>&nbsp;                bin.releaseLatch();</b>
+<i class="no-highlight">1215</i>&nbsp;            }
+<i class="no-highlight">1216</i>&nbsp;
+<i class="no-highlight">1217</i>&nbsp;            /* BIN must not be latched when synchronizing on FileSelector. */
+<b class="nc"><i class="no-highlight">1218</i>&nbsp;            if (pendingLNs != null) {</b>
+<b class="nc"><i class="no-highlight">1219</i>&nbsp;                for (Map.Entry&lt;Long, LNInfo&gt; entry : pendingLNs.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">1220</i>&nbsp;                    fileSelector.addPendingLN(</b>
+<b class="nc"><i class="no-highlight">1221</i>&nbsp;                        entry.getKey(), entry.getValue());</b>
+<b class="nc"><i class="no-highlight">1222</i>&nbsp;                }</b>
+<i class="no-highlight">1223</i>&nbsp;            }
+<i class="no-highlight">1224</i>&nbsp;
+<b class="nc"><i class="no-highlight">1225</i>&nbsp;            if (processedHere) {</b>
+<b class="nc"><i class="no-highlight">1226</i>&nbsp;                cleaner.logFine(Cleaner.CLEAN_LN, lnFromLog, logLsn,</b>
+<i class="no-highlight">1227</i>&nbsp;                    completed, obsolete, false /*migrated*/);
+<i class="no-highlight">1228</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1229</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1230</i>&nbsp;    }</b>
+<i class="no-highlight">1231</i>&nbsp;
+<i class="no-highlight">1232</i>&nbsp;    /**
+<i class="no-highlight">1233</i>&nbsp;     * Processes an LN that was found in the tree.  Lock the LN&#39;s LSN and
+<i class="no-highlight">1234</i>&nbsp;     * then migrates the LN, if the LSN of the LN log entry is the active LSN
+<i class="no-highlight">1235</i>&nbsp;     * in the tree.
+<i class="no-highlight">1236</i>&nbsp;     *
+<i class="no-highlight">1237</i>&nbsp;     * @param info identifies the LN log entry.
+<i class="no-highlight">1238</i>&nbsp;     *
+<i class="no-highlight">1239</i>&nbsp;     * @param logLsn is the LSN of the log entry.
+<i class="no-highlight">1240</i>&nbsp;     *
+<i class="no-highlight">1241</i>&nbsp;     * @param treeLsn is the LSN found in the tree.
+<i class="no-highlight">1242</i>&nbsp;     *
+<i class="no-highlight">1243</i>&nbsp;     * @param bin is the BIN found in the tree; is latched on method entry and
+<i class="no-highlight">1244</i>&nbsp;     * exit.
+<i class="no-highlight">1245</i>&nbsp;     *
+<i class="no-highlight">1246</i>&nbsp;     * @param index is the BIN index found in the tree.
+<i class="no-highlight">1247</i>&nbsp;     *
+<i class="no-highlight">1248</i>&nbsp;     * @return a non-null LNInfo if it should be added to the pending LN list,
+<i class="no-highlight">1249</i>&nbsp;     * after releasing the BIN latch.
+<i class="no-highlight">1250</i>&nbsp;     */
+<i class="no-highlight">1251</i>&nbsp;    private LNInfo processFoundLN(
+<i class="no-highlight">1252</i>&nbsp;        final LNInfo info,
+<i class="no-highlight">1253</i>&nbsp;        final long logLsn,
+<i class="no-highlight">1254</i>&nbsp;        final long treeLsn,
+<i class="no-highlight">1255</i>&nbsp;        final BIN bin,
+<i class="no-highlight">1256</i>&nbsp;        final int index) {
+<i class="no-highlight">1257</i>&nbsp;
+<b class="nc"><i class="no-highlight">1258</i>&nbsp;        final LN lnFromLog = info.getLN();</b>
+<b class="nc"><i class="no-highlight">1259</i>&nbsp;        final byte[] key = info.getKey();</b>
+<i class="no-highlight">1260</i>&nbsp;
+<b class="nc"><i class="no-highlight">1261</i>&nbsp;        final DatabaseImpl db = bin.getDatabase();</b>
+<b class="nc"><i class="no-highlight">1262</i>&nbsp;        final boolean isTemporary = db.isTemporary();</b>
+<i class="no-highlight">1263</i>&nbsp;
+<i class="no-highlight">1264</i>&nbsp;        /* Status variables are used to generate debug tracing info. */
+<b class="nc"><i class="no-highlight">1265</i>&nbsp;        boolean obsolete = false;  // The LN is no longer in use.</b>
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;        boolean migrated = false;  // The LN was in use and is migrated.</b>
+<b class="nc"><i class="no-highlight">1267</i>&nbsp;        boolean completed = false; // This method completed.</b>
+<i class="no-highlight">1268</i>&nbsp;
+<b class="nc"><i class="no-highlight">1269</i>&nbsp;        BasicLocker locker = null;</b>
+<i class="no-highlight">1270</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1271</i>&nbsp;            final Tree tree = db.getTree();</b>
+<b class="nc"><i class="no-highlight">1272</i>&nbsp;            assert tree != null;</b>
+<i class="no-highlight">1273</i>&nbsp;
+<i class="no-highlight">1274</i>&nbsp;            /*
+<i class="no-highlight">1275</i>&nbsp;             * Before migrating an LN, we must lock it and then check to see
+<i class="no-highlight">1276</i>&nbsp;             * whether it is obsolete or active.
+<i class="no-highlight">1277</i>&nbsp;             *
+<i class="no-highlight">1278</i>&nbsp;             * 1. If the LSN in the tree and in the log are the same, we will
+<i class="no-highlight">1279</i>&nbsp;             * attempt to migrate it.
+<i class="no-highlight">1280</i>&nbsp;             *
+<i class="no-highlight">1281</i>&nbsp;             * 2. If the LSN in the tree is &lt; the LSN in the log, the log entry
+<i class="no-highlight">1282</i>&nbsp;             * is obsolete, because this LN has been rolled back to a previous
+<i class="no-highlight">1283</i>&nbsp;             * version by a txn that aborted.
+<i class="no-highlight">1284</i>&nbsp;             *
+<i class="no-highlight">1285</i>&nbsp;             * 3. If the LSN in the tree is &gt; the LSN in the log, the log entry
+<i class="no-highlight">1286</i>&nbsp;             * is obsolete, because the LN was advanced forward by some
+<i class="no-highlight">1287</i>&nbsp;             * now-committed txn.
+<i class="no-highlight">1288</i>&nbsp;             *
+<i class="no-highlight">1289</i>&nbsp;             * 4. If the LSN in the tree is a null LSN, the log entry is
+<i class="no-highlight">1290</i>&nbsp;             * obsolete. A slot can only have a null LSN if the record has
+<i class="no-highlight">1291</i>&nbsp;             * never been written to disk in a deferred write database, and
+<i class="no-highlight">1292</i>&nbsp;             * in that case the log entry must be for a past, deleted version
+<i class="no-highlight">1293</i>&nbsp;             * of that record.
+<i class="no-highlight">1294</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1295</i>&nbsp;            if (lnFromLog.isDeleted() &amp;&amp;</b>
+<i class="no-highlight">1296</i>&nbsp;                treeLsn == logLsn &amp;&amp;
+<i class="no-highlight">1297</i>&nbsp;                fileLogVersion &lt;= 2) {
+<i class="no-highlight">1298</i>&nbsp;
+<i class="no-highlight">1299</i>&nbsp;                /*
+<i class="no-highlight">1300</i>&nbsp;                 * SR 14583: After JE 2.0, deleted LNs are never found in the
+<i class="no-highlight">1301</i>&nbsp;                 * tree, since we can assume they&#39;re obsolete and correctly
+<i class="no-highlight">1302</i>&nbsp;                 * marked as such in the obsolete offset tracking. JE 1.7.1 and
+<i class="no-highlight">1303</i>&nbsp;                 * earlier did not use the pending deleted bit, so deleted LNs
+<i class="no-highlight">1304</i>&nbsp;                 * may still be reachable through their BIN parents.
+<i class="no-highlight">1305</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1306</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1307</i>&nbsp;                nLNsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1308</i>&nbsp;                bin.setPendingDeleted(index);</b>
+<b class="nc"><i class="no-highlight">1309</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1310</i>&nbsp;                return null;</b>
+<i class="no-highlight">1311</i>&nbsp;            }
+<i class="no-highlight">1312</i>&nbsp;
+<b class="nc"><i class="no-highlight">1313</i>&nbsp;            if (treeLsn == DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">1314</i>&nbsp;
+<i class="no-highlight">1315</i>&nbsp;                /*
+<i class="no-highlight">1316</i>&nbsp;                 * Case 4: The LN in the tree is a never-written LN for a
+<i class="no-highlight">1317</i>&nbsp;                 * deferred-write db, so the LN in the file is obsolete.
+<i class="no-highlight">1318</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1319</i>&nbsp;                nLNsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1320</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1321</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1322</i>&nbsp;                return null;</b>
+<i class="no-highlight">1323</i>&nbsp;            }
+<i class="no-highlight">1324</i>&nbsp;
+<b class="nc"><i class="no-highlight">1325</i>&nbsp;            if (treeLsn != logLsn &amp;&amp; isTemporary) {</b>
+<i class="no-highlight">1326</i>&nbsp;
+<i class="no-highlight">1327</i>&nbsp;                /*
+<i class="no-highlight">1328</i>&nbsp;                 * Temporary databases are always non-transactional.  If the
+<i class="no-highlight">1329</i>&nbsp;                 * tree and log LSNs are different then we know that the logLsn
+<i class="no-highlight">1330</i>&nbsp;                 * is obsolete.  Even if the LN is locked, the tree cannot be
+<i class="no-highlight">1331</i>&nbsp;                 * restored to the logLsn because no abort is possible without
+<i class="no-highlight">1332</i>&nbsp;                 * a transaction.  We should consider a similar optimization in
+<i class="no-highlight">1333</i>&nbsp;                 * the future for non-transactional durable databases.
+<i class="no-highlight">1334</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1335</i>&nbsp;                nLNsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1336</i>&nbsp;                obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1337</i>&nbsp;                completed = true;</b>
+<b class="nc"><i class="no-highlight">1338</i>&nbsp;                return null;</b>
+<i class="no-highlight">1339</i>&nbsp;            }
+<i class="no-highlight">1340</i>&nbsp;
+<b class="nc"><i class="no-highlight">1341</i>&nbsp;            if (!isTemporary) {</b>
+<i class="no-highlight">1342</i>&nbsp;
+<i class="no-highlight">1343</i>&nbsp;                /*
+<i class="no-highlight">1344</i>&nbsp;                 * Get a lock on the LN if we will migrate it now. (Temporary
+<i class="no-highlight">1345</i>&nbsp;                 * DB LNs are dirtied below and migrated later.)
+<i class="no-highlight">1346</i>&nbsp;                 *
+<i class="no-highlight">1347</i>&nbsp;                 * We can hold the latch on the BIN since we always attempt to
+<i class="no-highlight">1348</i>&nbsp;                 * acquire a non-blocking read lock.
+<i class="no-highlight">1349</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1350</i>&nbsp;                locker = BasicLocker.createBasicLocker(envImpl, false /*noWait*/);</b>
+<i class="no-highlight">1351</i>&nbsp;                /* Don&#39;t allow this short-lived lock to be preempted/stolen. */
+<b class="nc"><i class="no-highlight">1352</i>&nbsp;                locker.setPreemptable(false);</b>
+<b class="nc"><i class="no-highlight">1353</i>&nbsp;                final LockResult lockRet = locker.nonBlockingLock(</b>
+<i class="no-highlight">1354</i>&nbsp;                    treeLsn, LockType.READ, false /*jumpAheadOfWaiters*/, db);
+<i class="no-highlight">1355</i>&nbsp;
+<b class="nc"><i class="no-highlight">1356</i>&nbsp;                if (lockRet.getLockGrant() == LockGrantType.DENIED) {</b>
+<i class="no-highlight">1357</i>&nbsp;
+<i class="no-highlight">1358</i>&nbsp;                    /*
+<i class="no-highlight">1359</i>&nbsp;                     * LN is currently locked by another Locker, so we can&#39;t
+<i class="no-highlight">1360</i>&nbsp;                     * assume anything about the value of the LSN in the bin.
+<i class="no-highlight">1361</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1362</i>&nbsp;                    nLNsLockedThisRun++;</b>
+<b class="nc"><i class="no-highlight">1363</i>&nbsp;                    completed = true;</b>
+<i class="no-highlight">1364</i>&nbsp;
+<b class="nc"><i class="no-highlight">1365</i>&nbsp;                    return new LNInfo(</b>
+<b class="nc"><i class="no-highlight">1366</i>&nbsp;                        null /*LN*/, db.getId(), key,</b>
+<b class="nc"><i class="no-highlight">1367</i>&nbsp;                        info.getExpirationTime());</b>
+<i class="no-highlight">1368</i>&nbsp;                }
+<i class="no-highlight">1369</i>&nbsp;
+<b class="nc"><i class="no-highlight">1370</i>&nbsp;                if (treeLsn != logLsn) {</b>
+<i class="no-highlight">1371</i>&nbsp;                    /* The LN is obsolete and can be purged. */
+<b class="nc"><i class="no-highlight">1372</i>&nbsp;                    nLNsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1373</i>&nbsp;                    obsolete = true;</b>
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;                    completed = true;</b>
+<b class="nc"><i class="no-highlight">1375</i>&nbsp;                    return null;</b>
+<i class="no-highlight">1376</i>&nbsp;                }
+<i class="no-highlight">1377</i>&nbsp;            }
+<i class="no-highlight">1378</i>&nbsp;
+<i class="no-highlight">1379</i>&nbsp;            /*
+<i class="no-highlight">1380</i>&nbsp;             * The LN must be migrated because it is not obsolete, the lock was
+<i class="no-highlight">1381</i>&nbsp;             * not denied, and treeLsn==logLsn.
+<i class="no-highlight">1382</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1383</i>&nbsp;            assert !obsolete;</b>
+<b class="nc"><i class="no-highlight">1384</i>&nbsp;            assert treeLsn == logLsn;</b>
+<i class="no-highlight">1385</i>&nbsp;
+<b class="nc"><i class="no-highlight">1386</i>&nbsp;            if (bin.isEmbeddedLN(index)) {</b>
+<b class="nc"><i class="no-highlight">1387</i>&nbsp;                throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">1388</i>&nbsp;                    envImpl,
+<i class="no-highlight">1389</i>&nbsp;                    &quot;LN is embedded although its associated logrec (at &quot; +
+<i class="no-highlight">1390</i>&nbsp;                    logLsn + &quot; does not have the embedded flag on&quot;);
+<i class="no-highlight">1391</i>&nbsp;            }
+<i class="no-highlight">1392</i>&nbsp;
+<i class="no-highlight">1393</i>&nbsp;            /*
+<i class="no-highlight">1394</i>&nbsp;             * For active LNs in non-temporary DBs, migrate the LN now.
+<i class="no-highlight">1395</i>&nbsp;             * In this case we acquired a lock on the LN above.
+<i class="no-highlight">1396</i>&nbsp;             *
+<i class="no-highlight">1397</i>&nbsp;             * If the LN is not resident, populate it using the LN we read
+<i class="no-highlight">1398</i>&nbsp;             * from the log so it does not have to be fetched.  We must
+<i class="no-highlight">1399</i>&nbsp;             * call postFetchInit to initialize MapLNs that have not been
+<i class="no-highlight">1400</i>&nbsp;             * fully initialized yet [#13191].  When explicitly migrating
+<i class="no-highlight">1401</i>&nbsp;             * (for a non-temporary DB) we will evict the LN after logging.
+<i class="no-highlight">1402</i>&nbsp;             *
+<i class="no-highlight">1403</i>&nbsp;             * Note that we do not load LNs from the off-heap cache here
+<i class="no-highlight">1404</i>&nbsp;             * because it&#39;s unnecessary. We have the current LN in hand
+<i class="no-highlight">1405</i>&nbsp;             * (from the log) and the off-heap cache does not hold dirty
+<i class="no-highlight">1406</i>&nbsp;             * LNs, so the IN in hand is identical to the off-heap LN.
+<i class="no-highlight">1407</i>&nbsp;             *
+<i class="no-highlight">1408</i>&nbsp;             * MapLNs must be logged by DbTree.modifyDbRoot (the Tree root
+<i class="no-highlight">1409</i>&nbsp;             * latch must be held) [#23492]. Here we simply dirty it via
+<i class="no-highlight">1410</i>&nbsp;             * setDirty, which ensures it will be logged during the next
+<i class="no-highlight">1411</i>&nbsp;             * checkpoint. Delaying until the next checkpoint also allows
+<i class="no-highlight">1412</i>&nbsp;             * for write absorption, since MapLNs are often logged every
+<i class="no-highlight">1413</i>&nbsp;             * checkpoint due to utilization changes.
+<i class="no-highlight">1414</i>&nbsp;             *
+<i class="no-highlight">1415</i>&nbsp;             * For temporary databases, we wish to defer logging for as
+<i class="no-highlight">1416</i>&nbsp;             * long as possible.  Therefore, dirty the LN to ensure it is
+<i class="no-highlight">1417</i>&nbsp;             * flushed before its parent is written.  Because we do not
+<i class="no-highlight">1418</i>&nbsp;             * attempt to lock temporary database LNs (see above) we know
+<i class="no-highlight">1419</i>&nbsp;             * that if it is non-obsolete, the tree and log LSNs are equal.
+<i class="no-highlight">1420</i>&nbsp;             * If the LN from the log was populated here, it will be left
+<i class="no-highlight">1421</i>&nbsp;             * in place for logging at a later time.
+<i class="no-highlight">1422</i>&nbsp;             *
+<i class="no-highlight">1423</i>&nbsp;             * Also for temporary databases, make both the target LN and
+<i class="no-highlight">1424</i>&nbsp;             * the BIN or IN parent dirty. Otherwise, when the BIN or IN is
+<i class="no-highlight">1425</i>&nbsp;             * evicted in the future, it will be written to disk without
+<i class="no-highlight">1426</i>&nbsp;             * flushing its dirty, migrated LNs.  [#18227]
+<i class="no-highlight">1427</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1428</i>&nbsp;            if (bin.getTarget(index) == null) {</b>
+<b class="nc"><i class="no-highlight">1429</i>&nbsp;                lnFromLog.postFetchInit(db, logLsn);</b>
+<i class="no-highlight">1430</i>&nbsp;                /* Ensure keys are transactionally correct. [#15704] */
+<b class="nc"><i class="no-highlight">1431</i>&nbsp;                bin.attachNode(index, lnFromLog, key /*lnSlotKey*/);</b>
+<i class="no-highlight">1432</i>&nbsp;            }
+<i class="no-highlight">1433</i>&nbsp;
+<b class="nc"><i class="no-highlight">1434</i>&nbsp;            if (db.getId().equals(DbTree.ID_DB_ID)) {</b>
+<b class="nc"><i class="no-highlight">1435</i>&nbsp;                final MapLN targetLn = (MapLN) bin.getTarget(index);</b>
+<b class="nc"><i class="no-highlight">1436</i>&nbsp;                assert targetLn != null;</b>
+<b class="nc"><i class="no-highlight">1437</i>&nbsp;                targetLn.getDatabase().setDirty();</b>
+<i class="no-highlight">1438</i>&nbsp;
+<b class="nc"><i class="no-highlight">1439</i>&nbsp;            } else if (isTemporary) {</b>
+<b class="nc"><i class="no-highlight">1440</i>&nbsp;                ((LN) bin.getTarget(index)).setDirty();</b>
+<b class="nc"><i class="no-highlight">1441</i>&nbsp;                bin.setDirty(true);</b>
+<b class="nc"><i class="no-highlight">1442</i>&nbsp;                nLNsMarkedThisRun++;</b>
+<i class="no-highlight">1443</i>&nbsp;
+<i class="no-highlight">1444</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1445</i>&nbsp;                final LN targetLn = (LN) bin.getTarget(index);</b>
+<b class="nc"><i class="no-highlight">1446</i>&nbsp;                assert targetLn != null;</b>
+<i class="no-highlight">1447</i>&nbsp;
+<b class="nc"><i class="no-highlight">1448</i>&nbsp;                final LogItem logItem = targetLn.log(</b>
+<i class="no-highlight">1449</i>&nbsp;                    envImpl, db, null /*locker*/, null /*writeLockInfo*/,
+<b class="nc"><i class="no-highlight">1450</i>&nbsp;                    false /*newEmbeddedLN*/, bin.getKey(index),</b>
+<b class="nc"><i class="no-highlight">1451</i>&nbsp;                    bin.getExpiration(index), bin.isExpirationInHours(),</b>
+<i class="no-highlight">1452</i>&nbsp;                    false /*newEmbeddedLN*/, logLsn,
+<b class="nc"><i class="no-highlight">1453</i>&nbsp;                    bin.getLastLoggedSize(index),</b>
+<i class="no-highlight">1454</i>&nbsp;                    false/*isInsertion*/, true /*backgroundIO*/,
+<b class="nc"><i class="no-highlight">1455</i>&nbsp;                    Cleaner.getMigrationRepContext(targetLn));</b>
+<i class="no-highlight">1456</i>&nbsp;
+<b class="nc"><i class="no-highlight">1457</i>&nbsp;                bin.updateEntry(</b>
+<b class="nc"><i class="no-highlight">1458</i>&nbsp;                    index, logItem.lsn, targetLn.getVLSNSequence(),</b>
+<i class="no-highlight">1459</i>&nbsp;                    logItem.size);
+<i class="no-highlight">1460</i>&nbsp;
+<i class="no-highlight">1461</i>&nbsp;                /* Evict LN if we populated it with the log LN. */
+<b class="nc"><i class="no-highlight">1462</i>&nbsp;                if (lnFromLog == targetLn) {</b>
+<b class="nc"><i class="no-highlight">1463</i>&nbsp;                    bin.evictLN(index);</b>
+<i class="no-highlight">1464</i>&nbsp;                }
+<i class="no-highlight">1465</i>&nbsp;
+<i class="no-highlight">1466</i>&nbsp;                /* Lock new LSN on behalf of existing lockers. */
+<b class="nc"><i class="no-highlight">1467</i>&nbsp;                CursorImpl.lockAfterLsnChange(</b>
+<i class="no-highlight">1468</i>&nbsp;                    db, logLsn, logItem.lsn, locker /*excludeLocker*/);
+<i class="no-highlight">1469</i>&nbsp;
+<b class="nc"><i class="no-highlight">1470</i>&nbsp;                nLNsMigratedThisRun++;</b>
+<i class="no-highlight">1471</i>&nbsp;            }
+<i class="no-highlight">1472</i>&nbsp;
+<b class="nc"><i class="no-highlight">1473</i>&nbsp;            migrated = true;</b>
+<b class="nc"><i class="no-highlight">1474</i>&nbsp;            completed = true;</b>
+<b class="nc"><i class="no-highlight">1475</i>&nbsp;            return null;</b>
+<i class="no-highlight">1476</i>&nbsp;
+<i class="no-highlight">1477</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1478</i>&nbsp;            if (locker != null) {</b>
+<b class="nc"><i class="no-highlight">1479</i>&nbsp;                locker.operationEnd();</b>
+<i class="no-highlight">1480</i>&nbsp;            }
+<i class="no-highlight">1481</i>&nbsp;
+<b class="nc"><i class="no-highlight">1482</i>&nbsp;            cleaner.logFine(Cleaner.CLEAN_LN, lnFromLog, logLsn, completed,</b>
+<i class="no-highlight">1483</i>&nbsp;                obsolete, migrated);
+<b class="nc"><i class="no-highlight">1484</i>&nbsp;        }</b>
+<i class="no-highlight">1485</i>&nbsp;    }
+<i class="no-highlight">1486</i>&nbsp;
+<i class="no-highlight">1487</i>&nbsp;    /**
+<i class="no-highlight">1488</i>&nbsp;     * If this OldBINDelta is still in use in the in-memory tree, dirty the
+<i class="no-highlight">1489</i>&nbsp;     * associated BIN. The next checkpoint will log a new delta or a full
+<i class="no-highlight">1490</i>&nbsp;     * version, which will make this delta obsolete.
+<i class="no-highlight">1491</i>&nbsp;     *
+<i class="no-highlight">1492</i>&nbsp;     * For OldBINDeltas, we do not optimize and must fetch the BIN if it is not
+<i class="no-highlight">1493</i>&nbsp;     * resident.
+<i class="no-highlight">1494</i>&nbsp;     */
+<i class="no-highlight">1495</i>&nbsp;    private void processOldBINDelta(
+<i class="no-highlight">1496</i>&nbsp;        OldBINDelta deltaClone,
+<i class="no-highlight">1497</i>&nbsp;        DatabaseImpl db,
+<i class="no-highlight">1498</i>&nbsp;        long logLsn) {
+<i class="no-highlight">1499</i>&nbsp;
+<b class="nc"><i class="no-highlight">1500</i>&nbsp;        nBINDeltasCleanedThisRun++;</b>
+<i class="no-highlight">1501</i>&nbsp;
+<i class="no-highlight">1502</i>&nbsp;        /*
+<i class="no-highlight">1503</i>&nbsp;         * Search Btree for the BIN associated with this delta.
+<i class="no-highlight">1504</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1505</i>&nbsp;        final byte[] searchKey = deltaClone.getSearchKey();</b>
+<i class="no-highlight">1506</i>&nbsp;
+<b class="nc"><i class="no-highlight">1507</i>&nbsp;        final BIN treeBin = db.getTree().search(</b>
+<i class="no-highlight">1508</i>&nbsp;            searchKey, Cleaner.UPDATE_GENERATION);
+<i class="no-highlight">1509</i>&nbsp;
+<b class="nc"><i class="no-highlight">1510</i>&nbsp;        if (treeBin == null) {</b>
+<i class="no-highlight">1511</i>&nbsp;            /* BIN for this delta is no longer in the tree. */
+<b class="nc"><i class="no-highlight">1512</i>&nbsp;            nBINDeltasDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1513</i>&nbsp;            return;</b>
+<i class="no-highlight">1514</i>&nbsp;        }
+<i class="no-highlight">1515</i>&nbsp;
+<i class="no-highlight">1516</i>&nbsp;        /* Tree BIN is non-null and latched. */
+<i class="no-highlight">1517</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1518</i>&nbsp;            final long treeLsn = treeBin.getLastLoggedLsn();</b>
+<i class="no-highlight">1519</i>&nbsp;
+<b class="nc"><i class="no-highlight">1520</i>&nbsp;            if (treeLsn == DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">1521</i>&nbsp;                /* Current version was never logged. */
+<b class="nc"><i class="no-highlight">1522</i>&nbsp;                nBINDeltasDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1523</i>&nbsp;                return;</b>
+<i class="no-highlight">1524</i>&nbsp;            }
+<i class="no-highlight">1525</i>&nbsp;
+<b class="nc"><i class="no-highlight">1526</i>&nbsp;            final int cmp = DbLsn.compareTo(treeLsn, logLsn);</b>
+<i class="no-highlight">1527</i>&nbsp;
+<b class="nc"><i class="no-highlight">1528</i>&nbsp;            if (cmp &gt; 0) {</b>
+<i class="no-highlight">1529</i>&nbsp;                /* Log entry is obsolete. */
+<b class="nc"><i class="no-highlight">1530</i>&nbsp;                nBINDeltasDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1531</i>&nbsp;                return;</b>
+<i class="no-highlight">1532</i>&nbsp;            }
+<i class="no-highlight">1533</i>&nbsp;
+<i class="no-highlight">1534</i>&nbsp;            /*
+<i class="no-highlight">1535</i>&nbsp;             * Log entry is same or newer than what&#39;s in the tree.  Dirty the
+<i class="no-highlight">1536</i>&nbsp;             * BIN and let the checkpoint write it out.  There is no need to
+<i class="no-highlight">1537</i>&nbsp;             * prohibit a delta when the BIN is next logged (as is done when
+<i class="no-highlight">1538</i>&nbsp;             * migrating full INs) because logging a new delta will obsolete
+<i class="no-highlight">1539</i>&nbsp;             * this delta.
+<i class="no-highlight">1540</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1541</i>&nbsp;            treeBin.setDirty(true);</b>
+<b class="nc"><i class="no-highlight">1542</i>&nbsp;            nBINDeltasMigratedThisRun++;</b>
+<i class="no-highlight">1543</i>&nbsp;
+<i class="no-highlight">1544</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1545</i>&nbsp;            treeBin.releaseLatch();</b>
+<b class="nc"><i class="no-highlight">1546</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1547</i>&nbsp;    }</b>
+<i class="no-highlight">1548</i>&nbsp;
+<i class="no-highlight">1549</i>&nbsp;    /**
+<i class="no-highlight">1550</i>&nbsp;     * If this BIN-delta is still in use in the in-memory tree, dirty the
+<i class="no-highlight">1551</i>&nbsp;     * associated BIN. The next checkpoint will log a new delta or a full
+<i class="no-highlight">1552</i>&nbsp;     * version, which will make this delta obsolete.
+<i class="no-highlight">1553</i>&nbsp;     *
+<i class="no-highlight">1554</i>&nbsp;     * We optimize by placing the delta from the log into the tree when the
+<i class="no-highlight">1555</i>&nbsp;     * BIN is not resident.
+<i class="no-highlight">1556</i>&nbsp;     */
+<i class="no-highlight">1557</i>&nbsp;    private void processBINDelta(
+<i class="no-highlight">1558</i>&nbsp;        BIN deltaClone,
+<i class="no-highlight">1559</i>&nbsp;        DatabaseImpl db,
+<i class="no-highlight">1560</i>&nbsp;        long logLsn) {
+<i class="no-highlight">1561</i>&nbsp;
+<b class="nc"><i class="no-highlight">1562</i>&nbsp;        nBINDeltasCleanedThisRun++;</b>
+<i class="no-highlight">1563</i>&nbsp;
+<i class="no-highlight">1564</i>&nbsp;        /* Search for the BIN&#39;s parent by level, to avoid fetching the BIN. */
+<b class="nc"><i class="no-highlight">1565</i>&nbsp;        deltaClone.setDatabase(db);</b>
+<b class="nc"><i class="no-highlight">1566</i>&nbsp;        deltaClone.latch(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">1567</i>&nbsp;
+<b class="nc"><i class="no-highlight">1568</i>&nbsp;        final SearchResult result = db.getTree().getParentINForChildIN(</b>
+<i class="no-highlight">1569</i>&nbsp;            deltaClone, true /*useTargetLevel*/,
+<i class="no-highlight">1570</i>&nbsp;            true /*doFetch*/, CacheMode.UNCHANGED);
+<i class="no-highlight">1571</i>&nbsp;
+<i class="no-highlight">1572</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1573</i>&nbsp;            if (!result.exactParentFound) {</b>
+<i class="no-highlight">1574</i>&nbsp;                /* BIN for this delta is no longer in the tree. */
+<b class="nc"><i class="no-highlight">1575</i>&nbsp;                nBINDeltasDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1576</i>&nbsp;                return;</b>
+<i class="no-highlight">1577</i>&nbsp;            }
+<i class="no-highlight">1578</i>&nbsp;
+<b class="nc"><i class="no-highlight">1579</i>&nbsp;            final long treeLsn = result.parent.getLsn(result.index);</b>
+<b class="nc"><i class="no-highlight">1580</i>&nbsp;            if (treeLsn == DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">1581</i>&nbsp;                /* Current version was never logged. */
+<b class="nc"><i class="no-highlight">1582</i>&nbsp;                nBINDeltasDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1583</i>&nbsp;                return;</b>
+<i class="no-highlight">1584</i>&nbsp;            }
+<i class="no-highlight">1585</i>&nbsp;
+<i class="no-highlight">1586</i>&nbsp;            /*
+<i class="no-highlight">1587</i>&nbsp;             * If cmp is &gt; 0 then log entry is obsolete because it is older
+<i class="no-highlight">1588</i>&nbsp;             * than the version in the tree.
+<i class="no-highlight">1589</i>&nbsp;             *
+<i class="no-highlight">1590</i>&nbsp;             * If cmp is &lt; 0 then log entry is also obsolete, because the old
+<i class="no-highlight">1591</i>&nbsp;             * parent slot was deleted and we&#39;re now looking at a completely
+<i class="no-highlight">1592</i>&nbsp;             * different IN due to the by-level search above.
+<i class="no-highlight">1593</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1594</i>&nbsp;            final int cmp = DbLsn.compareTo(treeLsn, logLsn);</b>
+<b class="nc"><i class="no-highlight">1595</i>&nbsp;            if (cmp != 0) {</b>
+<i class="no-highlight">1596</i>&nbsp;                /* Log entry is obsolete. */
+<b class="nc"><i class="no-highlight">1597</i>&nbsp;                nBINDeltasDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1598</i>&nbsp;                return;</b>
+<i class="no-highlight">1599</i>&nbsp;            }
+<i class="no-highlight">1600</i>&nbsp;
+<i class="no-highlight">1601</i>&nbsp;            /*
+<i class="no-highlight">1602</i>&nbsp;             * Log entry is the version that&#39;s in the tree. Dirty the BIN and
+<i class="no-highlight">1603</i>&nbsp;             * let the checkpoint write it out. There is no need to prohibit a
+<i class="no-highlight">1604</i>&nbsp;             * delta when the BIN is next logged (as is done when migrating
+<i class="no-highlight">1605</i>&nbsp;             * full BINs) because logging a new delta will obsolete this delta.
+<i class="no-highlight">1606</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1607</i>&nbsp;            BIN treeBin = (BIN) result.parent.loadIN(</b>
+<i class="no-highlight">1608</i>&nbsp;                result.index, CacheMode.UNCHANGED);
+<i class="no-highlight">1609</i>&nbsp;
+<b class="nc"><i class="no-highlight">1610</i>&nbsp;            if (treeBin == null) {</b>
+<i class="no-highlight">1611</i>&nbsp;                /* Place delta from log into tree to avoid fetching. */
+<b class="nc"><i class="no-highlight">1612</i>&nbsp;                treeBin = deltaClone;</b>
+<b class="nc"><i class="no-highlight">1613</i>&nbsp;                treeBin.latchNoUpdateLRU(db);</b>
+<i class="no-highlight">1614</i>&nbsp;
+<b class="nc"><i class="no-highlight">1615</i>&nbsp;                treeBin.postFetchInit(db, logLsn);</b>
+<i class="no-highlight">1616</i>&nbsp;
+<b class="nc"><i class="no-highlight">1617</i>&nbsp;                result.parent.attachNode(</b>
+<i class="no-highlight">1618</i>&nbsp;                    result.index, treeBin, null /*lnSlotKey*/);
+<i class="no-highlight">1619</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1620</i>&nbsp;                treeBin.latch(CacheMode.UNCHANGED);</b>
+<i class="no-highlight">1621</i>&nbsp;            }
+<i class="no-highlight">1622</i>&nbsp;
+<i class="no-highlight">1623</i>&nbsp;            /*
+<i class="no-highlight">1624</i>&nbsp;             * Compress to reclaim space for expired slots, including dirty
+<i class="no-highlight">1625</i>&nbsp;             * slots. However, if treeBin is a BIN-delta, this does nothing.
+<i class="no-highlight">1626</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1627</i>&nbsp;            envImpl.lazyCompress(treeBin, true /*compressDirtySlots*/);</b>
+<i class="no-highlight">1628</i>&nbsp;
+<b class="nc"><i class="no-highlight">1629</i>&nbsp;            treeBin.setDirty(true);</b>
+<b class="nc"><i class="no-highlight">1630</i>&nbsp;            treeBin.releaseLatch();</b>
+<i class="no-highlight">1631</i>&nbsp;
+<b class="nc"><i class="no-highlight">1632</i>&nbsp;            nBINDeltasMigratedThisRun++;</b>
+<i class="no-highlight">1633</i>&nbsp;
+<i class="no-highlight">1634</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1635</i>&nbsp;            if (result.parent != null) {</b>
+<b class="nc"><i class="no-highlight">1636</i>&nbsp;                result.parent.releaseLatch();</b>
+<i class="no-highlight">1637</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1638</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1639</i>&nbsp;    }</b>
+<i class="no-highlight">1640</i>&nbsp;
+<i class="no-highlight">1641</i>&nbsp;    /**
+<i class="no-highlight">1642</i>&nbsp;     * If an IN is still in use in the in-memory tree, dirty it. The checkpoint
+<i class="no-highlight">1643</i>&nbsp;     * invoked at the end of the cleaning run will end up rewriting it.
+<i class="no-highlight">1644</i>&nbsp;     */
+<i class="no-highlight">1645</i>&nbsp;    private void processIN(
+<i class="no-highlight">1646</i>&nbsp;        IN inClone,
+<i class="no-highlight">1647</i>&nbsp;        DatabaseImpl db,
+<i class="no-highlight">1648</i>&nbsp;        long logLsn) {
+<i class="no-highlight">1649</i>&nbsp;
+<b class="nc"><i class="no-highlight">1650</i>&nbsp;        boolean obsolete = false;</b>
+<b class="nc"><i class="no-highlight">1651</i>&nbsp;        boolean dirtied = false;</b>
+<b class="nc"><i class="no-highlight">1652</i>&nbsp;        boolean completed = false;</b>
+<i class="no-highlight">1653</i>&nbsp;
+<i class="no-highlight">1654</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1655</i>&nbsp;            nINsCleanedThisRun++;</b>
+<i class="no-highlight">1656</i>&nbsp;
+<b class="nc"><i class="no-highlight">1657</i>&nbsp;            Tree tree = db.getTree();</b>
+<b class="nc"><i class="no-highlight">1658</i>&nbsp;            assert tree != null;</b>
+<i class="no-highlight">1659</i>&nbsp;
+<b class="nc"><i class="no-highlight">1660</i>&nbsp;            IN inInTree = findINInTree(tree, db, inClone, logLsn);</b>
+<i class="no-highlight">1661</i>&nbsp;
+<b class="nc"><i class="no-highlight">1662</i>&nbsp;            if (inInTree == null) {</b>
+<i class="no-highlight">1663</i>&nbsp;                /* IN is no longer in the tree.  Do nothing. */
+<b class="nc"><i class="no-highlight">1664</i>&nbsp;                nINsDeadThisRun++;</b>
+<b class="nc"><i class="no-highlight">1665</i>&nbsp;                obsolete = true;</b>
+<i class="no-highlight">1666</i>&nbsp;            } else {
+<i class="no-highlight">1667</i>&nbsp;
+<i class="no-highlight">1668</i>&nbsp;                /*
+<i class="no-highlight">1669</i>&nbsp;                 * IN is still in the tree.  Dirty it.  Checkpoint or eviction
+<i class="no-highlight">1670</i>&nbsp;                 * will write it out.
+<i class="no-highlight">1671</i>&nbsp;                 *
+<i class="no-highlight">1672</i>&nbsp;                 * Prohibit the next delta, since the original version must be
+<i class="no-highlight">1673</i>&nbsp;                 * made obsolete.
+<i class="no-highlight">1674</i>&nbsp;                 *
+<i class="no-highlight">1675</i>&nbsp;                 * Compress to reclaim space for expired slots, including dirty
+<i class="no-highlight">1676</i>&nbsp;                 * slots.
+<i class="no-highlight">1677</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1678</i>&nbsp;                nINsMigratedThisRun++;</b>
+<b class="nc"><i class="no-highlight">1679</i>&nbsp;                inInTree.setDirty(true);</b>
+<b class="nc"><i class="no-highlight">1680</i>&nbsp;                inInTree.setProhibitNextDelta(true);</b>
+<b class="nc"><i class="no-highlight">1681</i>&nbsp;                envImpl.lazyCompress(inInTree, true /*compressDirtySlots*/);</b>
+<b class="nc"><i class="no-highlight">1682</i>&nbsp;                inInTree.releaseLatch();</b>
+<b class="nc"><i class="no-highlight">1683</i>&nbsp;                dirtied = true;</b>
+<i class="no-highlight">1684</i>&nbsp;            }
+<i class="no-highlight">1685</i>&nbsp;
+<b class="nc"><i class="no-highlight">1686</i>&nbsp;            completed = true;</b>
+<i class="no-highlight">1687</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1688</i>&nbsp;            cleaner.logFine(Cleaner.CLEAN_IN, inClone, logLsn, completed,</b>
+<i class="no-highlight">1689</i>&nbsp;                            obsolete, dirtied);
+<b class="nc"><i class="no-highlight">1690</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1691</i>&nbsp;    }</b>
+<i class="no-highlight">1692</i>&nbsp;
+<i class="no-highlight">1693</i>&nbsp;    /**
+<i class="no-highlight">1694</i>&nbsp;     * Given a clone of an IN that has been taken out of the log, try to find
+<i class="no-highlight">1695</i>&nbsp;     * it in the tree and verify that it is the current one in the log.
+<i class="no-highlight">1696</i>&nbsp;     * Returns the node in the tree if it is found and it is current re: LSN&#39;s.
+<i class="no-highlight">1697</i>&nbsp;     * Otherwise returns null if the clone is not found in the tree or it&#39;s not
+<i class="no-highlight">1698</i>&nbsp;     * the latest version.  Caller is responsible for unlatching the returned
+<i class="no-highlight">1699</i>&nbsp;     * IN.
+<i class="no-highlight">1700</i>&nbsp;     */
+<i class="no-highlight">1701</i>&nbsp;    private IN findINInTree(
+<i class="no-highlight">1702</i>&nbsp;        Tree tree,
+<i class="no-highlight">1703</i>&nbsp;        DatabaseImpl db,
+<i class="no-highlight">1704</i>&nbsp;        IN inClone,
+<i class="no-highlight">1705</i>&nbsp;        long logLsn) {
+<i class="no-highlight">1706</i>&nbsp;
+<i class="no-highlight">1707</i>&nbsp;        /* Check if inClone is the root. */
+<b class="nc"><i class="no-highlight">1708</i>&nbsp;        if (inClone.isRoot()) {</b>
+<b class="nc"><i class="no-highlight">1709</i>&nbsp;            IN rootIN = isRoot(tree, db, inClone, logLsn);</b>
+<b class="nc"><i class="no-highlight">1710</i>&nbsp;            if (rootIN == null) {</b>
+<i class="no-highlight">1711</i>&nbsp;
+<i class="no-highlight">1712</i>&nbsp;                /*
+<i class="no-highlight">1713</i>&nbsp;                 * inClone is a root, but no longer in use. Return now, because
+<i class="no-highlight">1714</i>&nbsp;                 * a call to tree.getParentNode will return something
+<i class="no-highlight">1715</i>&nbsp;                 * unexpected since it will try to find a parent.
+<i class="no-highlight">1716</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1717</i>&nbsp;                return null;</b>
+<i class="no-highlight">1718</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1719</i>&nbsp;                return rootIN;</b>
+<i class="no-highlight">1720</i>&nbsp;            }
+<i class="no-highlight">1721</i>&nbsp;        }
+<i class="no-highlight">1722</i>&nbsp;
+<i class="no-highlight">1723</i>&nbsp;        /* It&#39;s not the root.  Can we find it, and if so, is it current? */
+<b class="nc"><i class="no-highlight">1724</i>&nbsp;        inClone.latch(Cleaner.UPDATE_GENERATION);</b>
+<b class="nc"><i class="no-highlight">1725</i>&nbsp;        SearchResult result = null;</b>
+<i class="no-highlight">1726</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1727</i>&nbsp;            result = tree.getParentINForChildIN(</b>
+<i class="no-highlight">1728</i>&nbsp;                inClone, true /*useTargetLevel*/,
+<i class="no-highlight">1729</i>&nbsp;                true /*doFetch*/, Cleaner.UPDATE_GENERATION);
+<i class="no-highlight">1730</i>&nbsp;
+<b class="nc"><i class="no-highlight">1731</i>&nbsp;            if (!result.exactParentFound) {</b>
+<b class="nc"><i class="no-highlight">1732</i>&nbsp;                return null;</b>
+<i class="no-highlight">1733</i>&nbsp;            }
+<i class="no-highlight">1734</i>&nbsp;
+<i class="no-highlight">1735</i>&nbsp;            /* Note that treeLsn may be for a BIN-delta, see below. */
+<b class="nc"><i class="no-highlight">1736</i>&nbsp;            IN parent = result.parent;</b>
+<b class="nc"><i class="no-highlight">1737</i>&nbsp;            long treeLsn = parent.getLsn(result.index);</b>
+<i class="no-highlight">1738</i>&nbsp;
+<i class="no-highlight">1739</i>&nbsp;            /*
+<i class="no-highlight">1740</i>&nbsp;             * The IN in the tree is a never-written IN for a DW db so the IN
+<i class="no-highlight">1741</i>&nbsp;             * in the file is obsolete. [#15588]
+<i class="no-highlight">1742</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1743</i>&nbsp;            if (treeLsn == DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">1744</i>&nbsp;                return null;</b>
+<i class="no-highlight">1745</i>&nbsp;            }
+<i class="no-highlight">1746</i>&nbsp;
+<i class="no-highlight">1747</i>&nbsp;            /*
+<i class="no-highlight">1748</i>&nbsp;             * If tree and log LSNs are equal, then we&#39;ve found the exact IN we
+<i class="no-highlight">1749</i>&nbsp;             * read from the log.  We know the treeLsn is not for a BIN-delta,
+<i class="no-highlight">1750</i>&nbsp;             * because it is equal to LSN of the IN (or BIN) we read from the
+<i class="no-highlight">1751</i>&nbsp;             * log.  To avoid a fetch, we can place the inClone in the tree if
+<i class="no-highlight">1752</i>&nbsp;             * it is not already resident, or use the inClone to mutate the
+<i class="no-highlight">1753</i>&nbsp;             * delta in the tree to a full BIN.
+<i class="no-highlight">1754</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1755</i>&nbsp;            if (treeLsn == logLsn) {</b>
+<b class="nc"><i class="no-highlight">1756</i>&nbsp;                IN in = parent.loadIN(result.index, Cleaner.UPDATE_GENERATION);</b>
+<i class="no-highlight">1757</i>&nbsp;
+<b class="nc"><i class="no-highlight">1758</i>&nbsp;                if (in != null) {</b>
+<i class="no-highlight">1759</i>&nbsp;
+<b class="nc"><i class="no-highlight">1760</i>&nbsp;                    in.latch(Cleaner.UPDATE_GENERATION);</b>
+<i class="no-highlight">1761</i>&nbsp;
+<b class="nc"><i class="no-highlight">1762</i>&nbsp;                    if (in.isBINDelta()) {</b>
+<i class="no-highlight">1763</i>&nbsp;                        /*
+<i class="no-highlight">1764</i>&nbsp;                         * The BIN should be dirty here because the most
+<i class="no-highlight">1765</i>&nbsp;                         * recently written logrec for it is a full-version
+<i class="no-highlight">1766</i>&nbsp;                         * logrec. After that logrec was written, the BIN
+<i class="no-highlight">1767</i>&nbsp;                         * was dirtied again, and then mutated to a delta.
+<i class="no-highlight">1768</i>&nbsp;                         * So this delta should still be dirty.
+<i class="no-highlight">1769</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">1770</i>&nbsp;                        assert(in.getDirty());</b>
+<i class="no-highlight">1771</i>&nbsp;
+<i class="no-highlight">1772</i>&nbsp;                        /*
+<i class="no-highlight">1773</i>&nbsp;                         * Since we want to clean the inClone full version of
+<i class="no-highlight">1774</i>&nbsp;                         * the bin, we must mutate the cached delta to a full 
+<i class="no-highlight">1775</i>&nbsp;                         * BIN so that the next logrec for this BIN can be a
+<i class="no-highlight">1776</i>&nbsp;                         * full-version logrec.
+<i class="no-highlight">1777</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">1778</i>&nbsp;                        final BIN bin = (BIN) in;</b>
+<b class="nc"><i class="no-highlight">1779</i>&nbsp;                        bin.mutateToFullBIN(</b>
+<i class="no-highlight">1780</i>&nbsp;                            (BIN) inClone, false /*leaveFreeSlot*/);
+<b class="nc"><i class="no-highlight">1781</i>&nbsp;                    }</b>
+<i class="no-highlight">1782</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">1783</i>&nbsp;                    in = inClone;</b>
+<i class="no-highlight">1784</i>&nbsp;
+<i class="no-highlight">1785</i>&nbsp;                    /*
+<i class="no-highlight">1786</i>&nbsp;                     * Latch before calling postFetchInit and attachNode to
+<i class="no-highlight">1787</i>&nbsp;                     * make those operations atomic. Must use latchNoUpdateLRU
+<i class="no-highlight">1788</i>&nbsp;                     * before the node is attached.
+<i class="no-highlight">1789</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1790</i>&nbsp;                    in.latchNoUpdateLRU(db);</b>
+<b class="nc"><i class="no-highlight">1791</i>&nbsp;                    in.postFetchInit(db, logLsn);</b>
+<b class="nc"><i class="no-highlight">1792</i>&nbsp;                    parent.attachNode(result.index, in, null /*lnSlotKey*/);</b>
+<i class="no-highlight">1793</i>&nbsp;                }
+<i class="no-highlight">1794</i>&nbsp;
+<b class="nc"><i class="no-highlight">1795</i>&nbsp;                return in;</b>
+<i class="no-highlight">1796</i>&nbsp;            }
+<i class="no-highlight">1797</i>&nbsp;
+<b class="nc"><i class="no-highlight">1798</i>&nbsp;            if (inClone.isUpperIN()) {</b>
+<i class="no-highlight">1799</i>&nbsp;                /* No need to deal with BIN-deltas. */
+<b class="nc"><i class="no-highlight">1800</i>&nbsp;                return null;</b>
+<i class="no-highlight">1801</i>&nbsp;            }
+<i class="no-highlight">1802</i>&nbsp;
+<i class="no-highlight">1803</i>&nbsp;            /*
+<i class="no-highlight">1804</i>&nbsp;             * If the tree and log LSNs are unequal, then we must get the full
+<i class="no-highlight">1805</i>&nbsp;             * version LSN in case the tree LSN is actually for a BIN-delta.
+<i class="no-highlight">1806</i>&nbsp;             * The only way to do that is to fetch the IN in the tree; however,
+<i class="no-highlight">1807</i>&nbsp;             * we only need the delta not the full BIN.
+<i class="no-highlight">1808</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1809</i>&nbsp;            final BIN bin =</b>
+<b class="nc"><i class="no-highlight">1810</i>&nbsp;                (BIN) parent.fetchIN(result.index, Cleaner.UPDATE_GENERATION);</b>
+<i class="no-highlight">1811</i>&nbsp;
+<b class="nc"><i class="no-highlight">1812</i>&nbsp;            treeLsn = bin.getLastFullLsn();</b>
+<i class="no-highlight">1813</i>&nbsp;
+<i class="no-highlight">1814</i>&nbsp;            /* Now compare LSNs, since we know treeLsn is the full version. */
+<b class="nc"><i class="no-highlight">1815</i>&nbsp;            final int compareVal = DbLsn.compareTo(treeLsn, logLsn);</b>
+<i class="no-highlight">1816</i>&nbsp;
+<i class="no-highlight">1817</i>&nbsp;            /*
+<i class="no-highlight">1818</i>&nbsp;             * If cmp is &gt; 0 then log entry is obsolete because it is older
+<i class="no-highlight">1819</i>&nbsp;             * than the version in the tree.
+<i class="no-highlight">1820</i>&nbsp;             *
+<i class="no-highlight">1821</i>&nbsp;             * If cmp is &lt; 0 then log entry is also obsolete, because the old
+<i class="no-highlight">1822</i>&nbsp;             * parent slot was deleted and we&#39;re now looking at a completely
+<i class="no-highlight">1823</i>&nbsp;             * different IN due to the by-level search above.
+<i class="no-highlight">1824</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1825</i>&nbsp;            if (compareVal != 0) {</b>
+<b class="nc"><i class="no-highlight">1826</i>&nbsp;                return null;</b>
+<i class="no-highlight">1827</i>&nbsp;            }
+<i class="no-highlight">1828</i>&nbsp;
+<i class="no-highlight">1829</i>&nbsp;            /*
+<i class="no-highlight">1830</i>&nbsp;             * Log entry is the full version associated with the BIN-delta
+<i class="no-highlight">1831</i>&nbsp;             * that&#39;s in the tree.  To avoid a fetch, we can use the inClone to
+<i class="no-highlight">1832</i>&nbsp;             * mutate the delta in the tree to a full BIN.
+<i class="no-highlight">1833</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1834</i>&nbsp;            bin.latch(Cleaner.UPDATE_GENERATION);</b>
+<b class="nc"><i class="no-highlight">1835</i>&nbsp;            if (bin.isBINDelta()) {</b>
+<b class="nc"><i class="no-highlight">1836</i>&nbsp;                bin.mutateToFullBIN((BIN) inClone, false /*leaveFreeSlot*/);</b>
+<i class="no-highlight">1837</i>&nbsp;            }
+<i class="no-highlight">1838</i>&nbsp;
+<b class="nc"><i class="no-highlight">1839</i>&nbsp;            return bin;</b>
+<i class="no-highlight">1840</i>&nbsp;
+<i class="no-highlight">1841</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">1842</i>&nbsp;            if (result != null &amp;&amp; result.exactParentFound) {</b>
+<b class="nc"><i class="no-highlight">1843</i>&nbsp;                result.parent.releaseLatch();</b>
+<i class="no-highlight">1844</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1845</i>&nbsp;        }</b>
+<i class="no-highlight">1846</i>&nbsp;    }
+<i class="no-highlight">1847</i>&nbsp;
+<i class="no-highlight">1848</i>&nbsp;    /**
+<i class="no-highlight">1849</i>&nbsp;     * Get the current root in the tree, or null if the inClone is not the
+<i class="no-highlight">1850</i>&nbsp;     * current root.
+<i class="no-highlight">1851</i>&nbsp;     */
+<i class="no-highlight">1852</i>&nbsp;    private static class RootDoWork implements WithRootLatched {
+<i class="no-highlight">1853</i>&nbsp;        private final DatabaseImpl db;
+<i class="no-highlight">1854</i>&nbsp;        private final IN inClone;
+<i class="no-highlight">1855</i>&nbsp;        private final long logLsn;
+<i class="no-highlight">1856</i>&nbsp;
+<b class="nc"><i class="no-highlight">1857</i>&nbsp;        RootDoWork(DatabaseImpl db, IN inClone, long logLsn) {</b>
+<b class="nc"><i class="no-highlight">1858</i>&nbsp;            this.db = db;</b>
+<b class="nc"><i class="no-highlight">1859</i>&nbsp;            this.inClone = inClone;</b>
+<b class="nc"><i class="no-highlight">1860</i>&nbsp;            this.logLsn = logLsn;</b>
+<i class="no-highlight">1861</i>&nbsp;        }
+<i class="no-highlight">1862</i>&nbsp;
+<i class="no-highlight">1863</i>&nbsp;        public IN doWork(ChildReference root) {
+<i class="no-highlight">1864</i>&nbsp;
+<b class="nc"><i class="no-highlight">1865</i>&nbsp;            if (root == null ||</b>
+<b class="nc"><i class="no-highlight">1866</i>&nbsp;                (root.getLsn() == DbLsn.NULL_LSN) || // deferred write root</b>
+<b class="nc"><i class="no-highlight">1867</i>&nbsp;                (((IN) root.fetchTarget(db, null)).getNodeId() !=</b>
+<b class="nc"><i class="no-highlight">1868</i>&nbsp;                 inClone.getNodeId())) {</b>
+<b class="nc"><i class="no-highlight">1869</i>&nbsp;                return null;</b>
+<i class="no-highlight">1870</i>&nbsp;            }
+<i class="no-highlight">1871</i>&nbsp;
+<i class="no-highlight">1872</i>&nbsp;            /*
+<i class="no-highlight">1873</i>&nbsp;             * A root LSN less than the log LSN must be an artifact of when we
+<i class="no-highlight">1874</i>&nbsp;             * didn&#39;t properly propagate the logging of the rootIN up to the
+<i class="no-highlight">1875</i>&nbsp;             * root ChildReference.  We still do this for compatibility with
+<i class="no-highlight">1876</i>&nbsp;             * old log versions but may be able to remove it in the future.
+<i class="no-highlight">1877</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1878</i>&nbsp;            if (DbLsn.compareTo(root.getLsn(), logLsn) &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1879</i>&nbsp;                IN rootIN = (IN) root.fetchTarget(db, null);</b>
+<b class="nc"><i class="no-highlight">1880</i>&nbsp;                rootIN.latch(Cleaner.UPDATE_GENERATION);</b>
+<b class="nc"><i class="no-highlight">1881</i>&nbsp;                return rootIN;</b>
+<i class="no-highlight">1882</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1883</i>&nbsp;                return null;</b>
+<i class="no-highlight">1884</i>&nbsp;            }
+<i class="no-highlight">1885</i>&nbsp;        }
+<i class="no-highlight">1886</i>&nbsp;    }
+<i class="no-highlight">1887</i>&nbsp;
+<i class="no-highlight">1888</i>&nbsp;    /**
+<i class="no-highlight">1889</i>&nbsp;     * Check if the cloned IN is the same node as the root in tree.  Return the
+<i class="no-highlight">1890</i>&nbsp;     * real root if it is, null otherwise.  If non-null is returned, the
+<i class="no-highlight">1891</i>&nbsp;     * returned IN (the root) is latched -- caller is responsible for
+<i class="no-highlight">1892</i>&nbsp;     * unlatching it.
+<i class="no-highlight">1893</i>&nbsp;     */
+<i class="no-highlight">1894</i>&nbsp;    private IN isRoot(Tree tree, DatabaseImpl db, IN inClone, long lsn) {
+<b class="nc"><i class="no-highlight">1895</i>&nbsp;        RootDoWork rdw = new RootDoWork(db, inClone, lsn);</b>
+<b class="nc"><i class="no-highlight">1896</i>&nbsp;        return tree.withRootLatchedShared(rdw);</b>
+<i class="no-highlight">1897</i>&nbsp;    }
+<i class="no-highlight">1898</i>&nbsp;
+<i class="no-highlight">1899</i>&nbsp;    /**
+<i class="no-highlight">1900</i>&nbsp;     * Reset per-run counters.
+<i class="no-highlight">1901</i>&nbsp;     */
+<i class="no-highlight">1902</i>&nbsp;    private void resetPerRunCounters() {
+<b class="nc"><i class="no-highlight">1903</i>&nbsp;        nINsObsoleteThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1904</i>&nbsp;        nINsCleanedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1905</i>&nbsp;        nINsDeadThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1906</i>&nbsp;        nINsMigratedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1907</i>&nbsp;        nBINDeltasObsoleteThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1908</i>&nbsp;        nBINDeltasCleanedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1909</i>&nbsp;        nBINDeltasDeadThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1910</i>&nbsp;        nBINDeltasMigratedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1911</i>&nbsp;        nLNsObsoleteThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1912</i>&nbsp;        nLNsExpiredThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1913</i>&nbsp;        nLNsCleanedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1914</i>&nbsp;        nLNsDeadThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1915</i>&nbsp;        nLNsMigratedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1916</i>&nbsp;        nLNsMarkedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1917</i>&nbsp;        nLNQueueHitsThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1918</i>&nbsp;        nLNsLockedThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1919</i>&nbsp;        nEntriesReadThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1920</i>&nbsp;        nRepeatIteratorReadsThisRun = 0;</b>
+<b class="nc"><i class="no-highlight">1921</i>&nbsp;    }</b>
+<i class="no-highlight">1922</i>&nbsp;
+<i class="no-highlight">1923</i>&nbsp;    /**
+<i class="no-highlight">1924</i>&nbsp;     * Add per-run counters to total counters.
+<i class="no-highlight">1925</i>&nbsp;     */
+<i class="no-highlight">1926</i>&nbsp;    private void accumulatePerRunCounters() {
+<b class="nc"><i class="no-highlight">1927</i>&nbsp;        cleaner.nINsObsolete.add(nINsObsoleteThisRun);</b>
+<b class="nc"><i class="no-highlight">1928</i>&nbsp;        cleaner.nINsCleaned.add(nINsCleanedThisRun);</b>
+<b class="nc"><i class="no-highlight">1929</i>&nbsp;        cleaner.nINsDead.add(nINsDeadThisRun);</b>
+<b class="nc"><i class="no-highlight">1930</i>&nbsp;        cleaner.nINsMigrated.add(nINsMigratedThisRun);</b>
+<b class="nc"><i class="no-highlight">1931</i>&nbsp;        cleaner.nBINDeltasObsolete.add(nBINDeltasObsoleteThisRun);</b>
+<b class="nc"><i class="no-highlight">1932</i>&nbsp;        cleaner.nBINDeltasCleaned.add(nBINDeltasCleanedThisRun);</b>
+<b class="nc"><i class="no-highlight">1933</i>&nbsp;        cleaner.nBINDeltasDead.add(nBINDeltasDeadThisRun);</b>
+<b class="nc"><i class="no-highlight">1934</i>&nbsp;        cleaner.nBINDeltasMigrated.add(nBINDeltasMigratedThisRun);</b>
+<b class="nc"><i class="no-highlight">1935</i>&nbsp;        cleaner.nLNsObsolete.add(nLNsObsoleteThisRun);</b>
+<b class="nc"><i class="no-highlight">1936</i>&nbsp;        cleaner.nLNsExpired.add(nLNsExpiredThisRun);</b>
+<b class="nc"><i class="no-highlight">1937</i>&nbsp;        cleaner.nLNsCleaned.add(nLNsCleanedThisRun);</b>
+<b class="nc"><i class="no-highlight">1938</i>&nbsp;        cleaner.nLNsDead.add(nLNsDeadThisRun);</b>
+<b class="nc"><i class="no-highlight">1939</i>&nbsp;        cleaner.nLNsMigrated.add(nLNsMigratedThisRun);</b>
+<b class="nc"><i class="no-highlight">1940</i>&nbsp;        cleaner.nLNsMarked.add(nLNsMarkedThisRun);</b>
+<b class="nc"><i class="no-highlight">1941</i>&nbsp;        cleaner.nLNQueueHits.add(nLNQueueHitsThisRun);</b>
+<b class="nc"><i class="no-highlight">1942</i>&nbsp;        cleaner.nLNsLocked.add(nLNsLockedThisRun);</b>
+<b class="nc"><i class="no-highlight">1943</i>&nbsp;        cleaner.nRepeatIteratorReads.add(nRepeatIteratorReadsThisRun);</b>
+<b class="nc"><i class="no-highlight">1944</i>&nbsp;    }</b>
+<i class="no-highlight">1945</i>&nbsp;
+<i class="no-highlight">1946</i>&nbsp;    /**
+<i class="no-highlight">1947</i>&nbsp;     * A cache of LNInfo by LSN offset.  Used to hold a set of LNs that are
+<i class="no-highlight">1948</i>&nbsp;     * to be processed.  Keeps track of memory used, and when full (over
+<i class="no-highlight">1949</i>&nbsp;     * budget) the next offset should be queried and removed.
+<i class="no-highlight">1950</i>&nbsp;     */
+<i class="no-highlight">1951</i>&nbsp;    private static class LookAheadCache {
+<i class="no-highlight">1952</i>&nbsp;
+<i class="no-highlight">1953</i>&nbsp;        private final SortedMap&lt;Long,LNInfo&gt; map;
+<i class="no-highlight">1954</i>&nbsp;        private final int maxMem;
+<i class="no-highlight">1955</i>&nbsp;        private int usedMem;
+<i class="no-highlight">1956</i>&nbsp;
+<b class="nc"><i class="no-highlight">1957</i>&nbsp;        LookAheadCache(int lookAheadCacheSize) {</b>
+<b class="nc"><i class="no-highlight">1958</i>&nbsp;            map = new TreeMap&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">1959</i>&nbsp;            maxMem = lookAheadCacheSize;</b>
+<b class="nc"><i class="no-highlight">1960</i>&nbsp;            usedMem = MemoryBudget.TREEMAP_OVERHEAD;</b>
+<i class="no-highlight">1961</i>&nbsp;        }
+<i class="no-highlight">1962</i>&nbsp;
+<i class="no-highlight">1963</i>&nbsp;        boolean isEmpty() {
+<b class="nc"><i class="no-highlight">1964</i>&nbsp;            return map.isEmpty();</b>
+<i class="no-highlight">1965</i>&nbsp;        }
+<i class="no-highlight">1966</i>&nbsp;
+<i class="no-highlight">1967</i>&nbsp;        boolean isFull() {
+<b class="nc"><i class="no-highlight">1968</i>&nbsp;            return usedMem &gt;= maxMem;</b>
+<i class="no-highlight">1969</i>&nbsp;        }
+<i class="no-highlight">1970</i>&nbsp;
+<i class="no-highlight">1971</i>&nbsp;        Long nextOffset() {
+<b class="nc"><i class="no-highlight">1972</i>&nbsp;            return map.firstKey();</b>
+<i class="no-highlight">1973</i>&nbsp;        }
+<i class="no-highlight">1974</i>&nbsp;
+<i class="no-highlight">1975</i>&nbsp;        void add(Long lsnOffset, LNInfo info) {
+<b class="nc"><i class="no-highlight">1976</i>&nbsp;            map.put(lsnOffset, info);</b>
+<b class="nc"><i class="no-highlight">1977</i>&nbsp;            usedMem += info.getMemorySize();</b>
+<b class="nc"><i class="no-highlight">1978</i>&nbsp;            usedMem += MemoryBudget.TREEMAP_ENTRY_OVERHEAD;</b>
+<i class="no-highlight">1979</i>&nbsp;        }
+<i class="no-highlight">1980</i>&nbsp;
+<i class="no-highlight">1981</i>&nbsp;        LNInfo remove(Long offset) {
+<b class="nc"><i class="no-highlight">1982</i>&nbsp;            LNInfo info = map.remove(offset);</b>
+<b class="nc"><i class="no-highlight">1983</i>&nbsp;            if (info != null) {</b>
+<b class="nc"><i class="no-highlight">1984</i>&nbsp;                usedMem -= info.getMemorySize();</b>
+<b class="nc"><i class="no-highlight">1985</i>&nbsp;                usedMem -= MemoryBudget.TREEMAP_ENTRY_OVERHEAD;</b>
+<i class="no-highlight">1986</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1987</i>&nbsp;            return info;</b>
+<i class="no-highlight">1988</i>&nbsp;        }
+<i class="no-highlight">1989</i>&nbsp;    }
+<i class="no-highlight">1990</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

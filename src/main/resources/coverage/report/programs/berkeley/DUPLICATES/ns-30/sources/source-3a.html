@@ -1,0 +1,559 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > StatGroup</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.utilint</a>
+</div>
+
+<h1>Coverage Summary for Class: StatGroup (com.sleepycat.je.utilint)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">StatGroup</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    21.2%
+  </span>
+  <span class="absValue">
+    (7/33)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    18.9%
+  </span>
+  <span class="absValue">
+    (32/169)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.utilint;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.Serializable;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.Map;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map.Entry;
+<i class="no-highlight">21</i>&nbsp;import java.util.SortedMap;
+<i class="no-highlight">22</i>&nbsp;import java.util.TreeMap;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.TransactionStats.Active;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;/**
+<i class="no-highlight">27</i>&nbsp; * The Stats infrastructure provides context for JE statistics. Each statistic
+<i class="no-highlight">28</i>&nbsp; * has these attributes:
+<i class="no-highlight">29</i>&nbsp; * - metadata - specifically, a name and description
+<i class="no-highlight">30</i>&nbsp; * - each statistic is associated with a parent stat group, which itself has
+<i class="no-highlight">31</i>&nbsp; *   a name and description.
+<i class="no-highlight">32</i>&nbsp; * - support for the StatsConfig.clear semantics
+<i class="no-highlight">33</i>&nbsp; * - a way to print statistics in a user friendly way.
+<i class="no-highlight">34</i>&nbsp; *
+<i class="no-highlight">35</i>&nbsp; * To create a statistic variable, instantiate one of the concrete subclasses
+<i class="no-highlight">36</i>&nbsp; * of Stat. Each concrete subclass should hold the methods that are needed to
+<i class="no-highlight">37</i>&nbsp; * best set and display the value. For example, instead of using LongStat to
+<i class="no-highlight">38</i>&nbsp; * hold a timestamp or LSN value, use TimestampStat or LSNStat. A Stat instance
+<i class="no-highlight">39</i>&nbsp; * needs to specify a StatDefinition. There may be multiple Stat variables in
+<i class="no-highlight">40</i>&nbsp; * different components that share a StatDefinition. They are differentiated
+<i class="no-highlight">41</i>&nbsp; * when displayed by their parent StatGroup.
+<i class="no-highlight">42</i>&nbsp; *
+<i class="no-highlight">43</i>&nbsp; * Each Stat instance is associated with a StatGroup, which holds the
+<i class="no-highlight">44</i>&nbsp; * collection of stats that belong to a given component. Each member of the
+<i class="no-highlight">45</i>&nbsp; * StatGroup has a unique StatDefinition. StatGroups can be combined, in order
+<i class="no-highlight">46</i>&nbsp; * to accumulate values. For example, the LockManager may have multiple lock
+<i class="no-highlight">47</i>&nbsp; * tables. Each lock table keeps its own latch statistics. When LockStats are
+<i class="no-highlight">48</i>&nbsp; * generated, the StatsGroup for each latch is collected and rolled up into a
+<i class="no-highlight">49</i>&nbsp; * single StatGroup, using the addAll(StatGroup) method.
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * The Stats infrastructure is for internal use only. Public API classes like
+<i class="no-highlight">52</i>&nbsp; * EnvironmentStats, LockStats, etc, contain StatGroups. A call to retrieve
+<i class="no-highlight">53</i>&nbsp; * stats is implemented by getting a clone of the StatGroups held by the
+<i class="no-highlight">54</i>&nbsp; * components like the cleaner, the incompressor, the LockManager, etc.  The
+<i class="no-highlight">55</i>&nbsp; * public API classes provide getter methods that reach into the StatGroups to
+<i class="no-highlight">56</i>&nbsp; * return the specific stat value.
+<i class="no-highlight">57</i>&nbsp; *
+<i class="no-highlight">58</i>&nbsp; * To add a statistic, create the Stat variable in the component where it is
+<i class="no-highlight">59</i>&nbsp; * being used and associate it with a StatGroup. The Stat infrastructure does
+<i class="no-highlight">60</i>&nbsp; * the rest of the work for plumbing that statistic up to the public API
+<i class="no-highlight">61</i>&nbsp; * class. Each API class must provide a getter method to access the specific
+<i class="no-highlight">62</i>&nbsp; * statistic. Currently, this is done manually.
+<i class="no-highlight">63</i>&nbsp; */
+<b class="fc"><i class="no-highlight">64</i>&nbsp;public class StatGroup implements Serializable {</b>
+<i class="no-highlight">65</i>&nbsp;    private static final long serialVersionUID = 1L;
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    /*
+<i class="no-highlight">68</i>&nbsp;     * User understandable description of the grouping. The description may
+<i class="no-highlight">69</i>&nbsp;     * indicate that these stats are meant for internal use.
+<i class="no-highlight">70</i>&nbsp;     */
+<i class="no-highlight">71</i>&nbsp;    private final String groupName;
+<i class="no-highlight">72</i>&nbsp;    private final String groupDescription;
+<i class="no-highlight">73</i>&nbsp;    private final Map&lt;StatDefinition, Stat&lt;?&gt;&gt; stats;
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    public StatGroup(String groupName, String groupDescription) {
+<b class="fc"><i class="no-highlight">76</i>&nbsp;        this(groupName, groupDescription,</b>
+<i class="no-highlight">77</i>&nbsp;             new HashMap&lt;StatDefinition, Stat&lt;?&gt;&gt;());
+<b class="fc"><i class="no-highlight">78</i>&nbsp;    }</b>
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    private StatGroup(String groupName,
+<i class="no-highlight">81</i>&nbsp;                      String groupDescription,
+<b class="fc"><i class="no-highlight">82</i>&nbsp;                      Map&lt;StatDefinition, Stat&lt;?&gt;&gt; values) {</b>
+<b class="fc"><i class="no-highlight">83</i>&nbsp;        this.groupName = groupName;</b>
+<b class="fc"><i class="no-highlight">84</i>&nbsp;        this.groupDescription = groupDescription;</b>
+<b class="fc"><i class="no-highlight">85</i>&nbsp;        this.stats = Collections.synchronizedMap(values);</b>
+<b class="fc"><i class="no-highlight">86</i>&nbsp;    }</b>
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /**
+<i class="no-highlight">89</i>&nbsp;     * Returns a synchronized, unmodifiable view of the stats in this group.
+<i class="no-highlight">90</i>&nbsp;     * Note that the returned set can still be modified by other threads, so
+<i class="no-highlight">91</i>&nbsp;     * the caller needs to take that into account.
+<i class="no-highlight">92</i>&nbsp;     */
+<i class="no-highlight">93</i>&nbsp;    public Map&lt;StatDefinition, Stat&lt;?&gt;&gt; getStats() {
+<b class="nc"><i class="no-highlight">94</i>&nbsp;        return Collections.unmodifiableMap(stats);</b>
+<i class="no-highlight">95</i>&nbsp;    }
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;    /**
+<i class="no-highlight">98</i>&nbsp;     * Add a stat to the group.
+<i class="no-highlight">99</i>&nbsp;     */
+<i class="no-highlight">100</i>&nbsp;    void register(Stat&lt;?&gt; oneStat) {
+<b class="fc"><i class="no-highlight">101</i>&nbsp;        Stat&lt;?&gt; prev = stats.put(oneStat.getDefinition(), oneStat);</b>
+<b class="fc"><i class="no-highlight">102</i>&nbsp;        assert (prev == null) : &quot;prev = &quot; + prev + &quot; oneStat=&quot; +</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            oneStat.getDefinition();</b>
+<b class="fc"><i class="no-highlight">104</i>&nbsp;    }</b>
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;    /**
+<i class="no-highlight">107</i>&nbsp;     * Add all the stats from the other group into this group. If both groups
+<i class="no-highlight">108</i>&nbsp;     * have the same stat, add the values.  The caller must make sure that no
+<i class="no-highlight">109</i>&nbsp;     * stats are added to or removed from the argument during this call.
+<i class="no-highlight">110</i>&nbsp;     *
+<i class="no-highlight">111</i>&nbsp;     * @throws ConcurrentModificationException if the addition or removal of
+<i class="no-highlight">112</i>&nbsp;     * stats in the argument is detected
+<i class="no-highlight">113</i>&nbsp;     */
+<i class="no-highlight">114</i>&nbsp;    @SuppressWarnings(&quot;unchecked&quot;)
+<i class="no-highlight">115</i>&nbsp;    public void addAll(StatGroup other) {
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;        for (Entry&lt;StatDefinition, Stat&lt;?&gt;&gt; entry :
+<b class="fc"><i class="no-highlight">118</i>&nbsp;             other.stats.entrySet()) {</b>
+<i class="no-highlight">119</i>&nbsp;
+<b class="fc"><i class="no-highlight">120</i>&nbsp;            StatDefinition definition = entry.getKey();</b>
+<i class="no-highlight">121</i>&nbsp;            Stat&lt;?&gt; localStat;
+<b class="fc"><i class="no-highlight">122</i>&nbsp;            synchronized (stats) {</b>
+<b class="fc"><i class="no-highlight">123</i>&nbsp;                localStat = stats.get(definition);</b>
+<b class="fc"><i class="no-highlight">124</i>&nbsp;                if (localStat == null) {</b>
+<b class="fc"><i class="no-highlight">125</i>&nbsp;                    stats.put(definition, entry.getValue());</b>
+<b class="fc"><i class="no-highlight">126</i>&nbsp;                    continue;</b>
+<i class="no-highlight">127</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">128</i>&nbsp;            }</b>
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;            /*
+<i class="no-highlight">131</i>&nbsp;             * Cast to get around type problem. We know it&#39;s the same stat type
+<i class="no-highlight">132</i>&nbsp;             * because the definition is the same, but the compiler doesn&#39;t
+<i class="no-highlight">133</i>&nbsp;             * know that.
+<i class="no-highlight">134</i>&nbsp;             */
+<i class="no-highlight">135</i>&nbsp;            @SuppressWarnings(&quot;rawtypes&quot;)
+<b class="nc"><i class="no-highlight">136</i>&nbsp;            Stat additionalValue = entry.getValue();</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            localStat.add(additionalValue);</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">139</i>&nbsp;    }</b>
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;    /**
+<i class="no-highlight">142</i>&nbsp;     * The caller must make sure that no stats are added to or removed from
+<i class="no-highlight">143</i>&nbsp;     * this stat group while this method is being called.
+<i class="no-highlight">144</i>&nbsp;     *
+<i class="no-highlight">145</i>&nbsp;     * @throws ConcurrentModificationException if the addition or removal of
+<i class="no-highlight">146</i>&nbsp;     * stats in this group is detected
+<i class="no-highlight">147</i>&nbsp;     */
+<i class="no-highlight">148</i>&nbsp;    @SuppressWarnings(&quot;unchecked&quot;)
+<i class="no-highlight">149</i>&nbsp;    public StatGroup computeInterval(StatGroup baseGroup) {
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        Map&lt;StatDefinition, Stat&lt;?&gt;&gt; intervalValues =</b>
+<i class="no-highlight">151</i>&nbsp;                new HashMap&lt;StatDefinition, Stat&lt;?&gt;&gt;();
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;        for (Entry&lt;StatDefinition, Stat&lt;?&gt;&gt; entry :
+<b class="nc"><i class="no-highlight">154</i>&nbsp;             stats.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            StatDefinition definition = entry.getKey();</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;            Stat&lt;?&gt; statValue = entry.getValue();</b>
+<i class="no-highlight">157</i>&nbsp;            @SuppressWarnings(&quot;rawtypes&quot;)
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            Stat baseStat = baseGroup.stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            if (baseStat == null) {</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                intervalValues.put(definition, statValue.copy());</b>
+<i class="no-highlight">161</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                intervalValues.put(definition,</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                                   statValue.computeInterval(baseStat));</b>
+<i class="no-highlight">164</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;        return new StatGroup(groupName, groupDescription, intervalValues);</b>
+<i class="no-highlight">167</i>&nbsp;    }
+<i class="no-highlight">168</i>&nbsp;
+<i class="no-highlight">169</i>&nbsp;    /**
+<i class="no-highlight">170</i>&nbsp;     * Clear all stats in a StatGroup.
+<i class="no-highlight">171</i>&nbsp;     */
+<i class="no-highlight">172</i>&nbsp;    public void clear() {
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            for (Stat&lt;?&gt; s : stats.values()) {</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;                s.clear();</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;    }</b>
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;    /**
+<i class="no-highlight">181</i>&nbsp;     * Negates all stats in a StatGroup.
+<i class="no-highlight">182</i>&nbsp;     */
+<i class="no-highlight">183</i>&nbsp;    public void negate() {
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;            for (Stat&lt;?&gt; s : stats.values()) {</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                s.negate();</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;    }</b>
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    public String getName() {
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        return groupName;</b>
+<i class="no-highlight">193</i>&nbsp;    }
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    public String getDescription() {
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        return groupDescription;</b>
+<i class="no-highlight">197</i>&nbsp;    }
+<i class="no-highlight">198</i>&nbsp;
+<i class="no-highlight">199</i>&nbsp;    /**
+<i class="no-highlight">200</i>&nbsp;     * @return a Stats class that copies the value of all stats in the group
+<i class="no-highlight">201</i>&nbsp;     */
+<i class="no-highlight">202</i>&nbsp;    public StatGroup cloneGroup(boolean clear) {
+<i class="no-highlight">203</i>&nbsp;
+<b class="fc"><i class="no-highlight">204</i>&nbsp;        Map&lt;StatDefinition, Stat&lt;?&gt;&gt; copyValues =</b>
+<i class="no-highlight">205</i>&nbsp;            new HashMap&lt;StatDefinition, Stat&lt;?&gt;&gt;();
+<i class="no-highlight">206</i>&nbsp;
+<b class="fc"><i class="no-highlight">207</i>&nbsp;        synchronized (stats) {</b>
+<b class="fc"><i class="no-highlight">208</i>&nbsp;            for (Stat&lt;?&gt; s : stats.values()) {</b>
+<b class="fc"><i class="no-highlight">209</i>&nbsp;                if (clear) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                    copyValues.put(s.getDefinition(), s.copyAndClear());</b>
+<i class="no-highlight">211</i>&nbsp;                } else {
+<b class="fc"><i class="no-highlight">212</i>&nbsp;                    copyValues.put(s.getDefinition(), s.copy());</b>
+<i class="no-highlight">213</i>&nbsp;                }
+<b class="fc"><i class="no-highlight">214</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">215</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">216</i>&nbsp;        return new StatGroup(groupName, groupDescription, copyValues);</b>
+<i class="no-highlight">217</i>&nbsp;    }
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;    /**
+<i class="no-highlight">220</i>&nbsp;     * Return the stat associated with the specified definition, or null if not
+<i class="no-highlight">221</i>&nbsp;     * found.
+<i class="no-highlight">222</i>&nbsp;     *
+<i class="no-highlight">223</i>&nbsp;     * @return the stat or null
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    public Stat&lt;?&gt; getStat(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        return stats.get(definition);</b>
+<i class="no-highlight">227</i>&nbsp;    }
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    public int getInt(StatDefinition definition) {
+<i class="no-highlight">230</i>&nbsp;        int retval;
+<b class="fc"><i class="no-highlight">231</i>&nbsp;        Stat&lt;?&gt; s = stats.get(definition);</b>
+<b class="fc"><i class="no-highlight">232</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            retval = 0;</b>
+<b class="fc"><i class="no-highlight">234</i>&nbsp;        } else if (s instanceof IntStat) {</b>
+<b class="fc"><i class="no-highlight">235</i>&nbsp;            retval = ((IntStat) s).get();</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        } else if (s instanceof AtomicIntStat) {</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            retval = ((AtomicIntStat) s).get();</b>
+<i class="no-highlight">238</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">239</i>&nbsp;            assert false : &quot;Internal error calling getInt with&quot; +</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                &quot; unexpected stat type: &quot; + s.getClass().getName();</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            retval = 0;</b>
+<i class="no-highlight">242</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">243</i>&nbsp;        return retval;</b>
+<i class="no-highlight">244</i>&nbsp;    }
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;    public LongStat getLongStat(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        return (LongStat) stats.get(definition);</b>
+<i class="no-highlight">248</i>&nbsp;    }
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    public long getLong(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">251</i>&nbsp;        long retval = 0;</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        Stat&lt;?&gt; s = stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            retval= 0;</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        } else if (s instanceof LongStat) {</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;            retval = ((LongStat)s).get();</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;        } else if (s instanceof AtomicLongStat) {</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            retval = ((AtomicLongStat)s).get();</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;        } else if (s instanceof IntegralLongAvgStat) {</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            retval = ((IntegralLongAvgStat)s).get().compute();</b>
+<i class="no-highlight">261</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">262</i>&nbsp;            assert false: &quot;Internal error calling getLong() with &quot;+</b>
+<i class="no-highlight">263</i>&nbsp;                 &quot;unknown stat type.&quot;;
+<i class="no-highlight">264</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        return retval;</b>
+<i class="no-highlight">266</i>&nbsp;    }
+<i class="no-highlight">267</i>&nbsp;
+<i class="no-highlight">268</i>&nbsp;    public IntegralLongAvgStat getIntegralLongAvgStat(
+<i class="no-highlight">269</i>&nbsp;        StatDefinition definition) {
+<b class="nc"><i class="no-highlight">270</i>&nbsp;        return (IntegralLongAvgStat) stats.get(definition);</b>
+<i class="no-highlight">271</i>&nbsp;    }
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;    public LongMinStat getLongMinStat(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        return (LongMinStat) stats.get(definition);</b>
+<i class="no-highlight">275</i>&nbsp;    }
+<i class="no-highlight">276</i>&nbsp;
+<i class="no-highlight">277</i>&nbsp;    public LongMaxStat getLongMaxStat(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        return (LongMaxStat) stats.get(definition);</b>
+<i class="no-highlight">279</i>&nbsp;    }
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;    public AtomicLongStat getAtomicLongStat(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">282</i>&nbsp;        return (AtomicLongStat) stats.get(definition);</b>
+<i class="no-highlight">283</i>&nbsp;    }
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;    public Long getAtomicLong(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        AtomicLongStat s = (AtomicLongStat) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;            return 0L;</b>
+<i class="no-highlight">289</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">290</i>&nbsp;            return s.get();</b>
+<i class="no-highlight">291</i>&nbsp;        }
+<i class="no-highlight">292</i>&nbsp;    }
+<i class="no-highlight">293</i>&nbsp;
+<i class="no-highlight">294</i>&nbsp;    public Active[] getActiveTxnArray(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        ActiveTxnArrayStat s = (ActiveTxnArrayStat) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;            return null;</b>
+<i class="no-highlight">298</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">299</i>&nbsp;            return s.get();</b>
+<i class="no-highlight">300</i>&nbsp;        }
+<i class="no-highlight">301</i>&nbsp;    }
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;    public long[] getLongArray(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">304</i>&nbsp;        LongArrayStat s = (LongArrayStat) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;            return null;</b>
+<i class="no-highlight">307</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            return s.get();</b>
+<i class="no-highlight">309</i>&nbsp;        }
+<i class="no-highlight">310</i>&nbsp;    }
+<i class="no-highlight">311</i>&nbsp;
+<i class="no-highlight">312</i>&nbsp;    public float getFloat(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">313</i>&nbsp;        FloatStat s = (FloatStat) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            return 0;</b>
+<i class="no-highlight">316</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            return s.get();</b>
+<i class="no-highlight">318</i>&nbsp;        }
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    public boolean getBoolean(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        BooleanStat s = (BooleanStat) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            return false;</b>
+<i class="no-highlight">325</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            return s.get();</b>
+<i class="no-highlight">327</i>&nbsp;        }
+<i class="no-highlight">328</i>&nbsp;    }
+<i class="no-highlight">329</i>&nbsp;
+<i class="no-highlight">330</i>&nbsp;    public String getString(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        StringStat s = (StringStat) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;            return null;</b>
+<i class="no-highlight">334</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">335</i>&nbsp;            return s.get();</b>
+<i class="no-highlight">336</i>&nbsp;        }
+<i class="no-highlight">337</i>&nbsp;    }
+<i class="no-highlight">338</i>&nbsp;
+<i class="no-highlight">339</i>&nbsp;    @SuppressWarnings(&quot;unchecked&quot;)
+<i class="no-highlight">340</i>&nbsp;    public &lt;V&gt; SortedMap&lt;String, V&gt; getMap(StatDefinition definition) {
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        MapStat&lt;V, ?&gt; s = (MapStat&lt;V, ?&gt;) stats.get(definition);</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        if (s == null) {</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            return null;</b>
+<i class="no-highlight">344</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            return s.getMap();</b>
+<i class="no-highlight">346</i>&nbsp;        }
+<i class="no-highlight">347</i>&nbsp;    }
+<i class="no-highlight">348</i>&nbsp;
+<i class="no-highlight">349</i>&nbsp;    /*
+<i class="no-highlight">350</i>&nbsp;     * Add this group&#39;s information to the jconsole tip map.
+<i class="no-highlight">351</i>&nbsp;     */
+<i class="no-highlight">352</i>&nbsp;    public void addToTipMap(Map&lt;String, String&gt; tips) {
+<b class="nc"><i class="no-highlight">353</i>&nbsp;        tips.put(getName(), getDescription());</b>
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        for (StatDefinition d: stats.keySet()) {</b>
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            tips.put(d.getName(), d.getDescription());</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;    }</b>
+<i class="no-highlight">358</i>&nbsp;
+<i class="no-highlight">359</i>&nbsp;    @Override
+<i class="no-highlight">360</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">362</i>&nbsp;        sb.append(groupName).append(&quot;: &quot;);</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;        sb.append(groupDescription).append(&quot;\n&quot;);</b>
+<i class="no-highlight">364</i>&nbsp;
+<i class="no-highlight">365</i>&nbsp;        /* Order the stats for consistent display. */
+<i class="no-highlight">366</i>&nbsp;        Map&lt;StatDefinition, Stat&lt;?&gt;&gt; sortedStats;
+<b class="nc"><i class="no-highlight">367</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;            sortedStats = new TreeMap&lt;StatDefinition, Stat&lt;?&gt;&gt;(stats);</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">370</i>&nbsp;        for (Stat&lt;?&gt; s : sortedStats.values()) {</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;            sb.append(&quot;\t&quot;).append(s).append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;        }</b>
+<i class="no-highlight">373</i>&nbsp;
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">375</i>&nbsp;    }
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;    /**
+<i class="no-highlight">378</i>&nbsp;     * Includes the per-stat description in the output string.
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    public String toStringVerbose() {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;        sb.append(groupName).append(&quot;: &quot;);</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;        sb.append(groupDescription).append(&quot;\n&quot;);</b>
+<i class="no-highlight">384</i>&nbsp;
+<i class="no-highlight">385</i>&nbsp;        /* Order the stats for consistent display.*/
+<i class="no-highlight">386</i>&nbsp;        Map&lt;StatDefinition, Stat&lt;?&gt;&gt; sortedStats;
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            sortedStats = new TreeMap&lt;StatDefinition, Stat&lt;?&gt;&gt;(stats);</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        for (Stat&lt;?&gt; s : sortedStats.values()) {</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;            sb.append(&quot;\t&quot;).append(s.toStringVerbose()).append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">394</i>&nbsp;    }
+<i class="no-highlight">395</i>&nbsp;
+<i class="no-highlight">396</i>&nbsp;    /**
+<i class="no-highlight">397</i>&nbsp;     * Only print values that are not null or zero.
+<i class="no-highlight">398</i>&nbsp;     */
+<i class="no-highlight">399</i>&nbsp;    public String toStringConcise() {
+<i class="no-highlight">400</i>&nbsp;
+<b class="nc"><i class="no-highlight">401</i>&nbsp;        boolean headerPrinted = false;</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<i class="no-highlight">403</i>&nbsp;
+<i class="no-highlight">404</i>&nbsp;        /* Order the stats for consistent display.*/
+<i class="no-highlight">405</i>&nbsp;        Map&lt;StatDefinition, Stat&lt;?&gt;&gt; sortedStats;
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;            sortedStats = new TreeMap&lt;StatDefinition, Stat&lt;?&gt;&gt;(stats);</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;        }</b>
+<i class="no-highlight">409</i>&nbsp;
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        for (Stat&lt;?&gt; s : sortedStats.values()) {</b>
+<i class="no-highlight">411</i>&nbsp;
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            if (s.isNotSet()) {</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;                continue;</b>
+<i class="no-highlight">414</i>&nbsp;            }
+<i class="no-highlight">415</i>&nbsp;
+<i class="no-highlight">416</i>&nbsp;            /*
+<i class="no-highlight">417</i>&nbsp;             * Print the group name lazily, in case no fields in this group are
+<i class="no-highlight">418</i>&nbsp;             * set at all. In that case, this method will not print anything.
+<i class="no-highlight">419</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            if (!headerPrinted) {</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                sb.append(groupName + &quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;                headerPrinted = true;</b>
+<i class="no-highlight">423</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">424</i>&nbsp;            sb.append(&quot;\t&quot;).append(s).append(&quot;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">427</i>&nbsp;    }
+<i class="no-highlight">428</i>&nbsp;
+<i class="no-highlight">429</i>&nbsp;    /**
+<i class="no-highlight">430</i>&nbsp;     * Return a string suitable for using as the header for a .csv file.
+<i class="no-highlight">431</i>&nbsp;     */
+<i class="no-highlight">432</i>&nbsp;    public String getCSVHeader() {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;            for (StatDefinition def : stats.keySet()) {</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;                sb.append(groupName + &quot;_&quot; + def.getName() + &quot;,&quot;);</b>
+<b class="nc"><i class="no-highlight">437</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">440</i>&nbsp;    }
+<i class="no-highlight">441</i>&nbsp;
+<i class="no-highlight">442</i>&nbsp;    /**
+<i class="no-highlight">443</i>&nbsp;     * Return a string suitable for using as the data for a .csv file.
+<i class="no-highlight">444</i>&nbsp;     */
+<i class="no-highlight">445</i>&nbsp;    public String getCSVData() {
+<b class="nc"><i class="no-highlight">446</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">448</i>&nbsp;            for (Stat&lt;?&gt; s : stats.values()) {</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;                sb.append(s.getFormattedValue() + &quot;,&quot;);</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">453</i>&nbsp;    }
+<i class="no-highlight">454</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

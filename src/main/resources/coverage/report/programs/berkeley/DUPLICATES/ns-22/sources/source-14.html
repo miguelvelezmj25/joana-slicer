@@ -1,0 +1,552 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicaSyncupReader</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.stream</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicaSyncupReader (com.sleepycat.je.rep.stream)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicaSyncupReader</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/102)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ReplicaSyncupReader$SkipGapException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/107)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.rep.stream;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import static com.sleepycat.je.utilint.DbLsn.NULL_LSN;
+<i class="no-highlight">16</i>&nbsp;
+<i class="no-highlight">17</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">18</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">19</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.log.entry.LogEntry;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.recovery.CheckpointEnd;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNIndex;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRange;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.txn.TxnAbort;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.txn.TxnCommit;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;/**
+<i class="no-highlight">37</i>&nbsp; * The ReplicaSyncupReader scans the log backwards for requested log entries.
+<i class="no-highlight">38</i>&nbsp; * The reader must track whether it has passed a checkpoint, and therefore
+<i class="no-highlight">39</i>&nbsp; * can not used the vlsn index to skip over entries.
+<i class="no-highlight">40</i>&nbsp; *
+<i class="no-highlight">41</i>&nbsp; * The ReplicaSyncupReader is not thread safe, and can only be used
+<i class="no-highlight">42</i>&nbsp; * serially. It will stop at the finishLsn, which should be set using the
+<i class="no-highlight">43</i>&nbsp; * GlobalCBVLSN.
+<i class="no-highlight">44</i>&nbsp; */
+<b class="nc"><i class="no-highlight">45</i>&nbsp;public class ReplicaSyncupReader extends VLSNReader {</b>
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;    /*
+<i class="no-highlight">48</i>&nbsp;     * True if this particular record retrieval is for a syncable record.
+<i class="no-highlight">49</i>&nbsp;     * False if the reader is looking for a specific VLSN
+<i class="no-highlight">50</i>&nbsp;     */
+<i class="no-highlight">51</i>&nbsp;    private boolean syncableSearch;
+<i class="no-highlight">52</i>&nbsp;
+<b class="nc"><i class="no-highlight">53</i>&nbsp;    private final LogEntry ckptEndLogEntry =</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;        LogEntryType.LOG_CKPT_END.getNewLogEntry();</b>
+<i class="no-highlight">55</i>&nbsp;
+<b class="nc"><i class="no-highlight">56</i>&nbsp;    private final LogEntry commitLogEntry =</b>
+<b class="nc"><i class="no-highlight">57</i>&nbsp;        LogEntryType.LOG_TXN_COMMIT.getNewLogEntry();</b>
+<i class="no-highlight">58</i>&nbsp;
+<b class="nc"><i class="no-highlight">59</i>&nbsp;    private final LogEntry abortLogEntry =</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;        LogEntryType.LOG_TXN_ABORT.getNewLogEntry();</b>
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /*
+<i class="no-highlight">63</i>&nbsp;     * SearchResults retains the information as to whether the found
+<i class="no-highlight">64</i>&nbsp;     * matchpoint is valid.
+<i class="no-highlight">65</i>&nbsp;     */
+<i class="no-highlight">66</i>&nbsp;    private final MatchpointSearchResults searchResults;
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    private final Logger logger1;
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    private static TestHook&lt;Long&gt; fileGapHook;
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    public ReplicaSyncupReader(EnvironmentImpl envImpl,
+<i class="no-highlight">73</i>&nbsp;                               VLSNIndex vlsnIndex,
+<i class="no-highlight">74</i>&nbsp;                               long endOfLogLsn,
+<i class="no-highlight">75</i>&nbsp;                               int readBufferSize,
+<i class="no-highlight">76</i>&nbsp;                               VLSN startVLSN,
+<i class="no-highlight">77</i>&nbsp;                               long finishLsn,
+<i class="no-highlight">78</i>&nbsp;                               MatchpointSearchResults searchResults)
+<i class="no-highlight">79</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;        /*
+<i class="no-highlight">82</i>&nbsp;         * If we go backwards, endOfFileLsn and startLsn must not be null.
+<i class="no-highlight">83</i>&nbsp;         * Make them the same, so we always start at the same very end.
+<i class="no-highlight">84</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">85</i>&nbsp;        super(envImpl,</b>
+<i class="no-highlight">86</i>&nbsp;              vlsnIndex,
+<i class="no-highlight">87</i>&nbsp;              false,           // forward
+<i class="no-highlight">88</i>&nbsp;              endOfLogLsn,
+<i class="no-highlight">89</i>&nbsp;              readBufferSize,
+<i class="no-highlight">90</i>&nbsp;              finishLsn);
+<i class="no-highlight">91</i>&nbsp;
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        initScan(startVLSN, endOfLogLsn);</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        this.searchResults = searchResults;</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;        logger1 = LoggerUtils.getLogger(getClass());</b>
+<i class="no-highlight">95</i>&nbsp;    }
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;    /**
+<i class="no-highlight">98</i>&nbsp;     * Set up the ReplicaSyncupReader to start scanning from this VLSN.
+<i class="no-highlight">99</i>&nbsp;     */
+<i class="no-highlight">100</i>&nbsp;    private void initScan(VLSN startVLSN, long endOfLogLsn) {
+<i class="no-highlight">101</i>&nbsp;
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        if (startVLSN.equals(VLSN.NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                (&quot;ReplicaSyncupReader start can&#39;t be NULL_VLSN&quot;);</b>
+<i class="no-highlight">105</i>&nbsp;        }
+<i class="no-highlight">106</i>&nbsp;
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        startLsn = endOfLogLsn;</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        assert startLsn != NULL_LSN;</b>
+<i class="no-highlight">109</i>&nbsp;
+<i class="no-highlight">110</i>&nbsp;        /*
+<i class="no-highlight">111</i>&nbsp;         * Flush the log so that syncup can assume that all log entries that
+<i class="no-highlight">112</i>&nbsp;         * are represented in the VLSNIndex  are safely out of the log buffers
+<i class="no-highlight">113</i>&nbsp;         * and on disk. Simplifies this reader, so it can use the regular
+<i class="no-highlight">114</i>&nbsp;         * ReadWindow, which only works on a file.
+<i class="no-highlight">115</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        envImpl.getLogManager().flushNoSync();</b>
+<i class="no-highlight">117</i>&nbsp;
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        window.initAtFileStart(startLsn);</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        currentEntryPrevOffset = window.getEndOffset();</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        currentEntryOffset = window.getEndOffset();</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        currentVLSN = startVLSN;</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /**
+<i class="no-highlight">125</i>&nbsp;     * Backward scanning for the replica&#39;s part in syncup.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    public OutputWireRecord scanBackwards(VLSN vlsn)
+<i class="no-highlight">128</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">129</i>&nbsp;
+<b class="nc"><i class="no-highlight">130</i>&nbsp;        syncableSearch = false;</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        VLSNRange range = vlsnIndex.getRange();</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        if (vlsn.compareTo(range.getFirst()) &lt; 0) {</b>
+<i class="no-highlight">133</i>&nbsp;            /*
+<i class="no-highlight">134</i>&nbsp;             * The requested VLSN is before the start of our range, we don&#39;t
+<i class="no-highlight">135</i>&nbsp;             * have this record.
+<i class="no-highlight">136</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            return null;</b>
+<i class="no-highlight">138</i>&nbsp;        }
+<i class="no-highlight">139</i>&nbsp;
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        currentVLSN = vlsn;</b>
+<i class="no-highlight">141</i>&nbsp;
+<b class="nc"><i class="no-highlight">142</i>&nbsp;        if (readNextEntry()) {</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;            return currentFeedRecord;</b>
+<i class="no-highlight">144</i>&nbsp;        }
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        return null;</b>
+<i class="no-highlight">147</i>&nbsp;    }
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    /**
+<i class="no-highlight">150</i>&nbsp;     * Backward scanning for finding an earlier candidate syncup matchpoint.
+<i class="no-highlight">151</i>&nbsp;     */
+<i class="no-highlight">152</i>&nbsp;    public OutputWireRecord findPrevSyncEntry(boolean startAtPrev)
+<i class="no-highlight">153</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        currentFeedRecord = null;</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        syncableSearch = true;</b>
+<i class="no-highlight">157</i>&nbsp;
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        if (startAtPrev) {</b>
+<i class="no-highlight">159</i>&nbsp;            /* Start by looking at the entry before the current record. */
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            currentVLSN = currentVLSN.getPrev();</b>
+<i class="no-highlight">161</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            LoggerUtils.info(logger1, envImpl,</b>
+<i class="no-highlight">163</i>&nbsp;                             &quot;Restart ReplicaSyncupReader at &quot; +
+<i class="no-highlight">164</i>&nbsp;                             &quot;vlsn &quot; + currentVLSN);
+<i class="no-highlight">165</i>&nbsp;        }
+<i class="no-highlight">166</i>&nbsp;
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        VLSNRange range = vlsnIndex.getRange();</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        if (currentVLSN.compareTo(range.getFirst()) &lt; 0) {</b>
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;            /*
+<i class="no-highlight">171</i>&nbsp;             * We&#39;ve walked off the end of the contiguous VLSN range.
+<i class="no-highlight">172</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            return null;</b>
+<i class="no-highlight">174</i>&nbsp;        }
+<i class="no-highlight">175</i>&nbsp;
+<b class="nc"><i class="no-highlight">176</i>&nbsp;        if (readNextEntry() == false) {</b>
+<i class="no-highlight">177</i>&nbsp;            /*
+<i class="no-highlight">178</i>&nbsp;             * We scanned all the way to the front of the log, no
+<i class="no-highlight">179</i>&nbsp;             * other sync-able entry found.
+<i class="no-highlight">180</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">181</i>&nbsp;            return null;</b>
+<i class="no-highlight">182</i>&nbsp;        }
+<i class="no-highlight">183</i>&nbsp;
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        assert LogEntryType.isSyncPoint(currentFeedRecord.getEntryType()) :</b>
+<i class="no-highlight">185</i>&nbsp;        &quot;Unexpected log type= &quot; + currentFeedRecord;
+<i class="no-highlight">186</i>&nbsp;
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        return currentFeedRecord;</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /**
+<i class="no-highlight">191</i>&nbsp;     * @throw an EnvironmentFailureException if we were scanning for a
+<i class="no-highlight">192</i>&nbsp;     * particular VLSN and we have passed it by.
+<i class="no-highlight">193</i>&nbsp;     */
+<i class="no-highlight">194</i>&nbsp;    private void checkForPassingTarget(int compareResult) {
+<i class="no-highlight">195</i>&nbsp;
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        if (compareResult &lt; 0) {</b>
+<i class="no-highlight">197</i>&nbsp;            /* Hey, we passed the VLSN we wanted. */
+<b class="nc"><i class="no-highlight">198</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;                (&quot;want to read &quot; + currentVLSN + &quot; but reader at &quot; +</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;                 currentEntryHeader.getVLSN());</b>
+<i class="no-highlight">201</i>&nbsp;        }
+<i class="no-highlight">202</i>&nbsp;    }
+<i class="no-highlight">203</i>&nbsp;
+<i class="no-highlight">204</i>&nbsp;    /**
+<i class="no-highlight">205</i>&nbsp;     * Return true for ckpt entries, for syncable entries, and if we&#39;re in
+<i class="no-highlight">206</i>&nbsp;     * specific vlsn scan mode, any replicated entry.  There is an additional
+<i class="no-highlight">207</i>&nbsp;     * level of filtering in processEntry.
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    @Override
+<i class="no-highlight">210</i>&nbsp;    protected boolean isTargetEntry()
+<i class="no-highlight">211</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">212</i>&nbsp;
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        if (logger1.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;            LoggerUtils.finest(logger1, envImpl,</b>
+<i class="no-highlight">215</i>&nbsp;                               &quot; isTargetEntry &quot; +  currentEntryHeader);
+<i class="no-highlight">216</i>&nbsp;        }
+<i class="no-highlight">217</i>&nbsp;
+<b class="nc"><i class="no-highlight">218</i>&nbsp;        nScanned++;</b>
+<i class="no-highlight">219</i>&nbsp;
+<i class="no-highlight">220</i>&nbsp;        /* Skip invisible entries. */
+<b class="nc"><i class="no-highlight">221</i>&nbsp;        if (currentEntryHeader.isInvisible()) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;            return false;</b>
+<i class="no-highlight">223</i>&nbsp;        }
+<i class="no-highlight">224</i>&nbsp;
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        byte currentType = currentEntryHeader.getType();</b>
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;        /*
+<i class="no-highlight">228</i>&nbsp;         * Return true if this entry is replicated. All entries need to be
+<i class="no-highlight">229</i>&nbsp;         * perused by processEntry, when we are doing a vlsn based search,
+<i class="no-highlight">230</i>&nbsp;         * even if they are not a sync point, because:
+<i class="no-highlight">231</i>&nbsp;         *  (a) If this is a vlsn-based search, it&#39;s possible that the replica
+<i class="no-highlight">232</i>&nbsp;         * and feeder are mismatched. The feeder will only propose a sync type
+<i class="no-highlight">233</i>&nbsp;         * entry as a matchpoint but it might be that the replica has a non-
+<i class="no-highlight">234</i>&nbsp;         * sync entry at that vlsn.
+<i class="no-highlight">235</i>&nbsp;         *  (b) We need to note passed commits in processEntry.
+<i class="no-highlight">236</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        if (entryIsReplicated()) {</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            if (syncableSearch) {</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                if (LogEntryType.isSyncPoint(currentType)) {</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                    return true;</b>
+<i class="no-highlight">241</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                currentVLSN = currentEntryHeader.getVLSN().getPrev();</b>
+<i class="no-highlight">243</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                return true;</b>
+<i class="no-highlight">245</i>&nbsp;            }
+<i class="no-highlight">246</i>&nbsp;        }
+<i class="no-highlight">247</i>&nbsp;
+<i class="no-highlight">248</i>&nbsp;        /*
+<i class="no-highlight">249</i>&nbsp;         * We&#39;ll also need to read checkpoint end records to record their
+<i class="no-highlight">250</i>&nbsp;         * presence.
+<i class="no-highlight">251</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        if (LogEntryType.LOG_CKPT_END.equalsType(currentType)) {</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;            return true;</b>
+<i class="no-highlight">254</i>&nbsp;        }
+<i class="no-highlight">255</i>&nbsp;
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        return false;</b>
+<i class="no-highlight">257</i>&nbsp;    }
+<i class="no-highlight">258</i>&nbsp;
+<i class="no-highlight">259</i>&nbsp;    /**
+<i class="no-highlight">260</i>&nbsp;     * ProcessEntry does additional filtering before deciding whether to
+<i class="no-highlight">261</i>&nbsp;     * return an entry as a candidate for matching.
+<i class="no-highlight">262</i>&nbsp;     *
+<i class="no-highlight">263</i>&nbsp;     * If this is a record we are submitting as a matchpoint candidate,
+<i class="no-highlight">264</i>&nbsp;     * instantiate a WireRecord to house this log entry. If this is a
+<i class="no-highlight">265</i>&nbsp;     * non-replicated entry or a txn end that follows the candidate matchpoint,
+<i class="no-highlight">266</i>&nbsp;     * record whatever status we need to, but don&#39;t use it for comparisons.
+<i class="no-highlight">267</i>&nbsp;     *
+<i class="no-highlight">268</i>&nbsp;     * For example, suppose the log is like this:
+<i class="no-highlight">269</i>&nbsp;     *
+<i class="no-highlight">270</i>&nbsp;     * VLSN  entry
+<i class="no-highlight">271</i>&nbsp;     * 10    LN
+<i class="no-highlight">272</i>&nbsp;     * 11    commit
+<i class="no-highlight">273</i>&nbsp;     * 12    LN
+<i class="no-highlight">274</i>&nbsp;     *  --   ckpt end
+<i class="no-highlight">275</i>&nbsp;     * 13    commit
+<i class="no-highlight">276</i>&nbsp;     * 14    abort
+<i class="no-highlight">277</i>&nbsp;     *
+<i class="no-highlight">278</i>&nbsp;     * And that the master only has VLSNs 1-12. The replica will suggest vlsn
+<i class="no-highlight">279</i>&nbsp;     * 14 as the first matchpoint. The feeder will counter with a suggestion
+<i class="no-highlight">280</i>&nbsp;     * of vlsn 11, since it does not have vlsn 14.
+<i class="no-highlight">281</i>&nbsp;     *
+<i class="no-highlight">282</i>&nbsp;     * At that point, the ReplicaSyncupReader will scan backwards in the log,
+<i class="no-highlight">283</i>&nbsp;     * looking for vlsn 11. Although the reader should only return an entry
+<i class="no-highlight">284</i>&nbsp;     * when it gets to vlsn 11. The reader must process commits and ckpts that
+<i class="no-highlight">285</i>&nbsp;     * follow 11, so that they can be recorded in the searchResults, so the
+<i class="no-highlight">286</i>&nbsp;     * number of rolled back commits can be accurately reported.
+<i class="no-highlight">287</i>&nbsp;     */
+<i class="no-highlight">288</i>&nbsp;    @Override
+<i class="no-highlight">289</i>&nbsp;    protected boolean processEntry(ByteBuffer entryBuffer) {
+<i class="no-highlight">290</i>&nbsp;
+<b class="nc"><i class="no-highlight">291</i>&nbsp;        if (logger1.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;            LoggerUtils.finest(logger1, envImpl,</b>
+<i class="no-highlight">293</i>&nbsp;                               &quot; syncup reader saw &quot; +  currentEntryHeader);
+<i class="no-highlight">294</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        byte currentType = currentEntryHeader.getType();</b>
+<i class="no-highlight">296</i>&nbsp;
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;        /*
+<i class="no-highlight">299</i>&nbsp;         * CheckpointEnd entries are tracked in order to see if a rollback
+<i class="no-highlight">300</i>&nbsp;         * must be done, but are not returned as possible matchpoints.
+<i class="no-highlight">301</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">302</i>&nbsp;        if (LogEntryType.LOG_CKPT_END.equalsType(currentType)) {</b>
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;            /*
+<i class="no-highlight">305</i>&nbsp;             * Read the entry, which both lets us decipher its contents and
+<i class="no-highlight">306</i>&nbsp;             * also advances the file reader position.
+<i class="no-highlight">307</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            ckptEndLogEntry.readEntry(envImpl, currentEntryHeader,</b>
+<i class="no-highlight">309</i>&nbsp;                                      entryBuffer);
+<i class="no-highlight">310</i>&nbsp;
+<b class="nc"><i class="no-highlight">311</i>&nbsp;            if (logger1.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;                LoggerUtils.finest(logger1, envImpl,</b>
+<i class="no-highlight">313</i>&nbsp;                                   &quot; syncup reader read &quot; +
+<i class="no-highlight">314</i>&nbsp;                                   currentEntryHeader + ckptEndLogEntry);
+<i class="no-highlight">315</i>&nbsp;            }
+<i class="no-highlight">316</i>&nbsp;
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            if (((CheckpointEnd) ckptEndLogEntry.getMainItem()).</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;                getCleanedFilesToDelete()) {</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;                searchResults.notePassedCheckpointEnd();</b>
+<i class="no-highlight">320</i>&nbsp;            }
+<i class="no-highlight">321</i>&nbsp;
+<b class="nc"><i class="no-highlight">322</i>&nbsp;            return false;</b>
+<i class="no-highlight">323</i>&nbsp;        }
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;        /*
+<i class="no-highlight">326</i>&nbsp;         * Setup the log entry as a wire record so we can compare it to
+<i class="no-highlight">327</i>&nbsp;         * the entry from the feeder as we look for a matchpoint. Do this
+<i class="no-highlight">328</i>&nbsp;         * before we change positions on the entry buffer by reading it.
+<i class="no-highlight">329</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        ByteBuffer buffer = entryBuffer.slice();</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        buffer.limit(currentEntryHeader.getItemSize());</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        currentFeedRecord =</b>
+<i class="no-highlight">333</i>&nbsp;            new OutputWireRecord(envImpl, currentEntryHeader, buffer);
+<i class="no-highlight">334</i>&nbsp;
+<i class="no-highlight">335</i>&nbsp;        /*
+<i class="no-highlight">336</i>&nbsp;         * All commit records must be tracked to figure out if we&#39;ve exceeded
+<i class="no-highlight">337</i>&nbsp;         * the txn rollback limit. For reporting reasons, we&#39;ll need to
+<i class="no-highlight">338</i>&nbsp;         * unmarshal the log entry, so we can read the timestamp in the commit
+<i class="no-highlight">339</i>&nbsp;         * record.
+<i class="no-highlight">340</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        if (LogEntryType.LOG_TXN_COMMIT.equalsType(currentType)) {</b>
+<i class="no-highlight">342</i>&nbsp;
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            commitLogEntry.readEntry(envImpl, currentEntryHeader, entryBuffer);</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;            final TxnCommit commit = (TxnCommit) commitLogEntry.getMainItem();</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            searchResults.notePassedCommits(commit,</b>
+<b class="nc"><i class="no-highlight">346</i>&nbsp;                                            currentEntryHeader.getVLSN(),</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;                                            getLastLsn());</b>
+<i class="no-highlight">348</i>&nbsp;
+<b class="nc"><i class="no-highlight">349</i>&nbsp;            if (logger1.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;                LoggerUtils.finest(logger1, envImpl,</b>
+<i class="no-highlight">351</i>&nbsp;                                   &quot;syncup reader read &quot; +
+<i class="no-highlight">352</i>&nbsp;                                   currentEntryHeader + commitLogEntry);
+<i class="no-highlight">353</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        } else if (LogEntryType.LOG_TXN_ABORT.equalsType(currentType)) {</b>
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            abortLogEntry.readEntry(envImpl, currentEntryHeader, entryBuffer);</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            final TxnAbort abort = (TxnAbort) abortLogEntry.getMainItem();</b>
+<i class="no-highlight">357</i>&nbsp;
+<b class="nc"><i class="no-highlight">358</i>&nbsp;            searchResults.notePassedAborts(abort,</b>
+<b class="nc"><i class="no-highlight">359</i>&nbsp;                                           currentEntryHeader.getVLSN());</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;            if (logger1.isLoggable(Level.FINEST)) {</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;                LoggerUtils.finest(logger1, envImpl,</b>
+<i class="no-highlight">362</i>&nbsp;                                   &quot;syncup reader read &quot; +
+<i class="no-highlight">363</i>&nbsp;                                   currentEntryHeader + abortLogEntry);
+<i class="no-highlight">364</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;            entryBuffer.position(entryBuffer.position() +</b>
+<b class="nc"><i class="no-highlight">367</i>&nbsp;                                 currentEntryHeader.getItemSize());</b>
+<i class="no-highlight">368</i>&nbsp;        }
+<i class="no-highlight">369</i>&nbsp;
+<b class="nc"><i class="no-highlight">370</i>&nbsp;        if (syncableSearch) {</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;            return true;</b>
+<i class="no-highlight">372</i>&nbsp;        }
+<i class="no-highlight">373</i>&nbsp;
+<i class="no-highlight">374</i>&nbsp;        /* We&#39;re looking for a particular VLSN. */
+<b class="nc"><i class="no-highlight">375</i>&nbsp;        int compareResult = currentEntryHeader.getVLSN().compareTo(currentVLSN);</b>
+<b class="nc"><i class="no-highlight">376</i>&nbsp;        checkForPassingTarget(compareResult);</b>
+<i class="no-highlight">377</i>&nbsp;
+<i class="no-highlight">378</i>&nbsp;        /* return true if this is the entry we want. */
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        return (compareResult == 0);</b>
+<i class="no-highlight">380</i>&nbsp;    }
+<i class="no-highlight">381</i>&nbsp;
+<i class="no-highlight">382</i>&nbsp;    /**
+<i class="no-highlight">383</i>&nbsp;     * TBW
+<i class="no-highlight">384</i>&nbsp;     */
+<i class="no-highlight">385</i>&nbsp;    @Override
+<i class="no-highlight">386</i>&nbsp;    protected void handleGapInBackwardsScan(long prevFileNum) {
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        SkipGapException e = new SkipGapException(window.currentFileNum(),</b>
+<i class="no-highlight">388</i>&nbsp;                                                  prevFileNum,
+<i class="no-highlight">389</i>&nbsp;                                                  currentVLSN);
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        LoggerUtils.info(logger1, envImpl, e.getMessage());</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;        assert TestHookExecute.doHookIfSet(fileGapHook, prevFileNum);</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        throw e;</b>
+<i class="no-highlight">393</i>&nbsp;    }
+<i class="no-highlight">394</i>&nbsp;
+<i class="no-highlight">395</i>&nbsp;    /*
+<i class="no-highlight">396</i>&nbsp;     * An internal exception indicating that the reader must scan across a
+<i class="no-highlight">397</i>&nbsp;     * gap in the log files. The gap may have been created by cleaning.
+<i class="no-highlight">398</i>&nbsp;     */
+<i class="no-highlight">399</i>&nbsp;    public static class SkipGapException extends DatabaseException {
+<i class="no-highlight">400</i>&nbsp;
+<i class="no-highlight">401</i>&nbsp;        private static final long serialVersionUID = 1L;
+<i class="no-highlight">402</i>&nbsp;        private final VLSN currentVLSN;
+<i class="no-highlight">403</i>&nbsp;        public SkipGapException(long currentFileNum,
+<i class="no-highlight">404</i>&nbsp;                                long nextFileNum,
+<i class="no-highlight">405</i>&nbsp;                                VLSN currentVLSN) {
+<b class="nc"><i class="no-highlight">406</i>&nbsp;            super(&quot;Restarting reader in order to read backwards across gap &quot; +</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;                  &quot;from file 0x&quot; + Long.toHexString(currentFileNum) +</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                  &quot; to file 0x&quot; + Long.toHexString(nextFileNum) +</b>
+<i class="no-highlight">409</i>&nbsp;                  &quot;. Reset position to vlsn &quot; + currentVLSN);
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            this.currentVLSN = currentVLSN;</b>
+<i class="no-highlight">411</i>&nbsp;        }
+<i class="no-highlight">412</i>&nbsp;
+<i class="no-highlight">413</i>&nbsp;        public VLSN getVLSN() {
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            return currentVLSN;</b>
+<i class="no-highlight">415</i>&nbsp;        }
+<i class="no-highlight">416</i>&nbsp;    }
+<i class="no-highlight">417</i>&nbsp;
+<i class="no-highlight">418</i>&nbsp;    public static void setFileGapHook(TestHook&lt;Long&gt; hook) {
+<b class="nc"><i class="no-highlight">419</i>&nbsp;        fileGapHook = hook;</b>
+<i class="no-highlight">420</i>&nbsp;    }
+<i class="no-highlight">421</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

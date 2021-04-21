@@ -1,0 +1,405 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FastOutputStream</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.util</a>
+</div>
+
+<h1>Coverage Summary for Class: FastOutputStream (com.sleepycat.util)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FastOutputStream</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    36%
+  </span>
+  <span class="absValue">
+    (9/25)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    27.5%
+  </span>
+  <span class="absValue">
+    (19/69)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.util;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">17</i>&nbsp;import java.io.OutputStream;
+<i class="no-highlight">18</i>&nbsp;import java.io.UnsupportedEncodingException;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;/**
+<i class="no-highlight">21</i>&nbsp; * A replacement for ByteArrayOutputStream that does not synchronize every
+<i class="no-highlight">22</i>&nbsp; * byte read.
+<i class="no-highlight">23</i>&nbsp; *
+<i class="no-highlight">24</i>&nbsp; * &lt;p&gt;This class extends {@link OutputStream} and its &lt;code&gt;write()&lt;/code&gt;
+<i class="no-highlight">25</i>&nbsp; * methods allow it to be used as a standard output stream.  In addition, it
+<i class="no-highlight">26</i>&nbsp; * provides &lt;code&gt;writeFast()&lt;/code&gt; methods that are not declared to throw
+<i class="no-highlight">27</i>&nbsp; * &lt;code&gt;IOException&lt;/code&gt;.  &lt;code&gt;IOException&lt;/code&gt; is never thrown by this
+<i class="no-highlight">28</i>&nbsp; * class.&lt;/p&gt;
+<i class="no-highlight">29</i>&nbsp; *
+<i class="no-highlight">30</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">31</i>&nbsp; */
+<i class="no-highlight">32</i>&nbsp;public class FastOutputStream extends OutputStream {
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;    /**
+<i class="no-highlight">35</i>&nbsp;     * The default initial size of the buffer if no initialSize parameter is
+<i class="no-highlight">36</i>&nbsp;     * specified.  This constant is 100 bytes.
+<i class="no-highlight">37</i>&nbsp;     */
+<i class="no-highlight">38</i>&nbsp;    public static final int DEFAULT_INIT_SIZE = 100;
+<i class="no-highlight">39</i>&nbsp;
+<i class="no-highlight">40</i>&nbsp;    /**
+<i class="no-highlight">41</i>&nbsp;     * The default amount that the buffer is increased when it is full.  This
+<i class="no-highlight">42</i>&nbsp;     * constant is zero, which means to double the current buffer size.
+<i class="no-highlight">43</i>&nbsp;     */
+<i class="no-highlight">44</i>&nbsp;    public static final int DEFAULT_BUMP_SIZE = 0;
+<i class="no-highlight">45</i>&nbsp;
+<i class="no-highlight">46</i>&nbsp;    private int len;
+<i class="no-highlight">47</i>&nbsp;    private int bumpLen;
+<i class="no-highlight">48</i>&nbsp;    private byte[] buf;
+<i class="no-highlight">49</i>&nbsp;
+<i class="no-highlight">50</i>&nbsp;    /*
+<i class="no-highlight">51</i>&nbsp;     * We can return the same byte[] for 0 length arrays.
+<i class="no-highlight">52</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">53</i>&nbsp;    private static byte[] ZERO_LENGTH_BYTE_ARRAY = new byte[0];</b>
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    /**
+<i class="no-highlight">56</i>&nbsp;     * Creates an output stream with default sizes.
+<i class="no-highlight">57</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">58</i>&nbsp;    public FastOutputStream() {</b>
+<i class="no-highlight">59</i>&nbsp;
+<b class="fc"><i class="no-highlight">60</i>&nbsp;        initBuffer(DEFAULT_INIT_SIZE, DEFAULT_BUMP_SIZE);</b>
+<b class="fc"><i class="no-highlight">61</i>&nbsp;    }</b>
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    /**
+<i class="no-highlight">64</i>&nbsp;     * Creates an output stream with a default bump size and a given initial
+<i class="no-highlight">65</i>&nbsp;     * size.
+<i class="no-highlight">66</i>&nbsp;     *
+<i class="no-highlight">67</i>&nbsp;     * @param initialSize the initial size of the buffer.
+<i class="no-highlight">68</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">69</i>&nbsp;    public FastOutputStream(int initialSize) {</b>
+<i class="no-highlight">70</i>&nbsp;
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        initBuffer(initialSize, DEFAULT_BUMP_SIZE);</b>
+<b class="nc"><i class="no-highlight">72</i>&nbsp;    }</b>
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /**
+<i class="no-highlight">75</i>&nbsp;     * Creates an output stream with a given bump size and initial size.
+<i class="no-highlight">76</i>&nbsp;     *
+<i class="no-highlight">77</i>&nbsp;     * @param initialSize the initial size of the buffer.
+<i class="no-highlight">78</i>&nbsp;     *
+<i class="no-highlight">79</i>&nbsp;     * @param bumpSize the amount to increment the buffer.
+<i class="no-highlight">80</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">81</i>&nbsp;    public FastOutputStream(int initialSize, int bumpSize) {</b>
+<i class="no-highlight">82</i>&nbsp;
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        initBuffer(initialSize, bumpSize);</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;    }</b>
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /**
+<i class="no-highlight">87</i>&nbsp;     * Creates an output stream with a given initial buffer and a default
+<i class="no-highlight">88</i>&nbsp;     * bump size.
+<i class="no-highlight">89</i>&nbsp;     *
+<i class="no-highlight">90</i>&nbsp;     * @param buffer the initial buffer; will be owned by this object.
+<i class="no-highlight">91</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">92</i>&nbsp;    public FastOutputStream(byte[] buffer) {</b>
+<i class="no-highlight">93</i>&nbsp;
+<b class="fc"><i class="no-highlight">94</i>&nbsp;        buf = buffer;</b>
+<b class="fc"><i class="no-highlight">95</i>&nbsp;        bumpLen = DEFAULT_BUMP_SIZE;</b>
+<b class="fc"><i class="no-highlight">96</i>&nbsp;    }</b>
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /**
+<i class="no-highlight">99</i>&nbsp;     * Creates an output stream with a given initial buffer and a given
+<i class="no-highlight">100</i>&nbsp;     * bump size.
+<i class="no-highlight">101</i>&nbsp;     *
+<i class="no-highlight">102</i>&nbsp;     * @param buffer the initial buffer; will be owned by this object.
+<i class="no-highlight">103</i>&nbsp;     *
+<i class="no-highlight">104</i>&nbsp;     * @param bumpSize the amount to increment the buffer.  If zero (the
+<i class="no-highlight">105</i>&nbsp;     * default), the current buffer size will be doubled when the buffer is
+<i class="no-highlight">106</i>&nbsp;     * full.
+<i class="no-highlight">107</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">108</i>&nbsp;    public FastOutputStream(byte[] buffer, int bumpSize) {</b>
+<i class="no-highlight">109</i>&nbsp;
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        buf = buffer;</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        bumpLen = bumpSize;</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;    }</b>
+<i class="no-highlight">113</i>&nbsp;
+<i class="no-highlight">114</i>&nbsp;    private void initBuffer(int bufferSize, int bumplength) {
+<b class="fc"><i class="no-highlight">115</i>&nbsp;        buf = new byte[bufferSize];</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;        this.bumpLen = bumplength;</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;    }</b>
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    // --- begin ByteArrayOutputStream compatible methods ---
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    public int size() {
+<i class="no-highlight">122</i>&nbsp;
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        return len;</b>
+<i class="no-highlight">124</i>&nbsp;    }
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    public void reset() {
+<i class="no-highlight">127</i>&nbsp;
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        len = 0;</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;    }</b>
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    @Override
+<i class="no-highlight">132</i>&nbsp;    public void write(int b) {
+<i class="no-highlight">133</i>&nbsp;
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        writeFast(b);</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;    }</b>
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;    @Override
+<i class="no-highlight">138</i>&nbsp;    public void write(byte[] fromBuf) {
+<i class="no-highlight">139</i>&nbsp;
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        writeFast(fromBuf);</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;    }</b>
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    @Override
+<i class="no-highlight">144</i>&nbsp;    public void write(byte[] fromBuf, int offset, int length) {
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        writeFast(fromBuf, offset, length);</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;    }</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    public void writeTo(OutputStream out) throws IOException {
+<i class="no-highlight">150</i>&nbsp;
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        out.write(buf, 0, len);</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;    }</b>
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    @Override
+<i class="no-highlight">155</i>&nbsp;    public String toString() {
+<i class="no-highlight">156</i>&nbsp;
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        return new String(buf, 0, len);</b>
+<i class="no-highlight">158</i>&nbsp;    }
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;    public String toString(String encoding)
+<i class="no-highlight">161</i>&nbsp;        throws UnsupportedEncodingException {
+<i class="no-highlight">162</i>&nbsp;
+<b class="nc"><i class="no-highlight">163</i>&nbsp;        return new String(buf, 0, len, encoding);</b>
+<i class="no-highlight">164</i>&nbsp;    }
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;    public byte[] toByteArray() {
+<i class="no-highlight">167</i>&nbsp;
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        if (len == 0) {</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;            return ZERO_LENGTH_BYTE_ARRAY;</b>
+<i class="no-highlight">170</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        byte[] toBuf = new byte[len];</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        System.arraycopy(buf, 0, toBuf, 0, len);</b>
+<i class="no-highlight">173</i>&nbsp;
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        return toBuf;</b>
+<i class="no-highlight">175</i>&nbsp;    }
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    // --- end ByteArrayOutputStream compatible methods ---
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;    /**
+<i class="no-highlight">180</i>&nbsp;     * Equivalent to &lt;code&gt;write(int)&lt;/code&gt; but does not throw
+<i class="no-highlight">181</i>&nbsp;     * &lt;code&gt;IOException&lt;/code&gt;.
+<i class="no-highlight">182</i>&nbsp;     *
+<i class="no-highlight">183</i>&nbsp;     * @param b the byte to write.
+<i class="no-highlight">184</i>&nbsp;     *
+<i class="no-highlight">185</i>&nbsp;     * @see #write(int)
+<i class="no-highlight">186</i>&nbsp;     */
+<i class="no-highlight">187</i>&nbsp;    public final void writeFast(int b) {
+<i class="no-highlight">188</i>&nbsp;
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        if (len + 1 &gt; buf.length)</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;            bump(1);</b>
+<i class="no-highlight">191</i>&nbsp;
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        buf[len++] = (byte) b;</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;    }</b>
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    /**
+<i class="no-highlight">196</i>&nbsp;     * Equivalent to &lt;code&gt;write(byte[])&lt;/code&gt; but does not throw
+<i class="no-highlight">197</i>&nbsp;     * &lt;code&gt;IOException&lt;/code&gt;.
+<i class="no-highlight">198</i>&nbsp;     *
+<i class="no-highlight">199</i>&nbsp;     * @param fromBuf the buffer to write.
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * @see #write(byte[])
+<i class="no-highlight">202</i>&nbsp;     */
+<i class="no-highlight">203</i>&nbsp;    public final void writeFast(byte[] fromBuf) {
+<i class="no-highlight">204</i>&nbsp;
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        int needed = len + fromBuf.length - buf.length;</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        if (needed &gt; 0)</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            bump(needed);</b>
+<i class="no-highlight">208</i>&nbsp;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        System.arraycopy(fromBuf, 0, buf, len, fromBuf.length);</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        len += fromBuf.length;</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;    }</b>
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;    /**
+<i class="no-highlight">214</i>&nbsp;     * Equivalent to &lt;code&gt;write(byte[],int,int)&lt;/code&gt; but does not throw
+<i class="no-highlight">215</i>&nbsp;     * &lt;code&gt;IOException&lt;/code&gt;.
+<i class="no-highlight">216</i>&nbsp;     *
+<i class="no-highlight">217</i>&nbsp;     * @param fromBuf the buffer to write.
+<i class="no-highlight">218</i>&nbsp;     *
+<i class="no-highlight">219</i>&nbsp;     * @param offset the start offset in the buffer.
+<i class="no-highlight">220</i>&nbsp;     *
+<i class="no-highlight">221</i>&nbsp;     * @param length the number of bytes to write.
+<i class="no-highlight">222</i>&nbsp;     *
+<i class="no-highlight">223</i>&nbsp;     * @see #write(byte[],int,int)
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    public final void writeFast(byte[] fromBuf, int offset, int length) {
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        int needed = len + length - buf.length;</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        if (needed &gt; 0)</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;            bump(needed);</b>
+<i class="no-highlight">230</i>&nbsp;
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        System.arraycopy(fromBuf, offset, buf, len, length);</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;        len += length;</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;    }</b>
+<i class="no-highlight">234</i>&nbsp;
+<i class="no-highlight">235</i>&nbsp;    /**
+<i class="no-highlight">236</i>&nbsp;     * Returns the buffer owned by this object.
+<i class="no-highlight">237</i>&nbsp;     *
+<i class="no-highlight">238</i>&nbsp;     * @return the buffer.
+<i class="no-highlight">239</i>&nbsp;     */
+<i class="no-highlight">240</i>&nbsp;    public byte[] getBufferBytes() {
+<i class="no-highlight">241</i>&nbsp;
+<b class="fc"><i class="no-highlight">242</i>&nbsp;        return buf;</b>
+<i class="no-highlight">243</i>&nbsp;    }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    /**
+<i class="no-highlight">246</i>&nbsp;     * Returns the offset of the internal buffer.
+<i class="no-highlight">247</i>&nbsp;     *
+<i class="no-highlight">248</i>&nbsp;     * @return always zero currently.
+<i class="no-highlight">249</i>&nbsp;     */
+<i class="no-highlight">250</i>&nbsp;    public int getBufferOffset() {
+<i class="no-highlight">251</i>&nbsp;
+<b class="fc"><i class="no-highlight">252</i>&nbsp;        return 0;</b>
+<i class="no-highlight">253</i>&nbsp;    }
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * Returns the length used in the internal buffer, i.e., the offset at
+<i class="no-highlight">257</i>&nbsp;     * which data will be written next.
+<i class="no-highlight">258</i>&nbsp;     *
+<i class="no-highlight">259</i>&nbsp;     * @return the buffer length.
+<i class="no-highlight">260</i>&nbsp;     */
+<i class="no-highlight">261</i>&nbsp;    public int getBufferLength() {
+<i class="no-highlight">262</i>&nbsp;
+<b class="fc"><i class="no-highlight">263</i>&nbsp;        return len;</b>
+<i class="no-highlight">264</i>&nbsp;    }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;    /**
+<i class="no-highlight">267</i>&nbsp;     * Ensure that at least the given number of bytes are available in the
+<i class="no-highlight">268</i>&nbsp;     * internal buffer.
+<i class="no-highlight">269</i>&nbsp;     *
+<i class="no-highlight">270</i>&nbsp;     * @param sizeNeeded the number of bytes desired.
+<i class="no-highlight">271</i>&nbsp;     */
+<i class="no-highlight">272</i>&nbsp;    public void makeSpace(int sizeNeeded) {
+<i class="no-highlight">273</i>&nbsp;
+<b class="fc"><i class="no-highlight">274</i>&nbsp;        int needed = len + sizeNeeded - buf.length;</b>
+<b class="fc"><i class="no-highlight">275</i>&nbsp;        if (needed &gt; 0)</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;            bump(needed);</b>
+<b class="fc"><i class="no-highlight">277</i>&nbsp;    }</b>
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;    /**
+<i class="no-highlight">280</i>&nbsp;     * Skip the given number of bytes in the buffer.
+<i class="no-highlight">281</i>&nbsp;     *
+<i class="no-highlight">282</i>&nbsp;     * @param sizeAdded number of bytes to skip.
+<i class="no-highlight">283</i>&nbsp;     */
+<i class="no-highlight">284</i>&nbsp;    public void addSize(int sizeAdded) {
+<i class="no-highlight">285</i>&nbsp;
+<b class="fc"><i class="no-highlight">286</i>&nbsp;        len += sizeAdded;</b>
+<b class="fc"><i class="no-highlight">287</i>&nbsp;    }</b>
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    private void bump(int needed) {
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;        /* Double the buffer if the bumpLen is zero. */
+<b class="nc"><i class="no-highlight">292</i>&nbsp;        int bump = (bumpLen &gt; 0) ? bumpLen : buf.length;</b>
+<i class="no-highlight">293</i>&nbsp;
+<b class="nc"><i class="no-highlight">294</i>&nbsp;        byte[] toBuf = new byte[buf.length + needed + bump];</b>
+<i class="no-highlight">295</i>&nbsp;
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        System.arraycopy(buf, 0, toBuf, 0, len);</b>
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        buf = toBuf;</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;    }</b>
+<i class="no-highlight">300</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

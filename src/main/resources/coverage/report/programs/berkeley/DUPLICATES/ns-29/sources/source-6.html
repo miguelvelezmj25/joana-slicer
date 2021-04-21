@@ -1,0 +1,544 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > VLSNRange</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.vlsn</a>
+</div>
+
+<h1>Coverage Summary for Class: VLSNRange (com.sleepycat.je.rep.vlsn)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">VLSNRange</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/20)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/137)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">VLSNRange$VLSNRangeBinding</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/16)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/23)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/153)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.vlsn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.utilint.VLSN.NULL_VLSN;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.bind.tuple.LongBinding;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.bind.tuple.TupleBinding;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.bind.tuple.TupleInput;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.bind.tuple.TupleOutput;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.CursorConfig;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">33</i>&nbsp;
+<b class="nc"><i class="no-highlight">34</i>&nbsp;public class VLSNRange {</b>
+<i class="no-highlight">35</i>&nbsp;
+<i class="no-highlight">36</i>&nbsp;    /* On-disk version. */
+<i class="no-highlight">37</i>&nbsp;    private static final int VERSION = 1;
+<i class="no-highlight">38</i>&nbsp;    public static final long RANGE_KEY = -1L;
+<b class="nc"><i class="no-highlight">39</i>&nbsp;    static final VLSNRange EMPTY = new VLSNRange(NULL_VLSN, NULL_VLSN,</b>
+<i class="no-highlight">40</i>&nbsp;                                                 NULL_VLSN, NULL_VLSN);
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;    /*
+<i class="no-highlight">43</i>&nbsp;     * Information about the range of contiguous VLSN entries on this node.
+<i class="no-highlight">44</i>&nbsp;     * All the range values must be viewed together, to ensure a consistent set
+<i class="no-highlight">45</i>&nbsp;     * of values.
+<i class="no-highlight">46</i>&nbsp;     */
+<i class="no-highlight">47</i>&nbsp;    private final VLSN first;
+<i class="no-highlight">48</i>&nbsp;    private final VLSN last;
+<b class="nc"><i class="no-highlight">49</i>&nbsp;    private final byte commitType = LogEntryType.LOG_TXN_COMMIT.getTypeNum();</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;    private final byte abortType = LogEntryType.LOG_TXN_ABORT.getTypeNum();</b>
+<i class="no-highlight">51</i>&nbsp;
+<i class="no-highlight">52</i>&nbsp;    /*
+<i class="no-highlight">53</i>&nbsp;     * VLSN of the last log entry in our VLSN range that can serve as a sync
+<i class="no-highlight">54</i>&nbsp;     * matchpoint.
+<i class="no-highlight">55</i>&nbsp;     *
+<i class="no-highlight">56</i>&nbsp;     * Currently lastSync and lastTxnEnd are the same value because a
+<i class="no-highlight">57</i>&nbsp;     * sync point is defined as a commit or abort; however, in the future the
+<i class="no-highlight">58</i>&nbsp;     * Matchpoint log entry may also be used for sync points and and then
+<i class="no-highlight">59</i>&nbsp;     * lastSync may be ahead of lastTxnEnd.
+<i class="no-highlight">60</i>&nbsp;     */
+<i class="no-highlight">61</i>&nbsp;    private final VLSN lastSync;
+<i class="no-highlight">62</i>&nbsp;    private final VLSN lastTxnEnd;
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;    private VLSNRange(VLSN first,
+<i class="no-highlight">65</i>&nbsp;                      VLSN last,
+<i class="no-highlight">66</i>&nbsp;                      VLSN lastSync,
+<b class="nc"><i class="no-highlight">67</i>&nbsp;                      VLSN lastTxnEnd) {</b>
+<b class="nc"><i class="no-highlight">68</i>&nbsp;        this.first = first;</b>
+<b class="nc"><i class="no-highlight">69</i>&nbsp;        this.last = last;</b>
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        this.lastSync = lastSync;</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        this.lastTxnEnd = lastTxnEnd;</b>
+<i class="no-highlight">72</i>&nbsp;    }
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /**
+<i class="no-highlight">75</i>&nbsp;     * When the range is written out by the VLSNTracker, we must always be sure
+<i class="no-highlight">76</i>&nbsp;     * to update the tracker&#39;s lastVSLNOnDisk field. Return the last VLSN in 
+<i class="no-highlight">77</i>&nbsp;     * the range as part of this method, to help ensure that update.
+<i class="no-highlight">78</i>&nbsp;     * @param envImpl
+<i class="no-highlight">79</i>&nbsp;     * @param dbImpl
+<i class="no-highlight">80</i>&nbsp;     * @param txn
+<i class="no-highlight">81</i>&nbsp;     */
+<i class="no-highlight">82</i>&nbsp;    VLSN writeToDatabase(final EnvironmentImpl envImpl,
+<i class="no-highlight">83</i>&nbsp;                         final DatabaseImpl dbImpl,
+<i class="no-highlight">84</i>&nbsp;                         Txn txn) {
+<i class="no-highlight">85</i>&nbsp;
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        VLSNRangeBinding binding = new VLSNRangeBinding();</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;        DatabaseEntry key = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">88</i>&nbsp;        DatabaseEntry data = new DatabaseEntry();</b>
+<i class="no-highlight">89</i>&nbsp;
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        LongBinding.longToEntry(RANGE_KEY, key);</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        binding.objectToEntry(this, data);</b>
+<i class="no-highlight">92</i>&nbsp;
+<b class="nc"><i class="no-highlight">93</i>&nbsp;        Cursor c = null;</b>
+<i class="no-highlight">94</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">95</i>&nbsp;            c = DbInternal.makeCursor(dbImpl, </b>
+<i class="no-highlight">96</i>&nbsp;                                      txn,
+<i class="no-highlight">97</i>&nbsp;                                      CursorConfig.DEFAULT);
+<b class="nc"><i class="no-highlight">98</i>&nbsp;            DbInternal.getCursorImpl(c).setAllowEviction(false);</b>
+<i class="no-highlight">99</i>&nbsp;
+<b class="nc"><i class="no-highlight">100</i>&nbsp;            OperationStatus status = c.put(key, data);</b>
+<b class="nc"><i class="no-highlight">101</i>&nbsp;            if (status != OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">102</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                    (envImpl, &quot;Unable to write VLSNRange, status = &quot; + status);</b>
+<i class="no-highlight">104</i>&nbsp;            }
+<i class="no-highlight">105</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            if (c != null) {</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;                c.close();</b>
+<i class="no-highlight">108</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        return last;</b>
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    public static VLSNRange readFromDatabase(DatabaseEntry data) {
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        VLSNRangeBinding binding = new VLSNRangeBinding();</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        VLSNRange range = binding.entryToObject(data);</b>
+<i class="no-highlight">116</i>&nbsp;
+<b class="nc"><i class="no-highlight">117</i>&nbsp;        return range;</b>
+<i class="no-highlight">118</i>&nbsp;    }
+<i class="no-highlight">119</i>&nbsp;
+<i class="no-highlight">120</i>&nbsp;    public VLSN getFirst() {
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        return first;</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    public VLSN getLast() {
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        return last;</b>
+<i class="no-highlight">126</i>&nbsp;    }
+<i class="no-highlight">127</i>&nbsp;
+<i class="no-highlight">128</i>&nbsp;    public VLSN getLastSync() {
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        return lastSync;</b>
+<i class="no-highlight">130</i>&nbsp;    }
+<i class="no-highlight">131</i>&nbsp;
+<i class="no-highlight">132</i>&nbsp;    public VLSN getLastTxnEnd() {
+<b class="nc"><i class="no-highlight">133</i>&nbsp;        return lastTxnEnd;</b>
+<i class="no-highlight">134</i>&nbsp;    }
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    /**
+<i class="no-highlight">137</i>&nbsp;     * Return the VLSN that should come after the lastVLSN.
+<i class="no-highlight">138</i>&nbsp;     */
+<i class="no-highlight">139</i>&nbsp;    VLSN getUpcomingVLSN() {
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        return last.getNext();</b>
+<i class="no-highlight">141</i>&nbsp;    }
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /**
+<i class="no-highlight">144</i>&nbsp;     * @return true if this VLSN is within the range described by this class.
+<i class="no-highlight">145</i>&nbsp;     */
+<i class="no-highlight">146</i>&nbsp;    public boolean contains(final VLSN vlsn) {
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        if (first.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            return false;</b>
+<i class="no-highlight">149</i>&nbsp;        }
+<i class="no-highlight">150</i>&nbsp;
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        if ((first.compareTo(vlsn) &lt;= 0) &amp;&amp; (last.compareTo(vlsn) &gt;= 0)) {</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;            return true;</b>
+<i class="no-highlight">153</i>&nbsp;        }
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        return false;</b>
+<i class="no-highlight">156</i>&nbsp;    }
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * A new VLSN-&gt;LSN mapping has been registered in a bucket. Update the
+<i class="no-highlight">160</i>&nbsp;     * range accordingly.
+<i class="no-highlight">161</i>&nbsp;     */
+<i class="no-highlight">162</i>&nbsp;    VLSNRange getUpdateForNewMapping(final VLSN newValue,
+<i class="no-highlight">163</i>&nbsp;                                     final byte entryTypeNum) {
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        VLSN newFirst = first;</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        VLSN newLast = last;</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;        VLSN newLastSync = lastSync;</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        VLSN newLastTxnEnd = lastTxnEnd;</b>
+<i class="no-highlight">168</i>&nbsp;
+<b class="nc"><i class="no-highlight">169</i>&nbsp;        if (first.equals(NULL_VLSN) || first.compareTo(newValue) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;            newFirst = newValue;</b>
+<i class="no-highlight">171</i>&nbsp;        }
+<i class="no-highlight">172</i>&nbsp;
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        if (last.compareTo(newValue) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            newLast = newValue;</b>
+<i class="no-highlight">175</i>&nbsp;        }
+<i class="no-highlight">176</i>&nbsp;
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        if (LogEntryType.isSyncPoint(entryTypeNum)) {</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;            if (lastSync.compareTo(newValue) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                newLastSync = newValue;</b>
+<i class="no-highlight">180</i>&nbsp;            }
+<i class="no-highlight">181</i>&nbsp;        }
+<i class="no-highlight">182</i>&nbsp;
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        if ((entryTypeNum == commitType) || (entryTypeNum == abortType)) {</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            if (lastTxnEnd.compareTo(newValue) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;                newLastTxnEnd = newValue;</b>
+<i class="no-highlight">186</i>&nbsp;            }
+<i class="no-highlight">187</i>&nbsp;        }
+<i class="no-highlight">188</i>&nbsp;
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        return new VLSNRange(newFirst, newLast, newLastSync, newLastTxnEnd);</b>
+<i class="no-highlight">190</i>&nbsp;    }
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;    /**
+<i class="no-highlight">193</i>&nbsp;     * Incorporate the information in &quot;other&quot; in this range.
+<i class="no-highlight">194</i>&nbsp;     */
+<i class="no-highlight">195</i>&nbsp;    VLSNRange getUpdate(final VLSNRange other) {
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        VLSN newFirst = getComparison(first, other.first,</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                                      other.first.compareTo(first) &lt; 0);</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        VLSN newLast = getComparison(last, other.last,</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;                                     other.last.compareTo(last) &gt; 0);</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        VLSN newLastSync =</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;            getComparison(lastSync, other.lastSync,</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                          other.lastSync.compareTo(lastSync) &gt; 0);</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;        VLSN newLastTxnEnd =</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            getComparison(lastTxnEnd, other.lastTxnEnd,</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                          other.lastTxnEnd.compareTo(lastTxnEnd) &gt; 0);</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        return new VLSNRange(newFirst, newLast, newLastSync, newLastTxnEnd);</b>
+<i class="no-highlight">207</i>&nbsp;    }
+<i class="no-highlight">208</i>&nbsp;
+<i class="no-highlight">209</i>&nbsp;    /**
+<i class="no-highlight">210</i>&nbsp;     * The &quot;other&quot; range is going to be appended to this range.
+<i class="no-highlight">211</i>&nbsp;     */
+<i class="no-highlight">212</i>&nbsp;    VLSNRange merge(final VLSNRange other) {
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        VLSN newLast = getComparison(last, other.last, true);</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;        VLSN newLastSync = getComparison(lastSync, other.lastSync, true);</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;        VLSN newLastTxnEnd = getComparison(lastTxnEnd, other.lastTxnEnd, true);</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        return new VLSNRange(first, newLast, newLastSync, newLastTxnEnd);</b>
+<i class="no-highlight">217</i>&nbsp;    }
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;    /*
+<i class="no-highlight">220</i>&nbsp;     * We can assume that deleteStart.getPrev() is either NULL_VLSN or is
+<i class="no-highlight">221</i>&nbsp;     * on a sync-able boundary. We can also assume that lastTxnEnd has not
+<i class="no-highlight">222</i>&nbsp;     * been changed. And lastly, we can assume that this range is not empty,
+<i class="no-highlight">223</i>&nbsp;     * since that was checked earlier on.
+<i class="no-highlight">224</i>&nbsp;     */
+<i class="no-highlight">225</i>&nbsp;    VLSNRange shortenFromEnd(final VLSN deleteStart) {
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        VLSN newLast = deleteStart.getPrev();</b>
+<i class="no-highlight">227</i>&nbsp;
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        assert newLast.compareTo(lastTxnEnd) &gt;= 0 :</b>
+<i class="no-highlight">229</i>&nbsp;        &quot;Can&#39;t truncate at &quot; + newLast +
+<i class="no-highlight">230</i>&nbsp;            &quot; because it overwrites a commit at &quot; +  lastTxnEnd;
+<i class="no-highlight">231</i>&nbsp;
+<b class="nc"><i class="no-highlight">232</i>&nbsp;        if (newLast.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            return new VLSNRange(NULL_VLSN, NULL_VLSN, NULL_VLSN, NULL_VLSN);</b>
+<i class="no-highlight">234</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">235</i>&nbsp;        return new VLSNRange(first, newLast, newLast, lastTxnEnd);</b>
+<i class="no-highlight">236</i>&nbsp;    }
+<i class="no-highlight">237</i>&nbsp;
+<i class="no-highlight">238</i>&nbsp;    /*
+<i class="no-highlight">239</i>&nbsp;     * @return an new VLSNRange which starts at deleteEnd.getNext()
+<i class="no-highlight">240</i>&nbsp;     */
+<i class="no-highlight">241</i>&nbsp;    VLSNRange shortenFromHead(final VLSN deleteEnd) {
+<i class="no-highlight">242</i>&nbsp;
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        VLSN newFirst = null;</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        VLSN newLast = last;</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        if (deleteEnd.compareTo(last) == 0) {</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            newFirst = NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            newLast = NULL_VLSN;</b>
+<i class="no-highlight">248</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">249</i>&nbsp;            newFirst = deleteEnd.getNext();</b>
+<i class="no-highlight">250</i>&nbsp;        }
+<i class="no-highlight">251</i>&nbsp;
+<i class="no-highlight">252</i>&nbsp;        /* We shouldn&#39;t be truncating the last sync */
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        assert (lastSync.equals(NULL_VLSN) ||</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;                lastSync.compareTo(newFirst) &gt;= 0 ) :</b>
+<i class="no-highlight">255</i>&nbsp;            &quot;Can&#39;t truncate lastSync= &quot; + lastSync + &quot; deleteEnd=&quot; + deleteEnd;
+<i class="no-highlight">256</i>&nbsp;
+<b class="nc"><i class="no-highlight">257</i>&nbsp;        VLSN newTxnEnd = lastTxnEnd.compareTo(newFirst) &gt; 0 ?</b>
+<i class="no-highlight">258</i>&nbsp;            lastTxnEnd : NULL_VLSN;
+<i class="no-highlight">259</i>&nbsp;
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        return new VLSNRange(newFirst, newLast, lastSync, newTxnEnd);</b>
+<i class="no-highlight">261</i>&nbsp;    }
+<i class="no-highlight">262</i>&nbsp;
+<i class="no-highlight">263</i>&nbsp;    /**
+<i class="no-highlight">264</i>&nbsp;     * Compare two VLSNs, normalizing for NULL_VLSN. If one of them is
+<i class="no-highlight">265</i>&nbsp;     * NULL_VLSN, return the other one. If neither are NULL_VLSN, use the
+<i class="no-highlight">266</i>&nbsp;     * result of the comparison, expressed as the value of &quot;better&quot; to decide
+<i class="no-highlight">267</i>&nbsp;     * which one to return. If &quot;better&quot; is true, return &quot;otherVLSN&quot;.
+<i class="no-highlight">268</i>&nbsp;     */
+<i class="no-highlight">269</i>&nbsp;    private VLSN getComparison(final VLSN thisVLSN,
+<i class="no-highlight">270</i>&nbsp;                               final VLSN otherVLSN,
+<i class="no-highlight">271</i>&nbsp;                               final boolean better) {
+<b class="nc"><i class="no-highlight">272</i>&nbsp;        if (thisVLSN.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            return otherVLSN;</b>
+<i class="no-highlight">274</i>&nbsp;        }
+<i class="no-highlight">275</i>&nbsp;
+<b class="nc"><i class="no-highlight">276</i>&nbsp;        if (otherVLSN.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            return thisVLSN;</b>
+<i class="no-highlight">278</i>&nbsp;        }
+<i class="no-highlight">279</i>&nbsp;
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        if (better) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;            return otherVLSN;</b>
+<i class="no-highlight">282</i>&nbsp;        }
+<i class="no-highlight">283</i>&nbsp;
+<b class="nc"><i class="no-highlight">284</i>&nbsp;        return thisVLSN;</b>
+<i class="no-highlight">285</i>&nbsp;    }
+<i class="no-highlight">286</i>&nbsp;
+<i class="no-highlight">287</i>&nbsp;    boolean isEmpty() {
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        return first.equals(NULL_VLSN);</b>
+<i class="no-highlight">289</i>&nbsp;    }
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;    @Override
+<i class="no-highlight">292</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;        sb.append(&quot;first=&quot;).append(first);</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        sb.append(&quot; last=&quot;).append(last);</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        sb.append(&quot; sync=&quot;).append(lastSync);</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;        sb.append(&quot; txnEnd=&quot;).append(lastTxnEnd);</b>
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">299</i>&nbsp;    }
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;    /**
+<i class="no-highlight">302</i>&nbsp;     * Marshals a VLSNRange to a byte buffer to store in the database.
+<i class="no-highlight">303</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">304</i>&nbsp;    static class VLSNRangeBinding extends TupleBinding&lt;VLSNRange&gt; {</b>
+<i class="no-highlight">305</i>&nbsp;
+<i class="no-highlight">306</i>&nbsp;        @Override
+<i class="no-highlight">307</i>&nbsp;        public VLSNRange entryToObject(final TupleInput ti) {
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            int onDiskVersion = ti.readPackedInt();</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            if (onDiskVersion != VERSION) {</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                    (&quot;Don&#39;t expect version diff &quot; +</b>
+<i class="no-highlight">312</i>&nbsp;                     &quot;on_disk=&quot; + onDiskVersion +
+<i class="no-highlight">313</i>&nbsp;                     &quot; source=&quot; +
+<i class="no-highlight">314</i>&nbsp;                     VERSION);
+<i class="no-highlight">315</i>&nbsp;            }
+<i class="no-highlight">316</i>&nbsp;
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            VLSNRange range =</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;                new VLSNRange(new VLSN(ti.readPackedLong()), // first</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;                              new VLSN(ti.readPackedLong()), // last</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;                              new VLSN(ti.readPackedLong()), // lastSync</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;                              new VLSN(ti.readPackedLong())); // lastTxnEnd</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;            return range;</b>
+<i class="no-highlight">323</i>&nbsp;        }
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;        @Override
+<i class="no-highlight">326</i>&nbsp;        public void objectToEntry(final VLSNRange range,
+<i class="no-highlight">327</i>&nbsp;                                  final TupleOutput to) {
+<i class="no-highlight">328</i>&nbsp;            /* No need to store the file number -- that&#39;s the key */
+<b class="nc"><i class="no-highlight">329</i>&nbsp;            to.writePackedInt(VERSION);</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;            to.writePackedLong(range.getFirst().getSequence());</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;            to.writePackedLong(range.getLast().getSequence());</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;            to.writePackedLong(range.getLastSync().getSequence());</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;            to.writePackedLong(range.getLastTxnEnd().getSequence());</b>
+<i class="no-highlight">334</i>&nbsp;        }
+<i class="no-highlight">335</i>&nbsp;    }
+<i class="no-highlight">336</i>&nbsp;
+<i class="no-highlight">337</i>&nbsp;    boolean verify(final boolean verbose) {
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        if (first.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            if (!(last.equals(NULL_VLSN) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;                  (lastSync.equals(NULL_VLSN)) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;                  (lastTxnEnd.equals(NULL_VLSN)))) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;                if (verbose) {</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;                    System.out.println(&quot;Range: All need to be NULL_VLSN &quot; +</b>
+<i class="no-highlight">344</i>&nbsp;                                       this);
+<i class="no-highlight">345</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">346</i>&nbsp;                return false;</b>
+<i class="no-highlight">347</i>&nbsp;            }
+<i class="no-highlight">348</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">349</i>&nbsp;            if (first.compareTo(last) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;                if (verbose) {</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;                    System.out.println(&quot;Range: first &gt; last &quot; + this);</b>
+<i class="no-highlight">352</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">353</i>&nbsp;                return false;</b>
+<i class="no-highlight">354</i>&nbsp;            }
+<i class="no-highlight">355</i>&nbsp;
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            if (!lastSync.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;                if (lastSync.compareTo(last) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;                    if (verbose) {</b>
+<b class="nc"><i class="no-highlight">359</i>&nbsp;                        System.out.println(&quot;Range: lastSync &gt; last &quot; + this);</b>
+<i class="no-highlight">360</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">361</i>&nbsp;                    return false;</b>
+<i class="no-highlight">362</i>&nbsp;                }
+<i class="no-highlight">363</i>&nbsp;            }
+<i class="no-highlight">364</i>&nbsp;
+<b class="nc"><i class="no-highlight">365</i>&nbsp;            if (!lastTxnEnd.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                if (lastTxnEnd.compareTo(last) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">367</i>&nbsp;                    if (verbose) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;                        System.out.println(&quot;Range: lastTxnEnd &gt; last &quot; + this);</b>
+<i class="no-highlight">369</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">370</i>&nbsp;                    return false;</b>
+<i class="no-highlight">371</i>&nbsp;                }
+<i class="no-highlight">372</i>&nbsp;            }
+<i class="no-highlight">373</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        return true;</b>
+<i class="no-highlight">375</i>&nbsp;    }
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;    /**
+<i class="no-highlight">378</i>&nbsp;     * @return true if subsetRange is a subset of this range.
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    boolean verifySubset(final boolean verbose, final VLSNRange subsetRange) {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        if (subsetRange == null) {</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;            return true;</b>
+<i class="no-highlight">383</i>&nbsp;        }
+<i class="no-highlight">384</i>&nbsp;
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        if ((subsetRange.getFirst().equals(NULL_VLSN)) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            (subsetRange.getLast().equals(NULL_VLSN)) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;            (subsetRange.getLastSync().equals(NULL_VLSN)) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            (subsetRange.getLastTxnEnd().equals(NULL_VLSN))) {</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;            return true;</b>
+<i class="no-highlight">390</i>&nbsp;        }
+<i class="no-highlight">391</i>&nbsp;    
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        if (first.compareTo(subsetRange.getFirst()) &gt;  0) {</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            if (verbose) {</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;                System.out.println(&quot;Range: subset must be LTE: this=&quot; + this +</b>
+<i class="no-highlight">395</i>&nbsp;                                   &quot; subset=&quot; + subsetRange);
+<i class="no-highlight">396</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">397</i>&nbsp;            return false;</b>
+<i class="no-highlight">398</i>&nbsp;        }
+<i class="no-highlight">399</i>&nbsp;
+<b class="nc"><i class="no-highlight">400</i>&nbsp;        if (first.equals(NULL_VLSN)) {</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;            return true;</b>
+<i class="no-highlight">402</i>&nbsp;        }
+<i class="no-highlight">403</i>&nbsp;
+<b class="nc"><i class="no-highlight">404</i>&nbsp;        if (last.compareTo(subsetRange.getLast()) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">405</i>&nbsp;            if (verbose) {</b>
+<b class="nc"><i class="no-highlight">406</i>&nbsp;                System.out.println(&quot;Range: last must be GTE: this=&quot; + this +</b>
+<i class="no-highlight">407</i>&nbsp;                                   &quot; subsetRange=&quot; + subsetRange);
+<i class="no-highlight">408</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            return false;</b>
+<i class="no-highlight">410</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        return true;</b>
+<i class="no-highlight">412</i>&nbsp;    }
+<i class="no-highlight">413</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

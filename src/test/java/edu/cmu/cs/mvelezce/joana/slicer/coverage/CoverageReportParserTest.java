@@ -14,6 +14,13 @@ class CoverageReportParserTest {
   }
 
   @Test
+  void berkeleyParse() throws IOException {
+    String programName = "berkeley";
+    CoverageReportParser parser = new CoverageReportParser(programName);
+    parser.parse();
+  }
+
+  @Test
   void densityRead() throws IOException {
     String programName = "density";
     CoverageReportParser parser = new CoverageReportParser(programName);

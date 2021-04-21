@@ -1,0 +1,490 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > GroupService</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: GroupService (com.sleepycat.je.rep.impl)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">GroupService</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/133)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">GroupService$GroupServiceRunnable</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/6)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/17)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/139)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.rep.impl.RepParams.GROUP_NAME;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">19</i>&nbsp;import java.io.PrintWriter;
+<i class="no-highlight">20</i>&nbsp;import java.nio.channels.Channels;
+<i class="no-highlight">21</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">22</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">23</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">24</i>&nbsp;import java.util.Set;
+<i class="no-highlight">25</i>&nbsp;import java.util.StringTokenizer;
+<i class="no-highlight">26</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">27</i>&nbsp;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.rep.MasterStateException;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.MasterTransferFailureException;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.rep.MemberActiveException;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.rep.MemberNotFoundException;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.ReplicaStateException;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupImpl;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.DeleteMember;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.EnsureNode;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.FailReason;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.GroupRequest;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.RemoveMember;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.TransferMaster;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.impl.RepGroupProtocol.UpdateAddress;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.RequestMessage;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.impl.TextProtocol.ResponseMessage;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.impl.node.RepNode;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher.ExecutingService;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher.ExecutingRunnable;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">51</i>&nbsp;
+<b class="nc"><i class="no-highlight">52</i>&nbsp;public class GroupService extends ExecutingService {</b>
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /* The replication node */
+<i class="no-highlight">55</i>&nbsp;    final RepNode repNode;
+<i class="no-highlight">56</i>&nbsp;    final RepGroupProtocol protocol;
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    /**
+<i class="no-highlight">59</i>&nbsp;     * List of channels for in-flight requests.
+<i class="no-highlight">60</i>&nbsp;     * The channel is in this collection while the request is being processed,
+<i class="no-highlight">61</i>&nbsp;     * and must be removed before sending any response.
+<i class="no-highlight">62</i>&nbsp;     *
+<i class="no-highlight">63</i>&nbsp;     * @see #cancel
+<i class="no-highlight">64</i>&nbsp;     * @see #unregisterChannel
+<i class="no-highlight">65</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">66</i>&nbsp;    private final Collection&lt;DataChannel&gt; activeChannels =</b>
+<i class="no-highlight">67</i>&nbsp;        new ArrayList&lt;DataChannel&gt;();
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">70</i>&nbsp;
+<i class="no-highlight">71</i>&nbsp;    /* Identifies the Group Service. */
+<i class="no-highlight">72</i>&nbsp;    public static final String SERVICE_NAME = &quot;Group&quot;;
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    public GroupService(ServiceDispatcher dispatcher, RepNode repNode) {
+<b class="nc"><i class="no-highlight">75</i>&nbsp;        super(SERVICE_NAME, dispatcher);</b>
+<b class="nc"><i class="no-highlight">76</i>&nbsp;        this.repNode = repNode;</b>
+<i class="no-highlight">77</i>&nbsp;
+<b class="nc"><i class="no-highlight">78</i>&nbsp;        final DbConfigManager configManager =</b>
+<b class="nc"><i class="no-highlight">79</i>&nbsp;            repNode.getRepImpl().getConfigManager();</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;        String groupName = configManager.get(GROUP_NAME);</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;        protocol =</b>
+<i class="no-highlight">82</i>&nbsp;            new RepGroupProtocol(groupName,
+<b class="nc"><i class="no-highlight">83</i>&nbsp;                                 repNode.getNameIdPair(),</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;                                 repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;                                 repNode.getRepImpl().getChannelFactory());</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<i class="no-highlight">87</i>&nbsp;    }
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;    @Override
+<i class="no-highlight">90</i>&nbsp;    protected void cancel() {
+<i class="no-highlight">91</i>&nbsp;        Collection&lt;DataChannel&gt; channels;
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        synchronized (this) {</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;            channels = new ArrayList&lt;DataChannel&gt;(activeChannels);</b>
+<b class="nc"><i class="no-highlight">94</i>&nbsp;            activeChannels.clear();</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">96</i>&nbsp;        if (!channels.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;            LoggerUtils.warning</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                (logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">99</i>&nbsp;                 &quot;In-flight GroupService request(s) canceled: node shutdown&quot;);
+<i class="no-highlight">100</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">101</i>&nbsp;        for (DataChannel channel : channels) {</b>
+<i class="no-highlight">102</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                PrintWriter out =</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                    new PrintWriter(Channels.newOutputStream(channel), true);</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;                ResponseMessage rm =</b>
+<i class="no-highlight">106</i>&nbsp;                    protocol.new Fail(FailReason.DEFAULT, &quot;shutting down&quot;);
+<b class="nc"><i class="no-highlight">107</i>&nbsp;                out.println(rm.wireFormat());</b>
+<i class="no-highlight">108</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">109</i>&nbsp;                if (channel.isOpen()) {</b>
+<i class="no-highlight">110</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                        channel.close();</b>
+<i class="no-highlight">112</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                    catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                        LoggerUtils.warning</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                            (logger, repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;                             &quot;IO error on channel close: &quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                    }</b>
+<i class="no-highlight">118</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">119</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        }</b>
+<i class="no-highlight">121</i>&nbsp;    }
+<i class="no-highlight">122</i>&nbsp;
+<i class="no-highlight">123</i>&nbsp;    /* Dynamically invoked process methods */
+<i class="no-highlight">124</i>&nbsp;
+<i class="no-highlight">125</i>&nbsp;    /**
+<i class="no-highlight">126</i>&nbsp;     * Wraps the replication group as currently cached on this node in
+<i class="no-highlight">127</i>&nbsp;     * a Response message and returns it.
+<i class="no-highlight">128</i>&nbsp;     */
+<i class="no-highlight">129</i>&nbsp;    @SuppressWarnings(&quot;unused&quot;)
+<i class="no-highlight">130</i>&nbsp;    public ResponseMessage process(GroupRequest groupRequest) {
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        RepGroupImpl group = repNode.getGroup();</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        if (group == null) {</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;            return protocol.new Fail(groupRequest, FailReason.DEFAULT,</b>
+<i class="no-highlight">134</i>&nbsp;                                     &quot;no group info yet&quot;);
+<i class="no-highlight">135</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        return protocol.new GroupResponse(groupRequest, group);</b>
+<i class="no-highlight">137</i>&nbsp;    }
+<i class="no-highlight">138</i>&nbsp;
+<i class="no-highlight">139</i>&nbsp;    /**
+<i class="no-highlight">140</i>&nbsp;     * Ensures that the Monitor node, as described in the request, is a member
+<i class="no-highlight">141</i>&nbsp;     * of the group.
+<i class="no-highlight">142</i>&nbsp;     *
+<i class="no-highlight">143</i>&nbsp;     * @param ensureNode the request message describing the monitor node
+<i class="no-highlight">144</i>&nbsp;     *
+<i class="no-highlight">145</i>&nbsp;     * @return EnsureOK message if the monitor node is already part of the rep
+<i class="no-highlight">146</i>&nbsp;     * group, or was just made a part of the replication group. It returns a
+<i class="no-highlight">147</i>&nbsp;     * Fail message if it could not be made part of the group. The message
+<i class="no-highlight">148</i>&nbsp;     * associated with the response provides further details.
+<i class="no-highlight">149</i>&nbsp;     */
+<i class="no-highlight">150</i>&nbsp;    public ResponseMessage process(EnsureNode ensureNode) {
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        RepNodeImpl node = ensureNode.getNode();</b>
+<i class="no-highlight">152</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">153</i>&nbsp;            ensureMaster();</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;            repNode.getRepGroupDB().ensureMember(node);</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            RepNodeImpl enode =</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;                repNode.getGroup().getMember(node.getName());</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            return protocol.new EnsureOK(ensureNode, enode.getNameIdPair());</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        } catch (ReplicaStateException e) {</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            return protocol.new Fail(ensureNode, FailReason.IS_REPLICA,</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            return protocol.new Fail(ensureNode, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                                     e.getMessage());</b>
+<i class="no-highlight">164</i>&nbsp;        }
+<i class="no-highlight">165</i>&nbsp;    }
+<i class="no-highlight">166</i>&nbsp;
+<i class="no-highlight">167</i>&nbsp;    /**
+<i class="no-highlight">168</i>&nbsp;     * Removes a current member from the group.
+<i class="no-highlight">169</i>&nbsp;     *
+<i class="no-highlight">170</i>&nbsp;     * @param removeMember the request identifying the member to be removed.
+<i class="no-highlight">171</i>&nbsp;     *
+<i class="no-highlight">172</i>&nbsp;     * @return OK message if the member was removed from the group.
+<i class="no-highlight">173</i>&nbsp;     */
+<i class="no-highlight">174</i>&nbsp;    public ResponseMessage process(RemoveMember removeMember) {
+<b class="nc"><i class="no-highlight">175</i>&nbsp;        final String nodeName = removeMember.getNodeName();</b>
+<i class="no-highlight">176</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">177</i>&nbsp;            ensureMaster();</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;            repNode.removeMember(nodeName);</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;            return protocol.new OK(removeMember);</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        } catch (MemberNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;            return protocol.new Fail(removeMember, FailReason.MEMBER_NOT_FOUND,</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        } catch (MasterStateException e) {</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            return protocol.new Fail(removeMember, FailReason.IS_MASTER,</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;        } catch (ReplicaStateException e) {</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;            return protocol.new Fail(removeMember, FailReason.IS_REPLICA,</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        }  catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;            return protocol.new Fail(removeMember, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;                                     e.getMessage());</b>
+<i class="no-highlight">192</i>&nbsp;        }
+<i class="no-highlight">193</i>&nbsp;    }
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    /**
+<i class="no-highlight">196</i>&nbsp;     * Deletes a current member from the group, which marks the node as removed
+<i class="no-highlight">197</i>&nbsp;     * and deletes its entry from the rep group DB.
+<i class="no-highlight">198</i>&nbsp;     *
+<i class="no-highlight">199</i>&nbsp;     * @param deleteMember the request identifying the member to be deleted
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * @return OK message if the member was deleted from the group
+<i class="no-highlight">202</i>&nbsp;     */
+<i class="no-highlight">203</i>&nbsp;    public ResponseMessage process(DeleteMember deleteMember) {
+<b class="nc"><i class="no-highlight">204</i>&nbsp;        final String nodeName = deleteMember.getNodeName();</b>
+<i class="no-highlight">205</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">206</i>&nbsp;            ensureMaster();</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            repNode.removeMember(nodeName, true);</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;            return protocol.new OK(deleteMember);</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        } catch (MemberNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            return protocol.new Fail(deleteMember, FailReason.MEMBER_NOT_FOUND,</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        } catch (MasterStateException e) {</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            return protocol.new Fail(deleteMember, FailReason.IS_MASTER,</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;        } catch (ReplicaStateException e) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;            return protocol.new Fail(deleteMember, FailReason.IS_REPLICA,</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;        } catch (MemberActiveException e) {</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;            return protocol.new Fail(deleteMember, FailReason.MEMBER_ACTIVE,</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;            return protocol.new Fail(deleteMember, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;                                     e.getMessage());</b>
+<i class="no-highlight">224</i>&nbsp;        }
+<i class="no-highlight">225</i>&nbsp;    }
+<i class="no-highlight">226</i>&nbsp;
+<i class="no-highlight">227</i>&nbsp;    /**
+<i class="no-highlight">228</i>&nbsp;     * Update the network address for a dead replica.
+<i class="no-highlight">229</i>&nbsp;     *
+<i class="no-highlight">230</i>&nbsp;     * @param updateAddress the request identifying the new network address for
+<i class="no-highlight">231</i>&nbsp;     * the node.
+<i class="no-highlight">232</i>&nbsp;     *
+<i class="no-highlight">233</i>&nbsp;     * @return OK message if the address is successfully updated.
+<i class="no-highlight">234</i>&nbsp;     */
+<i class="no-highlight">235</i>&nbsp;    public ResponseMessage process(UpdateAddress updateAddress) {
+<i class="no-highlight">236</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">237</i>&nbsp;            ensureMaster();</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            repNode.updateAddress(updateAddress.getNodeName(),</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                                  updateAddress.getNewHostName(),</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                                  updateAddress.getNewPort());</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            return protocol.new OK(updateAddress);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        } catch (MemberNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            return protocol.new Fail(</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                updateAddress, FailReason.MEMBER_NOT_FOUND, e.getMessage());</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        } catch (MasterStateException e) {</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;            return protocol.new Fail(updateAddress, FailReason.IS_MASTER,</b>
+<b class="nc"><i class="no-highlight">247</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        } catch (ReplicaStateException e) {</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;            return protocol.new Fail(updateAddress, FailReason.IS_REPLICA,</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;            return protocol.new Fail(updateAddress, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;                                     e.getMessage());</b>
+<i class="no-highlight">254</i>&nbsp;        }
+<i class="no-highlight">255</i>&nbsp;    }
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;    /**
+<i class="no-highlight">258</i>&nbsp;     * Transfer the master role from the current master to one of the specified
+<i class="no-highlight">259</i>&nbsp;     * replicas.
+<i class="no-highlight">260</i>&nbsp;     *
+<i class="no-highlight">261</i>&nbsp;     * @param transferMaster the request identifying nodes to be considered for
+<i class="no-highlight">262</i>&nbsp;     * the role of new master
+<i class="no-highlight">263</i>&nbsp;     * @return null
+<i class="no-highlight">264</i>&nbsp;     */
+<i class="no-highlight">265</i>&nbsp;    public ResponseMessage process(TransferMaster transferMaster) {
+<i class="no-highlight">266</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            ensureMaster();</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;            final String nodeList = transferMaster.getNodeNameList();</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;            final Set&lt;String&gt; replicas = parseNodeList(nodeList);</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;            final long timeout = transferMaster.getTimeout();</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;            final boolean force = transferMaster.getForceFlag();</b>
+<b class="nc"><i class="no-highlight">272</i>&nbsp;            String winner = repNode.transferMaster(replicas, timeout, force);</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            return protocol.new TransferOK(transferMaster, winner);</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;        } catch (ReplicaStateException e) {</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            return protocol.new Fail(transferMaster, FailReason.IS_REPLICA,</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;        } catch (MasterTransferFailureException e) {</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;            return protocol.new Fail(transferMaster, FailReason.TRANSFER_FAIL,</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;            return protocol.new Fail(transferMaster, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                                     e.getMessage());</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;        } catch (IllegalArgumentException e) {</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;            return protocol.new Fail(transferMaster, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;                                     e.toString());</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        } catch (IllegalStateException e) {</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;            return protocol.new Fail(transferMaster, FailReason.DEFAULT,</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                                     e.toString());</b>
+<i class="no-highlight">289</i>&nbsp;        }
+<i class="no-highlight">290</i>&nbsp;    }
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;    private Set&lt;String&gt; parseNodeList(String list) {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        Set&lt;String&gt; set = new HashSet&lt;String&gt;();</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;        StringTokenizer st = new StringTokenizer(list, &quot;,&quot;);</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        while (st.hasMoreTokens()) {</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;            set.add(st.nextToken());</b>
+<i class="no-highlight">297</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        return set;</b>
+<i class="no-highlight">299</i>&nbsp;    }
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;    private void ensureMaster() throws ReplicaStateException {
+<b class="nc"><i class="no-highlight">302</i>&nbsp;        if (!repNode.isMaster()) {</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;            throw new ReplicaStateException</b>
+<i class="no-highlight">304</i>&nbsp;                (&quot;GroupService operation can only be performed at master&quot;);
+<i class="no-highlight">305</i>&nbsp;        }
+<i class="no-highlight">306</i>&nbsp;    }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;    synchronized private void registerChannel(DataChannel dc) {
+<b class="nc"><i class="no-highlight">309</i>&nbsp;        activeChannels.add(dc);</b>
+<i class="no-highlight">310</i>&nbsp;    }
+<i class="no-highlight">311</i>&nbsp;
+<i class="no-highlight">312</i>&nbsp;    /**
+<i class="no-highlight">313</i>&nbsp;     * Removes the given {@code DataChannel} from our list of active channels.
+<i class="no-highlight">314</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">315</i>&nbsp;     * Before sending any response on the channel, this method must be invoked
+<i class="no-highlight">316</i>&nbsp;     * to claim ownership of it.
+<i class="no-highlight">317</i>&nbsp;     * This avoids a potential race between the request processing thread in
+<i class="no-highlight">318</i>&nbsp;     * the normal case, and a thread calling {@code cancel()} at env shutdown
+<i class="no-highlight">319</i>&nbsp;     * time.
+<i class="no-highlight">320</i>&nbsp;     *
+<i class="no-highlight">321</i>&nbsp;     * @return true, if the channel is still active (usual case); false
+<i class="no-highlight">322</i>&nbsp;     * otherwise, presumably because the service was shut down.
+<i class="no-highlight">323</i>&nbsp;     */
+<i class="no-highlight">324</i>&nbsp;    synchronized private boolean unregisterChannel(DataChannel dc) {
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        return activeChannels.remove(dc);</b>
+<i class="no-highlight">326</i>&nbsp;    }
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;    @Override
+<i class="no-highlight">329</i>&nbsp;    public Runnable getRunnable(DataChannel dataChannel) {
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        return new GroupServiceRunnable(dataChannel, protocol);</b>
+<i class="no-highlight">331</i>&nbsp;    }
+<i class="no-highlight">332</i>&nbsp;
+<i class="no-highlight">333</i>&nbsp;    class GroupServiceRunnable extends ExecutingRunnable {
+<i class="no-highlight">334</i>&nbsp;        GroupServiceRunnable(DataChannel dataChannel,
+<b class="nc"><i class="no-highlight">335</i>&nbsp;                             RepGroupProtocol protocol) {</b>
+<b class="nc"><i class="no-highlight">336</i>&nbsp;            super(dataChannel, protocol, true);</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            registerChannel(dataChannel);</b>
+<i class="no-highlight">338</i>&nbsp;        }
+<i class="no-highlight">339</i>&nbsp;
+<i class="no-highlight">340</i>&nbsp;        @Override
+<i class="no-highlight">341</i>&nbsp;        protected ResponseMessage getResponse(RequestMessage request)
+<i class="no-highlight">342</i>&nbsp;            throws IOException {
+<i class="no-highlight">343</i>&nbsp;
+<b class="nc"><i class="no-highlight">344</i>&nbsp;            ResponseMessage rm = protocol.process(GroupService.this, request);</b>
+<i class="no-highlight">345</i>&nbsp;
+<i class="no-highlight">346</i>&nbsp;            /*
+<i class="no-highlight">347</i>&nbsp;             * If the channel has already been closed, before we got a chance to
+<i class="no-highlight">348</i>&nbsp;             * produce the response, then just discard the tardy response and
+<i class="no-highlight">349</i>&nbsp;             * return null.
+<i class="no-highlight">350</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            return unregisterChannel(channel) ? rm : null;</b>
+<i class="no-highlight">352</i>&nbsp;        }
+<i class="no-highlight">353</i>&nbsp;
+<i class="no-highlight">354</i>&nbsp;        @Override
+<i class="no-highlight">355</i>&nbsp;        protected void logMessage(String message) {
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            LoggerUtils.warning(logger, repNode.getRepImpl(), message);</b>
+<i class="no-highlight">357</i>&nbsp;        }
+<i class="no-highlight">358</i>&nbsp;    }
+<i class="no-highlight">359</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

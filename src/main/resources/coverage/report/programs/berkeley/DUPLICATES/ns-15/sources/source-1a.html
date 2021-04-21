@@ -1,0 +1,1481 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicatedEnvironment</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicatedEnvironment (com.sleepycat.je.rep)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicatedEnvironment</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/24)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/124)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ReplicatedEnvironment$State</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/30)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/134)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.File;
+<i class="no-highlight">17</i>&nbsp;import java.io.PrintStream;
+<i class="no-highlight">18</i>&nbsp;import java.util.Set;
+<i class="no-highlight">19</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.EnvironmentLockedException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.EnvironmentNotFoundException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.ReplicaConsistencyPolicy;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.VersionMismatchException;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.DbEnvPool;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.dbi.RepConfigProxy;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.dbi.StartupTracker.Phase;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.utilint.DatabaseUtil;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;/**
+<i class="no-highlight">42</i>&nbsp; * A replicated database environment that is a node in a replication
+<i class="no-highlight">43</i>&nbsp; * group. Please read the {@link &lt;a
+<i class="no-highlight">44</i>&nbsp; * href=&quot;{@docRoot}/../ReplicationGuide/introduction.html&quot;&gt;Berkeley DB JE High
+<i class="no-highlight">45</i>&nbsp; * Availability Overview&lt;/a&gt;} for an introduction to basic concepts and key
+<i class="no-highlight">46</i>&nbsp; * terminology.
+<i class="no-highlight">47</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">48</i>&nbsp; * Berkeley DB JE High Availability (JE HA) is a replicated, embedded database
+<i class="no-highlight">49</i>&nbsp; * management system which provides fast, reliable, and scalable data
+<i class="no-highlight">50</i>&nbsp; * management. JE HA enables replication of an environment across a Replication
+<i class="no-highlight">51</i>&nbsp; * Group. A ReplicatedEnvironment is a single node in the replication group.
+<i class="no-highlight">52</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">53</i>&nbsp; * ReplicatedEnvironment extends {@link Environment}. All database operations
+<i class="no-highlight">54</i>&nbsp; * are executed in the same fashion in both replicated and non replicated
+<i class="no-highlight">55</i>&nbsp; * applications, using {@link Environment} methods.  A ReplicatedEnvironment
+<i class="no-highlight">56</i>&nbsp; * must be transactional. All replicated databases created in the replicated
+<i class="no-highlight">57</i>&nbsp; * environment must be transactional as well.  However, &lt;a
+<i class="no-highlight">58</i>&nbsp; * href=&quot;#nonRepDbs&quot;&gt;non-replicated databases&lt;/a&gt; may be used as well.
+<i class="no-highlight">59</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">60</i>&nbsp; * ReplicatedEnvironment handles are analogous to {@link Environment}
+<i class="no-highlight">61</i>&nbsp; * handles. A replicated environment handle is a ReplicatedEnvironment
+<i class="no-highlight">62</i>&nbsp; * instance; multiple ReplicatedEnvironment instances may be created for the
+<i class="no-highlight">63</i>&nbsp; * same physical directory. In other words, more than one ReplicatedEnvironment
+<i class="no-highlight">64</i>&nbsp; * handle may be open at a time for a given environment.
+<i class="no-highlight">65</i>&nbsp; * &lt;/p&gt;
+<i class="no-highlight">66</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">67</i>&nbsp; * A ReplicatedEnvironment joins its replication group when it is instantiated.
+<i class="no-highlight">68</i>&nbsp; * When the constructor returns, the node will have established contact with
+<i class="no-highlight">69</i>&nbsp; * the other members of the group and will be ready to service operations. The
+<i class="no-highlight">70</i>&nbsp; * {@link &lt;a href=&quot;{@docRoot}/../ReplicationGuide/lifecycle.html&quot;&gt;life
+<i class="no-highlight">71</i>&nbsp; * cycle&lt;/a&gt;} overview is useful for understanding replication group creation.
+<i class="no-highlight">72</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">73</i>&nbsp; * The membership of a replication group is dynamically defined. The group
+<i class="no-highlight">74</i>&nbsp; * comes into being when ReplicatedEnvironments that are configured as members
+<i class="no-highlight">75</i>&nbsp; * of a group are created and discover each other. ReplicatedEnvironments are
+<i class="no-highlight">76</i>&nbsp; * identified by a group name, a node name, and a hostname:port
+<i class="no-highlight">77</i>&nbsp; * value. Membership information for electable and monitor nodes is stored in
+<i class="no-highlight">78</i>&nbsp; * an internal, replicated database available to electable and secondary nodes.
+<i class="no-highlight">79</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">80</i>&nbsp; * To start a node and join a group, instantiate a ReplicatedEnvironment. The
+<i class="no-highlight">81</i>&nbsp; * very first instantiation of a node differs slightly from all future
+<i class="no-highlight">82</i>&nbsp; * instantiations. A brand new, empty node does not yet have access to the
+<i class="no-highlight">83</i>&nbsp; * membership database, so it must discover the group with the aid of a
+<i class="no-highlight">84</i>&nbsp; * helper node, which is a fellow member. If this is the very first node of the
+<i class="no-highlight">85</i>&nbsp; * entire group, there is no available helper. Instead, the helper host address
+<i class="no-highlight">86</i>&nbsp; * to use is the node&#39;s own address. The example below takes the simple
+<i class="no-highlight">87</i>&nbsp; * approach of creating a replication group by starting up a node that will act
+<i class="no-highlight">88</i>&nbsp; * as the first master, though it is not necessary to follow this order.
+<i class="no-highlight">89</i>&nbsp; * {@link &lt;a
+<i class="no-highlight">90</i>&nbsp; * href=&quot;{@docRoot}/../ReplicationGuide/progoverview.html#configrepenv&quot;&gt;
+<i class="no-highlight">91</i>&nbsp; * Configuring Replicated Environments&lt;/a&gt;} describes group startup in greater
+<i class="no-highlight">92</i>&nbsp; * detail.
+<i class="no-highlight">93</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">94</i>&nbsp; * To create the &lt;b&gt;master node in a brand new group&lt;/b&gt;, instantiate a
+<i class="no-highlight">95</i>&nbsp; * ReplicatedEnvironment this way:
+<i class="no-highlight">96</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">97</i>&nbsp; * EnvironmentConfig envConfig = new EnvironmentConfig();
+<i class="no-highlight">98</i>&nbsp; * envConfig.setAllowCreate(true);
+<i class="no-highlight">99</i>&nbsp; * envConfig.setTransactional(true);
+<i class="no-highlight">100</i>&nbsp; *
+<i class="no-highlight">101</i>&nbsp; * // Identify the node
+<i class="no-highlight">102</i>&nbsp; * ReplicationConfig repConfig = new ReplicationConfig();
+<i class="no-highlight">103</i>&nbsp; * repConfig.setGroupName(&quot;PlanetaryRepGroup&quot;);
+<i class="no-highlight">104</i>&nbsp; * repConfig.setNodeName(&quot;Mercury&quot;);
+<i class="no-highlight">105</i>&nbsp; * repConfig.setNodeHostPort(&quot;mercury.acme.com:5001&quot;);
+<i class="no-highlight">106</i>&nbsp; *
+<i class="no-highlight">107</i>&nbsp; * // This is the first node, so its helper is itself
+<i class="no-highlight">108</i>&nbsp; * repConfig.setHelperHosts(&quot;mercury.acme.com:5001&quot;);
+<i class="no-highlight">109</i>&nbsp; *
+<i class="no-highlight">110</i>&nbsp; * ReplicatedEnvironment repEnv =
+<i class="no-highlight">111</i>&nbsp; *     new ReplicatedEnvironment(envHome, repConfig, envConfig);
+<i class="no-highlight">112</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">113</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">114</i>&nbsp; * To create a new node when there are &lt;b&gt;other existing group members&lt;/b&gt;,
+<i class="no-highlight">115</i>&nbsp; * set a helper address which points to an existing node in the group. A simple
+<i class="no-highlight">116</i>&nbsp; * way to bring up a new group is to &quot;chain&quot; the new nodes by having the
+<i class="no-highlight">117</i>&nbsp; * helpers reference a previously created node.
+<i class="no-highlight">118</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">119</i>&nbsp; * EnvironmentConfig envConfig = new EnvironmentConfig();
+<i class="no-highlight">120</i>&nbsp; * envConfig.setAllowCreate(true);
+<i class="no-highlight">121</i>&nbsp; * envConfig.setTransactional(true);
+<i class="no-highlight">122</i>&nbsp; *
+<i class="no-highlight">123</i>&nbsp; * // Identify the node
+<i class="no-highlight">124</i>&nbsp; * ReplicationConfig repConfig =
+<i class="no-highlight">125</i>&nbsp; *     new ReplicationConfig(&quot;PlanetaryRepGroup&quot;,
+<i class="no-highlight">126</i>&nbsp; *                           &quot;Jupiter&quot;,
+<i class="no-highlight">127</i>&nbsp; *                           &quot;jupiter.acme.com:5002&quot;);
+<i class="no-highlight">128</i>&nbsp; *
+<i class="no-highlight">129</i>&nbsp; * // Use the node at mercury.acme.com:5001 as a helper to find the rest
+<i class="no-highlight">130</i>&nbsp; * // of the group.
+<i class="no-highlight">131</i>&nbsp; * repConfig.setHelperHosts(&quot;mercury.acme.com:5001&quot;);
+<i class="no-highlight">132</i>&nbsp; *
+<i class="no-highlight">133</i>&nbsp; * ReplicatedEnvironment repEnv =
+<i class="no-highlight">134</i>&nbsp; *     new ReplicatedEnvironment(envHome, repConfig, envConfig);
+<i class="no-highlight">135</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">136</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">137</i>&nbsp; * In these examples, node Mercury was configured as its own helper, and
+<i class="no-highlight">138</i>&nbsp; * becomes the first master. The next nodes were configured to use Mercury as
+<i class="no-highlight">139</i>&nbsp; * their helper, and became replicas. It is also possible to start these in
+<i class="no-highlight">140</i>&nbsp; * reverse order, bringing mercury up last. In that case, the earlier nodes
+<i class="no-highlight">141</i>&nbsp; * will block until a helper is awake and can service their requests for group
+<i class="no-highlight">142</i>&nbsp; * metadata.
+<i class="no-highlight">143</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">144</i>&nbsp; * Creating a ReplicatedEnvironment for an &lt;b&gt;existing environment&lt;/b&gt; requires
+<i class="no-highlight">145</i>&nbsp; * less configuration. The call
+<i class="no-highlight">146</i>&nbsp; * to {@code EnvironmentConfig.setAllowCreate()} is eliminated to guard
+<i class="no-highlight">147</i>&nbsp; * against the unintentional creation of a new environment. Also, there is no
+<i class="no-highlight">148</i>&nbsp; * need to set a helper host address, because the environment exists and has
+<i class="no-highlight">149</i>&nbsp; * access to the shared, persistent membership information.
+<i class="no-highlight">150</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">151</i>&nbsp; * EnvironmentConfig envConfig = new EnvironmentConfig();
+<i class="no-highlight">152</i>&nbsp; * envConfig.setTransactional(true);
+<i class="no-highlight">153</i>&nbsp; * ReplicationConfig repConfig =
+<i class="no-highlight">154</i>&nbsp; *     new ReplicationConfig(&quot;PlanetaryRepGroup&quot;,
+<i class="no-highlight">155</i>&nbsp; *                           &quot;Mercury&quot;,
+<i class="no-highlight">156</i>&nbsp; *                           &quot;mercury.acme.com:5001&quot;);
+<i class="no-highlight">157</i>&nbsp; *
+<i class="no-highlight">158</i>&nbsp; * ReplicatedEnvironment repEnv =
+<i class="no-highlight">159</i>&nbsp; *     new ReplicatedEnvironment(envHome, repConfig, envConfig);
+<i class="no-highlight">160</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">161</i>&nbsp; * &lt;/p&gt;
+<i class="no-highlight">162</i>&nbsp; * {@literal See} {@link com.sleepycat.je.rep.util.ReplicationGroupAdmin
+<i class="no-highlight">163</i>&nbsp; * ReplicationGroupAdmin} for information on how to remove nodes from the
+<i class="no-highlight">164</i>&nbsp; * replication group.
+<i class="no-highlight">165</i>&nbsp; *
+<i class="no-highlight">166</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">167</i>&nbsp; * ReplicatedEnvironment properties can be set via the the {@literal
+<i class="no-highlight">168</i>&nbsp; * &lt;environmentHome&gt;/}je.properties file, just like {@link Environment}
+<i class="no-highlight">169</i>&nbsp; * properties. They follow the same property value precedence rules.
+<i class="no-highlight">170</i>&nbsp; *
+<i class="no-highlight">171</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">172</i>&nbsp; * A replicated environment directory can only be accessed by a read write
+<i class="no-highlight">173</i>&nbsp; * ReplicatedEnvironment handle or a read only {@link Environment} handle.  In
+<i class="no-highlight">174</i>&nbsp; * the current release, there is an additional restriction that a read only
+<i class="no-highlight">175</i>&nbsp; * {@link Environment} is only permitted when the directory is not also
+<i class="no-highlight">176</i>&nbsp; * accessed from a different process by a read/write ReplicatedEnvironment. If
+<i class="no-highlight">177</i>&nbsp; * a read/write ReplicatedEnvironment and a read only {@link Environment} from
+<i class="no-highlight">178</i>&nbsp; * two different processes concurrently access an environment directory, there
+<i class="no-highlight">179</i>&nbsp; * is the small possibility that the read only {@link Environment} may see
+<i class="no-highlight">180</i>&nbsp; * see exceptions thrown about an inconsistent log if the ReplicatedEnvironment
+<i class="no-highlight">181</i>&nbsp; * executes certain kinds of failover. There is no problem if the {@link
+<i class="no-highlight">182</i>&nbsp; * Environment} and ReplicatedEnvironment are in the same process, or are not
+<i class="no-highlight">183</i>&nbsp; * concurrent.
+<i class="no-highlight">184</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">185</i>&nbsp; * JE HA prohibits opening a replicated environment directory with a read/write
+<i class="no-highlight">186</i>&nbsp; * {@link Environment} handle, because from the group&#39;s perspective,
+<i class="no-highlight">187</i>&nbsp; * unreplicated updates to a single node would cause data inconsistency.  To
+<i class="no-highlight">188</i>&nbsp; * use an existing, non-replicated environment to bootstrap a replication
+<i class="no-highlight">189</i>&nbsp; * group, use {@link com.sleepycat.je.rep.util.DbEnableReplication} to do a one
+<i class="no-highlight">190</i>&nbsp; * time conversion of the directory.
+<i class="no-highlight">191</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">192</i>&nbsp; * All other database objects, such as {@link com.sleepycat.je.Database} or
+<i class="no-highlight">193</i>&nbsp; * {@link com.sleepycat.je.Cursor} (when using the Base API) or {@link
+<i class="no-highlight">194</i>&nbsp; * com.sleepycat.persist.EntityStore} or {@link
+<i class="no-highlight">195</i>&nbsp; * com.sleepycat.persist.PrimaryIndex} (when using the Direct Persistence
+<i class="no-highlight">196</i>&nbsp; * Layer) should be created, used and closed before calling {@link
+<i class="no-highlight">197</i>&nbsp; * ReplicatedEnvironment#close}.
+<i class="no-highlight">198</i>&nbsp; *
+<i class="no-highlight">199</i>&nbsp; * &lt;p&gt;Replicated environments can be created with node type {@link
+<i class="no-highlight">200</i>&nbsp; * NodeType#ELECTABLE} or {@link NodeType#SECONDARY}. ELECTABLE nodes can be
+<i class="no-highlight">201</i>&nbsp; * masters or replicas, and participate in both master elections and commit
+<i class="no-highlight">202</i>&nbsp; * durability decisions.
+<i class="no-highlight">203</i>&nbsp; *
+<i class="no-highlight">204</i>&nbsp; * &lt;p&gt;SECONDARY nodes can only be replicas, not masters, and do not participate
+<i class="no-highlight">205</i>&nbsp; * in either elections or durability decisions.  SECONDARY nodes can be used to
+<i class="no-highlight">206</i>&nbsp; * increase the available number of read replicas without changing the election
+<i class="no-highlight">207</i>&nbsp; * or durability quorum of the group, and without requiring communication with
+<i class="no-highlight">208</i>&nbsp; * the secondaries during master elections or transaction commits. As a result,
+<i class="no-highlight">209</i>&nbsp; * SECONDARY nodes are a good choice for nodes that are connected to the other
+<i class="no-highlight">210</i>&nbsp; * nodes in the group by high latency network connections, for example over
+<i class="no-highlight">211</i>&nbsp; * long distance networks.  SECONDARY nodes maintain replication streams with
+<i class="no-highlight">212</i>&nbsp; * the replication group master to update the data contents of their
+<i class="no-highlight">213</i>&nbsp; * environment.
+<i class="no-highlight">214</i>&nbsp; *
+<i class="no-highlight">215</i>&nbsp; * &lt;p&gt;You can use SECONDARY nodes to:
+<i class="no-highlight">216</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">217</i>&nbsp; * &lt;li&gt;Provide a copy of the data available at a distant location
+<i class="no-highlight">218</i>&nbsp; * &lt;li&gt;Maintain an extra copy of the data to increase redundancy
+<i class="no-highlight">219</i>&nbsp; * &lt;li&gt;Change the number of replicas to adjust to dynamically changing read
+<i class="no-highlight">220</i>&nbsp; *     loads
+<i class="no-highlight">221</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">222</i>&nbsp; *
+<i class="no-highlight">223</i>&nbsp; * &lt;p&gt;Membership information for SECONDARY nodes is not stored persistently, so
+<i class="no-highlight">224</i>&nbsp; * their membership is only known to the master, and only while the nodes
+<i class="no-highlight">225</i>&nbsp; * remain connected to the master.  Because a SECONDARY node cannot become a
+<i class="no-highlight">226</i>&nbsp; * master, it will not act as master even if it is the first node created for
+<i class="no-highlight">227</i>&nbsp; * the group.
+<i class="no-highlight">228</i>&nbsp; *
+<i class="no-highlight">229</i>&nbsp; * &lt;h3&gt;&lt;a name=&quot;nonRepDbs&quot;&gt;Non-replicated Databases in a Replicated
+<i class="no-highlight">230</i>&nbsp; * Environment&lt;/a&gt;&lt;/h3&gt;
+<i class="no-highlight">231</i>&nbsp; *
+<i class="no-highlight">232</i>&nbsp; * A database or entity store in a replicated environment is replicated by
+<i class="no-highlight">233</i>&nbsp; * default, but may be explicitly configured as non-replicated using
+<i class="no-highlight">234</i>&nbsp; * {@link com.sleepycat.je.DatabaseConfig#setReplicated} or
+<i class="no-highlight">235</i>&nbsp; * {@link com.sleepycat.persist.StoreConfig#setReplicated}.  Such
+<i class="no-highlight">236</i>&nbsp; * non-replicated databases may be transactional or non-transactional
+<i class="no-highlight">237</i>&nbsp; * (including deferred-write and temporary).  The special considerations for
+<i class="no-highlight">238</i>&nbsp; * using non-replicated databases in a replicated environment are described
+<i class="no-highlight">239</i>&nbsp; * below.
+<i class="no-highlight">240</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">241</i>&nbsp; * The data in a non-replicated database is not guaranteed to be persistent,
+<i class="no-highlight">242</i>&nbsp; * for two reasons.
+<i class="no-highlight">243</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">244</i>&nbsp; * &lt;li&gt;
+<i class="no-highlight">245</i>&nbsp; * When a hard recovery occurs as part of an election, some data at the end of
+<i class="no-highlight">246</i>&nbsp; * the transaction log may be lost.  For a replicated database this data is
+<i class="no-highlight">247</i>&nbsp; * automatically recovered from other members of the group, but for a
+<i class="no-highlight">248</i>&nbsp; * non-replicated database it is not.
+<i class="no-highlight">249</i>&nbsp; * &lt;/li&gt;
+<i class="no-highlight">250</i>&nbsp; * &lt;li&gt;
+<i class="no-highlight">251</i>&nbsp; * When a node&#39;s contents are replaced via network restore or by otherwise
+<i class="no-highlight">252</i>&nbsp; * copying the transaction log from another node, all previously existing
+<i class="no-highlight">253</i>&nbsp; * non-replicated databases on that node are destroyed, and the non-replicated
+<i class="no-highlight">254</i>&nbsp; * databases from the source node are copied along with the replicated
+<i class="no-highlight">255</i>&nbsp; * data.  The non-replicated databases copied from the source node will be in
+<i class="no-highlight">256</i>&nbsp; * whatever state they were in at the time of the copy.
+<i class="no-highlight">257</i>&nbsp; * &lt;/li&gt;
+<i class="no-highlight">258</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">259</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">260</i>&nbsp; * Therefore, non-replicated databases are intended to be used primarily for
+<i class="no-highlight">261</i>&nbsp; * persistent caching and other non-critical local storage.  The application
+<i class="no-highlight">262</i>&nbsp; * is responsible for maintaining the state of the database and handling data
+<i class="no-highlight">263</i>&nbsp; * loss after one the events described above.
+<i class="no-highlight">264</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">265</i>&nbsp; * To perform write operations on a non-replicated database, special
+<i class="no-highlight">266</i>&nbsp; * considerations are necessary for user-supplied transactions.  Namely, the
+<i class="no-highlight">267</i>&nbsp; * transaction must be configured for
+<i class="no-highlight">268</i>&nbsp; * {@link com.sleepycat.je.TransactionConfig#setLocalWrite(boolean)
+<i class="no-highlight">269</i>&nbsp; * local-write}.  A given transaction may be used to write to either replicated
+<i class="no-highlight">270</i>&nbsp; * databases or non-replicated databases, but not both.
+<i class="no-highlight">271</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">272</i>&nbsp; * For auto-commit transactions (when the Transaction parameter is null), the
+<i class="no-highlight">273</i>&nbsp; * local-write setting is automatically set to correspond to whether the
+<i class="no-highlight">274</i>&nbsp; * database is replicated. With auto-commit, local-write is always true for a
+<i class="no-highlight">275</i>&nbsp; * non-replicated database, and always false for a replicated database.
+<i class="no-highlight">276</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">277</i>&nbsp; * A local-write transaction automatically uses
+<i class="no-highlight">278</i>&nbsp; * {@link com.sleepycat.je.Durability.ReplicaAckPolicy#NONE}.
+<i class="no-highlight">279</i>&nbsp; * A local-write transaction on a Master will thus not be held up, or
+<i class="no-highlight">280</i>&nbsp; * throw {@link com.sleepycat.je.rep.InsufficientReplicasException}, if the
+<i class="no-highlight">281</i>&nbsp; * Master is not in contact with a sufficient number of Replicas at the
+<i class="no-highlight">282</i>&nbsp; * time the transaction is initiated.
+<i class="no-highlight">283</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">284</i>&nbsp; * For read operations, a single transaction may be used to read any
+<i class="no-highlight">285</i>&nbsp; * combination of replicated and non-replicated databases. If only read
+<i class="no-highlight">286</i>&nbsp; * operations are performed, it is normally desirable to configure a user
+<i class="no-highlight">287</i>&nbsp; * supplied transaction as
+<i class="no-highlight">288</i>&nbsp; * {@link com.sleepycat.je.TransactionConfig#setReadOnly(boolean) read-only}.
+<i class="no-highlight">289</i>&nbsp; * Like a local-write transaction, a read-only transaction automatically uses
+<i class="no-highlight">290</i>&nbsp; * {@link com.sleepycat.je.Durability.ReplicaAckPolicy#NONE}.
+<i class="no-highlight">291</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">292</i>&nbsp; * For user-supplied transactions, note that even when accessing only
+<i class="no-highlight">293</i>&nbsp; * non-replicated databases, group consistency checks &lt;em&gt;are&lt;/em&gt; performed by
+<i class="no-highlight">294</i>&nbsp; * default. In this case it is normally desirable to disable consistency
+<i class="no-highlight">295</i>&nbsp; * checks by calling
+<i class="no-highlight">296</i>&nbsp; * {@link com.sleepycat.je.TransactionConfig#setConsistencyPolicy} with
+<i class="no-highlight">297</i>&nbsp; * {@link NoConsistencyRequiredPolicy#NO_CONSISTENCY}.  This allows the
+<i class="no-highlight">298</i>&nbsp; * non-replicated databases to be accessed regardless of the state of the other
+<i class="no-highlight">299</i>&nbsp; * members of the group and the network connections to them.  When auto-commit
+<i class="no-highlight">300</i>&nbsp; * is used (when the Transaction parameter is null) with a non-replicated
+<i class="no-highlight">301</i>&nbsp; * database, consistency checks are automatically disabled.
+<i class="no-highlight">302</i>&nbsp; *
+<i class="no-highlight">303</i>&nbsp; * @see Environment
+<i class="no-highlight">304</i>&nbsp; * @see &lt;a href=&quot;{@docRoot}/../ReplicationGuide/progoverview.html&quot;
+<i class="no-highlight">305</i>&nbsp; * target=&quot;_top&quot;&gt;Replication First Steps&lt;/a&gt;
+<i class="no-highlight">306</i>&nbsp; * @since 4.0
+<i class="no-highlight">307</i>&nbsp; */
+<i class="no-highlight">308</i>&nbsp;public class ReplicatedEnvironment extends Environment {
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;    /*
+<i class="no-highlight">311</i>&nbsp;     * The canonical RepImpl associated with the environment directory,
+<i class="no-highlight">312</i>&nbsp;     * accessed by different handles.
+<i class="no-highlight">313</i>&nbsp;     *
+<i class="no-highlight">314</i>&nbsp;     * The repEnvironmentImpl field is set to null during close to avoid OOME.
+<i class="no-highlight">315</i>&nbsp;     * It should normally only be accessed via the checkOpen (which calls
+<i class="no-highlight">316</i>&nbsp;     * Environment.checkOpen) and getNonNullRepImpl methods. During close, while
+<i class="no-highlight">317</i>&nbsp;     * synchronized, it is safe to access it directly.
+<i class="no-highlight">318</i>&nbsp;     */
+<i class="no-highlight">319</i>&nbsp;    private volatile RepImpl repEnvironmentImpl;
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    /* The unique name and id associated with the node. */
+<i class="no-highlight">322</i>&nbsp;    private final NameIdPair nameIdPair;
+<i class="no-highlight">323</i>&nbsp;
+<i class="no-highlight">324</i>&nbsp;    /*
+<i class="no-highlight">325</i>&nbsp;     * The replication configuration that has been used to create this
+<i class="no-highlight">326</i>&nbsp;     * handle. This is derived from the original configuration argument, after
+<i class="no-highlight">327</i>&nbsp;     * cloning a copy to keep it distinct from the user&#39;s instance, applying
+<i class="no-highlight">328</i>&nbsp;     * je.properties settings, and validating against the underlying node.
+<i class="no-highlight">329</i>&nbsp;     */
+<i class="no-highlight">330</i>&nbsp;    private ReplicationConfig handleRepConfig;
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;    /**
+<i class="no-highlight">333</i>&nbsp;     * Creates a replicated environment handle and starts participating in the
+<i class="no-highlight">334</i>&nbsp;     * replication group as either a Master or a Replica. The node&#39;s state is
+<i class="no-highlight">335</i>&nbsp;     * determined when it joins the group, and mastership is not preconfigured.
+<i class="no-highlight">336</i>&nbsp;     * If the group has no current master and the node has the default node
+<i class="no-highlight">337</i>&nbsp;     * type of {@link NodeType#ELECTABLE}, then creation of a handle will
+<i class="no-highlight">338</i>&nbsp;     * trigger an election to determine whether this node will participate as a
+<i class="no-highlight">339</i>&nbsp;     * Master or a Replica.
+<i class="no-highlight">340</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">341</i>&nbsp;     * If the node participates as a Master, the constructor will return after
+<i class="no-highlight">342</i>&nbsp;     * a sufficient number of Replicas, in accordance with the
+<i class="no-highlight">343</i>&nbsp;     * {@code initialElectionPolicy} argument, have established contact with
+<i class="no-highlight">344</i>&nbsp;     * the Master.
+<i class="no-highlight">345</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">346</i>&nbsp;     * If the node participates as a Replica, it will become consistent in
+<i class="no-highlight">347</i>&nbsp;     * accordance with the {@code consistencyPolicy} argument before returning
+<i class="no-highlight">348</i>&nbsp;     * from the constructor.
+<i class="no-highlight">349</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">350</i>&nbsp;     * If an election cannot be concluded in the time period defined by {@link
+<i class="no-highlight">351</i>&nbsp;     * ReplicationConfig#ENV_SETUP_TIMEOUT}, by default it will throw an {@code
+<i class="no-highlight">352</i>&nbsp;     * UnknownMasterException}. This behavior can be overridden via the {@link
+<i class="no-highlight">353</i>&nbsp;     * ReplicationConfig#ENV_UNKNOWN_STATE_TIMEOUT} to permit the creation of
+<i class="no-highlight">354</i>&nbsp;     * the handle in the {@link State#UNKNOWN} state. A handle in UNKNOWN state
+<i class="no-highlight">355</i>&nbsp;     * can be used to service read operations with an appropriately relaxed
+<i class="no-highlight">356</i>&nbsp;     * consistency policy. Note that these timeouts do not apply when opening
+<i class="no-highlight">357</i>&nbsp;     * an environment for the very first time. In the first time case, if the
+<i class="no-highlight">358</i>&nbsp;     * node is not the only group member, or if it is a SECONDARY node, the
+<i class="no-highlight">359</i>&nbsp;     * constructor will wait indefinitely until it can contact an existing
+<i class="no-highlight">360</i>&nbsp;     * group member.
+<i class="no-highlight">361</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">362</i>&nbsp;     * A brand new node will always join an existing group as a Replica, unless
+<i class="no-highlight">363</i>&nbsp;     * it is the very first electable node that is creating the group. In that
+<i class="no-highlight">364</i>&nbsp;     * case it joins as the Master of the newly formed singleton group. A brand
+<i class="no-highlight">365</i>&nbsp;     * new node must always specify one or more active helper nodes via the
+<i class="no-highlight">366</i>&nbsp;     * {@link ReplicationConfig#setHelperHosts(String)} method, or via the
+<i class="no-highlight">367</i>&nbsp;     * &lt;code&gt;&amp;lt;environment home&amp;gt;/je.properties&lt;/code&gt; file. If this is the
+<i class="no-highlight">368</i>&nbsp;     * very first member of a nascent group, it must specify just itself as the
+<i class="no-highlight">369</i>&nbsp;     * helper.
+<i class="no-highlight">370</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">371</i>&nbsp;     * There are special considerations to keep in mind when a replication
+<i class="no-highlight">372</i>&nbsp;     * group is started and elections are first held to determine a master. The
+<i class="no-highlight">373</i>&nbsp;     * default {@link QuorumPolicy#SIMPLE_MAJORITY} calls
+<i class="no-highlight">374</i>&nbsp;     * for a simple majority vote. If the group members were previously created
+<i class="no-highlight">375</i>&nbsp;     * and populated, the default election policy may result in the election of
+<i class="no-highlight">376</i>&nbsp;     * a master that may not have the most up to date copy of the environment.
+<i class="no-highlight">377</i>&nbsp;     * This could happen if the best qualified node is slow to start up; it&#39;s
+<i class="no-highlight">378</i>&nbsp;     * possible that by the time it&#39;s ready to participate in an election, the
+<i class="no-highlight">379</i>&nbsp;     * election has already have completed with a simple majority.
+<i class="no-highlight">380</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">381</i>&nbsp;     * To avoid this possibility, the method has a parameter
+<i class="no-highlight">382</i>&nbsp;     * initialElectionPolicy, which can be used to specify
+<i class="no-highlight">383</i>&nbsp;     * {@link QuorumPolicy#ALL}, which will cause the
+<i class="no-highlight">384</i>&nbsp;     * elections to wait until all electable nodes can vote. By ensuring that
+<i class="no-highlight">385</i>&nbsp;     * all the nodes can vote, the best possible node is chosen to be the
+<i class="no-highlight">386</i>&nbsp;     * master at group startup.
+<i class="no-highlight">387</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">388</i>&nbsp;     * Note that it is the application&#39;s responsibility to ensure that all
+<i class="no-highlight">389</i>&nbsp;     * electable nodes coordinate their choice of initialElectionPolicy so that
+<i class="no-highlight">390</i>&nbsp;     * the very first elections held when a group is brought up use the same
+<i class="no-highlight">391</i>&nbsp;     * value for this parameter. This parameter is only used for the first
+<i class="no-highlight">392</i>&nbsp;     * election.  After the first election has been held and the group is
+<i class="no-highlight">393</i>&nbsp;     * functioning, subsequent elections do not require participation of all
+<i class="no-highlight">394</i>&nbsp;     * the nodes. A simple majority is sufficient to elect the node with the
+<i class="no-highlight">395</i>&nbsp;     * most up to date environment as the master.
+<i class="no-highlight">396</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">397</i>&nbsp;     *
+<i class="no-highlight">398</i>&nbsp;     * @param envHome The environment&#39;s home directory.
+<i class="no-highlight">399</i>&nbsp;     *
+<i class="no-highlight">400</i>&nbsp;     * @param repConfig replication configurations. If null, the default
+<i class="no-highlight">401</i>&nbsp;     * replication configurations are used.
+<i class="no-highlight">402</i>&nbsp;     *
+<i class="no-highlight">403</i>&nbsp;     * @param envConfig environment configurations for this node. If null, the
+<i class="no-highlight">404</i>&nbsp;     * default environment configurations are used.
+<i class="no-highlight">405</i>&nbsp;     *
+<i class="no-highlight">406</i>&nbsp;     * @param consistencyPolicy the consistencyPolicy used by the Replica at
+<i class="no-highlight">407</i>&nbsp;     * startup to make its environment current with respect to the master. This
+<i class="no-highlight">408</i>&nbsp;     * differs from the consistency policy specified
+<i class="no-highlight">409</i>&nbsp;     * {@link ReplicationConfig#setConsistencyPolicy} because it is used only
+<i class="no-highlight">410</i>&nbsp;     * at construction, when the node joins the group for the first time. The
+<i class="no-highlight">411</i>&nbsp;     * consistency policy set in {@link ReplicationConfig} is used any time a
+<i class="no-highlight">412</i>&nbsp;     * policy is used after node startup, such as at transaction begins.
+<i class="no-highlight">413</i>&nbsp;     *
+<i class="no-highlight">414</i>&nbsp;     * @param initialElectionPolicy the policy to use when holding the initial
+<i class="no-highlight">415</i>&nbsp;     * election.
+<i class="no-highlight">416</i>&nbsp;     *
+<i class="no-highlight">417</i>&nbsp;     * @throws RestartRequiredException if some type of corrective action is
+<i class="no-highlight">418</i>&nbsp;     * required. The subclasses of this exception provide further details.
+<i class="no-highlight">419</i>&nbsp;     *
+<i class="no-highlight">420</i>&nbsp;     * @throws ReplicaConsistencyException if it is a Replica and cannot
+<i class="no-highlight">421</i>&nbsp;     * satisfy the specified consistency policy within the consistency timeout
+<i class="no-highlight">422</i>&nbsp;     * period
+<i class="no-highlight">423</i>&nbsp;     *
+<i class="no-highlight">424</i>&nbsp;     * @throws UnknownMasterException if the
+<i class="no-highlight">425</i>&nbsp;     * {@link ReplicationConfig#ENV_UNKNOWN_STATE_TIMEOUT} has a zero value and
+<i class="no-highlight">426</i>&nbsp;     * the node cannot join the group in the time period specified by the
+<i class="no-highlight">427</i>&nbsp;     * {@link ReplicationConfig#ENV_SETUP_TIMEOUT} property. The node may be
+<i class="no-highlight">428</i>&nbsp;     * unable to join the group because the Master could not be determined due
+<i class="no-highlight">429</i>&nbsp;     * to a lack of sufficient nodes as required by the election policy, or
+<i class="no-highlight">430</i>&nbsp;     * because a master was present but lacked a
+<i class="no-highlight">431</i>&nbsp;     * {@link QuorumPolicy#SIMPLE_MAJORITY} needed to update the environment
+<i class="no-highlight">432</i>&nbsp;     * with information about this node, if it&#39;s a new node and is joining the
+<i class="no-highlight">433</i>&nbsp;     * group for the first time.
+<i class="no-highlight">434</i>&nbsp;     *
+<i class="no-highlight">435</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">436</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">437</i>&nbsp;     *
+<i class="no-highlight">438</i>&nbsp;     * @throws EnvironmentLockedException when an environment cannot be opened
+<i class="no-highlight">439</i>&nbsp;     * for write access because another process has the same environment open
+<i class="no-highlight">440</i>&nbsp;     * for write access. &lt;strong&gt;Warning:&lt;/strong&gt; This exception should be
+<i class="no-highlight">441</i>&nbsp;     * handled when an environment is opened by more than one process.
+<i class="no-highlight">442</i>&nbsp;     *
+<i class="no-highlight">443</i>&nbsp;     * @throws VersionMismatchException when the existing log is not compatible
+<i class="no-highlight">444</i>&nbsp;     * with the version of JE that is running. This occurs when a later version
+<i class="no-highlight">445</i>&nbsp;     * of JE was used to create the log. &lt;strong&gt;Warning:&lt;/strong&gt; This
+<i class="no-highlight">446</i>&nbsp;     * exception should be handled when more than one version of JE may be used
+<i class="no-highlight">447</i>&nbsp;     * to access an environment.
+<i class="no-highlight">448</i>&nbsp;     *
+<i class="no-highlight">449</i>&nbsp;     * @throws UnsupportedOperationException if the environment exists and has
+<i class="no-highlight">450</i>&nbsp;     * not been enabled for replication.
+<i class="no-highlight">451</i>&nbsp;     *
+<i class="no-highlight">452</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified,
+<i class="no-highlight">453</i>&nbsp;     * for example, an invalid {@code EnvironmentConfig} parameter.
+<i class="no-highlight">454</i>&nbsp;     */
+<i class="no-highlight">455</i>&nbsp;    public ReplicatedEnvironment(File envHome,
+<i class="no-highlight">456</i>&nbsp;                                 ReplicationConfig repConfig,
+<i class="no-highlight">457</i>&nbsp;                                 EnvironmentConfig envConfig,
+<i class="no-highlight">458</i>&nbsp;                                 ReplicaConsistencyPolicy consistencyPolicy,
+<i class="no-highlight">459</i>&nbsp;                                 QuorumPolicy initialElectionPolicy)
+<i class="no-highlight">460</i>&nbsp;        throws EnvironmentNotFoundException,
+<i class="no-highlight">461</i>&nbsp;               EnvironmentLockedException,
+<i class="no-highlight">462</i>&nbsp;               InsufficientLogException,
+<i class="no-highlight">463</i>&nbsp;               ReplicaConsistencyException,
+<i class="no-highlight">464</i>&nbsp;               IllegalArgumentException {
+<i class="no-highlight">465</i>&nbsp;
+<b class="nc"><i class="no-highlight">466</i>&nbsp;        this(envHome,</b>
+<i class="no-highlight">467</i>&nbsp;             repConfig,
+<i class="no-highlight">468</i>&nbsp;             envConfig,
+<i class="no-highlight">469</i>&nbsp;             consistencyPolicy,
+<i class="no-highlight">470</i>&nbsp;             initialElectionPolicy,
+<i class="no-highlight">471</i>&nbsp;             true /*joinGroup*/,
+<i class="no-highlight">472</i>&nbsp;             null /*envImplParam*/);
+<i class="no-highlight">473</i>&nbsp;    }
+<i class="no-highlight">474</i>&nbsp;
+<i class="no-highlight">475</i>&nbsp;    /**
+<i class="no-highlight">476</i>&nbsp;     * A convenience constructor that defaults the replica consistency policy
+<i class="no-highlight">477</i>&nbsp;     * and the initial election policy to be used.
+<i class="no-highlight">478</i>&nbsp;     *
+<i class="no-highlight">479</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">480</i>&nbsp;     * The default replica consistency policy results in the replica being
+<i class="no-highlight">481</i>&nbsp;     * consistent with the master as of the time the handle was created.
+<i class="no-highlight">482</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">483</i>&nbsp;     *
+<i class="no-highlight">484</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">485</i>&nbsp;     * The default initial election policy is
+<i class="no-highlight">486</i>&nbsp;     * {@link QuorumPolicy#SIMPLE_MAJORITY}
+<i class="no-highlight">487</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">488</i>&nbsp;     *
+<i class="no-highlight">489</i>&nbsp;     * @throws RestartRequiredException if some type of corrective action is
+<i class="no-highlight">490</i>&nbsp;     * required. The subclasses of this exception provide further details.
+<i class="no-highlight">491</i>&nbsp;     *
+<i class="no-highlight">492</i>&nbsp;     * @throws ReplicaConsistencyException if it is a Replica and and cannot be
+<i class="no-highlight">493</i>&nbsp;     * made consistent within the timeout specified by
+<i class="no-highlight">494</i>&nbsp;     * {@link ReplicationConfig#ENV_CONSISTENCY_TIMEOUT}
+<i class="no-highlight">495</i>&nbsp;     *
+<i class="no-highlight">496</i>&nbsp;     * @throws UnknownMasterException if the
+<i class="no-highlight">497</i>&nbsp;     * {@link ReplicationConfig#ENV_UNKNOWN_STATE_TIMEOUT} has a zero value and
+<i class="no-highlight">498</i>&nbsp;     * the node cannot join the group in the time period specified by the
+<i class="no-highlight">499</i>&nbsp;     * {@link ReplicationConfig#ENV_SETUP_TIMEOUT} property. The node may be
+<i class="no-highlight">500</i>&nbsp;     * unable to join the group because the Master could not be determined due
+<i class="no-highlight">501</i>&nbsp;     * to a lack of sufficient nodes as required by the election policy, or
+<i class="no-highlight">502</i>&nbsp;     * because a master was present but lacked a
+<i class="no-highlight">503</i>&nbsp;     * {@link QuorumPolicy#SIMPLE_MAJORITY} needed to update the environment
+<i class="no-highlight">504</i>&nbsp;     * with information about this node, if it&#39;s a new node and is joining the
+<i class="no-highlight">505</i>&nbsp;     * group for the first time.
+<i class="no-highlight">506</i>&nbsp;     *
+<i class="no-highlight">507</i>&nbsp;     * @throws EnvironmentLockedException when an environment cannot be opened
+<i class="no-highlight">508</i>&nbsp;     * for write access because another process has the same environment open
+<i class="no-highlight">509</i>&nbsp;     * for write access. &lt;strong&gt;Warning:&lt;/strong&gt; This exception should be
+<i class="no-highlight">510</i>&nbsp;     * handled when an environment is opened by more than one process.
+<i class="no-highlight">511</i>&nbsp;     *
+<i class="no-highlight">512</i>&nbsp;     * @throws VersionMismatchException when the existing log is not compatible
+<i class="no-highlight">513</i>&nbsp;     * with the version of JE that is running. This occurs when a later version
+<i class="no-highlight">514</i>&nbsp;     * of JE was used to create the log. &lt;strong&gt;Warning:&lt;/strong&gt; This
+<i class="no-highlight">515</i>&nbsp;     * exception should be handled when more than one version of JE may be used
+<i class="no-highlight">516</i>&nbsp;     * to access an environment.
+<i class="no-highlight">517</i>&nbsp;     *
+<i class="no-highlight">518</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">519</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">520</i>&nbsp;     *
+<i class="no-highlight">521</i>&nbsp;     * @throws UnsupportedOperationException if the environment exists and has
+<i class="no-highlight">522</i>&nbsp;     * not been enabled for replication.
+<i class="no-highlight">523</i>&nbsp;     *
+<i class="no-highlight">524</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified,
+<i class="no-highlight">525</i>&nbsp;     * for example, an invalid {@code EnvironmentConfig} parameter.
+<i class="no-highlight">526</i>&nbsp;     *
+<i class="no-highlight">527</i>&nbsp;     * @see #ReplicatedEnvironment(File, ReplicationConfig, EnvironmentConfig,
+<i class="no-highlight">528</i>&nbsp;     * ReplicaConsistencyPolicy, QuorumPolicy)
+<i class="no-highlight">529</i>&nbsp;     */
+<i class="no-highlight">530</i>&nbsp;    public ReplicatedEnvironment(File envHome,
+<i class="no-highlight">531</i>&nbsp;                                 ReplicationConfig repConfig,
+<i class="no-highlight">532</i>&nbsp;                                 EnvironmentConfig envConfig)
+<i class="no-highlight">533</i>&nbsp;        throws EnvironmentNotFoundException,
+<i class="no-highlight">534</i>&nbsp;               EnvironmentLockedException,
+<i class="no-highlight">535</i>&nbsp;               ReplicaConsistencyException,
+<i class="no-highlight">536</i>&nbsp;               InsufficientLogException,
+<i class="no-highlight">537</i>&nbsp;               RollbackException,
+<i class="no-highlight">538</i>&nbsp;               IllegalArgumentException {
+<i class="no-highlight">539</i>&nbsp;
+<b class="nc"><i class="no-highlight">540</i>&nbsp;        this(envHome, repConfig, envConfig, null /*consistencyPolicy*/,</b>
+<i class="no-highlight">541</i>&nbsp;             QuorumPolicy.SIMPLE_MAJORITY);
+<i class="no-highlight">542</i>&nbsp;    }
+<i class="no-highlight">543</i>&nbsp;
+<i class="no-highlight">544</i>&nbsp;    /*
+<i class="no-highlight">545</i>&nbsp;     * Joins the replication group as part of the creation of a handle.
+<i class="no-highlight">546</i>&nbsp;     */
+<i class="no-highlight">547</i>&nbsp;    private void joinGroup(RepImpl repImpl,
+<i class="no-highlight">548</i>&nbsp;                           ReplicaConsistencyPolicy consistencyPolicy,
+<i class="no-highlight">549</i>&nbsp;                           QuorumPolicy initialElectionPolicy)
+<i class="no-highlight">550</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">551</i>&nbsp;
+<i class="no-highlight">552</i>&nbsp;        /* Just return if we don&#39;t want to join the group. */
+<b class="nc"><i class="no-highlight">553</i>&nbsp;        if (dontJoinGroup()) {</b>
+<i class="no-highlight">554</i>&nbsp;            return;
+<i class="no-highlight">555</i>&nbsp;        }
+<i class="no-highlight">556</i>&nbsp;
+<b class="nc"><i class="no-highlight">557</i>&nbsp;        State state = null;</b>
+<i class="no-highlight">558</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">559</i>&nbsp;            state =</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                repImpl.joinGroup(consistencyPolicy, initialElectionPolicy);</b>
+<i class="no-highlight">561</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">562</i>&nbsp;            if (state == null) {</b>
+<i class="no-highlight">563</i>&nbsp;
+<i class="no-highlight">564</i>&nbsp;                /*
+<i class="no-highlight">565</i>&nbsp;                 * Something bad happened, close the environment down with
+<i class="no-highlight">566</i>&nbsp;                 * minimal activity. The environment may not actually be
+<i class="no-highlight">567</i>&nbsp;                 * invalidated, but the constructor did not succeed, so it&#39;s
+<i class="no-highlight">568</i>&nbsp;                 * logically invalid. We don&#39;t go to the effort of invalidating
+<i class="no-highlight">569</i>&nbsp;                 * the environment, to avoid masking the original problem. Use
+<i class="no-highlight">570</i>&nbsp;                 * abnormalClose() because it will remove the
+<i class="no-highlight">571</i>&nbsp;                 * environment from the environment pool.
+<i class="no-highlight">572</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                repImpl.abnormalClose();</b>
+<i class="no-highlight">574</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        }</b>
+<i class="no-highlight">576</i>&nbsp;    }
+<i class="no-highlight">577</i>&nbsp;
+<i class="no-highlight">578</i>&nbsp;    /* Return true if this node won&#39;t join the group. */
+<i class="no-highlight">579</i>&nbsp;    private boolean dontJoinGroup() {
+<b class="nc"><i class="no-highlight">580</i>&nbsp;        return new Boolean(getRepConfig().getConfigParam</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;                (RepParams.DONT_JOIN_REP_GROUP.getName()));</b>
+<i class="no-highlight">582</i>&nbsp;    }
+<i class="no-highlight">583</i>&nbsp;
+<i class="no-highlight">584</i>&nbsp;    /**
+<i class="no-highlight">585</i>&nbsp;     * For internal use only.
+<i class="no-highlight">586</i>&nbsp;     * @hidden
+<i class="no-highlight">587</i>&nbsp;     *
+<i class="no-highlight">588</i>&nbsp;     * Note that repImpl.joinGroup is a synchronized
+<i class="no-highlight">589</i>&nbsp;     * method, and therefore protected against multiple concurrent attempts to
+<i class="no-highlight">590</i>&nbsp;     * create a handle.
+<i class="no-highlight">591</i>&nbsp;     *
+<i class="no-highlight">592</i>&nbsp;     * @param envImplParam is non-null only when used by EnvironmentIml to
+<i class="no-highlight">593</i>&nbsp;     * create an InternalEnvironment.
+<i class="no-highlight">594</i>&nbsp;     */
+<i class="no-highlight">595</i>&nbsp;    protected ReplicatedEnvironment(File envHome,
+<i class="no-highlight">596</i>&nbsp;                                    ReplicationConfig repConfig,
+<i class="no-highlight">597</i>&nbsp;                                    EnvironmentConfig envConfig,
+<i class="no-highlight">598</i>&nbsp;                                    ReplicaConsistencyPolicy consistencyPolicy,
+<i class="no-highlight">599</i>&nbsp;                                    QuorumPolicy initialElectionPolicy,
+<i class="no-highlight">600</i>&nbsp;                                    boolean joinGroup,
+<i class="no-highlight">601</i>&nbsp;                                    RepImpl envImplParam)
+<i class="no-highlight">602</i>&nbsp;        throws EnvironmentNotFoundException,
+<i class="no-highlight">603</i>&nbsp;               EnvironmentLockedException,
+<i class="no-highlight">604</i>&nbsp;               ReplicaConsistencyException,
+<i class="no-highlight">605</i>&nbsp;               IllegalArgumentException {
+<i class="no-highlight">606</i>&nbsp;
+<b class="nc"><i class="no-highlight">607</i>&nbsp;        super(envHome, envConfig, repConfig, envImplParam);</b>
+<i class="no-highlight">608</i>&nbsp;
+<b class="nc"><i class="no-highlight">609</i>&nbsp;        repEnvironmentImpl = (RepImpl) DbInternal.getNonNullEnvImpl(this);</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;        nameIdPair = repEnvironmentImpl.getNameIdPair();</b>
+<i class="no-highlight">611</i>&nbsp;
+<i class="no-highlight">612</i>&nbsp;        /*
+<i class="no-highlight">613</i>&nbsp;         * Ensure that the DataChannelFactory configuration is usable
+<i class="no-highlight">614</i>&nbsp;         * and initialize logging state.
+<i class="no-highlight">615</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">616</i>&nbsp;        repEnvironmentImpl.initializeChannelFactory();</b>
+<i class="no-highlight">617</i>&nbsp;
+<b class="nc"><i class="no-highlight">618</i>&nbsp;        if (joinGroup) {</b>
+<i class="no-highlight">619</i>&nbsp;
+<i class="no-highlight">620</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">621</i>&nbsp;                joinGroup(</b>
+<i class="no-highlight">622</i>&nbsp;                    repEnvironmentImpl, consistencyPolicy,
+<i class="no-highlight">623</i>&nbsp;                    initialElectionPolicy);
+<i class="no-highlight">624</i>&nbsp;
+<b class="nc"><i class="no-highlight">625</i>&nbsp;            } catch (RollbackException e) {</b>
+<i class="no-highlight">626</i>&nbsp;
+<i class="no-highlight">627</i>&nbsp;                /*
+<i class="no-highlight">628</i>&nbsp;                 * Syncup failed, a hard recovery is needed. Throwing the
+<i class="no-highlight">629</i>&nbsp;                 * RollbackException closed the RepImpl and the EnvironmentImpl
+<i class="no-highlight">630</i>&nbsp;                 * Redo the creation of RepImpl and retry the join once. If the
+<i class="no-highlight">631</i>&nbsp;                 * second joinGroup fails, let the exception throw out to the
+<i class="no-highlight">632</i>&nbsp;                 * user.
+<i class="no-highlight">633</i>&nbsp;                 *
+<i class="no-highlight">634</i>&nbsp;                 * Clear references to the old envImpl/repImpl, to prevent OOME
+<i class="no-highlight">635</i>&nbsp;                 * during recovery when we retry below.
+<i class="no-highlight">636</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">637</i>&nbsp;                DbInternal.clearEnvImpl(this);</b>
+<b class="nc"><i class="no-highlight">638</i>&nbsp;                repEnvironmentImpl = null;</b>
+<i class="no-highlight">639</i>&nbsp;
+<b class="nc"><i class="no-highlight">640</i>&nbsp;                repEnvironmentImpl = (RepImpl) makeEnvironmentImpl(</b>
+<i class="no-highlight">641</i>&nbsp;                    envHome, envConfig, repConfig);
+<i class="no-highlight">642</i>&nbsp;
+<i class="no-highlight">643</i>&nbsp;                /*
+<i class="no-highlight">644</i>&nbsp;                 * Ensure that the DataChannelFactory configuration is usable
+<i class="no-highlight">645</i>&nbsp;                 * and initialize logging state.
+<i class="no-highlight">646</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                repEnvironmentImpl.initializeChannelFactory();</b>
+<i class="no-highlight">648</i>&nbsp;
+<b class="nc"><i class="no-highlight">649</i>&nbsp;                joinGroup(</b>
+<i class="no-highlight">650</i>&nbsp;                    repEnvironmentImpl, consistencyPolicy,
+<i class="no-highlight">651</i>&nbsp;                    initialElectionPolicy);
+<i class="no-highlight">652</i>&nbsp;
+<b class="nc"><i class="no-highlight">653</i>&nbsp;                repEnvironmentImpl.setHardRecoveryInfo(e);</b>
+<b class="nc"><i class="no-highlight">654</i>&nbsp;            }</b>
+<i class="no-highlight">655</i>&nbsp;
+<i class="no-highlight">656</i>&nbsp;            /*
+<i class="no-highlight">657</i>&nbsp;             * Fire a JoinGroupEvent only when the ReplicatedEnvironment is
+<i class="no-highlight">658</i>&nbsp;             * successfully created for the first time.
+<i class="no-highlight">659</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">660</i>&nbsp;            if (repEnvironmentImpl.getRepNode() != null) {</b>
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                repEnvironmentImpl.getRepNode().</b>
+<b class="nc"><i class="no-highlight">662</i>&nbsp;                    getMonitorEventManager().notifyJoinGroup();</b>
+<i class="no-highlight">663</i>&nbsp;            }
+<i class="no-highlight">664</i>&nbsp;        } else {
+<i class="no-highlight">665</i>&nbsp;            /* For testing only */
+<b class="nc"><i class="no-highlight">666</i>&nbsp;            if (repEnvironmentImpl.getRepNode() != null) {</b>
+<b class="nc"><i class="no-highlight">667</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">668</i>&nbsp;                    (&quot;An earlier handle creation had resulted in the node&quot; +</b>
+<i class="no-highlight">669</i>&nbsp;                     &quot;joining the group&quot;);
+<i class="no-highlight">670</i>&nbsp;            }
+<i class="no-highlight">671</i>&nbsp;        }
+<i class="no-highlight">672</i>&nbsp;    }
+<i class="no-highlight">673</i>&nbsp;
+<i class="no-highlight">674</i>&nbsp;    /**
+<i class="no-highlight">675</i>&nbsp;     * @hidden
+<i class="no-highlight">676</i>&nbsp;     * For internal use only.
+<i class="no-highlight">677</i>&nbsp;     *
+<i class="no-highlight">678</i>&nbsp;     * Validate and resolve replication configuration params, and extract a
+<i class="no-highlight">679</i>&nbsp;     * ReplicationConfig with those params for passing into environment
+<i class="no-highlight">680</i>&nbsp;     * creation. Note that a copy of the ReplicationConfig argument is created
+<i class="no-highlight">681</i>&nbsp;     * to insulate the application from changes made by the replication
+<i class="no-highlight">682</i>&nbsp;     * implementation and vice versa.
+<i class="no-highlight">683</i>&nbsp;     */
+<i class="no-highlight">684</i>&nbsp;    @Override
+<i class="no-highlight">685</i>&nbsp;    protected RepConfigProxy setupRepConfig(File envHome,
+<i class="no-highlight">686</i>&nbsp;                                            RepConfigProxy repConfigProxy,
+<i class="no-highlight">687</i>&nbsp;                                            EnvironmentConfig envConfig) {
+<i class="no-highlight">688</i>&nbsp;
+<i class="no-highlight">689</i>&nbsp;        /**
+<i class="no-highlight">690</i>&nbsp;         * If the user specified a null object, use the default. Apply the
+<i class="no-highlight">691</i>&nbsp;         * je.properties file to the replication config object.
+<i class="no-highlight">692</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">693</i>&nbsp;        ReplicationConfig repConfig = (ReplicationConfig) repConfigProxy;</b>
+<b class="nc"><i class="no-highlight">694</i>&nbsp;        ReplicationConfig baseConfig =</b>
+<i class="no-highlight">695</i>&nbsp;            (repConfig == null) ? ReplicationConfig.DEFAULT : repConfig;
+<b class="nc"><i class="no-highlight">696</i>&nbsp;        ReplicationConfig useConfig = baseConfig.clone();</b>
+<i class="no-highlight">697</i>&nbsp;
+<b class="nc"><i class="no-highlight">698</i>&nbsp;        if (envConfig.getReadOnly()) {</b>
+<i class="no-highlight">699</i>&nbsp;
+<i class="no-highlight">700</i>&nbsp;            /*
+<i class="no-highlight">701</i>&nbsp;             * Read-only replicated environments are not usually permitted,
+<i class="no-highlight">702</i>&nbsp;             * since a RN should be able to assume master identity
+<i class="no-highlight">703</i>&nbsp;             * at any moment. ReadOnly is only supported if the node is an
+<i class="no-highlight">704</i>&nbsp;             * arbiter, subscriber or network backup.
+<i class="no-highlight">705</i>&nbsp;             *
+<i class="no-highlight">706</i>&nbsp;             * TBW: the arbiter, subscriber, and a network backup all need a
+<i class="no-highlight">707</i>&nbsp;             * replicated environment handle that has pieces of the env
+<i class="no-highlight">708</i>&nbsp;             * infrastructure, like info logging, service dispatching, log file
+<i class="no-highlight">709</i>&nbsp;             * management. The user of XXX_USE parameters is really selecting
+<i class="no-highlight">710</i>&nbsp;             * those infrastructure pieces in an implicit way. It would be nice
+<i class="no-highlight">711</i>&nbsp;             * to have a way to specify which services they use in a more
+<i class="no-highlight">712</i>&nbsp;             * explicit way. To do so, we probably need to do a bit of
+<i class="no-highlight">713</i>&nbsp;             * refactoring of the env handle to call out those components.
+<i class="no-highlight">714</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">715</i>&nbsp;            boolean arbUse = useConfig.getConfigParam(</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;                RepParams.ARBITER_USE.getName()).equals(&quot;true&quot;);</b>
+<b class="nc"><i class="no-highlight">717</i>&nbsp;            boolean subUse = useConfig.getConfigParam(</b>
+<b class="nc"><i class="no-highlight">718</i>&nbsp;                    RepParams.SUBSCRIBER_USE.getName()).equals(&quot;true&quot;);</b>
+<b class="nc"><i class="no-highlight">719</i>&nbsp;            boolean networkBackupUse = useConfig.getConfigParam(</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;                    RepParams.NETWORKBACKUP_USE.getName()).equals(&quot;true&quot;);</b>
+<i class="no-highlight">721</i>&nbsp;
+<b class="nc"><i class="no-highlight">722</i>&nbsp;            if (!arbUse &amp;&amp; !subUse &amp;&amp; !networkBackupUse) {</b>
+<b class="nc"><i class="no-highlight">723</i>&nbsp;                throw new IllegalArgumentException(&quot;A replicated environment &quot; +</b>
+<i class="no-highlight">724</i>&nbsp;                        &quot;may not be opened read-only&quot;);
+<i class="no-highlight">725</i>&nbsp;            }
+<i class="no-highlight">726</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">727</i>&nbsp;        DbConfigManager.applyFileConfig(envHome,</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                                        useConfig.getProps(),</b>
+<i class="no-highlight">729</i>&nbsp;                                        true); /* forReplication */
+<b class="nc"><i class="no-highlight">730</i>&nbsp;        useConfig.propagateRepNetProps();</b>
+<b class="nc"><i class="no-highlight">731</i>&nbsp;        this.handleRepConfig = useConfig;</b>
+<b class="nc"><i class="no-highlight">732</i>&nbsp;        return handleRepConfig;</b>
+<i class="no-highlight">733</i>&nbsp;    }
+<i class="no-highlight">734</i>&nbsp;
+<i class="no-highlight">735</i>&nbsp;    /**
+<i class="no-highlight">736</i>&nbsp;     * Returns the unique name used to identify this replicated environment.
+<i class="no-highlight">737</i>&nbsp;     * @see ReplicationConfig#setNodeName
+<i class="no-highlight">738</i>&nbsp;     *
+<i class="no-highlight">739</i>&nbsp;     * @return the node name
+<i class="no-highlight">740</i>&nbsp;     */
+<i class="no-highlight">741</i>&nbsp;    public String getNodeName() {
+<b class="nc"><i class="no-highlight">742</i>&nbsp;        return nameIdPair.getName();</b>
+<i class="no-highlight">743</i>&nbsp;    }
+<i class="no-highlight">744</i>&nbsp;
+<i class="no-highlight">745</i>&nbsp;    /**
+<i class="no-highlight">746</i>&nbsp;     * Returns the current state of the node associated with this replication
+<i class="no-highlight">747</i>&nbsp;     * environment. See {@link State} for a description of node states.
+<i class="no-highlight">748</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">749</i>&nbsp;     * If the caller&#39;s intent is to track the state of the node,
+<i class="no-highlight">750</i>&nbsp;     * {@link StateChangeListener} may be a more convenient and efficient
+<i class="no-highlight">751</i>&nbsp;     * approach, rather than using getState() directly.
+<i class="no-highlight">752</i>&nbsp;     *
+<i class="no-highlight">753</i>&nbsp;     * @return the current replication state associated with this node
+<i class="no-highlight">754</i>&nbsp;     *
+<i class="no-highlight">755</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">756</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">757</i>&nbsp;     *
+<i class="no-highlight">758</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">759</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">760</i>&nbsp;     */
+<i class="no-highlight">761</i>&nbsp;    public State getState()
+<i class="no-highlight">762</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">763</i>&nbsp;
+<b class="nc"><i class="no-highlight">764</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">765</i>&nbsp;
+<i class="no-highlight">766</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">767</i>&nbsp;            return repImpl.getState();</b>
+<b class="nc"><i class="no-highlight">768</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">769</i>&nbsp;            repImpl.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">770</i>&nbsp;            throw E;</b>
+<i class="no-highlight">771</i>&nbsp;        }
+<i class="no-highlight">772</i>&nbsp;    }
+<i class="no-highlight">773</i>&nbsp;
+<i class="no-highlight">774</i>&nbsp;    /**
+<i class="no-highlight">775</i>&nbsp;     * Returns a description of the replication group as known by this node.
+<i class="no-highlight">776</i>&nbsp;     * The replicated group metadata is stored in a replicated database and
+<i class="no-highlight">777</i>&nbsp;     * updates are propagated by the current master node to all replicas. If
+<i class="no-highlight">778</i>&nbsp;     * this node is not the master, it is possible for its description of the
+<i class="no-highlight">779</i>&nbsp;     * group to be out of date, and it will not include information about
+<i class="no-highlight">780</i>&nbsp;     * SECONDARY nodes.
+<i class="no-highlight">781</i>&nbsp;     *
+<i class="no-highlight">782</i>&nbsp;     * @return the group description
+<i class="no-highlight">783</i>&nbsp;     *
+<i class="no-highlight">784</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">785</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">786</i>&nbsp;     *
+<i class="no-highlight">787</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">788</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">789</i>&nbsp;     */
+<i class="no-highlight">790</i>&nbsp;    /*
+<i class="no-highlight">791</i>&nbsp;     * TODO: EXTERNAL is hidden for now. The doc need updated to include
+<i class="no-highlight">792</i>&nbsp;     * EXTERNAL when it becomes public.
+<i class="no-highlight">793</i>&nbsp;     */
+<i class="no-highlight">794</i>&nbsp;    public ReplicationGroup getGroup()
+<i class="no-highlight">795</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">796</i>&nbsp;
+<b class="nc"><i class="no-highlight">797</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">800</i>&nbsp;            return new ReplicationGroup(repImpl.getRepNode().getGroup());</b>
+<b class="nc"><i class="no-highlight">801</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">802</i>&nbsp;            repImpl.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">803</i>&nbsp;            throw E;</b>
+<i class="no-highlight">804</i>&nbsp;        }
+<i class="no-highlight">805</i>&nbsp;    }
+<i class="no-highlight">806</i>&nbsp;
+<i class="no-highlight">807</i>&nbsp;    /**
+<i class="no-highlight">808</i>&nbsp;     * Close this ReplicatedEnvironment and release any resources used by the
+<i class="no-highlight">809</i>&nbsp;     * handle.
+<i class="no-highlight">810</i>&nbsp;     *
+<i class="no-highlight">811</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">812</i>&nbsp;     * When the last handle is closed, allocated resources are freed, and
+<i class="no-highlight">813</i>&nbsp;     * daemon threads are stopped, even if they are performing work. The node
+<i class="no-highlight">814</i>&nbsp;     * ceases participation in the replication group. If the node was currently
+<i class="no-highlight">815</i>&nbsp;     * the master, the rest of the group will hold an election. If a quorum of
+<i class="no-highlight">816</i>&nbsp;     * nodes can participate in the election, a new master will be chosen.
+<i class="no-highlight">817</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">818</i>&nbsp;     * The ReplicatedEnvironment should not be closed while any other type of
+<i class="no-highlight">819</i>&nbsp;     * handle that refers to it is not yet closed. For example, the
+<i class="no-highlight">820</i>&nbsp;     * ReplicatedEnvironment should not be closed while there are open Database
+<i class="no-highlight">821</i>&nbsp;     * instances, or while transactions in the environment have not yet
+<i class="no-highlight">822</i>&nbsp;     * committed or aborted. Specifically, this includes {@link
+<i class="no-highlight">823</i>&nbsp;     * com.sleepycat.je.Database Database}, {@link com.sleepycat.je.Cursor
+<i class="no-highlight">824</i>&nbsp;     * Cursor} and {@link com.sleepycat.je.Transaction Transaction} handles.
+<i class="no-highlight">825</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">826</i>&nbsp;     *
+<i class="no-highlight">827</i>&nbsp;     * &lt;p&gt;WARNING: To guard against memory leaks, the application should
+<i class="no-highlight">828</i>&nbsp;     * discard all references to the closed handle.  While BDB makes an effort
+<i class="no-highlight">829</i>&nbsp;     * to discard references from closed objects to the allocated memory for an
+<i class="no-highlight">830</i>&nbsp;     * environment, this behavior is not guaranteed.  The safe course of action
+<i class="no-highlight">831</i>&nbsp;     * for an application is to discard all references to closed BDB
+<i class="no-highlight">832</i>&nbsp;     * objects.&lt;/p&gt;
+<i class="no-highlight">833</i>&nbsp;     */
+<i class="no-highlight">834</i>&nbsp;    @Override
+<i class="no-highlight">835</i>&nbsp;    synchronized public void close()
+<i class="no-highlight">836</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">837</i>&nbsp;
+<i class="no-highlight">838</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">839</i>&nbsp;            super.close();</b>
+<b class="nc"><i class="no-highlight">840</i>&nbsp;        } catch (DatabaseException e) {</b>
+<i class="no-highlight">841</i>&nbsp;            /* Add this node&#39;s address to the exception message for clarity. */
+<b class="nc"><i class="no-highlight">842</i>&nbsp;            e.addErrorMessage(&quot;Problem closing handle &quot; + nameIdPair);</b>
+<b class="nc"><i class="no-highlight">843</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">844</i>&nbsp;        } catch (Exception e) {</b>
+<i class="no-highlight">845</i>&nbsp;            /* Add this node&#39;s address to the exception message for clarity. */
+<b class="nc"><i class="no-highlight">846</i>&nbsp;            throw new EnvironmentFailureException(</b>
+<i class="no-highlight">847</i>&nbsp;                repEnvironmentImpl,
+<i class="no-highlight">848</i>&nbsp;                EnvironmentFailureReason.UNEXPECTED_EXCEPTION,
+<i class="no-highlight">849</i>&nbsp;                &quot;Problem closing handle &quot; + nameIdPair, e);
+<i class="no-highlight">850</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">851</i>&nbsp;            repEnvironmentImpl = null;</b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;        }</b>
+<i class="no-highlight">853</i>&nbsp;    }
+<i class="no-highlight">854</i>&nbsp;
+<i class="no-highlight">855</i>&nbsp;    /**
+<i class="no-highlight">856</i>&nbsp;     * Sets the listener used to receive asynchronous replication node state
+<i class="no-highlight">857</i>&nbsp;     * change events. Note that there is one listener per replication node, not
+<i class="no-highlight">858</i>&nbsp;     * one per handle. Invoking this method replaces the previous Listener.
+<i class="no-highlight">859</i>&nbsp;     *
+<i class="no-highlight">860</i>&nbsp;     * Invoking this method typically results in an immediate callback to the
+<i class="no-highlight">861</i>&nbsp;     * application via the {@link StateChangeListener#stateChange} method, so
+<i class="no-highlight">862</i>&nbsp;     * that the application is made aware of the existing state of the
+<i class="no-highlight">863</i>&nbsp;     * node at the time &lt;code&gt;StateChangeListener&lt;/code&gt; is first established.
+<i class="no-highlight">864</i>&nbsp;     *
+<i class="no-highlight">865</i>&nbsp;     * @param listener the state change listener.
+<i class="no-highlight">866</i>&nbsp;     *
+<i class="no-highlight">867</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">868</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">869</i>&nbsp;     *
+<i class="no-highlight">870</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">871</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">872</i>&nbsp;     */
+<i class="no-highlight">873</i>&nbsp;    public void setStateChangeListener(StateChangeListener listener)
+<i class="no-highlight">874</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">875</i>&nbsp;
+<b class="nc"><i class="no-highlight">876</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">877</i>&nbsp;
+<i class="no-highlight">878</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">879</i>&nbsp;            repImpl.setChangeListener(listener);</b>
+<b class="nc"><i class="no-highlight">880</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">881</i>&nbsp;            repImpl.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">882</i>&nbsp;            throw E;</b>
+<b class="nc"><i class="no-highlight">883</i>&nbsp;        }</b>
+<i class="no-highlight">884</i>&nbsp;    }
+<i class="no-highlight">885</i>&nbsp;
+<i class="no-highlight">886</i>&nbsp;    /**
+<i class="no-highlight">887</i>&nbsp;     * Returns the listener used to receive asynchronous replication node state
+<i class="no-highlight">888</i>&nbsp;     * change events. A StateChangeListener provides the replication
+<i class="no-highlight">889</i>&nbsp;     * application with an asynchronous mechanism for tracking the {@link
+<i class="no-highlight">890</i>&nbsp;     * State State} of the replicated environment.
+<i class="no-highlight">891</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">892</i>&nbsp;     * Note that there is one listener per replication node, not one per
+<i class="no-highlight">893</i>&nbsp;     * ReplicatedEnvironment handle.
+<i class="no-highlight">894</i>&nbsp;     *
+<i class="no-highlight">895</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">896</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">897</i>&nbsp;     *
+<i class="no-highlight">898</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">899</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">900</i>&nbsp;     */
+<i class="no-highlight">901</i>&nbsp;    public StateChangeListener getStateChangeListener()
+<i class="no-highlight">902</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">903</i>&nbsp;
+<b class="nc"><i class="no-highlight">904</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">905</i>&nbsp;
+<i class="no-highlight">906</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">907</i>&nbsp;            return repImpl.getChangeListener();</b>
+<b class="nc"><i class="no-highlight">908</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">909</i>&nbsp;            repImpl.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">910</i>&nbsp;            throw E;</b>
+<i class="no-highlight">911</i>&nbsp;        }
+<i class="no-highlight">912</i>&nbsp;    }
+<i class="no-highlight">913</i>&nbsp;
+<i class="no-highlight">914</i>&nbsp;    /**
+<i class="no-highlight">915</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">916</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">917</i>&nbsp;     *
+<i class="no-highlight">918</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">919</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">920</i>&nbsp;     */
+<i class="no-highlight">921</i>&nbsp;    public void setRepMutableConfig(ReplicationMutableConfig mutableConfig)
+<i class="no-highlight">922</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">923</i>&nbsp;
+<b class="nc"><i class="no-highlight">924</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">925</i>&nbsp;
+<b class="nc"><i class="no-highlight">926</i>&nbsp;        DatabaseUtil.checkForNullParam(mutableConfig, &quot;mutableConfig&quot;);</b>
+<i class="no-highlight">927</i>&nbsp;
+<i class="no-highlight">928</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">929</i>&nbsp;            repImpl.setRepMutableConfig(mutableConfig);</b>
+<b class="nc"><i class="no-highlight">930</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">931</i>&nbsp;            repImpl.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">932</i>&nbsp;            throw E;</b>
+<b class="nc"><i class="no-highlight">933</i>&nbsp;        }</b>
+<i class="no-highlight">934</i>&nbsp;    }
+<i class="no-highlight">935</i>&nbsp;
+<i class="no-highlight">936</i>&nbsp;    /**
+<i class="no-highlight">937</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">938</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">939</i>&nbsp;     *
+<i class="no-highlight">940</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">941</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">942</i>&nbsp;     */
+<i class="no-highlight">943</i>&nbsp;    public ReplicationMutableConfig getRepMutableConfig()
+<i class="no-highlight">944</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">945</i>&nbsp;
+<b class="nc"><i class="no-highlight">946</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">947</i>&nbsp;
+<i class="no-highlight">948</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">949</i>&nbsp;            final ReplicationMutableConfig config =</b>
+<b class="nc"><i class="no-highlight">950</i>&nbsp;                repImpl.cloneRepMutableConfig();</b>
+<b class="nc"><i class="no-highlight">951</i>&nbsp;            config.fillInEnvironmentGeneratedProps(repImpl);</b>
+<b class="nc"><i class="no-highlight">952</i>&nbsp;            return config;</b>
+<b class="nc"><i class="no-highlight">953</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">954</i>&nbsp;            repImpl.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">955</i>&nbsp;            throw E;</b>
+<i class="no-highlight">956</i>&nbsp;        }
+<i class="no-highlight">957</i>&nbsp;    }
+<i class="no-highlight">958</i>&nbsp;
+<i class="no-highlight">959</i>&nbsp;    /**
+<i class="no-highlight">960</i>&nbsp;     * Return the replication configuration that has been used to create this
+<i class="no-highlight">961</i>&nbsp;     * handle. This is derived from the original configuration argument, after
+<i class="no-highlight">962</i>&nbsp;     * cloning a copy to keep it distinct from the user&#39;s instance, applying
+<i class="no-highlight">963</i>&nbsp;     * je.properties settings, and validating against the underlying
+<i class="no-highlight">964</i>&nbsp;     * node.
+<i class="no-highlight">965</i>&nbsp;     *
+<i class="no-highlight">966</i>&nbsp;     * @return this handle&#39;s configuration.
+<i class="no-highlight">967</i>&nbsp;     *
+<i class="no-highlight">968</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">969</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">970</i>&nbsp;     *
+<i class="no-highlight">971</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">972</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">973</i>&nbsp;     */
+<i class="no-highlight">974</i>&nbsp;    public ReplicationConfig getRepConfig()
+<i class="no-highlight">975</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">976</i>&nbsp;
+<b class="nc"><i class="no-highlight">977</i>&nbsp;        checkOpen();</b>
+<i class="no-highlight">978</i>&nbsp;
+<b class="nc"><i class="no-highlight">979</i>&nbsp;        return handleRepConfig;</b>
+<i class="no-highlight">980</i>&nbsp;    }
+<i class="no-highlight">981</i>&nbsp;
+<i class="no-highlight">982</i>&nbsp;    /**
+<i class="no-highlight">983</i>&nbsp;     * Returns statistics associated with this environment. See {@link
+<i class="no-highlight">984</i>&nbsp;     * ReplicatedEnvironmentStats} for the kind of information available.
+<i class="no-highlight">985</i>&nbsp;     *
+<i class="no-highlight">986</i>&nbsp;     * @param config is used to specify attributes such as whether the stats
+<i class="no-highlight">987</i>&nbsp;     * should be cleared, whether the complete set of stats should be obtained,
+<i class="no-highlight">988</i>&nbsp;     * etc.
+<i class="no-highlight">989</i>&nbsp;     *
+<i class="no-highlight">990</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">991</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">992</i>&nbsp;     *
+<i class="no-highlight">993</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">994</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">995</i>&nbsp;     */
+<i class="no-highlight">996</i>&nbsp;    public ReplicatedEnvironmentStats getRepStats(StatsConfig config)
+<i class="no-highlight">997</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">998</i>&nbsp;
+<b class="nc"><i class="no-highlight">999</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">1000</i>&nbsp;
+<b class="nc"><i class="no-highlight">1001</i>&nbsp;        if (config == null) {</b>
+<b class="nc"><i class="no-highlight">1002</i>&nbsp;            config = StatsConfig.DEFAULT;</b>
+<i class="no-highlight">1003</i>&nbsp;        }
+<i class="no-highlight">1004</i>&nbsp;
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;        return repImpl.getStats(config);</b>
+<i class="no-highlight">1006</i>&nbsp;    }
+<i class="no-highlight">1007</i>&nbsp;
+<i class="no-highlight">1008</i>&nbsp;    /*
+<i class="no-highlight">1009</i>&nbsp;     * Returns the non-null, underlying RepImpl. For internal access only.
+<i class="no-highlight">1010</i>&nbsp;     * Intentionally non-public; non package access must use the RepInternal
+<i class="no-highlight">1011</i>&nbsp;     * proxy.
+<i class="no-highlight">1012</i>&nbsp;     *
+<i class="no-highlight">1013</i>&nbsp;     * This method is used to access the repEnvironmentImpl field, to guard
+<i class="no-highlight">1014</i>&nbsp;     * against NPE when the environment has been closed.
+<i class="no-highlight">1015</i>&nbsp;     *
+<i class="no-highlight">1016</i>&nbsp;     * This method does not check whether the env is valid. For API method
+<i class="no-highlight">1017</i>&nbsp;     * calls, checkOpen is called at API entry points to check validity. The
+<i class="no-highlight">1018</i>&nbsp;     * validity of the env should also be checked before critical operations
+<i class="no-highlight">1019</i>&nbsp;     * (e.g., disk writes), after idle periods, and periodically during time
+<i class="no-highlight">1020</i>&nbsp;     * consuming operations.
+<i class="no-highlight">1021</i>&nbsp;     *
+<i class="no-highlight">1022</i>&nbsp;     * @throws IllegalStateException if the env has been closed.
+<i class="no-highlight">1023</i>&nbsp;     */
+<i class="no-highlight">1024</i>&nbsp;    RepImpl getNonNullRepImpl() {
+<i class="no-highlight">1025</i>&nbsp;
+<b class="nc"><i class="no-highlight">1026</i>&nbsp;        final RepImpl repImpl = repEnvironmentImpl;</b>
+<i class="no-highlight">1027</i>&nbsp;
+<b class="nc"><i class="no-highlight">1028</i>&nbsp;        if (repImpl == null) {</b>
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;            throw new IllegalStateException(&quot;Environment is closed.&quot;);</b>
+<i class="no-highlight">1030</i>&nbsp;        }
+<i class="no-highlight">1031</i>&nbsp;
+<b class="nc"><i class="no-highlight">1032</i>&nbsp;        return repImpl;</b>
+<i class="no-highlight">1033</i>&nbsp;    }
+<i class="no-highlight">1034</i>&nbsp;
+<i class="no-highlight">1035</i>&nbsp;    /**
+<i class="no-highlight">1036</i>&nbsp;     * Returns the underlying RepImpl, or null if the env has been closed.
+<i class="no-highlight">1037</i>&nbsp;     *
+<i class="no-highlight">1038</i>&nbsp;     * WARNING: This method will be phased out over time and normally
+<i class="no-highlight">1039</i>&nbsp;     * getNonNullRepImpl should be called instead.
+<i class="no-highlight">1040</i>&nbsp;     */
+<i class="no-highlight">1041</i>&nbsp;    RepImpl getMaybeNullRepImpl() {
+<b class="nc"><i class="no-highlight">1042</i>&nbsp;        return repEnvironmentImpl;</b>
+<i class="no-highlight">1043</i>&nbsp;    }
+<i class="no-highlight">1044</i>&nbsp;
+<i class="no-highlight">1045</i>&nbsp;    /**
+<i class="no-highlight">1046</i>&nbsp;     * @throws EnvironmentFailureException if the underlying environment is
+<i class="no-highlight">1047</i>&nbsp;     * invalid.
+<i class="no-highlight">1048</i>&nbsp;     * @throws IllegalStateException if the environment is not open.
+<i class="no-highlight">1049</i>&nbsp;     */
+<i class="no-highlight">1050</i>&nbsp;    private RepImpl checkOpen() {
+<i class="no-highlight">1051</i>&nbsp;
+<b class="nc"><i class="no-highlight">1052</i>&nbsp;        DbInternal.checkOpen(this);</b>
+<i class="no-highlight">1053</i>&nbsp;
+<i class="no-highlight">1054</i>&nbsp;        /*
+<i class="no-highlight">1055</i>&nbsp;         * Will throw ISE if the environment becomes closed or invalid after
+<i class="no-highlight">1056</i>&nbsp;         * the above check.
+<i class="no-highlight">1057</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1058</i>&nbsp;        return getNonNullRepImpl();</b>
+<i class="no-highlight">1059</i>&nbsp;    }
+<i class="no-highlight">1060</i>&nbsp;
+<i class="no-highlight">1061</i>&nbsp;    /**
+<i class="no-highlight">1062</i>&nbsp;     * Print a detailed report about the costs of different phases of
+<i class="no-highlight">1063</i>&nbsp;     * environment startup. This report is by default logged to the je.info
+<i class="no-highlight">1064</i>&nbsp;     * file if startup takes longer than je.env.startupThreshold.
+<i class="no-highlight">1065</i>&nbsp;     */
+<i class="no-highlight">1066</i>&nbsp;    @Override
+<i class="no-highlight">1067</i>&nbsp;    public void printStartupInfo(PrintStream out) {
+<i class="no-highlight">1068</i>&nbsp;
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;        super.printStartupInfo(out);</b>
+<i class="no-highlight">1070</i>&nbsp;
+<b class="nc"><i class="no-highlight">1071</i>&nbsp;        getNonNullRepImpl().getStartupTracker().displayStats(</b>
+<i class="no-highlight">1072</i>&nbsp;            out, Phase.TOTAL_JOIN_GROUP);
+<i class="no-highlight">1073</i>&nbsp;    }
+<i class="no-highlight">1074</i>&nbsp;
+<i class="no-highlight">1075</i>&nbsp;    /**
+<i class="no-highlight">1076</i>&nbsp;     * The replication node state determines the operations that the
+<i class="no-highlight">1077</i>&nbsp;     * application can perform against its replicated environment.
+<i class="no-highlight">1078</i>&nbsp;     * The method {@link #getState} returns the current state.
+<i class="no-highlight">1079</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1080</i>&nbsp;     * When the first handle to a {@link ReplicatedEnvironment} is instantiated
+<i class="no-highlight">1081</i>&nbsp;     * and the node is bought up, the node usually establishes
+<i class="no-highlight">1082</i>&nbsp;     * &lt;code&gt;MASTER&lt;/code&gt; or &lt;code&gt;REPLICA&lt;/code&gt; state before returning from
+<i class="no-highlight">1083</i>&nbsp;     * the constructor.  However, these states are actually preceeded by the
+<i class="no-highlight">1084</i>&nbsp;     * &lt;code&gt;UNKNOWN&lt;/code&gt; state, which may be visible if the application has
+<i class="no-highlight">1085</i>&nbsp;     * configured a suitable {@link
+<i class="no-highlight">1086</i>&nbsp;     * ReplicationConfig#ENV_UNKNOWN_STATE_TIMEOUT}.
+<i class="no-highlight">1087</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1088</i>&nbsp;     * As the various remote nodes in the group become unavailable and
+<i class="no-highlight">1089</i>&nbsp;     * elections are held, the local node may change between
+<i class="no-highlight">1090</i>&nbsp;     * &lt;code&gt;MASTER&lt;/code&gt; and &lt;code&gt;REPLICA&lt;/code&gt; states, always with a
+<i class="no-highlight">1091</i>&nbsp;     * (usually brief) transition through &lt;code&gt;UNKNOWN&lt;/code&gt; state.
+<i class="no-highlight">1092</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1093</i>&nbsp;     * When the last handle to the environment is closed, the node transitions
+<i class="no-highlight">1094</i>&nbsp;     * to the &lt;code&gt;DETACHED&lt;/code&gt; state.
+<i class="no-highlight">1095</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1096</i>&nbsp;     * The state transitions visible to the application can be summarized by
+<i class="no-highlight">1097</i>&nbsp;     * the regular expression:
+<i class="no-highlight">1098</i>&nbsp;     * &lt;blockquote&gt;
+<i class="no-highlight">1099</i>&nbsp;     * &lt;code&gt; [ MASTER | REPLICA | UNKNOWN ]+ DETACHED&lt;/code&gt;
+<i class="no-highlight">1100</i>&nbsp;     * &lt;/blockquote&gt;
+<i class="no-highlight">1101</i>&nbsp;     * with the caveat that redundant &quot;transitions&quot; (&lt;code&gt;MASTER&lt;/code&gt; to
+<i class="no-highlight">1102</i>&nbsp;     * &lt;code&gt;MASTER&lt;/code&gt;, &lt;code&gt;REPLICA&lt;/code&gt; to &lt;code&gt;REPLICA&lt;/code&gt;, etc.)
+<i class="no-highlight">1103</i>&nbsp;     * never occur.
+<i class="no-highlight">1104</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;    public static enum State {</b>
+<i class="no-highlight">1106</i>&nbsp;
+<i class="no-highlight">1107</i>&nbsp;        /**
+<i class="no-highlight">1108</i>&nbsp;         * The node is not associated with the group. Its handle has been
+<i class="no-highlight">1109</i>&nbsp;         * closed. No operations can be performed on the environment when it is
+<i class="no-highlight">1110</i>&nbsp;         * in this state.
+<i class="no-highlight">1111</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1112</i>&nbsp;        DETACHED,</b>
+<i class="no-highlight">1113</i>&nbsp;
+<i class="no-highlight">1114</i>&nbsp;        /**
+<i class="no-highlight">1115</i>&nbsp;         * The node is not currently in contact with the master, but is actively
+<i class="no-highlight">1116</i>&nbsp;         * trying to establish contact with, or decide upon, a master. While in
+<i class="no-highlight">1117</i>&nbsp;         * this state the node is restricted to performing just read operations
+<i class="no-highlight">1118</i>&nbsp;         * on its environment. In a functioning group, this state is
+<i class="no-highlight">1119</i>&nbsp;         * transitory.
+<i class="no-highlight">1120</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;        UNKNOWN,</b>
+<i class="no-highlight">1122</i>&nbsp;
+<i class="no-highlight">1123</i>&nbsp;        /**
+<i class="no-highlight">1124</i>&nbsp;         * The node is the unique master of the group and can both read and
+<i class="no-highlight">1125</i>&nbsp;         * write to its environment. When the node transitions to the
+<i class="no-highlight">1126</i>&nbsp;         * state, the application running on the node must make provisions to
+<i class="no-highlight">1127</i>&nbsp;         * start processing application level write requests in addition to
+<i class="no-highlight">1128</i>&nbsp;         * read requests.
+<i class="no-highlight">1129</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;        MASTER,</b>
+<i class="no-highlight">1131</i>&nbsp;
+<i class="no-highlight">1132</i>&nbsp;        /**
+<i class="no-highlight">1133</i>&nbsp;         * The node is a replica that is being updated by the master. It is
+<i class="no-highlight">1134</i>&nbsp;         * restricted to reading its environment. When the node
+<i class="no-highlight">1135</i>&nbsp;         * transitions to this state, the application running on the node must
+<i class="no-highlight">1136</i>&nbsp;         * make provisions to ensure that it does not write to the
+<i class="no-highlight">1137</i>&nbsp;         * environment. It must arrange for all write requests to be routed to
+<i class="no-highlight">1138</i>&nbsp;         * the master.
+<i class="no-highlight">1139</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1140</i>&nbsp;        REPLICA;</b>
+<i class="no-highlight">1141</i>&nbsp;
+<i class="no-highlight">1142</i>&nbsp;        /**
+<i class="no-highlight">1143</i>&nbsp;         * @return true if the node is a Master when in this state
+<i class="no-highlight">1144</i>&nbsp;         */
+<i class="no-highlight">1145</i>&nbsp;        final public boolean isMaster() {
+<b class="nc"><i class="no-highlight">1146</i>&nbsp;            return this == MASTER;</b>
+<i class="no-highlight">1147</i>&nbsp;        }
+<i class="no-highlight">1148</i>&nbsp;
+<i class="no-highlight">1149</i>&nbsp;        /**
+<i class="no-highlight">1150</i>&nbsp;         * @return true if the node is a Replica when in this state
+<i class="no-highlight">1151</i>&nbsp;         */
+<i class="no-highlight">1152</i>&nbsp;        final public boolean isReplica() {
+<b class="nc"><i class="no-highlight">1153</i>&nbsp;            return this == REPLICA;</b>
+<i class="no-highlight">1154</i>&nbsp;        }
+<i class="no-highlight">1155</i>&nbsp;
+<i class="no-highlight">1156</i>&nbsp;        /**
+<i class="no-highlight">1157</i>&nbsp;         * @return true if the node is disconnected from the replication
+<i class="no-highlight">1158</i>&nbsp;         * group when in this state.
+<i class="no-highlight">1159</i>&nbsp;         */
+<i class="no-highlight">1160</i>&nbsp;        final public boolean isDetached() {
+<b class="nc"><i class="no-highlight">1161</i>&nbsp;            return this == DETACHED;</b>
+<i class="no-highlight">1162</i>&nbsp;        }
+<i class="no-highlight">1163</i>&nbsp;
+<i class="no-highlight">1164</i>&nbsp;        /**
+<i class="no-highlight">1165</i>&nbsp;         * @return true if the node&#39;s state is unknown, and it is attempting
+<i class="no-highlight">1166</i>&nbsp;         * to transition to Master or Replica.
+<i class="no-highlight">1167</i>&nbsp;         */
+<i class="no-highlight">1168</i>&nbsp;        final public boolean isUnknown() {
+<b class="nc"><i class="no-highlight">1169</i>&nbsp;            return this == UNKNOWN;</b>
+<i class="no-highlight">1170</i>&nbsp;        }
+<i class="no-highlight">1171</i>&nbsp;
+<i class="no-highlight">1172</i>&nbsp;        /**
+<i class="no-highlight">1173</i>&nbsp;         * @return true if the node is currently participating in the group as
+<i class="no-highlight">1174</i>&nbsp;         * a Replica or a Master
+<i class="no-highlight">1175</i>&nbsp;         */
+<i class="no-highlight">1176</i>&nbsp;        final public boolean isActive() {
+<b class="nc"><i class="no-highlight">1177</i>&nbsp;            return (this == MASTER) || (this == REPLICA);</b>
+<i class="no-highlight">1178</i>&nbsp;        }
+<i class="no-highlight">1179</i>&nbsp;    }
+<i class="no-highlight">1180</i>&nbsp;
+<i class="no-highlight">1181</i>&nbsp;    /**
+<i class="no-highlight">1182</i>&nbsp;     * Closes this handle and shuts down the Replication Group by forcing all
+<i class="no-highlight">1183</i>&nbsp;     * active Replicas to exit.
+<i class="no-highlight">1184</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1185</i>&nbsp;     * This method must be invoked on the node that&#39;s currently the Master
+<i class="no-highlight">1186</i>&nbsp;     * after all other outstanding handles have been closed.
+<i class="no-highlight">1187</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1188</i>&nbsp;     * The Master waits for all active Replicas to catch up so that they have a
+<i class="no-highlight">1189</i>&nbsp;     * current set of logs, and then shuts them down. The Master will wait for
+<i class="no-highlight">1190</i>&nbsp;     * a maximum of &lt;code&gt;replicaShutdownTimeout&lt;/code&gt; for a Replica to catch
+<i class="no-highlight">1191</i>&nbsp;     * up. If the Replica has not caught up in this time period it will force
+<i class="no-highlight">1192</i>&nbsp;     * the Replica to shut down before it is completely caught up. A negative
+<i class="no-highlight">1193</i>&nbsp;     * or zero &lt;code&gt;replicaShutdownTimeout&lt;/code&gt; value will result in an
+<i class="no-highlight">1194</i>&nbsp;     * immediate shutdown without waiting for lagging Replicas to catch up.
+<i class="no-highlight">1195</i>&nbsp;     * Nodes that are currently inactive cannot be contacted by the Master, as
+<i class="no-highlight">1196</i>&nbsp;     * a consequence, their state is not impacted by the shutdown.
+<i class="no-highlight">1197</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1198</i>&nbsp;     * The shutdown operation will close this handle on the Master node. The
+<i class="no-highlight">1199</i>&nbsp;     * environments on Replica nodes will be invalidated, and attempts to use
+<i class="no-highlight">1200</i>&nbsp;     * those handles will result in a {@link GroupShutdownException} being
+<i class="no-highlight">1201</i>&nbsp;     * thrown. The application is responsible for closing the remaining handles
+<i class="no-highlight">1202</i>&nbsp;     * on the Replica.
+<i class="no-highlight">1203</i>&nbsp;     *
+<i class="no-highlight">1204</i>&nbsp;     * @param replicaShutdownTimeout the maximum amount of time the Master
+<i class="no-highlight">1205</i>&nbsp;     * waits for a Replica to shutdown.
+<i class="no-highlight">1206</i>&nbsp;     *
+<i class="no-highlight">1207</i>&nbsp;     * @param unit the time unit associated with the
+<i class="no-highlight">1208</i>&nbsp;     * &lt;code&gt;replicaShutdownTimeout&lt;/code&gt;
+<i class="no-highlight">1209</i>&nbsp;     *
+<i class="no-highlight">1210</i>&nbsp;     * @throws IllegalStateException if the method is invoked on a node that&#39;s
+<i class="no-highlight">1211</i>&nbsp;     * not currently the Master, or there are other open handles to this
+<i class="no-highlight">1212</i>&nbsp;     * Environment.
+<i class="no-highlight">1213</i>&nbsp;     */
+<i class="no-highlight">1214</i>&nbsp;    public synchronized void shutdownGroup(long replicaShutdownTimeout,
+<i class="no-highlight">1215</i>&nbsp;                                           TimeUnit unit)
+<i class="no-highlight">1216</i>&nbsp;        throws IllegalStateException {
+<i class="no-highlight">1217</i>&nbsp;
+<b class="nc"><i class="no-highlight">1218</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">1219</i>&nbsp;
+<i class="no-highlight">1220</i>&nbsp;        /*
+<i class="no-highlight">1221</i>&nbsp;         * Hold repImpl stable, across the setup and close. Note that close()
+<i class="no-highlight">1222</i>&nbsp;         * synchronizes on DbEnvPool, and synchronization order must be
+<i class="no-highlight">1223</i>&nbsp;         * DbEnvPool before repImpl/envImpl.
+<i class="no-highlight">1224</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1225</i>&nbsp;        synchronized (DbEnvPool.getInstance()) {</b>
+<b class="nc"><i class="no-highlight">1226</i>&nbsp;            synchronized (repImpl) {</b>
+<b class="nc"><i class="no-highlight">1227</i>&nbsp;                repImpl.shutdownGroupSetup(</b>
+<b class="nc"><i class="no-highlight">1228</i>&nbsp;                    unit.toMillis(replicaShutdownTimeout));</b>
+<b class="nc"><i class="no-highlight">1229</i>&nbsp;                close();</b>
+<b class="nc"><i class="no-highlight">1230</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1231</i>&nbsp;        }</b>
+<i class="no-highlight">1232</i>&nbsp;    }
+<i class="no-highlight">1233</i>&nbsp;
+<i class="no-highlight">1234</i>&nbsp;    /**
+<i class="no-highlight">1235</i>&nbsp;     * Registers an {@link AppStateMonitor} to receive the application state
+<i class="no-highlight">1236</i>&nbsp;     * which this {@link ReplicatedEnvironment} is running in. Note that there
+<i class="no-highlight">1237</i>&nbsp;     * is only one &lt;code&gt;AppStateMonitor&lt;/code&gt; per replication node, not one
+<i class="no-highlight">1238</i>&nbsp;     * per handle. Invoking this method replaces the previous
+<i class="no-highlight">1239</i>&nbsp;     * &lt;code&gt;AppStateMonitor&lt;/code&gt;.
+<i class="no-highlight">1240</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1241</i>&nbsp;     * After registration, the application state can be returned by invoking
+<i class="no-highlight">1242</i>&nbsp;     * {@link com.sleepycat.je.rep.util.ReplicationGroupAdmin#getNodeState}.
+<i class="no-highlight">1243</i>&nbsp;     *
+<i class="no-highlight">1244</i>&nbsp;     * @param appStateMonitor the user implemented AppStateMonitor
+<i class="no-highlight">1245</i>&nbsp;     *
+<i class="no-highlight">1246</i>&nbsp;     * @throws IllegalStateException if this handle or the underlying
+<i class="no-highlight">1247</i>&nbsp;     * environment has already been closed.
+<i class="no-highlight">1248</i>&nbsp;     */
+<i class="no-highlight">1249</i>&nbsp;    public void registerAppStateMonitor(AppStateMonitor appStateMonitor)
+<i class="no-highlight">1250</i>&nbsp;        throws IllegalStateException {
+<i class="no-highlight">1251</i>&nbsp;
+<b class="nc"><i class="no-highlight">1252</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">1253</i>&nbsp;
+<b class="nc"><i class="no-highlight">1254</i>&nbsp;        repImpl.getRepNode().registerAppStateMonitor(appStateMonitor);</b>
+<i class="no-highlight">1255</i>&nbsp;    }
+<i class="no-highlight">1256</i>&nbsp;
+<i class="no-highlight">1257</i>&nbsp;    /**
+<i class="no-highlight">1258</i>&nbsp;     * Transfers the current master state from this node to one of the
+<i class="no-highlight">1259</i>&nbsp;     * electable replicas supplied in the argument list.  The replica that is
+<i class="no-highlight">1260</i>&nbsp;     * actually chosen to be the new master is the one with which the Master
+<i class="no-highlight">1261</i>&nbsp;     * Transfer can be completed most rapidly.  The transfer operation ensures
+<i class="no-highlight">1262</i>&nbsp;     * that all changes at this node are available at the new master upon
+<i class="no-highlight">1263</i>&nbsp;     * conclusion of the operation.
+<i class="no-highlight">1264</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1265</i>&nbsp;     * The following sequence of steps is used to accomplish the transfer:
+<i class="no-highlight">1266</i>&nbsp;     * &lt;ol&gt;
+<i class="no-highlight">1267</i>&nbsp;     * &lt;li&gt;The master first waits for at least one replica, from
+<i class="no-highlight">1268</i>&nbsp;     * amongst the supplied {@code Set} of candidate replicas, to
+<i class="no-highlight">1269</i>&nbsp;     * become reasonably current.  It may have to wait for at least
+<i class="no-highlight">1270</i>&nbsp;     * one of the replicas to establish a feeder, if none of them are
+<i class="no-highlight">1271</i>&nbsp;     * currently connected to the master.  &quot;Reasonably current&quot; means
+<i class="no-highlight">1272</i>&nbsp;     * that the replica is close enough to the end of the transaction
+<i class="no-highlight">1273</i>&nbsp;     * stream that it has managed to acknowledge a transaction within
+<i class="no-highlight">1274</i>&nbsp;     * the time that the commit thread is still awaiting
+<i class="no-highlight">1275</i>&nbsp;     * acknowledgments.  If the candidate replicas are working
+<i class="no-highlight">1276</i>&nbsp;     * through a long backlog after having been disconnected, this can
+<i class="no-highlight">1277</i>&nbsp;     * take some time, so the timeout value should be chosen to allow
+<i class="no-highlight">1278</i>&nbsp;     * for this possibility.
+<i class="no-highlight">1279</i>&nbsp;     *
+<i class="no-highlight">1280</i>&nbsp;     * &lt;li&gt;The master blocks new transactions from being committed or
+<i class="no-highlight">1281</i>&nbsp;     * aborted.
+<i class="no-highlight">1282</i>&nbsp;     *
+<i class="no-highlight">1283</i>&nbsp;     * &lt;li&gt;The master now waits for one of the candidate replicas to
+<i class="no-highlight">1284</i>&nbsp;     * become fully current (completely caught up with the end of the
+<i class="no-highlight">1285</i>&nbsp;     * log on the master).  The first replica that becomes current is
+<i class="no-highlight">1286</i>&nbsp;     * the one that is chosen to become the new master.  This second
+<i class="no-highlight">1287</i>&nbsp;     * wait period is expected to be brief, since it only has to wait
+<i class="no-highlight">1288</i>&nbsp;     * until transactions that were committed in the interval between
+<i class="no-highlight">1289</i>&nbsp;     * step 1) and step 2) have been acknowledged by a replica.
+<i class="no-highlight">1290</i>&nbsp;     *
+<i class="no-highlight">1291</i>&nbsp;     * &lt;li&gt;The master sends messages to all other nodes announcing the chosen
+<i class="no-highlight">1292</i>&nbsp;     * replica as the new master. This node will eventually become a replica,
+<i class="no-highlight">1293</i>&nbsp;     * and any subsequent attempt commit or abort existing transactions, or to
+<i class="no-highlight">1294</i>&nbsp;     * do write operations will result in a {@code ReplicaWriteException}.
+<i class="no-highlight">1295</i>&nbsp;     *
+<i class="no-highlight">1296</i>&nbsp;     * &lt;li&gt;The current master releases the transactions that were blocked in
+<i class="no-highlight">1297</i>&nbsp;     * step 2) allowing them to proceed. The released transactions will fail
+<i class="no-highlight">1298</i>&nbsp;     * with {@code ReplicaWriteException} since the environment has become a
+<i class="no-highlight">1299</i>&nbsp;     * replica.
+<i class="no-highlight">1300</i>&nbsp;     * &lt;/ol&gt;
+<i class="no-highlight">1301</i>&nbsp;     *
+<i class="no-highlight">1302</i>&nbsp;     * @param replicas the set of replicas to be considered when choosing the
+<i class="no-highlight">1303</i>&nbsp;     * new master. The method returns immediately if this node is a member of
+<i class="no-highlight">1304</i>&nbsp;     * the set.
+<i class="no-highlight">1305</i>&nbsp;     * @param timeout the amount of time to allow for the transfer to be
+<i class="no-highlight">1306</i>&nbsp;     * accomplished. A {@code MasterTransferFailureException} is thrown if the
+<i class="no-highlight">1307</i>&nbsp;     * transfer is not accomplished within this timeout period.
+<i class="no-highlight">1308</i>&nbsp;     * @param timeUnit the time unit associated with the timeout
+<i class="no-highlight">1309</i>&nbsp;     *
+<i class="no-highlight">1310</i>&nbsp;     * @return the name of the replica that was chosen to be the new master
+<i class="no-highlight">1311</i>&nbsp;     * from amongst the set of supplied replicas
+<i class="no-highlight">1312</i>&nbsp;     *
+<i class="no-highlight">1313</i>&nbsp;     * @throws MasterTransferFailureException if the master transfer operation
+<i class="no-highlight">1314</i>&nbsp;     * fails
+<i class="no-highlight">1315</i>&nbsp;     * @throws IllegalArgumentException if any of the named replicas is not a
+<i class="no-highlight">1316</i>&nbsp;     * member of the replication group or is not of type
+<i class="no-highlight">1317</i>&nbsp;     * {@link NodeType#ELECTABLE}
+<i class="no-highlight">1318</i>&nbsp;     * @throws IllegalStateException if this node is not currently the master,
+<i class="no-highlight">1319</i>&nbsp;     * or this handle or the underlying environment has already been closed.
+<i class="no-highlight">1320</i>&nbsp;     */
+<i class="no-highlight">1321</i>&nbsp;    public String transferMaster(Set&lt;String&gt; replicas,
+<i class="no-highlight">1322</i>&nbsp;                                 int timeout,
+<i class="no-highlight">1323</i>&nbsp;                                 TimeUnit timeUnit) {
+<b class="nc"><i class="no-highlight">1324</i>&nbsp;        return transferMaster(replicas, timeout, timeUnit, false);</b>
+<i class="no-highlight">1325</i>&nbsp;    }
+<i class="no-highlight">1326</i>&nbsp;
+<i class="no-highlight">1327</i>&nbsp;    /**
+<i class="no-highlight">1328</i>&nbsp;     * Transfers the current master state from this node to one of the replicas
+<i class="no-highlight">1329</i>&nbsp;     * supplied in the argument list.
+<i class="no-highlight">1330</i>&nbsp;     *
+<i class="no-highlight">1331</i>&nbsp;     * @param force true if this request should supersede and cancel any
+<i class="no-highlight">1332</i>&nbsp;     * currently pending Master Transfer operation
+<i class="no-highlight">1333</i>&nbsp;     *
+<i class="no-highlight">1334</i>&nbsp;     * @see #transferMaster(Set, int, TimeUnit)
+<i class="no-highlight">1335</i>&nbsp;     */
+<i class="no-highlight">1336</i>&nbsp;    public String transferMaster(Set&lt;String&gt; replicas,
+<i class="no-highlight">1337</i>&nbsp;                                 int timeout,
+<i class="no-highlight">1338</i>&nbsp;                                 TimeUnit timeUnit,
+<i class="no-highlight">1339</i>&nbsp;                                 boolean force) {
+<b class="nc"><i class="no-highlight">1340</i>&nbsp;        final RepImpl repImpl = checkOpen();</b>
+<i class="no-highlight">1341</i>&nbsp;
+<b class="nc"><i class="no-highlight">1342</i>&nbsp;        if (timeUnit == null || timeout &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1343</i>&nbsp;            throw new IllegalArgumentException(&quot;Invalid timeout&quot;);</b>
+<i class="no-highlight">1344</i>&nbsp;        }
+<i class="no-highlight">1345</i>&nbsp;
+<b class="nc"><i class="no-highlight">1346</i>&nbsp;        return repImpl.transferMaster(replicas,</b>
+<b class="nc"><i class="no-highlight">1347</i>&nbsp;                                      timeUnit.toMillis(timeout),</b>
+<i class="no-highlight">1348</i>&nbsp;                                      force);
+<i class="no-highlight">1349</i>&nbsp;    }
+<i class="no-highlight">1350</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

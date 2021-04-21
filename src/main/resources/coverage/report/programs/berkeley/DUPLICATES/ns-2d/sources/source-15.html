@@ -1,0 +1,375 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SyncedLockManager</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: SyncedLockManager (com.sleepycat.je.txn)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">SyncedLockManager</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    25%
+  </span>
+  <span class="absValue">
+    (5/20)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    22%
+  </span>
+  <span class="absValue">
+    (18/82)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Set;
+<i class="no-highlight">17</i>&nbsp;import java.util.List;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;/**
+<i class="no-highlight">26</i>&nbsp; * SyncedLockManager uses the synchronized keyword to implement its critical
+<i class="no-highlight">27</i>&nbsp; * sections.
+<i class="no-highlight">28</i>&nbsp; */
+<i class="no-highlight">29</i>&nbsp;public class SyncedLockManager extends LockManager {
+<i class="no-highlight">30</i>&nbsp;
+<i class="no-highlight">31</i>&nbsp;    public SyncedLockManager(EnvironmentImpl envImpl) {
+<b class="fc"><i class="no-highlight">32</i>&nbsp;        super(envImpl);</b>
+<b class="fc"><i class="no-highlight">33</i>&nbsp;    }</b>
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;    @Override
+<i class="no-highlight">36</i>&nbsp;    public Set&lt;LockInfo&gt; getOwners(Long lsn) {
+<b class="nc"><i class="no-highlight">37</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">38</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">39</i>&nbsp;            return getOwnersInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">40</i>&nbsp;        }</b>
+<i class="no-highlight">41</i>&nbsp;    }
+<i class="no-highlight">42</i>&nbsp;
+<i class="no-highlight">43</i>&nbsp;    @Override
+<i class="no-highlight">44</i>&nbsp;    public List&lt;LockInfo&gt; getWaiters(Long lsn) {
+<b class="nc"><i class="no-highlight">45</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">46</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">47</i>&nbsp;            return getWaitersInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">48</i>&nbsp;        }</b>
+<i class="no-highlight">49</i>&nbsp;    }
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    @Override
+<i class="no-highlight">52</i>&nbsp;    public LockType getOwnedLockType(Long lsn, Locker locker) {
+<b class="nc"><i class="no-highlight">53</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">55</i>&nbsp;            return getOwnedLockTypeInternal(lsn, locker, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">56</i>&nbsp;        }</b>
+<i class="no-highlight">57</i>&nbsp;    }
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    @Override
+<i class="no-highlight">60</i>&nbsp;    public boolean isLockUncontended(Long lsn) {
+<b class="fc"><i class="no-highlight">61</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="fc"><i class="no-highlight">62</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="fc"><i class="no-highlight">63</i>&nbsp;            return isLockUncontendedInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;        }</b>
+<i class="no-highlight">65</i>&nbsp;    }
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    @Override
+<i class="no-highlight">68</i>&nbsp;    public boolean ownsOrSharesLock(Locker locker, Long lsn) {
+<b class="nc"><i class="no-highlight">69</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;            return ownsOrSharesLockInternal(locker, lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        }</b>
+<i class="no-highlight">73</i>&nbsp;    }
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;    /**
+<i class="no-highlight">76</i>&nbsp;     * @see LockManager#attemptLock
+<i class="no-highlight">77</i>&nbsp;     */
+<i class="no-highlight">78</i>&nbsp;    @Override
+<i class="no-highlight">79</i>&nbsp;    Lock lookupLock(Long lsn) {
+<b class="nc"><i class="no-highlight">80</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">82</i>&nbsp;            return lookupLockInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        }</b>
+<i class="no-highlight">84</i>&nbsp;    }
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /**
+<i class="no-highlight">87</i>&nbsp;     * @see LockManager#attemptLock
+<i class="no-highlight">88</i>&nbsp;     */
+<i class="no-highlight">89</i>&nbsp;    @Override
+<i class="no-highlight">90</i>&nbsp;    LockAttemptResult attemptLock(Long lsn,
+<i class="no-highlight">91</i>&nbsp;                                  Locker locker,
+<i class="no-highlight">92</i>&nbsp;                                  LockType type,
+<i class="no-highlight">93</i>&nbsp;                                  boolean nonBlockingRequest,
+<i class="no-highlight">94</i>&nbsp;                                  boolean jumpAheadOfWaiters)
+<i class="no-highlight">95</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">96</i>&nbsp;
+<b class="fc"><i class="no-highlight">97</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="fc"><i class="no-highlight">98</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="fc"><i class="no-highlight">99</i>&nbsp;            return attemptLockInternal</b>
+<b class="fc"><i class="no-highlight">100</i>&nbsp;                (lsn, locker, type, nonBlockingRequest, jumpAheadOfWaiters,</b>
+<i class="no-highlight">101</i>&nbsp;                 lockTableIndex);
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        }</b>
+<i class="no-highlight">103</i>&nbsp;    }
+<i class="no-highlight">104</i>&nbsp;
+<i class="no-highlight">105</i>&nbsp;    /**
+<i class="no-highlight">106</i>&nbsp;     * @see LockManager#getTimeoutInfo
+<i class="no-highlight">107</i>&nbsp;     */
+<i class="no-highlight">108</i>&nbsp;    @Override
+<i class="no-highlight">109</i>&nbsp;    TimeoutInfo getTimeoutInfo(
+<i class="no-highlight">110</i>&nbsp;        boolean isLockNotTxnTimeout,
+<i class="no-highlight">111</i>&nbsp;        Locker locker,
+<i class="no-highlight">112</i>&nbsp;        long lsn,
+<i class="no-highlight">113</i>&nbsp;        LockType type,
+<i class="no-highlight">114</i>&nbsp;        LockGrantType grantType,
+<i class="no-highlight">115</i>&nbsp;        Lock useLock,
+<i class="no-highlight">116</i>&nbsp;        long timeout,
+<i class="no-highlight">117</i>&nbsp;        long start,
+<i class="no-highlight">118</i>&nbsp;        long now,
+<i class="no-highlight">119</i>&nbsp;        DatabaseImpl database,
+<i class="no-highlight">120</i>&nbsp;        Set&lt;LockInfo&gt; owners,
+<i class="no-highlight">121</i>&nbsp;        List&lt;LockInfo&gt; waiters) {
+<i class="no-highlight">122</i>&nbsp;
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;            return getTimeoutInfoInternal(</b>
+<i class="no-highlight">126</i>&nbsp;                isLockNotTxnTimeout, locker, lsn, type, grantType, useLock,
+<i class="no-highlight">127</i>&nbsp;                timeout, start, now, database, owners, waiters);
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        }</b>
+<i class="no-highlight">129</i>&nbsp;    }
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    /**
+<i class="no-highlight">132</i>&nbsp;     * @see LockManager#releaseAndNotifyTargets
+<i class="no-highlight">133</i>&nbsp;     */
+<i class="no-highlight">134</i>&nbsp;    @Override
+<i class="no-highlight">135</i>&nbsp;    Set&lt;Locker&gt; releaseAndFindNotifyTargets(long lsn, Locker locker) {
+<b class="fc"><i class="no-highlight">136</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="fc"><i class="no-highlight">137</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="fc"><i class="no-highlight">138</i>&nbsp;            return releaseAndFindNotifyTargetsInternal</b>
+<b class="fc"><i class="no-highlight">139</i>&nbsp;                (lsn, locker, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        }</b>
+<i class="no-highlight">141</i>&nbsp;    }
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /**
+<i class="no-highlight">144</i>&nbsp;     * @see LockManager#demote
+<i class="no-highlight">145</i>&nbsp;     */
+<i class="no-highlight">146</i>&nbsp;    @Override
+<i class="no-highlight">147</i>&nbsp;    void demote(long lsn, Locker locker) {
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            demoteInternal(lsn, locker, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;    }</b>
+<i class="no-highlight">153</i>&nbsp;
+<i class="no-highlight">154</i>&nbsp;    /**
+<i class="no-highlight">155</i>&nbsp;     * @see LockManager#isLocked
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    @Override
+<i class="no-highlight">158</i>&nbsp;    boolean isLocked(Long lsn) {
+<i class="no-highlight">159</i>&nbsp;
+<b class="nc"><i class="no-highlight">160</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            return isLockedInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;        }</b>
+<i class="no-highlight">164</i>&nbsp;    }
+<i class="no-highlight">165</i>&nbsp;
+<i class="no-highlight">166</i>&nbsp;    /**
+<i class="no-highlight">167</i>&nbsp;     * @see LockManager#isOwner
+<i class="no-highlight">168</i>&nbsp;     */
+<i class="no-highlight">169</i>&nbsp;    @Override
+<i class="no-highlight">170</i>&nbsp;    boolean isOwner(Long lsn, Locker locker, LockType type) {
+<i class="no-highlight">171</i>&nbsp;
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            return isOwnerInternal(lsn, locker, type, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;        }</b>
+<i class="no-highlight">176</i>&nbsp;    }
+<i class="no-highlight">177</i>&nbsp;
+<i class="no-highlight">178</i>&nbsp;    /**
+<i class="no-highlight">179</i>&nbsp;     * @see LockManager#isWaiter
+<i class="no-highlight">180</i>&nbsp;     */
+<i class="no-highlight">181</i>&nbsp;    @Override
+<i class="no-highlight">182</i>&nbsp;    boolean isWaiter(Long lsn, Locker locker) {
+<i class="no-highlight">183</i>&nbsp;
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;            return isWaiterInternal(lsn, locker, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;        }</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /**
+<i class="no-highlight">191</i>&nbsp;     * @see LockManager#nWaiters
+<i class="no-highlight">192</i>&nbsp;     */
+<i class="no-highlight">193</i>&nbsp;    @Override
+<i class="no-highlight">194</i>&nbsp;    int nWaiters(Long lsn) {
+<i class="no-highlight">195</i>&nbsp;
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;            return nWaitersInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        }</b>
+<i class="no-highlight">200</i>&nbsp;    }
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /**
+<i class="no-highlight">203</i>&nbsp;     * @see LockManager#nOwners
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    @Override
+<i class="no-highlight">206</i>&nbsp;    int nOwners(Long lsn) {
+<i class="no-highlight">207</i>&nbsp;
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            return nOwnersInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        }</b>
+<i class="no-highlight">212</i>&nbsp;    }
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;    /**
+<i class="no-highlight">215</i>&nbsp;     * @see LockManager#getWriterOwnerLocker
+<i class="no-highlight">216</i>&nbsp;     */
+<i class="no-highlight">217</i>&nbsp;    @Override
+<i class="no-highlight">218</i>&nbsp;    Locker getWriteOwnerLocker(Long lsn) {
+<b class="nc"><i class="no-highlight">219</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            return getWriteOwnerLockerInternal(lsn, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        }</b>
+<i class="no-highlight">223</i>&nbsp;    }
+<i class="no-highlight">224</i>&nbsp;
+<i class="no-highlight">225</i>&nbsp;    /**
+<i class="no-highlight">226</i>&nbsp;     * @see LockManager#validateOwnership
+<i class="no-highlight">227</i>&nbsp;     */
+<i class="no-highlight">228</i>&nbsp;    @Override
+<i class="no-highlight">229</i>&nbsp;    boolean validateOwnership(Long lsn,
+<i class="no-highlight">230</i>&nbsp;                              Locker locker,
+<i class="no-highlight">231</i>&nbsp;                              LockType type,
+<i class="no-highlight">232</i>&nbsp;                              boolean getOwnersAndWaiters,
+<i class="no-highlight">233</i>&nbsp;                              boolean flushFromWaiters,
+<i class="no-highlight">234</i>&nbsp;                              Set&lt;LockInfo&gt; owners,
+<i class="no-highlight">235</i>&nbsp;                              List&lt;LockInfo&gt; waiters) {
+<b class="nc"><i class="no-highlight">236</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            return validateOwnershipInternal(</b>
+<i class="no-highlight">239</i>&nbsp;                lsn, locker, type, getOwnersAndWaiters, flushFromWaiters,
+<i class="no-highlight">240</i>&nbsp;                lockTableIndex, owners, waiters);
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        }</b>
+<i class="no-highlight">242</i>&nbsp;    }
+<i class="no-highlight">243</i>&nbsp;
+<i class="no-highlight">244</i>&nbsp;    /**
+<i class="no-highlight">245</i>&nbsp;     * @see LockManager#stealLock
+<i class="no-highlight">246</i>&nbsp;     */
+<i class="no-highlight">247</i>&nbsp;    @Override
+<i class="no-highlight">248</i>&nbsp;    public LockAttemptResult stealLock(Long lsn,
+<i class="no-highlight">249</i>&nbsp;                                          Locker locker,
+<i class="no-highlight">250</i>&nbsp;                                          LockType lockType)
+<i class="no-highlight">251</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">252</i>&nbsp;
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        int lockTableIndex = getLockTableIndex(lsn);</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        synchronized(lockTableLatches[lockTableIndex]) {</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            return stealLockInternal(lsn, locker, lockType, lockTableIndex);</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        }</b>
+<i class="no-highlight">257</i>&nbsp;    }
+<i class="no-highlight">258</i>&nbsp;
+<i class="no-highlight">259</i>&nbsp;    /**
+<i class="no-highlight">260</i>&nbsp;     * @see LockManager#dumpLockTable
+<i class="no-highlight">261</i>&nbsp;     */
+<i class="no-highlight">262</i>&nbsp;    @Override
+<i class="no-highlight">263</i>&nbsp;    void dumpLockTable(StatGroup stats, boolean clear) {
+<b class="fc"><i class="no-highlight">264</i>&nbsp;        for (int i = 0; i &lt; nLockTables; i++) {</b>
+<b class="fc"><i class="no-highlight">265</i>&nbsp;            synchronized(lockTableLatches[i]) {</b>
+<b class="fc"><i class="no-highlight">266</i>&nbsp;                dumpLockTableInternal(stats, i, clear);</b>
+<b class="fc"><i class="no-highlight">267</i>&nbsp;            }</b>
+<i class="no-highlight">268</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">269</i>&nbsp;    }</b>
+<i class="no-highlight">270</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

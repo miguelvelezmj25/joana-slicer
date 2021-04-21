@@ -1,0 +1,395 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ConfigBeanInfoBase</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.util</a>
+</div>
+
+<h1>Coverage Summary for Class: ConfigBeanInfoBase (com.sleepycat.util)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ConfigBeanInfoBase</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/85)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.util;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.beans.BeanDescriptor;
+<i class="no-highlight">17</i>&nbsp;import java.beans.EventSetDescriptor;
+<i class="no-highlight">18</i>&nbsp;import java.beans.IntrospectionException;
+<i class="no-highlight">19</i>&nbsp;import java.beans.PropertyDescriptor;
+<i class="no-highlight">20</i>&nbsp;import java.beans.SimpleBeanInfo;
+<i class="no-highlight">21</i>&nbsp;import java.lang.reflect.Method;
+<i class="no-highlight">22</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;/*
+<i class="no-highlight">25</i>&nbsp; * If someone add a property in some FooConfig.java,
+<i class="no-highlight">26</i>&nbsp; *   (1) If the setter/getter methods are setFoo/getFoo, the name of the
+<i class="no-highlight">27</i>&nbsp; *       property should be &quot;foo&quot;, which means the first letter of the property
+<i class="no-highlight">28</i>&nbsp; *       name should be lower case.
+<i class="no-highlight">29</i>&nbsp; *   (2) The setter method for this property setProperty should return &quot;this&quot;,
+<i class="no-highlight">30</i>&nbsp; *       and setPropertyVoid method which returns void value must be added.
+<i class="no-highlight">31</i>&nbsp; *       The return type of the getter method should be the same as the
+<i class="no-highlight">32</i>&nbsp; *       parameter of the setter method.
+<i class="no-highlight">33</i>&nbsp; *   (3) The setter method and getter method must be added into
+<i class="no-highlight">34</i>&nbsp; *       FooConfigBeanInfo;
+<i class="no-highlight">35</i>&nbsp; *   (4) If for some of the setter methods in the FooConfig.java, setterVoid
+<i class="no-highlight">36</i>&nbsp; *       methods are not necessary, then add the name of such setter methods
+<i class="no-highlight">37</i>&nbsp; *       into the ArrayList ignoreMethods within the corresponding
+<i class="no-highlight">38</i>&nbsp; *       FooConfigBeanInfo.getPropertyDescriptors method. For example,
+<i class="no-highlight">39</i>&nbsp; *       setMaxSeedTestHook method in DiskOrderedCursorConfig.java is only used
+<i class="no-highlight">40</i>&nbsp; *       for unit tests, so &quot;setMaxSeedTestHook&quot; is added into ignoreMethods
+<i class="no-highlight">41</i>&nbsp; *       list within DiskOrderedCursorConfigBeanInfo.getPropertyDescriptors.
+<i class="no-highlight">42</i>&nbsp; *
+<i class="no-highlight">43</i>&nbsp; *
+<i class="no-highlight">44</i>&nbsp; * If someone adds a new FooConfig.java,
+<i class="no-highlight">45</i>&nbsp; *   (1) The definition of setter/getter mehods and the names of the properties
+<i class="no-highlight">46</i>&nbsp; *       should follow the rules described above.
+<i class="no-highlight">47</i>&nbsp; *   (2) There must be FooConfigBeanInfo.java. You can write it according to
+<i class="no-highlight">48</i>&nbsp; *       the current beaninfo classes.
+<i class="no-highlight">49</i>&nbsp; *   (3) &quot;PackagePath.FooConfig&quot; must be added into the unit test:
+<i class="no-highlight">50</i>&nbsp; *       com.sleepycat.je.ConfigBeanInfoTest.
+<i class="no-highlight">51</i>&nbsp; *
+<i class="no-highlight">52</i>&nbsp; * If someond remove an existing FooConfig.java, then &quot;PackagePath.FooConfig&quot;
+<i class="no-highlight">53</i>&nbsp; * must be deleted in the unit test com.sleepycat.je.ConfigBeanInfoTest.
+<i class="no-highlight">54</i>&nbsp; */
+<b class="nc"><i class="no-highlight">55</i>&nbsp;public class ConfigBeanInfoBase extends SimpleBeanInfo {</b>
+<b class="nc"><i class="no-highlight">56</i>&nbsp;    private static java.awt.Image iconColor16 = null;</b>
+<b class="nc"><i class="no-highlight">57</i>&nbsp;    private static java.awt.Image iconColor32 = null;</b>
+<b class="nc"><i class="no-highlight">58</i>&nbsp;    private static java.awt.Image iconMono16 = null;</b>
+<b class="nc"><i class="no-highlight">59</i>&nbsp;    private static java.awt.Image iconMono32 = null;</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;    private static String iconNameC16 = null;</b>
+<b class="nc"><i class="no-highlight">61</i>&nbsp;    private static String iconNameC32 = null;</b>
+<b class="nc"><i class="no-highlight">62</i>&nbsp;    private static String iconNameM16 = null;</b>
+<b class="nc"><i class="no-highlight">63</i>&nbsp;    private static String iconNameM32 = null;</b>
+<i class="no-highlight">64</i>&nbsp;
+<i class="no-highlight">65</i>&nbsp;    private static final int defaultPropertyIndex = -1;
+<i class="no-highlight">66</i>&nbsp;    private static final int defaultEventIndex = -1;
+<i class="no-highlight">67</i>&nbsp;
+<b class="nc"><i class="no-highlight">68</i>&nbsp;    protected static ArrayList&lt;String&gt; propertiesName = new ArrayList&lt;String&gt;();</b>
+<i class="no-highlight">69</i>&nbsp;    protected static ArrayList&lt;String&gt;
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        getterAndSetterMethods = new ArrayList&lt;String&gt;();</b>
+<i class="no-highlight">71</i>&nbsp;
+<b class="nc"><i class="no-highlight">72</i>&nbsp;    protected static ArrayList&lt;String&gt; ignoreMethods = new ArrayList&lt;String&gt;();</b>
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /*
+<i class="no-highlight">75</i>&nbsp;     * Get the propertis&#39; infomation, including all the properties&#39;s names
+<i class="no-highlight">76</i>&nbsp;     * and their getter/setter methods.
+<i class="no-highlight">77</i>&nbsp;     */
+<i class="no-highlight">78</i>&nbsp;    protected static void getPropertiesInfo(Class cls) {
+<b class="nc"><i class="no-highlight">79</i>&nbsp;        propertiesName.clear();</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;        getterAndSetterMethods.clear();</b>
+<i class="no-highlight">81</i>&nbsp;        try {
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;            /* Get all of the public methods. */
+<b class="nc"><i class="no-highlight">84</i>&nbsp;            ArrayList&lt;String&gt; allMethodNames = new ArrayList&lt;String&gt;();</b>
+<b class="nc"><i class="no-highlight">85</i>&nbsp;            Method[] methods = cls.getMethods();</b>
+<b class="nc"><i class="no-highlight">86</i>&nbsp;            for (int i = 0; i &lt; methods.length; i++) {</b>
+<b class="nc"><i class="no-highlight">87</i>&nbsp;                allMethodNames.add(methods[i].getName());</b>
+<i class="no-highlight">88</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">89</i>&nbsp;            for (int i = 0; i &lt; allMethodNames.size(); i++) {</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;                String name = allMethodNames.get(i);</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;                String subName = name.substring(0, 3);</b>
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;                /* If it is a setter method. */
+<b class="nc"><i class="no-highlight">94</i>&nbsp;                if (subName.equals(&quot;set&quot;)) {</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;                    if (isIgnoreMethods(name)) {</b>
+<b class="nc"><i class="no-highlight">96</i>&nbsp;                        continue;</b>
+<i class="no-highlight">97</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">98</i>&nbsp;                    String propertyName = name.substring(3);</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;                    Method getterMethod = null;</b>
+<i class="no-highlight">100</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">101</i>&nbsp;                        getterMethod = cls.getMethod(&quot;get&quot; + propertyName);</b>
+<b class="nc"><i class="no-highlight">102</i>&nbsp;                    } catch (NoSuchMethodException e) {</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                        getterMethod = null;</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;                    }</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;                    if (getterMethod != null) {</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;                        getterAndSetterMethods.add(&quot;get&quot; + propertyName);</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;                        getterAndSetterMethods.add(name + &quot;Void&quot;);</b>
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;                        /*
+<i class="no-highlight">110</i>&nbsp;                         * Add the real property name into propertiesName.
+<i class="no-highlight">111</i>&nbsp;                         * if the names of setter/getter methods are
+<i class="no-highlight">112</i>&nbsp;                         * setFoo/getFoo, the name of the property should be
+<i class="no-highlight">113</i>&nbsp;                         * &quot;foo&quot;.
+<i class="no-highlight">114</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                        propertiesName.add</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;                            (propertyName.substring(0, 1).toLowerCase() +</b>
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                             propertyName.substring(1));</b>
+<i class="no-highlight">118</i>&nbsp;                    }
+<i class="no-highlight">119</i>&nbsp;                }
+<i class="no-highlight">120</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        } catch (SecurityException e) {</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;        }</b>
+<i class="no-highlight">124</i>&nbsp;    }
+<i class="no-highlight">125</i>&nbsp;
+<i class="no-highlight">126</i>&nbsp;    private static boolean isIgnoreMethods(String methodName) {
+<b class="nc"><i class="no-highlight">127</i>&nbsp;        for (int i = 0; i &lt; ignoreMethods.size(); i++) {</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;            if (ignoreMethods.get(i).equals(methodName)) {</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;                return true;</b>
+<i class="no-highlight">130</i>&nbsp;            }
+<i class="no-highlight">131</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        return false;</b>
+<i class="no-highlight">133</i>&nbsp;    }
+<i class="no-highlight">134</i>&nbsp;
+<i class="no-highlight">135</i>&nbsp;    protected static PropertyDescriptor[] getPdescriptor(Class cls) {
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        getPropertiesInfo(cls);</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        final int propertyNum = propertiesName.size();</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        assert propertyNum * 2 == getterAndSetterMethods.size();</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        PropertyDescriptor[] properties = new PropertyDescriptor[propertyNum];</b>
+<i class="no-highlight">140</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">141</i>&nbsp;            for (int i = 0, j = 0; i &lt; propertyNum; i += 1, j += 2) {</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;                properties[i] = new PropertyDescriptor</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;                    (propertiesName.get(i), cls, getterAndSetterMethods.get(j),</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;                     getterAndSetterMethods.get(j + 1));</b>
+<i class="no-highlight">145</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        } catch(IntrospectionException e) {</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        return properties;</b>
+<i class="no-highlight">150</i>&nbsp;    }
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    protected static BeanDescriptor getBdescriptor(Class cls) {
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        BeanDescriptor beanDescriptor = new BeanDescriptor(cls, null);</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        return beanDescriptor;</b>
+<i class="no-highlight">155</i>&nbsp;    }
+<i class="no-highlight">156</i>&nbsp;
+<i class="no-highlight">157</i>&nbsp;    /**
+<i class="no-highlight">158</i>&nbsp;     * Gets the bean&#39;s &lt;code&gt;BeanDescriptor&lt;/code&gt;s.
+<i class="no-highlight">159</i>&nbsp;     *
+<i class="no-highlight">160</i>&nbsp;     * @param cls the Class.
+<i class="no-highlight">161</i>&nbsp;     *
+<i class="no-highlight">162</i>&nbsp;     * @return BeanDescriptor describing the editable
+<i class="no-highlight">163</i>&nbsp;     * properties of this bean. May return null if the
+<i class="no-highlight">164</i>&nbsp;     * information should be obtained by automatic analysis.
+<i class="no-highlight">165</i>&nbsp;     */
+<i class="no-highlight">166</i>&nbsp;    public BeanDescriptor getBeanDescriptor(Class cls) {
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        return null;</b>
+<i class="no-highlight">168</i>&nbsp;    }
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    /**
+<i class="no-highlight">171</i>&nbsp;     * Gets the bean&#39;s &lt;code&gt;PropertyDescriptor&lt;/code&gt;s.
+<i class="no-highlight">172</i>&nbsp;     *
+<i class="no-highlight">173</i>&nbsp;     * @param cls the Class.
+<i class="no-highlight">174</i>&nbsp;     *
+<i class="no-highlight">175</i>&nbsp;     * @return An array of PropertyDescriptors describing the editable
+<i class="no-highlight">176</i>&nbsp;     * properties supported by this bean. May return null if the
+<i class="no-highlight">177</i>&nbsp;     * information should be obtained by automatic analysis.
+<i class="no-highlight">178</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">179</i>&nbsp;     * If a property is indexed, then its entry in the result array will
+<i class="no-highlight">180</i>&nbsp;     * belong to the IndexedPropertyDescriptor subclass of PropertyDescriptor.
+<i class="no-highlight">181</i>&nbsp;     * A client of getPropertyDescriptors can use &quot;instanceof&quot; to check
+<i class="no-highlight">182</i>&nbsp;     * if a given PropertyDescriptor is an IndexedPropertyDescriptor.
+<i class="no-highlight">183</i>&nbsp;     */
+<i class="no-highlight">184</i>&nbsp;    public PropertyDescriptor[] getPropertyDescriptors(Class cls) {
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        return null;</b>
+<i class="no-highlight">186</i>&nbsp;    }
+<i class="no-highlight">187</i>&nbsp;
+<i class="no-highlight">188</i>&nbsp;    /**
+<i class="no-highlight">189</i>&nbsp;     * Gets the bean&#39;s &lt;code&gt;EventSetDescriptor&lt;/code&gt;s.
+<i class="no-highlight">190</i>&nbsp;     *
+<i class="no-highlight">191</i>&nbsp;     * @return An array of EventSetDescriptors describing the kinds of
+<i class="no-highlight">192</i>&nbsp;     * events fired by this bean. May return null if the information
+<i class="no-highlight">193</i>&nbsp;     * should be obtained by automatic analysis.
+<i class="no-highlight">194</i>&nbsp;     */
+<i class="no-highlight">195</i>&nbsp;    public EventSetDescriptor[] getEventSetDescriptors() {
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        EventSetDescriptor[] eventSets = new EventSetDescriptor[0];</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        return eventSets;</b>
+<i class="no-highlight">198</i>&nbsp;    }
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;    /**
+<i class="no-highlight">201</i>&nbsp;     * A bean may have a &quot;default&quot; property that is the property that will
+<i class="no-highlight">202</i>&nbsp;     * mostly commonly be initially chosen for update by human&#39;s who are
+<i class="no-highlight">203</i>&nbsp;     * customizing the bean.
+<i class="no-highlight">204</i>&nbsp;     * @return Index of default property in the PropertyDescriptor array
+<i class="no-highlight">205</i>&nbsp;     * returned by getPropertyDescriptors.
+<i class="no-highlight">206</i>&nbsp;     * &lt;p&gt; Returns -1 if there is no default property.
+<i class="no-highlight">207</i>&nbsp;     */
+<i class="no-highlight">208</i>&nbsp;    public int getDefaultPropertyIndex() {
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        return defaultPropertyIndex;</b>
+<i class="no-highlight">210</i>&nbsp;    }
+<i class="no-highlight">211</i>&nbsp;
+<i class="no-highlight">212</i>&nbsp;    /**
+<i class="no-highlight">213</i>&nbsp;     * A bean may have a &quot;default&quot; event that is the event that will
+<i class="no-highlight">214</i>&nbsp;     * mostly commonly be used by human&#39;s when using the bean.
+<i class="no-highlight">215</i>&nbsp;     * @return Index of default event in the EventSetDescriptor array
+<i class="no-highlight">216</i>&nbsp;     * returned by getEventSetDescriptors.
+<i class="no-highlight">217</i>&nbsp;     * &lt;p&gt; Returns -1 if there is no default event.
+<i class="no-highlight">218</i>&nbsp;     */
+<i class="no-highlight">219</i>&nbsp;    public int getDefaultEventIndex() {
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        return defaultEventIndex;</b>
+<i class="no-highlight">221</i>&nbsp;    }
+<i class="no-highlight">222</i>&nbsp;
+<i class="no-highlight">223</i>&nbsp;    /**
+<i class="no-highlight">224</i>&nbsp;     * This method returns an image object that can be used to
+<i class="no-highlight">225</i>&nbsp;     * represent the bean in toolboxes, toolbars, etc. Icon images
+<i class="no-highlight">226</i>&nbsp;     * will typically be GIFs, but may in future include other formats.
+<i class="no-highlight">227</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">228</i>&nbsp;     * Beans aren&#39;t required to provide icons and may return null from
+<i class="no-highlight">229</i>&nbsp;     * this method.
+<i class="no-highlight">230</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">231</i>&nbsp;     * There are four possible flavors of icons (16x16 color,
+<i class="no-highlight">232</i>&nbsp;     * 32x32 color, 16x16 mono, 32x32 mono). If a bean choses to only
+<i class="no-highlight">233</i>&nbsp;     * support a single icon we recommend supporting 16x16 color.
+<i class="no-highlight">234</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">235</i>&nbsp;     * We recommend that icons have a &quot;transparent&quot; background
+<i class="no-highlight">236</i>&nbsp;     * so they can be rendered onto an existing background.
+<i class="no-highlight">237</i>&nbsp;     *
+<i class="no-highlight">238</i>&nbsp;     * @param iconKind  The kind of icon requested. This should be
+<i class="no-highlight">239</i>&nbsp;     * one of the constant values ICON_COLOR_16x16, ICON_COLOR_32x32,
+<i class="no-highlight">240</i>&nbsp;     * ICON_MONO_16x16, or ICON_MONO_32x32.
+<i class="no-highlight">241</i>&nbsp;     * @return An image object representing the requested icon. May
+<i class="no-highlight">242</i>&nbsp;     * return null if no suitable icon is available.
+<i class="no-highlight">243</i>&nbsp;     */
+<i class="no-highlight">244</i>&nbsp;    public java.awt.Image getIcon(int iconKind) {
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        switch (iconKind) {</b>
+<i class="no-highlight">246</i>&nbsp;        case ICON_COLOR_16x16:
+<b class="nc"><i class="no-highlight">247</i>&nbsp;            if (iconNameC16 == null) {</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;                return null;</b>
+<i class="no-highlight">249</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">250</i>&nbsp;                if (iconColor16 == null) {</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                    iconColor16 = loadImage(iconNameC16);</b>
+<i class="no-highlight">252</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">253</i>&nbsp;                return iconColor16;</b>
+<i class="no-highlight">254</i>&nbsp;            }
+<i class="no-highlight">255</i>&nbsp;
+<i class="no-highlight">256</i>&nbsp;        case ICON_COLOR_32x32:
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            if (iconNameC32 == null) {</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;                return null;</b>
+<i class="no-highlight">259</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">260</i>&nbsp;                if (iconColor32 == null) {</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                    iconColor32 = loadImage(iconNameC32);</b>
+<i class="no-highlight">262</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">263</i>&nbsp;                return iconColor32;</b>
+<i class="no-highlight">264</i>&nbsp;            }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;        case ICON_MONO_16x16:
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            if (iconNameM16 == null) {</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;                return null;</b>
+<i class="no-highlight">269</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">270</i>&nbsp;                if (iconMono16 == null) {</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;                    iconMono16 = loadImage(iconNameM16);</b>
+<i class="no-highlight">272</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                return iconMono16;</b>
+<i class="no-highlight">274</i>&nbsp;            }
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;        case ICON_MONO_32x32:
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            if (iconNameM32 == null) {</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;                return null;</b>
+<i class="no-highlight">279</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">280</i>&nbsp;                if (iconMono32 == null) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;                    iconMono32 = loadImage(iconNameM32);</b>
+<i class="no-highlight">282</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                return iconMono32;</b>
+<i class="no-highlight">284</i>&nbsp;            }
+<i class="no-highlight">285</i>&nbsp;
+<i class="no-highlight">286</i>&nbsp;        default:
+<b class="nc"><i class="no-highlight">287</i>&nbsp;            return null;</b>
+<i class="no-highlight">288</i>&nbsp;        }
+<i class="no-highlight">289</i>&nbsp;    }
+<i class="no-highlight">290</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

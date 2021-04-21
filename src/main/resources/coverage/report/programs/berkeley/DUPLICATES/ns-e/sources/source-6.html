@@ -1,0 +1,420 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > JEManagedConnection</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.jca.ra</a>
+</div>
+
+<h1>Coverage Summary for Class: JEManagedConnection (com.sleepycat.je.jca.ra)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">JEManagedConnection</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/21)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/120)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.jca.ra;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.PrintWriter;
+<i class="no-highlight">17</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;
+<i class="no-highlight">22</i>&nbsp;import javax.resource.ResourceException;
+<i class="no-highlight">23</i>&nbsp;import javax.resource.spi.ConnectionEvent;
+<i class="no-highlight">24</i>&nbsp;import javax.resource.spi.ConnectionEventListener;
+<i class="no-highlight">25</i>&nbsp;import javax.resource.spi.ConnectionRequestInfo;
+<i class="no-highlight">26</i>&nbsp;import javax.resource.spi.LocalTransaction;
+<i class="no-highlight">27</i>&nbsp;import javax.resource.spi.ManagedConnection;
+<i class="no-highlight">28</i>&nbsp;import javax.resource.spi.ManagedConnectionMetaData;
+<i class="no-highlight">29</i>&nbsp;import javax.security.auth.Subject;
+<i class="no-highlight">30</i>&nbsp;import javax.transaction.xa.XAResource;
+<i class="no-highlight">31</i>&nbsp;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.DatabaseConfig;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.SecondaryConfig;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.SecondaryDatabase;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.XAEnvironment;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;public class JEManagedConnection implements ManagedConnection {
+<i class="no-highlight">42</i>&nbsp;    private final ArrayList&lt;ConnectionEventListener&gt; listeners;
+<i class="no-highlight">43</i>&nbsp;    private JEConnection conn;
+<i class="no-highlight">44</i>&nbsp;    private XAEnvironment env;
+<i class="no-highlight">45</i>&nbsp;    private JELocalTransaction savedLT;
+<i class="no-highlight">46</i>&nbsp;    private TransactionConfig savedTransConfig;
+<i class="no-highlight">47</i>&nbsp;    private final Map&lt;String,Database&gt; rwDatabaseHandleCache;
+<i class="no-highlight">48</i>&nbsp;    private final Map&lt;String,Database&gt; roDatabaseHandleCache;
+<i class="no-highlight">49</i>&nbsp;    private final Map&lt;String,Database&gt; rwSecondaryDatabaseHandleCache;
+<i class="no-highlight">50</i>&nbsp;    private final Map&lt;String,Database&gt; roSecondaryDatabaseHandleCache;
+<i class="no-highlight">51</i>&nbsp;
+<i class="no-highlight">52</i>&nbsp;    JEManagedConnection(Subject subject, JERequestInfo jeInfo)
+<b class="nc"><i class="no-highlight">53</i>&nbsp;        throws ResourceException {</b>
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">56</i>&nbsp;            savedTransConfig = jeInfo.getTransactionConfig();</b>
+<b class="nc"><i class="no-highlight">57</i>&nbsp;            this.env = new XAEnvironment(jeInfo.getJERootDir(),</b>
+<b class="nc"><i class="no-highlight">58</i>&nbsp;                                         jeInfo.getEnvConfig());</b>
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        } catch (DatabaseException DE) {</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;            throw new ResourceException(DE.toString());</b>
+<b class="nc"><i class="no-highlight">61</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">62</i>&nbsp;          listeners = new ArrayList&lt;ConnectionEventListener&gt;();</b>
+<b class="nc"><i class="no-highlight">63</i>&nbsp;        savedLT = null;</b>
+<b class="nc"><i class="no-highlight">64</i>&nbsp;        rwDatabaseHandleCache = new HashMap&lt;String,Database&gt;();</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;        roDatabaseHandleCache = new HashMap&lt;String,Database&gt;();</b>
+<b class="nc"><i class="no-highlight">66</i>&nbsp;        rwSecondaryDatabaseHandleCache = new HashMap&lt;String,Database&gt;();</b>
+<b class="nc"><i class="no-highlight">67</i>&nbsp;        roSecondaryDatabaseHandleCache = new HashMap&lt;String,Database&gt;();</b>
+<i class="no-highlight">68</i>&nbsp;    }
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    public Object getConnection(Subject subject,
+<i class="no-highlight">71</i>&nbsp;                                ConnectionRequestInfo connectionRequestInfo) {
+<b class="nc"><i class="no-highlight">72</i>&nbsp;        if (conn == null) {</b>
+<b class="nc"><i class="no-highlight">73</i>&nbsp;            conn = new JEConnection(this);</b>
+<i class="no-highlight">74</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">75</i>&nbsp;        return conn;</b>
+<i class="no-highlight">76</i>&nbsp;    }
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    protected XAEnvironment getEnvironment() {
+<b class="nc"><i class="no-highlight">79</i>&nbsp;        return env;</b>
+<i class="no-highlight">80</i>&nbsp;    }
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    public LocalTransaction getLocalTransaction() {
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;        /*
+<i class="no-highlight">85</i>&nbsp;         * If there is no JEConnection associated with this ManagedConnection
+<i class="no-highlight">86</i>&nbsp;         * yet, then the ManagedConnection holds on to the JELocalTransaction.
+<i class="no-highlight">87</i>&nbsp;         * Once a JEConnection is associated (it may not ever happen), we hand
+<i class="no-highlight">88</i>&nbsp;         * off the JELocalTransaction to the JEConnection and forget about it
+<i class="no-highlight">89</i>&nbsp;         * in the ManagedConnection.
+<i class="no-highlight">90</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        if (conn == null) {</b>
+<b class="nc"><i class="no-highlight">92</i>&nbsp;            savedLT = new JELocalTransaction(env, savedTransConfig, this);</b>
+<b class="nc"><i class="no-highlight">93</i>&nbsp;            return savedLT;</b>
+<i class="no-highlight">94</i>&nbsp;        }
+<i class="no-highlight">95</i>&nbsp;
+<b class="nc"><i class="no-highlight">96</i>&nbsp;        JELocalTransaction lt = conn.getLocalTransaction();</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;        if (lt == null) {</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;            if (savedLT == null) {</b>
+<b class="nc"><i class="no-highlight">99</i>&nbsp;                lt = new JELocalTransaction(env, savedTransConfig, this);</b>
+<i class="no-highlight">100</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">101</i>&nbsp;                lt = savedLT;</b>
+<i class="no-highlight">102</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">103</i>&nbsp;            conn.setLocalTransaction(lt);</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;            savedLT = null;</b>
+<i class="no-highlight">105</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        return lt;</b>
+<i class="no-highlight">107</i>&nbsp;    }
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    public XAResource getXAResource() {
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        return env;</b>
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    public void associateConnection(Object connection) {
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        conn = (JEConnection) connection;</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        conn.setManagedConnection(this, savedLT);</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;        savedLT = null;</b>
+<i class="no-highlight">117</i>&nbsp;    }
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    public void addConnectionEventListener(ConnectionEventListener listener) {
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        listeners.add(listener);</b>
+<i class="no-highlight">121</i>&nbsp;    }
+<i class="no-highlight">122</i>&nbsp;
+<i class="no-highlight">123</i>&nbsp;    public void
+<i class="no-highlight">124</i>&nbsp;        removeConnectionEventListener(ConnectionEventListener listener) {
+<i class="no-highlight">125</i>&nbsp;
+<b class="nc"><i class="no-highlight">126</i>&nbsp;        listeners.remove(listener);</b>
+<i class="no-highlight">127</i>&nbsp;    }
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;    public ManagedConnectionMetaData getMetaData() {
+<b class="nc"><i class="no-highlight">130</i>&nbsp;        return new JEConnectionMetaData();</b>
+<i class="no-highlight">131</i>&nbsp;    }
+<i class="no-highlight">132</i>&nbsp;
+<i class="no-highlight">133</i>&nbsp;    public void setLogWriter(PrintWriter out) {
+<i class="no-highlight">134</i>&nbsp;    }
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    public PrintWriter getLogWriter() {
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        return null;</b>
+<i class="no-highlight">138</i>&nbsp;    }
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    protected void close() {
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        ConnectionEvent connEvent =</b>
+<i class="no-highlight">142</i>&nbsp;            new ConnectionEvent(this, ConnectionEvent.CONNECTION_CLOSED);
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        connEvent.setConnectionHandle(conn);</b>
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        sendConnectionEvent(connEvent);</b>
+<i class="no-highlight">145</i>&nbsp;    }
+<i class="no-highlight">146</i>&nbsp;
+<i class="no-highlight">147</i>&nbsp;    protected void sendConnectionEvent(ConnectionEvent connEvent) {
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        for (int i = listeners.size() - 1; i &gt;= 0; i--) {</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;            ConnectionEventListener listener =</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;                listeners.get(i);</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;            if (connEvent.getId() == ConnectionEvent.CONNECTION_CLOSED) {</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;                listener.connectionClosed(connEvent);</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;            } else if (connEvent.getId() ==</b>
+<i class="no-highlight">154</i>&nbsp;                       ConnectionEvent.CONNECTION_ERROR_OCCURRED) {
+<b class="nc"><i class="no-highlight">155</i>&nbsp;                listener.connectionErrorOccurred(connEvent);</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;            } else if (connEvent.getId() ==</b>
+<i class="no-highlight">157</i>&nbsp;                       ConnectionEvent.LOCAL_TRANSACTION_STARTED) {
+<b class="nc"><i class="no-highlight">158</i>&nbsp;                listener.localTransactionStarted(connEvent);</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            } else if (connEvent.getId() ==</b>
+<i class="no-highlight">160</i>&nbsp;                       ConnectionEvent.LOCAL_TRANSACTION_COMMITTED) {
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                listener.localTransactionCommitted(connEvent);</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            } else if (connEvent.getId() ==</b>
+<i class="no-highlight">163</i>&nbsp;                       ConnectionEvent.LOCAL_TRANSACTION_ROLLEDBACK) {
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                listener.localTransactionRolledback(connEvent);</b>
+<i class="no-highlight">165</i>&nbsp;            }
+<i class="no-highlight">166</i>&nbsp;        }
+<i class="no-highlight">167</i>&nbsp;    }
+<i class="no-highlight">168</i>&nbsp;
+<i class="no-highlight">169</i>&nbsp;    public void destroy()
+<i class="no-highlight">170</i>&nbsp;        throws ResourceException {
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            cleanupDatabaseHandleCache(roDatabaseHandleCache);</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            cleanupDatabaseHandleCache(rwDatabaseHandleCache);</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;            cleanupDatabaseHandleCache(roSecondaryDatabaseHandleCache);</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            cleanupDatabaseHandleCache(rwSecondaryDatabaseHandleCache);</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;            env.close();</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;        } catch (DatabaseException DE) {</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;            throw new ResourceException(DE.toString());</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;        }</b>
+<i class="no-highlight">181</i>&nbsp;    }
+<i class="no-highlight">182</i>&nbsp;
+<i class="no-highlight">183</i>&nbsp;    public void cleanup() {
+<i class="no-highlight">184</i>&nbsp;    }
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;    void removeDatabase(String dbName)
+<i class="no-highlight">187</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">188</i>&nbsp;
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        removeDatabaseFromCache(roDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        removeDatabaseFromCache(rwDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        removeDatabaseFromCache(roSecondaryDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        removeDatabaseFromCache(rwSecondaryDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        env.removeDatabase(null, dbName);</b>
+<i class="no-highlight">194</i>&nbsp;    }
+<i class="no-highlight">195</i>&nbsp;
+<i class="no-highlight">196</i>&nbsp;    long truncateDatabase(String dbName, boolean returnCount)
+<i class="no-highlight">197</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">198</i>&nbsp;
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        removeDatabaseFromCache(roDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        removeDatabaseFromCache(rwDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;        removeDatabaseFromCache(roSecondaryDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;        removeDatabaseFromCache(rwSecondaryDatabaseHandleCache, dbName);</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;        return env.truncateDatabase(null, dbName, returnCount);</b>
+<i class="no-highlight">204</i>&nbsp;    }
+<i class="no-highlight">205</i>&nbsp;
+<i class="no-highlight">206</i>&nbsp;    Database openDatabase(String dbName, DatabaseConfig config)
+<i class="no-highlight">207</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">208</i>&nbsp;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        if (config.getReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            synchronized (roDatabaseHandleCache) {</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                return openDatabaseInternal</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;                    (roDatabaseHandleCache, dbName, config);</b>
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            }</b>
+<i class="no-highlight">214</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            synchronized (rwDatabaseHandleCache) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                return openDatabaseInternal</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                    (rwDatabaseHandleCache, dbName, config);</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;            }</b>
+<i class="no-highlight">219</i>&nbsp;        }
+<i class="no-highlight">220</i>&nbsp;    }
+<i class="no-highlight">221</i>&nbsp;
+<i class="no-highlight">222</i>&nbsp;    SecondaryDatabase openSecondaryDatabase(String dbName,
+<i class="no-highlight">223</i>&nbsp;                                            Database primaryDatabase,
+<i class="no-highlight">224</i>&nbsp;                                            SecondaryConfig config)
+<i class="no-highlight">225</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        if (config.getReadOnly()) {</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;            synchronized (roSecondaryDatabaseHandleCache) {</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;                return openSecondaryDatabaseInternal</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;                    (roSecondaryDatabaseHandleCache, dbName,</b>
+<i class="no-highlight">231</i>&nbsp;                     primaryDatabase, config);
+<b class="nc"><i class="no-highlight">232</i>&nbsp;            }</b>
+<i class="no-highlight">233</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            synchronized (rwSecondaryDatabaseHandleCache) {</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;                return openSecondaryDatabaseInternal</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                    (rwSecondaryDatabaseHandleCache, dbName,</b>
+<i class="no-highlight">237</i>&nbsp;                     primaryDatabase, config);
+<b class="nc"><i class="no-highlight">238</i>&nbsp;            }</b>
+<i class="no-highlight">239</i>&nbsp;        }
+<i class="no-highlight">240</i>&nbsp;    }
+<i class="no-highlight">241</i>&nbsp;
+<i class="no-highlight">242</i>&nbsp;    private Database
+<i class="no-highlight">243</i>&nbsp;        openDatabaseInternal(Map&lt;String,Database&gt; databaseHandleCache,
+<i class="no-highlight">244</i>&nbsp;                             String dbName,
+<i class="no-highlight">245</i>&nbsp;                             DatabaseConfig config)
+<i class="no-highlight">246</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">247</i>&nbsp;
+<i class="no-highlight">248</i>&nbsp;        Database db;
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        if (config.getExclusiveCreate()) {</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            db = env.openDatabase(null, dbName, config);</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;            databaseHandleCache.put(dbName, db);</b>
+<i class="no-highlight">252</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">253</i>&nbsp;            db = databaseHandleCache.get(dbName);</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            if (db == null) {</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;                db = env.openDatabase(null, dbName, config);</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;                databaseHandleCache.put(dbName, db);</b>
+<i class="no-highlight">257</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">258</i>&nbsp;                DbInternal.validate(config, db.getConfig());</b>
+<i class="no-highlight">259</i>&nbsp;            }
+<i class="no-highlight">260</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">261</i>&nbsp;        return db;</b>
+<i class="no-highlight">262</i>&nbsp;    }
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;    private SecondaryDatabase
+<i class="no-highlight">265</i>&nbsp;        openSecondaryDatabaseInternal(Map&lt;String,Database&gt; databaseHandleCache,
+<i class="no-highlight">266</i>&nbsp;                                      String dbName,
+<i class="no-highlight">267</i>&nbsp;                                      Database primaryDatabase,
+<i class="no-highlight">268</i>&nbsp;                                      SecondaryConfig config)
+<i class="no-highlight">269</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;        SecondaryDatabase db;
+<b class="nc"><i class="no-highlight">272</i>&nbsp;        if (config.getExclusiveCreate()) {</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;            db = env.openSecondaryDatabase(null, dbName,</b>
+<i class="no-highlight">274</i>&nbsp;                                           primaryDatabase, config);
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            databaseHandleCache.put(dbName, db);</b>
+<i class="no-highlight">276</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            db = (SecondaryDatabase) databaseHandleCache.get(dbName);</b>
+<b class="nc"><i class="no-highlight">278</i>&nbsp;            if (db == null) {</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;                db = env.openSecondaryDatabase(null, dbName,</b>
+<i class="no-highlight">280</i>&nbsp;                                               primaryDatabase, config);
+<b class="nc"><i class="no-highlight">281</i>&nbsp;                databaseHandleCache.put(dbName, db);</b>
+<i class="no-highlight">282</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                DbInternal.validate(config, db.getConfig());</b>
+<i class="no-highlight">284</i>&nbsp;            }
+<i class="no-highlight">285</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        return db;</b>
+<i class="no-highlight">287</i>&nbsp;    }
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    private void removeDatabaseFromCache(Map&lt;String,Database&gt; cache,
+<i class="no-highlight">290</i>&nbsp;                                         String dbName)
+<i class="no-highlight">291</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">292</i>&nbsp;
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        synchronized (cache) {</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;            Database db = cache.get(dbName);</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;            if (db == null) {</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;                return;</b>
+<i class="no-highlight">297</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">298</i>&nbsp;            db.close();</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;            cache.remove(dbName);</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        }</b>
+<i class="no-highlight">301</i>&nbsp;    }
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;    private void cleanupDatabaseHandleCache(Map&lt;String,Database&gt; cache)
+<i class="no-highlight">304</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">305</i>&nbsp;
+<b class="nc"><i class="no-highlight">306</i>&nbsp;        synchronized (cache) {</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            Iterator&lt;Database&gt; iter = cache.values().iterator();</b>
+<i class="no-highlight">308</i>&nbsp;
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;                Database db = iter.next();</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                db.close();</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;        }</b>
+<i class="no-highlight">314</i>&nbsp;    }
+<i class="no-highlight">315</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

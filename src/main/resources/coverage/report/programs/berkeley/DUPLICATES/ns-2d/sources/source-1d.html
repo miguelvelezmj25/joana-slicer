@@ -1,0 +1,561 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > TxnManager</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: TxnManager (com.sleepycat.je.txn)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">TxnManager</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    57.1%
+  </span>
+  <span class="absValue">
+    (16/28)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    53.5%
+  </span>
+  <span class="absValue">
+    (77/144)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_ABORTS;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_ACTIVE;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_ACTIVE_TXNS;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_BEGINS;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_COMMITS;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_XAABORTS;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_XACOMMITS;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.dbi.TxnStatDefinition.TXN_XAPREPARES;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">26</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">27</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">28</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">29</i>&nbsp;import java.util.Map;
+<i class="no-highlight">30</i>&nbsp;import java.util.Set;
+<i class="no-highlight">31</i>&nbsp;import java.util.concurrent.ConcurrentHashMap;
+<i class="no-highlight">32</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">33</i>&nbsp;import java.util.concurrent.atomic.AtomicLong;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;import javax.transaction.xa.Xid;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.LockStats;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.TransactionStats;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.latch.LatchFactory;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.latch.SharedLatch;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.utilint.ActiveTxnArrayStat;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.utilint.IntStat;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;/**
+<i class="no-highlight">54</i>&nbsp; * Class to manage transactions.  Basically a Set of all transactions with add
+<i class="no-highlight">55</i>&nbsp; * and remove methods and a latch around the set.
+<i class="no-highlight">56</i>&nbsp; */
+<b class="fc"><i class="no-highlight">57</i>&nbsp;public class TxnManager {</b>
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /*
+<i class="no-highlight">60</i>&nbsp;     * All NullTxns share the same id so as not to eat from the id number
+<i class="no-highlight">61</i>&nbsp;     * space.
+<i class="no-highlight">62</i>&nbsp;     *
+<i class="no-highlight">63</i>&nbsp;     * Negative transaction ids are used by the master node of a replication
+<i class="no-highlight">64</i>&nbsp;     * group. That sequence begins at -10 to avoid conflict with the
+<i class="no-highlight">65</i>&nbsp;     * NULL_TXN_ID and leave room for other special purpose ids.
+<i class="no-highlight">66</i>&nbsp;     */
+<i class="no-highlight">67</i>&nbsp;    static final long NULL_TXN_ID = -1;
+<i class="no-highlight">68</i>&nbsp;    private static final long FIRST_NEGATIVE_ID = -10;
+<i class="no-highlight">69</i>&nbsp;    private LockManager lockManager;
+<i class="no-highlight">70</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">71</i>&nbsp;    private final SharedLatch allTxnsLatch;
+<i class="no-highlight">72</i>&nbsp;    private final Map&lt;Txn, Txn&gt; allTxns;
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /* Maps Xids to Txns. */
+<i class="no-highlight">75</i>&nbsp;    private final Map&lt;Xid, Txn&gt; allXATxns;
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;    /* Maps Threads to Txns when there are thread implied transactions. */
+<i class="no-highlight">78</i>&nbsp;    private final Map&lt;Thread, Transaction&gt; thread2Txn;
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /*
+<i class="no-highlight">81</i>&nbsp;     * Positive and negative transaction ids are used in a replicated system,
+<i class="no-highlight">82</i>&nbsp;     * to let replicated transactions intermingle with local transactions.
+<i class="no-highlight">83</i>&nbsp;     */
+<i class="no-highlight">84</i>&nbsp;    private final AtomicLong lastUsedLocalTxnId;
+<i class="no-highlight">85</i>&nbsp;    private final AtomicLong lastUsedReplicatedTxnId;
+<i class="no-highlight">86</i>&nbsp;    private final AtomicInteger nActiveSerializable;
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /* Locker Stats */
+<i class="no-highlight">89</i>&nbsp;    private final StatGroup stats;
+<i class="no-highlight">90</i>&nbsp;    private final IntStat nActive;
+<i class="no-highlight">91</i>&nbsp;    private final LongStat numBegins;
+<i class="no-highlight">92</i>&nbsp;    private final LongStat numCommits;
+<i class="no-highlight">93</i>&nbsp;    private final LongStat numAborts;
+<i class="no-highlight">94</i>&nbsp;    private final LongStat numXAPrepares;
+<i class="no-highlight">95</i>&nbsp;    private final LongStat numXACommits;
+<i class="no-highlight">96</i>&nbsp;    private final LongStat numXAAborts;
+<i class="no-highlight">97</i>&nbsp;    private final ActiveTxnArrayStat activeTxns;
+<b class="fc"><i class="no-highlight">98</i>&nbsp;    private volatile long nTotalCommits = 0;</b>
+<i class="no-highlight">99</i>&nbsp;
+<b class="fc"><i class="no-highlight">100</i>&nbsp;    public TxnManager(EnvironmentImpl envImpl) {</b>
+<b class="fc"><i class="no-highlight">101</i>&nbsp;        lockManager = new SyncedLockManager(envImpl);</b>
+<i class="no-highlight">102</i>&nbsp;
+<b class="fc"><i class="no-highlight">103</i>&nbsp;        if (envImpl.isNoLocking()) {</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;            lockManager = new DummyLockManager(envImpl, lockManager);</b>
+<i class="no-highlight">105</i>&nbsp;        }
+<i class="no-highlight">106</i>&nbsp;
+<b class="fc"><i class="no-highlight">107</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="fc"><i class="no-highlight">108</i>&nbsp;        allTxnsLatch = LatchFactory.createSharedLatch(</b>
+<i class="no-highlight">109</i>&nbsp;            envImpl, &quot;TxnManager.allTxns&quot;, false /*exclusiveOnly*/);
+<b class="fc"><i class="no-highlight">110</i>&nbsp;        allTxns = new ConcurrentHashMap&lt;Txn, Txn&gt;();</b>
+<b class="fc"><i class="no-highlight">111</i>&nbsp;        allXATxns = Collections.synchronizedMap(new HashMap&lt;Xid, Txn&gt;());</b>
+<b class="fc"><i class="no-highlight">112</i>&nbsp;        thread2Txn = new ConcurrentHashMap&lt;Thread, Transaction&gt;();</b>
+<i class="no-highlight">113</i>&nbsp;
+<b class="fc"><i class="no-highlight">114</i>&nbsp;        lastUsedLocalTxnId = new AtomicLong(0);</b>
+<b class="fc"><i class="no-highlight">115</i>&nbsp;        lastUsedReplicatedTxnId = new AtomicLong(FIRST_NEGATIVE_ID);</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;        nActiveSerializable = new AtomicInteger(0);</b>
+<i class="no-highlight">117</i>&nbsp;
+<i class="no-highlight">118</i>&nbsp;        /* Do the stats definition. */
+<b class="fc"><i class="no-highlight">119</i>&nbsp;        stats = new StatGroup(&quot;Transaction&quot;, &quot;Transaction statistics&quot;);</b>
+<b class="fc"><i class="no-highlight">120</i>&nbsp;        nActive = new IntStat(stats, TXN_ACTIVE);</b>
+<b class="fc"><i class="no-highlight">121</i>&nbsp;        numBegins = new LongStat(stats, TXN_BEGINS);</b>
+<b class="fc"><i class="no-highlight">122</i>&nbsp;        numCommits = new LongStat(stats, TXN_COMMITS);</b>
+<b class="fc"><i class="no-highlight">123</i>&nbsp;        numAborts = new LongStat(stats, TXN_ABORTS);</b>
+<b class="fc"><i class="no-highlight">124</i>&nbsp;        numXAPrepares = new LongStat(stats, TXN_XAPREPARES);</b>
+<b class="fc"><i class="no-highlight">125</i>&nbsp;        numXACommits = new LongStat(stats, TXN_XACOMMITS);</b>
+<b class="fc"><i class="no-highlight">126</i>&nbsp;        numXAAborts = new LongStat(stats, TXN_XAABORTS);</b>
+<b class="fc"><i class="no-highlight">127</i>&nbsp;        activeTxns = new ActiveTxnArrayStat(stats, TXN_ACTIVE_TXNS);</b>
+<b class="fc"><i class="no-highlight">128</i>&nbsp;    }</b>
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    /**
+<i class="no-highlight">131</i>&nbsp;     * Set the txn id sequence.
+<i class="no-highlight">132</i>&nbsp;     */
+<i class="no-highlight">133</i>&nbsp;    public void setLastTxnId(long lastReplicatedTxnId, long lastLocalId) {
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        lastUsedReplicatedTxnId.set(lastReplicatedTxnId);</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        lastUsedLocalTxnId.set(lastLocalId);</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;    }</b>
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /**
+<i class="no-highlight">139</i>&nbsp;     * Get the last used id, for checkpoint info.
+<i class="no-highlight">140</i>&nbsp;     */
+<i class="no-highlight">141</i>&nbsp;    public long getLastLocalTxnId() {
+<b class="fc"><i class="no-highlight">142</i>&nbsp;        return lastUsedLocalTxnId.get();</b>
+<i class="no-highlight">143</i>&nbsp;    }
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;    public long getLastReplicatedTxnId() {
+<b class="fc"><i class="no-highlight">146</i>&nbsp;        return lastUsedReplicatedTxnId.get();</b>
+<i class="no-highlight">147</i>&nbsp;    }
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    public long getNextReplicatedTxnId() {
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        return lastUsedReplicatedTxnId.decrementAndGet();</b>
+<i class="no-highlight">151</i>&nbsp;    }
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;    /* @return true if this id is for a replicated txn. */
+<i class="no-highlight">154</i>&nbsp;    public static boolean isReplicatedTxn(long txnId) {
+<b class="fc"><i class="no-highlight">155</i>&nbsp;        return (txnId &lt;= FIRST_NEGATIVE_ID);</b>
+<i class="no-highlight">156</i>&nbsp;    }
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;    /**
+<i class="no-highlight">159</i>&nbsp;     * Get the next transaction id for a non-replicated transaction. Note
+<i class="no-highlight">160</i>&nbsp;     * than in the future, a replicated node could conceivable issue an
+<i class="no-highlight">161</i>&nbsp;     * application level, non-replicated transaction.
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    long getNextTxnId() {
+<b class="fc"><i class="no-highlight">164</i>&nbsp;        return lastUsedLocalTxnId.incrementAndGet();</b>
+<i class="no-highlight">165</i>&nbsp;    }
+<i class="no-highlight">166</i>&nbsp;
+<i class="no-highlight">167</i>&nbsp;    /*
+<i class="no-highlight">168</i>&nbsp;     * Tracks the lowest replicated transaction id used during a replay of the
+<i class="no-highlight">169</i>&nbsp;     * replication stream, so that it&#39;s available as the starting point if this
+<i class="no-highlight">170</i>&nbsp;     * replica transitions to being the master.
+<i class="no-highlight">171</i>&nbsp;     */
+<i class="no-highlight">172</i>&nbsp;    public void updateFromReplay(long replayTxnId) {
+<b class="nc"><i class="no-highlight">173</i>&nbsp;        assert !envImpl.isMaster();</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        assert replayTxnId &lt; 0 :</b>
+<i class="no-highlight">175</i>&nbsp;            &quot;replay txn id is unexpectedly positive &quot; + replayTxnId;
+<i class="no-highlight">176</i>&nbsp;
+<b class="nc"><i class="no-highlight">177</i>&nbsp;        if (replayTxnId &lt; lastUsedReplicatedTxnId.get()) {</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;            lastUsedReplicatedTxnId.set(replayTxnId);</b>
+<i class="no-highlight">179</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">180</i>&nbsp;    }</b>
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;    /**
+<i class="no-highlight">183</i>&nbsp;     * Returns commit counter that is never cleared (as stats are), so it can
+<i class="no-highlight">184</i>&nbsp;     * be used for monitoring un-flushed txns.
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    public long getNTotalCommits() {
+<b class="fc"><i class="no-highlight">187</i>&nbsp;        return nTotalCommits;</b>
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /**
+<i class="no-highlight">191</i>&nbsp;     * Create a new transaction.
+<i class="no-highlight">192</i>&nbsp;     * @param parent for nested transactions, not yet supported
+<i class="no-highlight">193</i>&nbsp;     * @param txnConfig specifies txn attributes
+<i class="no-highlight">194</i>&nbsp;     * @return the new txn
+<i class="no-highlight">195</i>&nbsp;     */
+<i class="no-highlight">196</i>&nbsp;    public Txn txnBegin(Transaction parent, TransactionConfig txnConfig)
+<i class="no-highlight">197</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">198</i>&nbsp;
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        return Txn.createUserTxn(envImpl, txnConfig);</b>
+<i class="no-highlight">200</i>&nbsp;    }
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /**
+<i class="no-highlight">203</i>&nbsp;     * Give transactions and environment access to lock manager.
+<i class="no-highlight">204</i>&nbsp;     */
+<i class="no-highlight">205</i>&nbsp;    public LockManager getLockManager() {
+<b class="fc"><i class="no-highlight">206</i>&nbsp;        return lockManager;</b>
+<i class="no-highlight">207</i>&nbsp;    }
+<i class="no-highlight">208</i>&nbsp;
+<i class="no-highlight">209</i>&nbsp;    /**
+<i class="no-highlight">210</i>&nbsp;     * Called when txn is created.
+<i class="no-highlight">211</i>&nbsp;     */
+<i class="no-highlight">212</i>&nbsp;    public void registerTxn(Txn txn) {
+<b class="fc"><i class="no-highlight">213</i>&nbsp;        allTxnsLatch.acquireShared();</b>
+<i class="no-highlight">214</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">215</i>&nbsp;            allTxns.put(txn, txn);</b>
+<b class="fc"><i class="no-highlight">216</i>&nbsp;            if (txn.isSerializableIsolation()) {</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                nActiveSerializable.incrementAndGet();</b>
+<i class="no-highlight">218</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">219</i>&nbsp;            numBegins.increment();</b>
+<i class="no-highlight">220</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">221</i>&nbsp;            allTxnsLatch.release();</b>
+<b class="fc"><i class="no-highlight">222</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">223</i>&nbsp;    }</b>
+<i class="no-highlight">224</i>&nbsp;
+<i class="no-highlight">225</i>&nbsp;    /**
+<i class="no-highlight">226</i>&nbsp;     * Called when txn ends.
+<i class="no-highlight">227</i>&nbsp;     */
+<i class="no-highlight">228</i>&nbsp;    void unRegisterTxn(Txn txn, boolean isCommit) {
+<b class="fc"><i class="no-highlight">229</i>&nbsp;        allTxnsLatch.acquireShared();</b>
+<i class="no-highlight">230</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">231</i>&nbsp;            allTxns.remove(txn);</b>
+<i class="no-highlight">232</i>&nbsp;
+<i class="no-highlight">233</i>&nbsp;            /* Remove any accumulated MemoryBudget delta for the Txn. */
+<b class="fc"><i class="no-highlight">234</i>&nbsp;            envImpl.getMemoryBudget().</b>
+<b class="fc"><i class="no-highlight">235</i>&nbsp;                updateTxnMemoryUsage(0 - txn.getBudgetedMemorySize());</b>
+<b class="fc"><i class="no-highlight">236</i>&nbsp;            if (isCommit) {</b>
+<b class="fc"><i class="no-highlight">237</i>&nbsp;                numCommits.increment();</b>
+<b class="fc"><i class="no-highlight">238</i>&nbsp;                nTotalCommits += 1;</b>
+<i class="no-highlight">239</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                numAborts.increment();</b>
+<i class="no-highlight">241</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">242</i>&nbsp;            if (txn.isSerializableIsolation()) {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;                nActiveSerializable.decrementAndGet();</b>
+<i class="no-highlight">244</i>&nbsp;            }
+<i class="no-highlight">245</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">246</i>&nbsp;            allTxnsLatch.release();</b>
+<b class="fc"><i class="no-highlight">247</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">248</i>&nbsp;    }</b>
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /**
+<i class="no-highlight">251</i>&nbsp;     * Called when txn is created.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    public void registerXATxn(Xid xid, Txn txn, boolean isPrepare) {
+<b class="nc"><i class="no-highlight">254</i>&nbsp;        if (!allXATxns.containsKey(xid)) {</b>
+<b class="nc"><i class="no-highlight">255</i>&nbsp;            allXATxns.put(xid, txn);</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;            envImpl.getMemoryBudget().updateTxnMemoryUsage</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;                (MemoryBudget.HASHMAP_ENTRY_OVERHEAD);</b>
+<i class="no-highlight">258</i>&nbsp;        }
+<i class="no-highlight">259</i>&nbsp;
+<b class="nc"><i class="no-highlight">260</i>&nbsp;        if (isPrepare) {</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;            numXAPrepares.increment();</b>
+<i class="no-highlight">262</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">263</i>&nbsp;    }</b>
+<i class="no-highlight">264</i>&nbsp;
+<i class="no-highlight">265</i>&nbsp;    /**
+<i class="no-highlight">266</i>&nbsp;     * Called when XATransaction is prepared.
+<i class="no-highlight">267</i>&nbsp;     */
+<i class="no-highlight">268</i>&nbsp;    public void notePrepare() {
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        numXAPrepares.increment();</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;    }</b>
+<i class="no-highlight">271</i>&nbsp;
+<i class="no-highlight">272</i>&nbsp;    /**
+<i class="no-highlight">273</i>&nbsp;     * Called when txn ends.
+<i class="no-highlight">274</i>&nbsp;     *
+<i class="no-highlight">275</i>&nbsp;     * @throws IllegalStateException via XAResource
+<i class="no-highlight">276</i>&nbsp;     */
+<i class="no-highlight">277</i>&nbsp;    void unRegisterXATxn(Xid xid, boolean isCommit)
+<i class="no-highlight">278</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">279</i>&nbsp;
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        if (allXATxns.remove(xid) == null) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;            throw new IllegalStateException</b>
+<i class="no-highlight">282</i>&nbsp;                (&quot;XA Transaction &quot; + xid + &quot; is not registered.&quot;);
+<i class="no-highlight">283</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">284</i>&nbsp;        envImpl.getMemoryBudget().updateTxnMemoryUsage</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;            (0 - MemoryBudget.HASHMAP_ENTRY_OVERHEAD);</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        if (isCommit) {</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;            numXACommits.increment();</b>
+<i class="no-highlight">288</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">289</i>&nbsp;            numXAAborts.increment();</b>
+<i class="no-highlight">290</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">291</i>&nbsp;    }</b>
+<i class="no-highlight">292</i>&nbsp;
+<i class="no-highlight">293</i>&nbsp;    /**
+<i class="no-highlight">294</i>&nbsp;     * Retrieve a Txn object from an Xid.
+<i class="no-highlight">295</i>&nbsp;     */
+<i class="no-highlight">296</i>&nbsp;    public Txn getTxnFromXid(Xid xid) {
+<b class="nc"><i class="no-highlight">297</i>&nbsp;        return allXATxns.get(xid);</b>
+<i class="no-highlight">298</i>&nbsp;    }
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;    /**
+<i class="no-highlight">301</i>&nbsp;     * Called when txn is assoc&#39;d with this thread.
+<i class="no-highlight">302</i>&nbsp;     */
+<i class="no-highlight">303</i>&nbsp;    public void setTxnForThread(Transaction txn) {
+<i class="no-highlight">304</i>&nbsp;
+<b class="nc"><i class="no-highlight">305</i>&nbsp;        Thread curThread = Thread.currentThread();</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;        if (txn == null) {</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            unsetTxnForThread();</b>
+<i class="no-highlight">308</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">309</i>&nbsp;            thread2Txn.put(curThread, txn);</b>
+<i class="no-highlight">310</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">311</i>&nbsp;    }</b>
+<i class="no-highlight">312</i>&nbsp;
+<i class="no-highlight">313</i>&nbsp;    /**
+<i class="no-highlight">314</i>&nbsp;     * Called when txn is assoc&#39;d with this thread.
+<i class="no-highlight">315</i>&nbsp;     */
+<i class="no-highlight">316</i>&nbsp;    public Transaction unsetTxnForThread() {
+<b class="nc"><i class="no-highlight">317</i>&nbsp;        Thread curThread = Thread.currentThread();</b>
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        return thread2Txn.remove(curThread);</b>
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    /**
+<i class="no-highlight">322</i>&nbsp;     * Retrieve a Txn object for this Thread.
+<i class="no-highlight">323</i>&nbsp;     */
+<i class="no-highlight">324</i>&nbsp;    public Transaction getTxnForThread() {
+<b class="fc"><i class="no-highlight">325</i>&nbsp;        return thread2Txn.get(Thread.currentThread());</b>
+<i class="no-highlight">326</i>&nbsp;    }
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;    public Xid[] XARecover() {
+<b class="fc"><i class="no-highlight">329</i>&nbsp;        Set&lt;Xid&gt; xidSet = allXATxns.keySet();</b>
+<b class="fc"><i class="no-highlight">330</i>&nbsp;        Xid[] ret = new Xid[xidSet.size()];</b>
+<b class="fc"><i class="no-highlight">331</i>&nbsp;        ret = xidSet.toArray(ret);</b>
+<i class="no-highlight">332</i>&nbsp;
+<b class="fc"><i class="no-highlight">333</i>&nbsp;        return ret;</b>
+<i class="no-highlight">334</i>&nbsp;    }
+<i class="no-highlight">335</i>&nbsp;
+<i class="no-highlight">336</i>&nbsp;    /**
+<i class="no-highlight">337</i>&nbsp;     * Returns whether there are any active serializable transactions,
+<i class="no-highlight">338</i>&nbsp;     * excluding the transaction given (if non-null).  This is intentionally
+<i class="no-highlight">339</i>&nbsp;     * returned without latching, since latching would not make the act of
+<i class="no-highlight">340</i>&nbsp;     * reading an integer more atomic than it already is.
+<i class="no-highlight">341</i>&nbsp;     */
+<i class="no-highlight">342</i>&nbsp;    public boolean
+<i class="no-highlight">343</i>&nbsp;        areOtherSerializableTransactionsActive(Locker excludeLocker) {
+<b class="fc"><i class="no-highlight">344</i>&nbsp;        int exclude =</b>
+<i class="no-highlight">345</i>&nbsp;            (excludeLocker != null &amp;&amp;
+<b class="fc"><i class="no-highlight">346</i>&nbsp;             excludeLocker.isSerializableIsolation()) ?</b>
+<i class="no-highlight">347</i>&nbsp;            1 : 0;
+<b class="fc"><i class="no-highlight">348</i>&nbsp;        return (nActiveSerializable.get() - exclude &gt; 0);</b>
+<i class="no-highlight">349</i>&nbsp;    }
+<i class="no-highlight">350</i>&nbsp;
+<i class="no-highlight">351</i>&nbsp;    /**
+<i class="no-highlight">352</i>&nbsp;     * Get the earliest LSN of all the active transactions, for checkpoint.
+<i class="no-highlight">353</i>&nbsp;     * Returns NULL_LSN is no transaction is currently active.
+<i class="no-highlight">354</i>&nbsp;     */
+<i class="no-highlight">355</i>&nbsp;    public long getFirstActiveLsn() {
+<i class="no-highlight">356</i>&nbsp;
+<i class="no-highlight">357</i>&nbsp;        /*
+<i class="no-highlight">358</i>&nbsp;         * Note that the latching hierarchy calls for synchronizing on
+<i class="no-highlight">359</i>&nbsp;         * allTxns first, then synchronizing on individual txns.
+<i class="no-highlight">360</i>&nbsp;         */
+<b class="fc"><i class="no-highlight">361</i>&nbsp;        long firstActive = DbLsn.NULL_LSN;</b>
+<b class="fc"><i class="no-highlight">362</i>&nbsp;        allTxnsLatch.acquireExclusive();</b>
+<i class="no-highlight">363</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">364</i>&nbsp;            Iterator&lt;Txn&gt; iter = allTxns.keySet().iterator();</b>
+<b class="fc"><i class="no-highlight">365</i>&nbsp;            while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;                long txnFirstActive = iter.next().getFirstActiveLsn();</b>
+<b class="nc"><i class="no-highlight">367</i>&nbsp;                if (firstActive == DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;                    firstActive = txnFirstActive;</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;                } else if (txnFirstActive != DbLsn.NULL_LSN) {</b>
+<b class="nc"><i class="no-highlight">370</i>&nbsp;                    if (DbLsn.compareTo(txnFirstActive, firstActive) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;                        firstActive = txnFirstActive;</b>
+<i class="no-highlight">372</i>&nbsp;                    }
+<i class="no-highlight">373</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">374</i>&nbsp;            }</b>
+<i class="no-highlight">375</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">376</i>&nbsp;            allTxnsLatch.release();</b>
+<b class="fc"><i class="no-highlight">377</i>&nbsp;        }</b>
+<i class="no-highlight">378</i>&nbsp;
+<b class="fc"><i class="no-highlight">379</i>&nbsp;        return firstActive;</b>
+<i class="no-highlight">380</i>&nbsp;    }
+<i class="no-highlight">381</i>&nbsp;
+<i class="no-highlight">382</i>&nbsp;    /*
+<i class="no-highlight">383</i>&nbsp;     * Statistics
+<i class="no-highlight">384</i>&nbsp;     */
+<i class="no-highlight">385</i>&nbsp;
+<i class="no-highlight">386</i>&nbsp;    /**
+<i class="no-highlight">387</i>&nbsp;     * Collect transaction related stats.
+<i class="no-highlight">388</i>&nbsp;     */
+<i class="no-highlight">389</i>&nbsp;    public TransactionStats txnStat(StatsConfig config) {
+<b class="fc"><i class="no-highlight">390</i>&nbsp;        TransactionStats txnStats = null;</b>
+<b class="fc"><i class="no-highlight">391</i>&nbsp;        allTxnsLatch.acquireShared();</b>
+<i class="no-highlight">392</i>&nbsp;        try {
+<b class="fc"><i class="no-highlight">393</i>&nbsp;            nActive.set(allTxns.size());</b>
+<b class="fc"><i class="no-highlight">394</i>&nbsp;            TransactionStats.Active[] activeSet =</b>
+<b class="fc"><i class="no-highlight">395</i>&nbsp;                new TransactionStats.Active[nActive.get()];</b>
+<b class="fc"><i class="no-highlight">396</i>&nbsp;            Iterator&lt;Txn&gt; iter = allTxns.keySet().iterator();</b>
+<b class="fc"><i class="no-highlight">397</i>&nbsp;            int i = 0;</b>
+<b class="fc"><i class="no-highlight">398</i>&nbsp;            while (iter.hasNext() &amp;&amp; i &lt; activeSet.length) {</b>
+<b class="nc"><i class="no-highlight">399</i>&nbsp;                Locker txn = iter.next();</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;                activeSet[i] = new TransactionStats.Active</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;                    (txn.toString(), txn.getId(), 0);</b>
+<b class="nc"><i class="no-highlight">402</i>&nbsp;                i++;</b>
+<b class="nc"><i class="no-highlight">403</i>&nbsp;            }</b>
+<b class="fc"><i class="no-highlight">404</i>&nbsp;            activeTxns.set(activeSet);</b>
+<b class="fc"><i class="no-highlight">405</i>&nbsp;            txnStats = new TransactionStats(stats.cloneGroup(false));</b>
+<b class="fc"><i class="no-highlight">406</i>&nbsp;            if (config.getClear()) {</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;                numCommits.clear();</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;                numAborts.clear();</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;                numXACommits.clear();</b>
+<b class="nc"><i class="no-highlight">410</i>&nbsp;                numXAAborts.clear();</b>
+<i class="no-highlight">411</i>&nbsp;            }
+<i class="no-highlight">412</i>&nbsp;        } finally {
+<b class="fc"><i class="no-highlight">413</i>&nbsp;            allTxnsLatch.release();</b>
+<b class="fc"><i class="no-highlight">414</i>&nbsp;        }</b>
+<i class="no-highlight">415</i>&nbsp;
+<b class="fc"><i class="no-highlight">416</i>&nbsp;        return txnStats;</b>
+<i class="no-highlight">417</i>&nbsp;    }
+<i class="no-highlight">418</i>&nbsp;
+<i class="no-highlight">419</i>&nbsp;    public StatGroup loadStats(StatsConfig config) {
+<b class="nc"><i class="no-highlight">420</i>&nbsp;        return lockManager.loadStats(config);</b>
+<i class="no-highlight">421</i>&nbsp;    }
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;    /**
+<i class="no-highlight">424</i>&nbsp;     * Collect lock related stats.
+<i class="no-highlight">425</i>&nbsp;     */
+<i class="no-highlight">426</i>&nbsp;    public LockStats lockStat(StatsConfig config)
+<i class="no-highlight">427</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">428</i>&nbsp;
+<b class="fc"><i class="no-highlight">429</i>&nbsp;        return lockManager.lockStat(config);</b>
+<i class="no-highlight">430</i>&nbsp;    }
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;    /**
+<i class="no-highlight">433</i>&nbsp;     * Examine the transaction set and return Txn that match the class or are
+<i class="no-highlight">434</i>&nbsp;     * subclasses of that class. This method is used to obtain Master and Replay
+<i class="no-highlight">435</i>&nbsp;     * TXns for HA
+<i class="no-highlight">436</i>&nbsp;     */
+<i class="no-highlight">437</i>&nbsp;    public &lt;T extends Txn&gt; Set&lt;T&gt; getTxns(Class&lt;T&gt; txnClass) {
+<b class="nc"><i class="no-highlight">438</i>&nbsp;        final Set&lt;T&gt; targetSet = new HashSet&lt;&gt;();</b>
+<i class="no-highlight">439</i>&nbsp;
+<b class="nc"><i class="no-highlight">440</i>&nbsp;        allTxnsLatch.acquireShared();</b>
+<i class="no-highlight">441</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">442</i>&nbsp;            Set&lt;Txn&gt; all = allTxns.keySet();</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;            for (Txn t: all) {</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                if (txnClass.isAssignableFrom(t.getClass())) {</b>
+<i class="no-highlight">445</i>&nbsp;                    @SuppressWarnings(&quot;unchecked&quot;)
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                    final T t2 = (T)t;</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;                    targetSet.add(t2);</b>
+<i class="no-highlight">448</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">449</i>&nbsp;            }</b>
+<i class="no-highlight">450</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">451</i>&nbsp;            allTxnsLatch.release();</b>
+<b class="nc"><i class="no-highlight">452</i>&nbsp;        }</b>
+<i class="no-highlight">453</i>&nbsp;
+<b class="nc"><i class="no-highlight">454</i>&nbsp;        return targetSet;</b>
+<i class="no-highlight">455</i>&nbsp;    }
+<i class="no-highlight">456</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

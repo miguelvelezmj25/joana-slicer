@@ -1,0 +1,841 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > StoredIterator</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.collections</a>
+</div>
+
+<h1>Coverage Summary for Class: StoredIterator (com.sleepycat.collections)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">StoredIterator</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/22)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/173)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.collections;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.Closeable;
+<i class="no-highlight">17</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">18</i>&nbsp;import java.util.ListIterator;
+<i class="no-highlight">19</i>&nbsp;import java.util.NoSuchElementException;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.compat.DbCompat;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">23</i>&nbsp;/* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException; // for javadoc
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.OperationFailureException; // for javadoc
+<i class="no-highlight">26</i>&nbsp;/* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.OperationStatus;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.util.RuntimeExceptionWrapper;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;/**
+<i class="no-highlight">31</i>&nbsp; * The Iterator returned by all stored collections.
+<i class="no-highlight">32</i>&nbsp; *
+<i class="no-highlight">33</i>&nbsp; * &lt;p&gt;While in general this class conforms to the {@link Iterator} interface,
+<i class="no-highlight">34</i>&nbsp; * it is important to note that all iterators for stored collections must be
+<i class="no-highlight">35</i>&nbsp; * explicitly closed with {@link #close()}.  The static method {@link
+<i class="no-highlight">36</i>&nbsp; * #close(Iterator)} allows calling close for all iterators without
+<i class="no-highlight">37</i>&nbsp; * harm to iterators that are not from stored collections, and also avoids
+<i class="no-highlight">38</i>&nbsp; * casting.  If a stored iterator is not closed, unpredictable behavior
+<i class="no-highlight">39</i>&nbsp; * including process death may result.&lt;/p&gt;
+<i class="no-highlight">40</i>&nbsp; *
+<i class="no-highlight">41</i>&nbsp; * &lt;p&gt;This class implements the {@link Iterator} interface for all stored
+<i class="no-highlight">42</i>&nbsp; * iterators.  It also implements {@link ListIterator} because some list
+<i class="no-highlight">43</i>&nbsp; * iterator methods apply to all stored iterators, for example, {@link
+<i class="no-highlight">44</i>&nbsp; * #previous} and {@link #hasPrevious}.  Other list iterator methods are always
+<i class="no-highlight">45</i>&nbsp; * supported for lists, but for other types of collections are only supported
+<i class="no-highlight">46</i>&nbsp; * under certain conditions.  See {@link #nextIndex}, {@link #previousIndex},
+<i class="no-highlight">47</i>&nbsp; * {@link #add} and {@link #set} for details.&lt;/p&gt;
+<i class="no-highlight">48</i>&nbsp; *
+<i class="no-highlight">49</i>&nbsp; * &lt;p&gt;In addition, this class provides the following methods for stored
+<i class="no-highlight">50</i>&nbsp; * collection iterators only.  Note that the use of these methods is not
+<i class="no-highlight">51</i>&nbsp; * compatible with the standard Java collections interface.&lt;/p&gt;
+<i class="no-highlight">52</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">53</i>&nbsp; * &lt;li&gt;{@link #close()}&lt;/li&gt;
+<i class="no-highlight">54</i>&nbsp; * &lt;li&gt;{@link #close(Iterator)}&lt;/li&gt;
+<i class="no-highlight">55</i>&nbsp; * &lt;li&gt;{@link #count()}&lt;/li&gt;
+<i class="no-highlight">56</i>&nbsp; * &lt;li&gt;{@link #getCollection}&lt;/li&gt;
+<i class="no-highlight">57</i>&nbsp; * &lt;li&gt;{@link #setReadModifyWrite}&lt;/li&gt;
+<i class="no-highlight">58</i>&nbsp; * &lt;li&gt;{@link #isReadModifyWrite}&lt;/li&gt;
+<i class="no-highlight">59</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">60</i>&nbsp; *
+<i class="no-highlight">61</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">62</i>&nbsp; */
+<i class="no-highlight">63</i>&nbsp;public class StoredIterator&lt;E&gt; extends BaseIterator&lt;E&gt;
+<i class="no-highlight">64</i>&nbsp;    implements ListIterator&lt;E&gt;, Cloneable
+<i class="no-highlight">65</i>&nbsp;    /* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">66</i>&nbsp;    , Closeable
+<i class="no-highlight">67</i>&nbsp;    /* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">68</i>&nbsp;    {
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    /**
+<i class="no-highlight">71</i>&nbsp;     * Closes the given iterator using {@link #close()} if it is a {@link
+<i class="no-highlight">72</i>&nbsp;     * StoredIterator}.  If the given iterator is not a {@link StoredIterator},
+<i class="no-highlight">73</i>&nbsp;     * this method does nothing.
+<i class="no-highlight">74</i>&nbsp;     *
+<i class="no-highlight">75</i>&nbsp;     * @param i is the iterator to close.
+<i class="no-highlight">76</i>&nbsp;     *
+<i class="no-highlight">77</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">78</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;    public static void close(Iterator&lt;?&gt; i) {
+<i class="no-highlight">81</i>&nbsp;
+<b class="nc"><i class="no-highlight">82</i>&nbsp;        if (i instanceof StoredIterator) {</b>
+<b class="nc"><i class="no-highlight">83</i>&nbsp;            ((StoredIterator) i).close();</b>
+<i class="no-highlight">84</i>&nbsp;        }
+<i class="no-highlight">85</i>&nbsp;    }
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    private static final int MOVE_NEXT = 1;
+<i class="no-highlight">88</i>&nbsp;    private static final int MOVE_PREV = 2;
+<i class="no-highlight">89</i>&nbsp;    private static final int MOVE_FIRST = 3;
+<i class="no-highlight">90</i>&nbsp;
+<i class="no-highlight">91</i>&nbsp;    private boolean lockForWrite;
+<i class="no-highlight">92</i>&nbsp;    private StoredCollection&lt;E&gt; coll;
+<i class="no-highlight">93</i>&nbsp;    private DataCursor cursor;
+<i class="no-highlight">94</i>&nbsp;    private int toNext;
+<i class="no-highlight">95</i>&nbsp;    private int toPrevious;
+<i class="no-highlight">96</i>&nbsp;    private int toCurrent;
+<i class="no-highlight">97</i>&nbsp;    private boolean writeAllowed;
+<i class="no-highlight">98</i>&nbsp;    private boolean setAndRemoveAllowed;
+<i class="no-highlight">99</i>&nbsp;    private E currentData;
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    StoredIterator(StoredCollection&lt;E&gt; coll,
+<i class="no-highlight">102</i>&nbsp;                   boolean writeAllowed,
+<b class="nc"><i class="no-highlight">103</i>&nbsp;                   DataCursor joinCursor) {</b>
+<i class="no-highlight">104</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">105</i>&nbsp;            this.coll = coll;</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            this.writeAllowed = writeAllowed;</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;            if (joinCursor == null)</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                this.cursor = new DataCursor(coll.view, writeAllowed);</b>
+<i class="no-highlight">109</i>&nbsp;            else
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                this.cursor = joinCursor;</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;            reset();</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;        } catch (Exception e) {</b>
+<i class="no-highlight">113</i>&nbsp;            try {
+<i class="no-highlight">114</i>&nbsp;                /* Ensure that the cursor is closed.  [#10516] */
+<b class="nc"><i class="no-highlight">115</i>&nbsp;                close();</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;            } catch (Exception ignored) {</b>
+<i class="no-highlight">117</i>&nbsp;                /* Klockwork - ok */
+<b class="nc"><i class="no-highlight">118</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        }</b>
+<i class="no-highlight">121</i>&nbsp;    }
+<i class="no-highlight">122</i>&nbsp;
+<i class="no-highlight">123</i>&nbsp;    /**
+<i class="no-highlight">124</i>&nbsp;     * Returns whether write-locks will be obtained when reading with this
+<i class="no-highlight">125</i>&nbsp;     * cursor.
+<i class="no-highlight">126</i>&nbsp;     * Obtaining write-locks can prevent deadlocks when reading and then
+<i class="no-highlight">127</i>&nbsp;     * modifying data.
+<i class="no-highlight">128</i>&nbsp;     *
+<i class="no-highlight">129</i>&nbsp;     * @return the write-lock setting.
+<i class="no-highlight">130</i>&nbsp;     */
+<i class="no-highlight">131</i>&nbsp;    public final boolean isReadModifyWrite() {
+<i class="no-highlight">132</i>&nbsp;
+<b class="nc"><i class="no-highlight">133</i>&nbsp;        return lockForWrite;</b>
+<i class="no-highlight">134</i>&nbsp;    }
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    /**
+<i class="no-highlight">137</i>&nbsp;     * Changes whether write-locks will be obtained when reading with this
+<i class="no-highlight">138</i>&nbsp;     * cursor.
+<i class="no-highlight">139</i>&nbsp;     * Obtaining write-locks can prevent deadlocks when reading and then
+<i class="no-highlight">140</i>&nbsp;     * modifying data.
+<i class="no-highlight">141</i>&nbsp;     *
+<i class="no-highlight">142</i>&nbsp;     * @param lockForWrite the write-lock setting.
+<i class="no-highlight">143</i>&nbsp;     */
+<i class="no-highlight">144</i>&nbsp;    public void setReadModifyWrite(boolean lockForWrite) {
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        this.lockForWrite = lockForWrite;</b>
+<i class="no-highlight">147</i>&nbsp;    }
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;    // --- begin Iterator/ListIterator methods ---
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;    /**
+<i class="no-highlight">152</i>&nbsp;     * Returns true if this iterator has more elements when traversing in the
+<i class="no-highlight">153</i>&nbsp;     * forward direction.  False is returned if the iterator has been closed.
+<i class="no-highlight">154</i>&nbsp;     * This method conforms to the {@link Iterator#hasNext} interface.
+<i class="no-highlight">155</i>&nbsp;     *
+<i class="no-highlight">156</i>&nbsp;     * @return whether {@link #next()} will succeed.
+<i class="no-highlight">157</i>&nbsp;     *
+<i class="no-highlight">158</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">159</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">160</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">161</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">162</i>&nbsp;     *
+<i class="no-highlight">163</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">164</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">165</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">166</i>&nbsp;     *
+<i class="no-highlight">167</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">168</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">169</i>&nbsp;     */
+<i class="no-highlight">170</i>&nbsp;    public boolean hasNext() {
+<i class="no-highlight">171</i>&nbsp;
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        if (cursor == null) {</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            return false;</b>
+<i class="no-highlight">174</i>&nbsp;        }
+<i class="no-highlight">175</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            if (toNext != 0) {</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;                OperationStatus status = move(toNext);</b>
+<b class="nc"><i class="no-highlight">178</i>&nbsp;                if (status == OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">179</i>&nbsp;                    toNext = 0;</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;                    toPrevious = MOVE_PREV;</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;                    toCurrent = MOVE_PREV;</b>
+<i class="no-highlight">182</i>&nbsp;                }
+<i class="no-highlight">183</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            return (toNext == 0);</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">187</i>&nbsp;        }
+<i class="no-highlight">188</i>&nbsp;    }
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;    /**
+<i class="no-highlight">191</i>&nbsp;     * Returns true if this iterator has more elements when traversing in the
+<i class="no-highlight">192</i>&nbsp;     * reverse direction.  It returns false if the iterator has been closed.
+<i class="no-highlight">193</i>&nbsp;     * This method conforms to the {@link ListIterator#hasPrevious} interface.
+<i class="no-highlight">194</i>&nbsp;     *
+<i class="no-highlight">195</i>&nbsp;     * @return whether {@link #previous()} will succeed.
+<i class="no-highlight">196</i>&nbsp;     *
+<i class="no-highlight">197</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">198</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">199</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">200</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">201</i>&nbsp;     *
+<i class="no-highlight">202</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">203</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">204</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">205</i>&nbsp;     *
+<i class="no-highlight">206</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">207</i>&nbsp;     * including a {@code DatabaseException} on BDB (C edition).
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    public boolean hasPrevious() {
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        if (cursor == null) {</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;            return false;</b>
+<i class="no-highlight">213</i>&nbsp;        }
+<i class="no-highlight">214</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            if (toPrevious != 0) {</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;                OperationStatus status = move(toPrevious);</b>
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                if (status == OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                    toPrevious = 0;</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                    toNext = MOVE_NEXT;</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                    toCurrent = MOVE_NEXT;</b>
+<i class="no-highlight">221</i>&nbsp;                }
+<i class="no-highlight">222</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            return (toPrevious == 0);</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">226</i>&nbsp;        }
+<i class="no-highlight">227</i>&nbsp;    }
+<i class="no-highlight">228</i>&nbsp;
+<i class="no-highlight">229</i>&nbsp;    /**
+<i class="no-highlight">230</i>&nbsp;     * Returns the next element in the iteration.
+<i class="no-highlight">231</i>&nbsp;     * This method conforms to the {@link Iterator#next} interface.
+<i class="no-highlight">232</i>&nbsp;     *
+<i class="no-highlight">233</i>&nbsp;     * @return the next element.
+<i class="no-highlight">234</i>&nbsp;     *
+<i class="no-highlight">235</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">236</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">237</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">238</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">239</i>&nbsp;     *
+<i class="no-highlight">240</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">241</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">242</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">243</i>&nbsp;     *
+<i class="no-highlight">244</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">245</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">246</i>&nbsp;     */
+<i class="no-highlight">247</i>&nbsp;    public E next() {
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            if (toNext != 0) {</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                OperationStatus status = move(toNext);</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;                if (status == OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;                    toNext = 0;</b>
+<i class="no-highlight">254</i>&nbsp;                }
+<i class="no-highlight">255</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">256</i>&nbsp;            if (toNext == 0) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;                currentData = coll.makeIteratorData(this, cursor);</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;                toNext = MOVE_NEXT;</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;                toPrevious = 0;</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;                toCurrent = 0;</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                setAndRemoveAllowed = true;</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;                return currentData;</b>
+<i class="no-highlight">263</i>&nbsp;            }
+<i class="no-highlight">264</i>&nbsp;            // else throw NoSuchElementException below
+<b class="nc"><i class="no-highlight">265</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">266</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        throw new NoSuchElementException();</b>
+<i class="no-highlight">269</i>&nbsp;    }
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;    /**
+<i class="no-highlight">272</i>&nbsp;     * Returns the next element in the iteration.
+<i class="no-highlight">273</i>&nbsp;     * This method conforms to the {@link ListIterator#previous} interface.
+<i class="no-highlight">274</i>&nbsp;     *
+<i class="no-highlight">275</i>&nbsp;     * @return the previous element.
+<i class="no-highlight">276</i>&nbsp;     *
+<i class="no-highlight">277</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">278</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">279</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">280</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">281</i>&nbsp;     *
+<i class="no-highlight">282</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">283</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">284</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">285</i>&nbsp;     *
+<i class="no-highlight">286</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">287</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">288</i>&nbsp;     */
+<i class="no-highlight">289</i>&nbsp;    public E previous() {
+<i class="no-highlight">290</i>&nbsp;
+<i class="no-highlight">291</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">292</i>&nbsp;            if (toPrevious != 0) {</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;                OperationStatus status = move(toPrevious);</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;                if (status == OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                    toPrevious = 0;</b>
+<i class="no-highlight">296</i>&nbsp;                }
+<i class="no-highlight">297</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">298</i>&nbsp;            if (toPrevious == 0) {</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;                currentData = coll.makeIteratorData(this, cursor);</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;                toPrevious = MOVE_PREV;</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;                toNext = 0;</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;                toCurrent = 0;</b>
+<b class="nc"><i class="no-highlight">303</i>&nbsp;                setAndRemoveAllowed = true;</b>
+<b class="nc"><i class="no-highlight">304</i>&nbsp;                return currentData;</b>
+<i class="no-highlight">305</i>&nbsp;            }
+<i class="no-highlight">306</i>&nbsp;            // else throw NoSuchElementException below
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">308</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<b class="nc"><i class="no-highlight">309</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        throw new NoSuchElementException();</b>
+<i class="no-highlight">311</i>&nbsp;    }
+<i class="no-highlight">312</i>&nbsp;
+<i class="no-highlight">313</i>&nbsp;    /**
+<i class="no-highlight">314</i>&nbsp;     * Returns the index of the element that would be returned by a subsequent
+<i class="no-highlight">315</i>&nbsp;     * call to next.
+<i class="no-highlight">316</i>&nbsp;     * This method conforms to the {@link ListIterator#nextIndex} interface
+<i class="no-highlight">317</i>&nbsp;     * except that it returns Integer.MAX_VALUE for stored lists when
+<i class="no-highlight">318</i>&nbsp;     * positioned at the end of the list, rather than returning the list size
+<i class="no-highlight">319</i>&nbsp;     * as specified by the ListIterator interface. This is because the database
+<i class="no-highlight">320</i>&nbsp;     * size is not available.
+<i class="no-highlight">321</i>&nbsp;     *
+<i class="no-highlight">322</i>&nbsp;     * @return the next index.
+<i class="no-highlight">323</i>&nbsp;     *
+<i class="no-highlight">324</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">325</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">326</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">327</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">328</i>&nbsp;     *
+<i class="no-highlight">329</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">330</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">331</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">332</i>&nbsp;     *
+<i class="no-highlight">333</i>&nbsp;     * @throws UnsupportedOperationException if this iterator&#39;s collection does
+<i class="no-highlight">334</i>&nbsp;     * not use record number keys.
+<i class="no-highlight">335</i>&nbsp;     *
+<i class="no-highlight">336</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">337</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">338</i>&nbsp;     */
+<i class="no-highlight">339</i>&nbsp;    public int nextIndex() {
+<i class="no-highlight">340</i>&nbsp;
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        if (!coll.view.recNumAccess) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            throw new UnsupportedOperationException</b>
+<i class="no-highlight">343</i>&nbsp;                (&quot;Record number access not supported&quot;);
+<i class="no-highlight">344</i>&nbsp;        }
+<i class="no-highlight">345</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">346</i>&nbsp;            return hasNext() ? (cursor.getCurrentRecordNumber() -</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;                                coll.getIndexOffset())</b>
+<i class="no-highlight">348</i>&nbsp;                             : Integer.MAX_VALUE;
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">351</i>&nbsp;        }
+<i class="no-highlight">352</i>&nbsp;    }
+<i class="no-highlight">353</i>&nbsp;
+<i class="no-highlight">354</i>&nbsp;    /**
+<i class="no-highlight">355</i>&nbsp;     * Returns the index of the element that would be returned by a subsequent
+<i class="no-highlight">356</i>&nbsp;     * call to previous.
+<i class="no-highlight">357</i>&nbsp;     * This method conforms to the {@link ListIterator#previousIndex}
+<i class="no-highlight">358</i>&nbsp;     * interface.
+<i class="no-highlight">359</i>&nbsp;     *
+<i class="no-highlight">360</i>&nbsp;     * @return the previous index.
+<i class="no-highlight">361</i>&nbsp;     *
+<i class="no-highlight">362</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">363</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">364</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">365</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">366</i>&nbsp;     *
+<i class="no-highlight">367</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">368</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">369</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">370</i>&nbsp;     *
+<i class="no-highlight">371</i>&nbsp;     * @throws UnsupportedOperationException if this iterator&#39;s collection does
+<i class="no-highlight">372</i>&nbsp;     * not use record number keys.
+<i class="no-highlight">373</i>&nbsp;     *
+<i class="no-highlight">374</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">375</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">376</i>&nbsp;     */
+<i class="no-highlight">377</i>&nbsp;    public int previousIndex() {
+<i class="no-highlight">378</i>&nbsp;
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        if (!coll.view.recNumAccess) {</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;            throw new UnsupportedOperationException</b>
+<i class="no-highlight">381</i>&nbsp;                (&quot;Record number access not supported&quot;);
+<i class="no-highlight">382</i>&nbsp;        }
+<i class="no-highlight">383</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">384</i>&nbsp;            return hasPrevious() ? (cursor.getCurrentRecordNumber() -</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;                                    coll.getIndexOffset())</b>
+<i class="no-highlight">386</i>&nbsp;                                 : (-1);
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">389</i>&nbsp;        }
+<i class="no-highlight">390</i>&nbsp;    }
+<i class="no-highlight">391</i>&nbsp;
+<i class="no-highlight">392</i>&nbsp;    /**
+<i class="no-highlight">393</i>&nbsp;     * Replaces the last element returned by next or previous with the
+<i class="no-highlight">394</i>&nbsp;     * specified element (optional operation).
+<i class="no-highlight">395</i>&nbsp;     * This method conforms to the {@link ListIterator#set} interface.
+<i class="no-highlight">396</i>&nbsp;     *
+<i class="no-highlight">397</i>&nbsp;     * &lt;p&gt;In order to call this method, if the underlying Database is
+<i class="no-highlight">398</i>&nbsp;     * transactional then a transaction must be active when creating the
+<i class="no-highlight">399</i>&nbsp;     * iterator.&lt;/p&gt;
+<i class="no-highlight">400</i>&nbsp;     *
+<i class="no-highlight">401</i>&nbsp;     * @param value the new value.
+<i class="no-highlight">402</i>&nbsp;     *
+<i class="no-highlight">403</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">404</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">405</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">406</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">407</i>&nbsp;     *
+<i class="no-highlight">408</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">409</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">410</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">411</i>&nbsp;     *
+<i class="no-highlight">412</i>&nbsp;     * @throws UnsupportedOperationException if the collection is a {@link
+<i class="no-highlight">413</i>&nbsp;     * StoredKeySet} (the set returned by {@link java.util.Map#keySet}), or if
+<i class="no-highlight">414</i>&nbsp;     * duplicates are sorted since this would change the iterator position, or
+<i class="no-highlight">415</i>&nbsp;     * if the collection is indexed, or if the collection is read-only.
+<i class="no-highlight">416</i>&nbsp;     *
+<i class="no-highlight">417</i>&nbsp;     * @throws IllegalArgumentException if an entity value binding is used and
+<i class="no-highlight">418</i>&nbsp;     * the primary key of the value given is different than the existing stored
+<i class="no-highlight">419</i>&nbsp;     * primary key.
+<i class="no-highlight">420</i>&nbsp;     *
+<i class="no-highlight">421</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">422</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">423</i>&nbsp;     */
+<i class="no-highlight">424</i>&nbsp;    public void set(E value) {
+<i class="no-highlight">425</i>&nbsp;
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        if (!coll.hasValues()) {</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;            throw new UnsupportedOperationException();</b>
+<i class="no-highlight">428</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">429</i>&nbsp;        if (!setAndRemoveAllowed) {</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;            throw new IllegalStateException();</b>
+<i class="no-highlight">431</i>&nbsp;        }
+<i class="no-highlight">432</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            moveToCurrent();</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;            cursor.putCurrent(value);</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<b class="nc"><i class="no-highlight">437</i>&nbsp;        }</b>
+<i class="no-highlight">438</i>&nbsp;    }
+<i class="no-highlight">439</i>&nbsp;
+<i class="no-highlight">440</i>&nbsp;    /**
+<i class="no-highlight">441</i>&nbsp;     * Removes the last element that was returned by next or previous (optional
+<i class="no-highlight">442</i>&nbsp;     * operation).
+<i class="no-highlight">443</i>&nbsp;     * This method conforms to the {@link ListIterator#remove} interface except
+<i class="no-highlight">444</i>&nbsp;     * that when the collection is a list and the RECNO-RENUMBER access method
+<i class="no-highlight">445</i>&nbsp;     * is not used, list indices will not be renumbered.
+<i class="no-highlight">446</i>&nbsp;     *
+<i class="no-highlight">447</i>&nbsp;     * &lt;p&gt;In order to call this method, if the underlying Database is
+<i class="no-highlight">448</i>&nbsp;     * transactional then a transaction must be active when creating the
+<i class="no-highlight">449</i>&nbsp;     * iterator.&lt;/p&gt;
+<i class="no-highlight">450</i>&nbsp;     *
+<i class="no-highlight">451</i>&nbsp;     * &lt;p&gt;Note that for the JE product, RECNO-RENUMBER databases are not
+<i class="no-highlight">452</i>&nbsp;     * supported, and therefore list indices are never renumbered by this
+<i class="no-highlight">453</i>&nbsp;     * method.&lt;/p&gt;
+<i class="no-highlight">454</i>&nbsp;     *
+<i class="no-highlight">455</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">456</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">457</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">458</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">459</i>&nbsp;     *
+<i class="no-highlight">460</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">461</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">462</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">463</i>&nbsp;     *
+<i class="no-highlight">464</i>&nbsp;     * @throws UnsupportedOperationException if the collection is a sublist, or
+<i class="no-highlight">465</i>&nbsp;     * if the collection is read-only.
+<i class="no-highlight">466</i>&nbsp;     *
+<i class="no-highlight">467</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">468</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">469</i>&nbsp;     */
+<i class="no-highlight">470</i>&nbsp;    public void remove() {
+<i class="no-highlight">471</i>&nbsp;
+<b class="nc"><i class="no-highlight">472</i>&nbsp;        if (!setAndRemoveAllowed) {</b>
+<b class="nc"><i class="no-highlight">473</i>&nbsp;            throw new IllegalStateException();</b>
+<i class="no-highlight">474</i>&nbsp;        }
+<i class="no-highlight">475</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">476</i>&nbsp;            moveToCurrent();</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;            cursor.delete();</b>
+<b class="nc"><i class="no-highlight">478</i>&nbsp;            setAndRemoveAllowed = false;</b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;            toNext = MOVE_NEXT;</b>
+<b class="nc"><i class="no-highlight">480</i>&nbsp;            toPrevious = MOVE_PREV;</b>
+<b class="nc"><i class="no-highlight">481</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;        }</b>
+<i class="no-highlight">484</i>&nbsp;    }
+<i class="no-highlight">485</i>&nbsp;
+<i class="no-highlight">486</i>&nbsp;    /**
+<i class="no-highlight">487</i>&nbsp;     * Inserts the specified element into the list or inserts a duplicate into
+<i class="no-highlight">488</i>&nbsp;     * other types of collections (optional operation).
+<i class="no-highlight">489</i>&nbsp;     * This method conforms to the {@link ListIterator#add} interface when
+<i class="no-highlight">490</i>&nbsp;     * the collection is a list and the RECNO-RENUMBER access method is used.
+<i class="no-highlight">491</i>&nbsp;     * Otherwise, this method may only be called when duplicates are allowed.
+<i class="no-highlight">492</i>&nbsp;     * If duplicates are unsorted, the new value will be inserted in the same
+<i class="no-highlight">493</i>&nbsp;     * manner as list elements.
+<i class="no-highlight">494</i>&nbsp;     * If duplicates are sorted, the new value will be inserted in sort order.
+<i class="no-highlight">495</i>&nbsp;     *
+<i class="no-highlight">496</i>&nbsp;     * &lt;p&gt;Note that for the JE product, RECNO-RENUMBER databases are not
+<i class="no-highlight">497</i>&nbsp;     * supported, and therefore this method may only be used to add
+<i class="no-highlight">498</i>&nbsp;     * duplicates.&lt;/p&gt;
+<i class="no-highlight">499</i>&nbsp;     *
+<i class="no-highlight">500</i>&nbsp;     * @param value the new value.
+<i class="no-highlight">501</i>&nbsp;     *
+<i class="no-highlight">502</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">503</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">504</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">505</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">506</i>&nbsp;     *
+<i class="no-highlight">507</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">508</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">509</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">510</i>&nbsp;     *
+<i class="no-highlight">511</i>&nbsp;     * @throws UnsupportedOperationException if the collection is a sublist, or
+<i class="no-highlight">512</i>&nbsp;     * if the collection is indexed, or if the collection is read-only, or if
+<i class="no-highlight">513</i>&nbsp;     * the collection is a list and the RECNO-RENUMBER access method was not
+<i class="no-highlight">514</i>&nbsp;     * used, or if the collection is not a list and duplicates are not allowed.
+<i class="no-highlight">515</i>&nbsp;     *
+<i class="no-highlight">516</i>&nbsp;     * @throws IllegalStateException if the collection is empty and is not a
+<i class="no-highlight">517</i>&nbsp;     * list with RECNO-RENUMBER access.
+<i class="no-highlight">518</i>&nbsp;     *
+<i class="no-highlight">519</i>&nbsp;     * @throws IllegalArgumentException if a duplicate value is being added
+<i class="no-highlight">520</i>&nbsp;     * that already exists and duplicates are sorted.
+<i class="no-highlight">521</i>&nbsp;     *
+<i class="no-highlight">522</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">523</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">524</i>&nbsp;     */
+<i class="no-highlight">525</i>&nbsp;    public void add(E value) {
+<i class="no-highlight">526</i>&nbsp;
+<b class="nc"><i class="no-highlight">527</i>&nbsp;        coll.checkIterAddAllowed();</b>
+<i class="no-highlight">528</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">529</i>&nbsp;            OperationStatus status = OperationStatus.SUCCESS;</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;            if (toNext != 0 &amp;&amp; toPrevious != 0) { // database is empty</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;                if (coll.view.keysRenumbered) { // recno-renumber database</b>
+<i class="no-highlight">532</i>&nbsp;                    /*
+<i class="no-highlight">533</i>&nbsp;                     * Close cursor during append and then reopen to support
+<i class="no-highlight">534</i>&nbsp;                     * CDB restriction that append may not be called with a
+<i class="no-highlight">535</i>&nbsp;                     * cursor open; note the append will still fail if the
+<i class="no-highlight">536</i>&nbsp;                     * application has another cursor open.
+<i class="no-highlight">537</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">538</i>&nbsp;                    close();</b>
+<b class="nc"><i class="no-highlight">539</i>&nbsp;                    status = coll.view.append(value, null, null);</b>
+<b class="nc"><i class="no-highlight">540</i>&nbsp;                    cursor = new DataCursor(coll.view, writeAllowed);</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;                    reset();</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;                    next(); // move past new record</b>
+<i class="no-highlight">543</i>&nbsp;                } else { // hash/btree with duplicates
+<b class="nc"><i class="no-highlight">544</i>&nbsp;                    throw new IllegalStateException</b>
+<i class="no-highlight">545</i>&nbsp;                        (&quot;Collection is empty, cannot add() duplicate&quot;);
+<i class="no-highlight">546</i>&nbsp;                }
+<i class="no-highlight">547</i>&nbsp;            } else { // database is not empty
+<b class="nc"><i class="no-highlight">548</i>&nbsp;                boolean putBefore = false;</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;                if (coll.view.keysRenumbered) { // recno-renumber database</b>
+<b class="nc"><i class="no-highlight">550</i>&nbsp;                    moveToCurrent();</b>
+<b class="nc"><i class="no-highlight">551</i>&nbsp;                    if (hasNext()) {</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;                        status = cursor.putBefore(value);</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;                        putBefore = true;</b>
+<i class="no-highlight">554</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">555</i>&nbsp;                        status = cursor.putAfter(value);</b>
+<i class="no-highlight">556</i>&nbsp;                    }
+<i class="no-highlight">557</i>&nbsp;                } else { // hash/btree with duplicates
+<b class="nc"><i class="no-highlight">558</i>&nbsp;                    if (coll.areDuplicatesOrdered()) {</b>
+<b class="nc"><i class="no-highlight">559</i>&nbsp;                        status = cursor.putNoDupData(null, value, null, true);</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                    } else if (toNext == 0) {</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;                        status = cursor.putBefore(value);</b>
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                        putBefore = true;</b>
+<i class="no-highlight">563</i>&nbsp;                    } else {
+<b class="nc"><i class="no-highlight">564</i>&nbsp;                        status = cursor.putAfter(value);</b>
+<i class="no-highlight">565</i>&nbsp;                    }
+<i class="no-highlight">566</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">567</i>&nbsp;                if (putBefore) {</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;                    toPrevious = 0;</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                    toNext = MOVE_NEXT;</b>
+<i class="no-highlight">570</i>&nbsp;                }
+<i class="no-highlight">571</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">572</i>&nbsp;            if (status == OperationStatus.KEYEXIST) {</b>
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                throw new IllegalArgumentException(&quot;Duplicate value&quot;);</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            } else if (status != OperationStatus.SUCCESS) {</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                throw DbCompat.unexpectedState(&quot;Could not insert: &quot; + status);</b>
+<i class="no-highlight">576</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">577</i>&nbsp;            setAndRemoveAllowed = false;</b>
+<b class="nc"><i class="no-highlight">578</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;        }</b>
+<i class="no-highlight">581</i>&nbsp;    }
+<i class="no-highlight">582</i>&nbsp;
+<i class="no-highlight">583</i>&nbsp;    // --- end Iterator/ListIterator methods ---
+<i class="no-highlight">584</i>&nbsp;
+<i class="no-highlight">585</i>&nbsp;    /**
+<i class="no-highlight">586</i>&nbsp;     * Resets cursor to an uninitialized state.
+<i class="no-highlight">587</i>&nbsp;     */
+<i class="no-highlight">588</i>&nbsp;    private void reset() {
+<i class="no-highlight">589</i>&nbsp;
+<b class="nc"><i class="no-highlight">590</i>&nbsp;        toNext = MOVE_FIRST;</b>
+<b class="nc"><i class="no-highlight">591</i>&nbsp;        toPrevious = MOVE_PREV;</b>
+<b class="nc"><i class="no-highlight">592</i>&nbsp;        toCurrent = 0;</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;        currentData = null;</b>
+<i class="no-highlight">594</i>&nbsp;        /*
+<i class="no-highlight">595</i>&nbsp;         * Initialize cursor at beginning to avoid &quot;initial previous == last&quot;
+<i class="no-highlight">596</i>&nbsp;         * behavior when cursor is uninitialized.
+<i class="no-highlight">597</i>&nbsp;         *
+<i class="no-highlight">598</i>&nbsp;         * FindBugs whines about us ignoring the return value from hasNext().
+<i class="no-highlight">599</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">600</i>&nbsp;        hasNext();</b>
+<i class="no-highlight">601</i>&nbsp;    }
+<i class="no-highlight">602</i>&nbsp;
+<i class="no-highlight">603</i>&nbsp;    /**
+<i class="no-highlight">604</i>&nbsp;     * Returns the number of elements having the same key value as the key
+<i class="no-highlight">605</i>&nbsp;     * value of the element last returned by next() or previous().  If no
+<i class="no-highlight">606</i>&nbsp;     * duplicates are allowed, 1 is always returned.
+<i class="no-highlight">607</i>&nbsp;     * This method does not exist in the standard {@link Iterator} or {@link
+<i class="no-highlight">608</i>&nbsp;     * ListIterator} interfaces.
+<i class="no-highlight">609</i>&nbsp;     *
+<i class="no-highlight">610</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">611</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">612</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">613</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">614</i>&nbsp;     *
+<i class="no-highlight">615</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">616</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">617</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">618</i>&nbsp;     *
+<i class="no-highlight">619</i>&nbsp;     * @return the number of duplicates.
+<i class="no-highlight">620</i>&nbsp;     *
+<i class="no-highlight">621</i>&nbsp;     * @throws IllegalStateException if next() or previous() has not been
+<i class="no-highlight">622</i>&nbsp;     * called for this iterator, or if remove() or add() were called after
+<i class="no-highlight">623</i>&nbsp;     * the last call to next() or previous().
+<i class="no-highlight">624</i>&nbsp;     */
+<i class="no-highlight">625</i>&nbsp;    public int count() {
+<i class="no-highlight">626</i>&nbsp;
+<b class="nc"><i class="no-highlight">627</i>&nbsp;        if (!setAndRemoveAllowed) {</b>
+<b class="nc"><i class="no-highlight">628</i>&nbsp;            throw new IllegalStateException();</b>
+<i class="no-highlight">629</i>&nbsp;        }
+<i class="no-highlight">630</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">631</i>&nbsp;            moveToCurrent();</b>
+<b class="nc"><i class="no-highlight">632</i>&nbsp;            return cursor.count();</b>
+<b class="nc"><i class="no-highlight">633</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">634</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">635</i>&nbsp;        }
+<i class="no-highlight">636</i>&nbsp;    }
+<i class="no-highlight">637</i>&nbsp;
+<i class="no-highlight">638</i>&nbsp;    /**
+<i class="no-highlight">639</i>&nbsp;     * Closes this iterator.
+<i class="no-highlight">640</i>&nbsp;     * This method does not exist in the standard {@link Iterator} or {@link
+<i class="no-highlight">641</i>&nbsp;     * ListIterator} interfaces.
+<i class="no-highlight">642</i>&nbsp;     *
+<i class="no-highlight">643</i>&nbsp;     * &lt;p&gt;After being closed, only the {@link #hasNext} and {@link
+<i class="no-highlight">644</i>&nbsp;     * #hasPrevious} methods may be called and these will return false.  {@link
+<i class="no-highlight">645</i>&nbsp;     * #close()} may also be called again and will do nothing.  If other
+<i class="no-highlight">646</i>&nbsp;     * methods are called a &lt;code&gt;NullPointerException&lt;/code&gt; will generally be
+<i class="no-highlight">647</i>&nbsp;     * thrown.&lt;/p&gt;
+<i class="no-highlight">648</i>&nbsp;     *
+<i class="no-highlight">649</i>&nbsp;     * @throws RuntimeExceptionWrapper if a checked exception is thrown,
+<i class="no-highlight">650</i>&nbsp;     * including a {@code DatabaseException} on BDB (C Edition).
+<i class="no-highlight">651</i>&nbsp;     */
+<i class="no-highlight">652</i>&nbsp;    public void close() {
+<i class="no-highlight">653</i>&nbsp;
+<b class="nc"><i class="no-highlight">654</i>&nbsp;        if (cursor != null) {</b>
+<b class="nc"><i class="no-highlight">655</i>&nbsp;            coll.closeCursor(cursor);</b>
+<b class="nc"><i class="no-highlight">656</i>&nbsp;            cursor = null;</b>
+<i class="no-highlight">657</i>&nbsp;        }
+<i class="no-highlight">658</i>&nbsp;    }
+<i class="no-highlight">659</i>&nbsp;
+<i class="no-highlight">660</i>&nbsp;    /**
+<i class="no-highlight">661</i>&nbsp;     * Returns the collection associated with this iterator.
+<i class="no-highlight">662</i>&nbsp;     * This method does not exist in the standard {@link Iterator} or {@link
+<i class="no-highlight">663</i>&nbsp;     * ListIterator} interfaces.
+<i class="no-highlight">664</i>&nbsp;     *
+<i class="no-highlight">665</i>&nbsp;     * @return the collection associated with this iterator.
+<i class="no-highlight">666</i>&nbsp;     */
+<i class="no-highlight">667</i>&nbsp;    public final StoredCollection&lt;E&gt; getCollection() {
+<i class="no-highlight">668</i>&nbsp;
+<b class="nc"><i class="no-highlight">669</i>&nbsp;        return coll;</b>
+<i class="no-highlight">670</i>&nbsp;    }
+<i class="no-highlight">671</i>&nbsp;
+<i class="no-highlight">672</i>&nbsp;    // --- begin BaseIterator methods ---
+<i class="no-highlight">673</i>&nbsp;
+<i class="no-highlight">674</i>&nbsp;    final ListIterator&lt;E&gt; dup() {
+<i class="no-highlight">675</i>&nbsp;
+<i class="no-highlight">676</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">677</i>&nbsp;            StoredIterator o = (StoredIterator) super.clone();</b>
+<b class="nc"><i class="no-highlight">678</i>&nbsp;            o.cursor = cursor.cloneCursor();</b>
+<b class="nc"><i class="no-highlight">679</i>&nbsp;            return o;</b>
+<b class="nc"><i class="no-highlight">680</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">681</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">682</i>&nbsp;        }
+<i class="no-highlight">683</i>&nbsp;    }
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;    final boolean isCurrentData(Object currentData) {
+<i class="no-highlight">686</i>&nbsp;
+<b class="nc"><i class="no-highlight">687</i>&nbsp;        return (this.currentData == currentData);</b>
+<i class="no-highlight">688</i>&nbsp;    }
+<i class="no-highlight">689</i>&nbsp;
+<i class="no-highlight">690</i>&nbsp;    final boolean moveToIndex(int index) {
+<i class="no-highlight">691</i>&nbsp;
+<i class="no-highlight">692</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">693</i>&nbsp;            OperationStatus status =</b>
+<b class="nc"><i class="no-highlight">694</i>&nbsp;                cursor.getSearchKey(Integer.valueOf(index),</b>
+<i class="no-highlight">695</i>&nbsp;                                    null, lockForWrite);
+<b class="nc"><i class="no-highlight">696</i>&nbsp;            setAndRemoveAllowed = (status == OperationStatus.SUCCESS);</b>
+<b class="nc"><i class="no-highlight">697</i>&nbsp;            return setAndRemoveAllowed;</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">699</i>&nbsp;            throw StoredContainer.convertException(e);</b>
+<i class="no-highlight">700</i>&nbsp;        }
+<i class="no-highlight">701</i>&nbsp;    }
+<i class="no-highlight">702</i>&nbsp;
+<i class="no-highlight">703</i>&nbsp;    // --- end BaseIterator methods ---
+<i class="no-highlight">704</i>&nbsp;
+<i class="no-highlight">705</i>&nbsp;    private void moveToCurrent()
+<i class="no-highlight">706</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">707</i>&nbsp;
+<b class="nc"><i class="no-highlight">708</i>&nbsp;        if (toCurrent != 0) {</b>
+<b class="nc"><i class="no-highlight">709</i>&nbsp;            move(toCurrent);</b>
+<b class="nc"><i class="no-highlight">710</i>&nbsp;            toCurrent = 0;</b>
+<i class="no-highlight">711</i>&nbsp;        }
+<i class="no-highlight">712</i>&nbsp;    }
+<i class="no-highlight">713</i>&nbsp;
+<i class="no-highlight">714</i>&nbsp;    private OperationStatus move(int direction)
+<i class="no-highlight">715</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">716</i>&nbsp;
+<b class="nc"><i class="no-highlight">717</i>&nbsp;        switch (direction) {</b>
+<i class="no-highlight">718</i>&nbsp;            case MOVE_NEXT:
+<b class="nc"><i class="no-highlight">719</i>&nbsp;                if (coll.iterateDuplicates()) {</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;                    return cursor.getNext(lockForWrite);</b>
+<i class="no-highlight">721</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">722</i>&nbsp;                    return cursor.getNextNoDup(lockForWrite);</b>
+<i class="no-highlight">723</i>&nbsp;                }
+<i class="no-highlight">724</i>&nbsp;            case MOVE_PREV:
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                if (coll.iterateDuplicates()) {</b>
+<b class="nc"><i class="no-highlight">726</i>&nbsp;                    return cursor.getPrev(lockForWrite);</b>
+<i class="no-highlight">727</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                    return cursor.getPrevNoDup(lockForWrite);</b>
+<i class="no-highlight">729</i>&nbsp;                }
+<i class="no-highlight">730</i>&nbsp;            case MOVE_FIRST:
+<b class="nc"><i class="no-highlight">731</i>&nbsp;                return cursor.getFirst(lockForWrite);</b>
+<i class="no-highlight">732</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">733</i>&nbsp;                throw DbCompat.unexpectedState(String.valueOf(direction));</b>
+<i class="no-highlight">734</i>&nbsp;        }
+<i class="no-highlight">735</i>&nbsp;    }
+<i class="no-highlight">736</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

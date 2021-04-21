@@ -1,0 +1,205 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > NodeState</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl.node</a>
+</div>
+
+<h1>Coverage Summary for Class: NodeState (com.sleepycat.je.rep.impl.node)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">NodeState</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/6)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/23)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.rep.impl.node;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.util.concurrent.atomic.AtomicReference;
+<i class="no-highlight">16</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.rep.ReplicatedEnvironment;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.rep.StateChangeEvent;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.rep.StateChangeListener;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;/**
+<i class="no-highlight">27</i>&nbsp; * NodeState encapsulates the current replicator state, and the ability to wait
+<i class="no-highlight">28</i>&nbsp; * for state transition and fire state change notifications.
+<i class="no-highlight">29</i>&nbsp; */
+<i class="no-highlight">30</i>&nbsp;public class NodeState {
+<i class="no-highlight">31</i>&nbsp;    /* The rep impl whose state is being tracked. */
+<i class="no-highlight">32</i>&nbsp;    private final RepImpl repImpl;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;    /* The application registered state change listener for this node. */
+<b class="nc"><i class="no-highlight">35</i>&nbsp;    private StateChangeListener stateChangeListener = null;</b>
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;    /* The state change event that resulted in the current state. */
+<b class="nc"><i class="no-highlight">38</i>&nbsp;    private StateChangeEvent stateChangeEvent = null;</b>
+<i class="no-highlight">39</i>&nbsp;    private final AtomicReference&lt;ReplicatedEnvironment.State&gt; currentState;
+<i class="no-highlight">40</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">41</i>&nbsp;    private final NameIdPair nameIdPair;
+<i class="no-highlight">42</i>&nbsp;
+<i class="no-highlight">43</i>&nbsp;    public NodeState(NameIdPair nameIdPair,
+<b class="nc"><i class="no-highlight">44</i>&nbsp;                     RepImpl repImpl) {</b>
+<i class="no-highlight">45</i>&nbsp;
+<b class="nc"><i class="no-highlight">46</i>&nbsp;        currentState = new AtomicReference&lt;ReplicatedEnvironment.State&gt;</b>
+<i class="no-highlight">47</i>&nbsp;            (ReplicatedEnvironment.State.DETACHED);
+<b class="nc"><i class="no-highlight">48</i>&nbsp;        this.nameIdPair = nameIdPair;</b>
+<b class="nc"><i class="no-highlight">49</i>&nbsp;        this.repImpl = repImpl;</b>
+<b class="nc"><i class="no-highlight">50</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<i class="no-highlight">51</i>&nbsp;    }
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    synchronized public
+<i class="no-highlight">54</i>&nbsp;        void setChangeListener(StateChangeListener stateChangeListener){
+<b class="nc"><i class="no-highlight">55</i>&nbsp;        this.stateChangeListener = stateChangeListener;</b>
+<i class="no-highlight">56</i>&nbsp;    }
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    synchronized public StateChangeListener getChangeListener() {
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        return stateChangeListener;</b>
+<i class="no-highlight">60</i>&nbsp;    }
+<i class="no-highlight">61</i>&nbsp;
+<i class="no-highlight">62</i>&nbsp;    /**
+<i class="no-highlight">63</i>&nbsp;     * Change to a new node state and release any threads waiting for a state
+<i class="no-highlight">64</i>&nbsp;     * transition.
+<i class="no-highlight">65</i>&nbsp;     */
+<i class="no-highlight">66</i>&nbsp;    synchronized public void changeAndNotify(ReplicatedEnvironment.State state,
+<i class="no-highlight">67</i>&nbsp;                                             NameIdPair masterNameId) {
+<i class="no-highlight">68</i>&nbsp;
+<b class="nc"><i class="no-highlight">69</i>&nbsp;        ReplicatedEnvironment.State newState = state;</b>
+<b class="nc"><i class="no-highlight">70</i>&nbsp;        ReplicatedEnvironment.State oldState = currentState.getAndSet(state);</b>
+<b class="nc"><i class="no-highlight">71</i>&nbsp;        stateChangeEvent = new StateChangeEvent(state, masterNameId);</b>
+<i class="no-highlight">72</i>&nbsp;
+<b class="nc"><i class="no-highlight">73</i>&nbsp;        LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">74</i>&nbsp;                         &quot;node:&quot; + masterNameId +
+<i class="no-highlight">75</i>&nbsp;                         &quot; state change from &quot; + oldState + &quot; to &quot; + newState);
+<i class="no-highlight">76</i>&nbsp;
+<b class="nc"><i class="no-highlight">77</i>&nbsp;        if (stateChangeListener != null) {</b>
+<i class="no-highlight">78</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">79</i>&nbsp;                stateChangeListener.stateChange(stateChangeEvent);</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;            } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;                LoggerUtils.severe(logger, repImpl,</b>
+<i class="no-highlight">82</i>&nbsp;                                   &quot;State Change listener exception&quot; +
+<b class="nc"><i class="no-highlight">83</i>&nbsp;                                   e.getMessage());</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;                throw new EnvironmentFailureException</b>
+<i class="no-highlight">85</i>&nbsp;                    (repImpl, EnvironmentFailureReason.LISTENER_EXCEPTION, e);
+<b class="nc"><i class="no-highlight">86</i>&nbsp;            }</b>
+<i class="no-highlight">87</i>&nbsp;        }
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;        /* Make things obvious in thread dumps */
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        Thread.currentThread().setName(currentState + &quot; &quot; + nameIdPair);</b>
+<i class="no-highlight">91</i>&nbsp;    }
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    synchronized public ReplicatedEnvironment.State getRepEnvState() {
+<b class="nc"><i class="no-highlight">94</i>&nbsp;        return currentState.get();</b>
+<i class="no-highlight">95</i>&nbsp;    }
+<i class="no-highlight">96</i>&nbsp;
+<i class="no-highlight">97</i>&nbsp;    synchronized public StateChangeEvent getStateChangeEvent() {
+<b class="nc"><i class="no-highlight">98</i>&nbsp;        return stateChangeEvent;</b>
+<i class="no-highlight">99</i>&nbsp;    }
+<i class="no-highlight">100</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

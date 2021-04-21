@@ -1,0 +1,1005 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > LDiff</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.util.ldiff</a>
+</div>
+
+<h1>Coverage Summary for Class: LDiff (com.sleepycat.je.rep.util.ldiff)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">LDiff</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/21)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/294)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">LDiff$LDiffIterator</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/25)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">LDiff$MismatchException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/26)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/321)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.util.ldiff;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.File;
+<i class="no-highlight">17</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">18</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">19</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">20</i>&nbsp;import java.util.Iterator;
+<i class="no-highlight">21</i>&nbsp;import java.util.List;
+<i class="no-highlight">22</i>&nbsp;import java.util.NoSuchElementException;
+<i class="no-highlight">23</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.Cursor;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.Database;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.DatabaseConfig;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.DatabaseEntry;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.DatabaseNotFoundException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.DbInternal;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.EnvironmentConfig;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory.ConnectOptions;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.ProtocolException;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.utilint.ServiceDispatcher.ServiceConnectFailedException;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.utilint.net.SimpleChannelFactory;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.utilint.CmdUtil;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">44</i>&nbsp;
+<i class="no-highlight">45</i>&nbsp;/**
+<i class="no-highlight">46</i>&nbsp; * LDiff provides a mechanism for efficiently comparing two quiescent
+<i class="no-highlight">47</i>&nbsp; * databases, typically residing on different machines connected by a
+<i class="no-highlight">48</i>&nbsp; * network. The comparison is done at the logical level rather than the
+<i class="no-highlight">49</i>&nbsp; * physical level, so that we can compare the contents of replicated databases
+<i class="no-highlight">50</i>&nbsp; * where the logical contents may be identical, but the physical logs may be
+<i class="no-highlight">51</i>&nbsp; * very different. If the databases are found to be different, it provides
+<i class="no-highlight">52</i>&nbsp; * information that would help identify the specific nature of the differences.
+<i class="no-highlight">53</i>&nbsp; *
+<i class="no-highlight">54</i>&nbsp; * This class provides the external API used to initiate a comparison.
+<i class="no-highlight">55</i>&nbsp; *
+<i class="no-highlight">56</i>&nbsp; * For details, please review the document at:
+<i class="no-highlight">57</i>&nbsp; *
+<i class="no-highlight">58</i>&nbsp; * @see &lt;a href=&quot;https://sleepycat.oracle.com/trac/wiki/JEDatabaseLogicalDiff&quot;&gt;
+<i class="no-highlight">59</i>&nbsp; *      LDiff &lt;/a&gt;
+<i class="no-highlight">60</i>&nbsp; */
+<b class="nc"><i class="no-highlight">61</i>&nbsp;public class LDiff {</b>
+<i class="no-highlight">62</i>&nbsp;
+<i class="no-highlight">63</i>&nbsp;    private LDiffConfig cfg;
+<i class="no-highlight">64</i>&nbsp;    private File home1, home2;
+<i class="no-highlight">65</i>&nbsp;    private String file1, file2;
+<i class="no-highlight">66</i>&nbsp;    private DiffTracker tracker;
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    private static final String usageString = &quot;usage: &quot; +
+<b class="nc"><i class="no-highlight">69</i>&nbsp;        CmdUtil.getJavaCommand(LDiff.class) +</b>
+<i class="no-highlight">70</i>&nbsp;        &quot;\n&quot; +
+<i class="no-highlight">71</i>&nbsp;        &quot;  -h &lt;dir&gt;[,&lt;dir2&gt;]   # environment home directory\n&quot; +
+<i class="no-highlight">72</i>&nbsp;        &quot;  [-a]                # analyze diff\n&quot; +
+<i class="no-highlight">73</i>&nbsp;        &quot;  [-b &lt;blockSize&gt;]    # number of records to put in each block\n&quot; +
+<i class="no-highlight">74</i>&nbsp;        &quot;  [-m &lt;maxErrors&gt;]    # abort diff after a number of errors\n&quot; +
+<i class="no-highlight">75</i>&nbsp;        &quot;  [-s &lt;databaseName&gt;,&lt;databaseName&gt;] # database(s) to compare\n&quot; +
+<i class="no-highlight">76</i>&nbsp;        &quot;  [-q]                # be quiet, do not print to stdout&quot;;
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    private static final int SOCKET_TIMEOUT_MS = 10000;
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /**
+<i class="no-highlight">81</i>&nbsp;     * The main used by the LDiff utility.
+<i class="no-highlight">82</i>&nbsp;     *
+<i class="no-highlight">83</i>&nbsp;     * @param args The arguments accepted by the LDiff utility.
+<i class="no-highlight">84</i>&nbsp;     *
+<i class="no-highlight">85</i>&nbsp;     * &lt;pre&gt;
+<i class="no-highlight">86</i>&nbsp;     * usage: java com.sleepycat.je.rep.util.ldiff.LDiff
+<i class="no-highlight">87</i>&nbsp;     *             [-s database1,database2] -h dbEnvHome1[,dbEnvHome2]
+<i class="no-highlight">88</i>&nbsp;     *             [-a] [-b blockSize] [-m maxErrors] [-q]
+<i class="no-highlight">89</i>&nbsp;     * &lt;/pre&gt;
+<i class="no-highlight">90</i>&nbsp;     *
+<i class="no-highlight">91</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">92</i>&nbsp;     * -a - generate an analysis of the differences&lt;br&gt;
+<i class="no-highlight">93</i>&nbsp;     * -b blockSize - the number of records to compare at one time&lt;br&gt;
+<i class="no-highlight">94</i>&nbsp;     * -h dbEnvHome - the directory or directories containing environment(s) in
+<i class="no-highlight">95</i>&nbsp;     * which to perform the ldiff&lt;br&gt;
+<i class="no-highlight">96</i>&nbsp;     * -m maxErrors - the maximum number of errors to detect before declaring
+<i class="no-highlight">97</i>&nbsp;     * the databases different and ending the operation.&lt;br&gt;
+<i class="no-highlight">98</i>&nbsp;     * -s database1,database2 - the databases to ldiff.&lt;br&gt;
+<i class="no-highlight">99</i>&nbsp;     * -q - be quiet, do not write to stdout
+<i class="no-highlight">100</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">101</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">102</i>&nbsp;     * If ldiff-ing a specific database, two database names must be specified.
+<i class="no-highlight">103</i>&nbsp;     * If no database names are given, two environments must be specified.  If
+<i class="no-highlight">104</i>&nbsp;     * two database names and two environments are specified, the first
+<i class="no-highlight">105</i>&nbsp;     * database is opened in the first environment and the second database is
+<i class="no-highlight">106</i>&nbsp;     * opened in the second environment.
+<i class="no-highlight">107</i>&nbsp;     * &lt;/p&gt;
+<i class="no-highlight">108</i>&nbsp;     */
+<i class="no-highlight">109</i>&nbsp;    public static void main(String[] args) {
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        LDiff differ = new LDiff();</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        differ.parseArgs(args);</b>
+<i class="no-highlight">112</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">113</i>&nbsp;            if (differ.diff()) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;                System.exit(0);</b>
+<i class="no-highlight">115</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">116</i>&nbsp;                System.exit(1);</b>
+<i class="no-highlight">117</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;            System.exit(1);</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;        }</b>
+<i class="no-highlight">122</i>&nbsp;    }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    private void parseArgs(String[] argv) {
+<b class="nc"><i class="no-highlight">125</i>&nbsp;        cfg = new LDiffConfig();</b>
+<b class="nc"><i class="no-highlight">126</i>&nbsp;        cfg.setVerbose(true);</b>
+<i class="no-highlight">127</i>&nbsp;
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        int argc = 0;</b>
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        int nArgs = argv.length;</b>
+<b class="nc"><i class="no-highlight">130</i>&nbsp;        while (argc &lt; nArgs) {</b>
+<b class="nc"><i class="no-highlight">131</i>&nbsp;            String thisArg = argv[argc++];</b>
+<b class="nc"><i class="no-highlight">132</i>&nbsp;            if (thisArg.equals(&quot;-a&quot;)) {</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;                cfg.setDiffAnalysis(true);</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;            } else if (thisArg.equals(&quot;-b&quot;)) {</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;                if (argc &lt; nArgs) {</b>
+<i class="no-highlight">136</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">137</i>&nbsp;                        cfg.setBlockSize(Integer.parseInt(argv[argc++]));</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;                    } catch (NumberFormatException nfe) {</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;                        printUsage(&quot;-b requires an integer argument&quot;);</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;                    }</b>
+<i class="no-highlight">141</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">142</i>&nbsp;                    printUsage(&quot;-b requires an argument&quot;);</b>
+<i class="no-highlight">143</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">144</i>&nbsp;            } else if (thisArg.equals(&quot;-h&quot;)) {</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;                if (argc &lt; nArgs) {</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;                    String[] envDirs = argv[argc++].split(&quot;,&quot;);</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;                    if (envDirs.length &gt; 2) {</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;                        printUsage(&quot;Only 2 environments supported&quot;);</b>
+<i class="no-highlight">149</i>&nbsp;                    }
+<i class="no-highlight">150</i>&nbsp;
+<b class="nc"><i class="no-highlight">151</i>&nbsp;                    home1 = new File(envDirs[0]);</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;                    if (envDirs.length == 2) {</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;                        home2 = new File(envDirs[1]);</b>
+<i class="no-highlight">154</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">155</i>&nbsp;                } else {</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;                    printUsage(&quot;-h requires an argument&quot;);</b>
+<i class="no-highlight">157</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            } else if (thisArg.equals(&quot;-m&quot;)) {</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;                if (argc &lt; nArgs) {</b>
+<i class="no-highlight">160</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                        cfg.setMaxErrors(Integer.parseInt(argv[argc++]));</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;                    } catch (NumberFormatException nfe) {</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                        printUsage(&quot;-m requires an integer argument&quot;);</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                    }</b>
+<i class="no-highlight">165</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                    printUsage(&quot;-m requires an argument&quot;);</b>
+<i class="no-highlight">167</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">168</i>&nbsp;            } else if (thisArg.equals(&quot;-s&quot;)) {</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;                if (argc &lt; nArgs) {</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;                    String[] dbNames = argv[argc++].split(&quot;,&quot;);</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                    if (dbNames.length != 2) {</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                        printUsage(&quot;-s requires two database names&quot;);</b>
+<i class="no-highlight">173</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                    file1 = dbNames[0];</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;                    file2 = dbNames[1];</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                } else {</b>
+<b class="nc"><i class="no-highlight">177</i>&nbsp;                    printUsage(&quot;-s requires an argument&quot;);</b>
+<i class="no-highlight">178</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">179</i>&nbsp;            } else if (thisArg.equals(&quot;-q&quot;)) {</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;                cfg.setVerbose(false);</b>
+<i class="no-highlight">181</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">182</i>&nbsp;                printUsage(thisArg + &quot; is not a valid option.&quot;);</b>
+<i class="no-highlight">183</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        }</b>
+<i class="no-highlight">185</i>&nbsp;
+<b class="nc"><i class="no-highlight">186</i>&nbsp;        if (home1 == null) {</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;            printUsage(&quot;-h is a required argument&quot;);</b>
+<i class="no-highlight">188</i>&nbsp;        }
+<i class="no-highlight">189</i>&nbsp;
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        if (home2 == null &amp;&amp; file1 == null) {</b>
+<b class="nc"><i class="no-highlight">191</i>&nbsp;            printUsage(&quot;2 databases must be specified with 1 environment&quot;);</b>
+<i class="no-highlight">192</i>&nbsp;        }
+<i class="no-highlight">193</i>&nbsp;    }
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    private void printUsage(String msg) {
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        System.err.println(msg);</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        System.err.println(usageString);</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        System.exit(-1);</b>
+<i class="no-highlight">199</i>&nbsp;    }
+<i class="no-highlight">200</i>&nbsp;
+<b class="nc"><i class="no-highlight">201</i>&nbsp;    private LDiff() {</b>
+<i class="no-highlight">202</i>&nbsp;    }
+<i class="no-highlight">203</i>&nbsp;
+<i class="no-highlight">204</i>&nbsp;    /**
+<i class="no-highlight">205</i>&nbsp;     * Configure a new object with which to compare two databases.
+<i class="no-highlight">206</i>&nbsp;     *
+<i class="no-highlight">207</i>&nbsp;     * @param cfg the configuration parameters for the new object.
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    public LDiff(LDiffConfig cfg) {
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        super();</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        this.cfg = cfg;</b>
+<i class="no-highlight">212</i>&nbsp;    }
+<i class="no-highlight">213</i>&nbsp;
+<i class="no-highlight">214</i>&nbsp;    /*
+<i class="no-highlight">215</i>&nbsp;     * Run an LDiff called from the command line.  What actually gets diffed
+<i class="no-highlight">216</i>&nbsp;     * depends upon the args passed in, either 2 environments, databases in two
+<i class="no-highlight">217</i>&nbsp;     * separate environments or databases in the same environment.
+<i class="no-highlight">218</i>&nbsp;     */
+<i class="no-highlight">219</i>&nbsp;    private boolean diff()
+<i class="no-highlight">220</i>&nbsp;        throws Exception {
+<i class="no-highlight">221</i>&nbsp;
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        EnvironmentConfig envConfiguration = new EnvironmentConfig();</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;        envConfiguration.setReadOnly(true);</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        envConfiguration.setCachePercent(40);</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        Environment env1 = new Environment(home1, envConfiguration);</b>
+<i class="no-highlight">226</i>&nbsp;
+<b class="nc"><i class="no-highlight">227</i>&nbsp;        DatabaseConfig dbConfig = new DatabaseConfig();</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        dbConfig.setReadOnly(true);</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        DbInternal.setUseExistingConfig(dbConfig, true);</b>
+<i class="no-highlight">230</i>&nbsp;
+<i class="no-highlight">231</i>&nbsp;        Database db2;
+<b class="nc"><i class="no-highlight">232</i>&nbsp;        if (home2 != null) {</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            Environment env2 = new Environment(home2, envConfiguration);</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            if (file1 == null) {</b>
+<i class="no-highlight">235</i>&nbsp;                /* No dbs given, ldiff the environments. */
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                boolean ret = diff(env1, env2);</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                env1.close();</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                env2.close();</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                return ret;</b>
+<i class="no-highlight">240</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            db2 = env2.openDatabase(null, file2, dbConfig);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            db2 = env1.openDatabase(null, file2, dbConfig);</b>
+<i class="no-highlight">244</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        Database db1 = env1.openDatabase(null, file1, dbConfig);</b>
+<i class="no-highlight">246</i>&nbsp;
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        boolean ret = diff(db1, db2);</b>
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        db1.close();</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;        db2.close();</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;        env1.close();</b>
+<i class="no-highlight">251</i>&nbsp;
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        return ret;</b>
+<i class="no-highlight">253</i>&nbsp;    }
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * A mechanism for efficiently comparing all databases in two quiescent
+<i class="no-highlight">257</i>&nbsp;     * environments.
+<i class="no-highlight">258</i>&nbsp;     *
+<i class="no-highlight">259</i>&nbsp;     * @param env1 a valid, open Environment handle
+<i class="no-highlight">260</i>&nbsp;     * @param env2 a valid, open Environment handle
+<i class="no-highlight">261</i>&nbsp;     * @return true if all databases in env1 and env2 are identical
+<i class="no-highlight">262</i>&nbsp;     * @throws Exception
+<i class="no-highlight">263</i>&nbsp;     */
+<i class="no-highlight">264</i>&nbsp;    public boolean diff(Environment env1, Environment env2)
+<i class="no-highlight">265</i>&nbsp;        throws Exception {
+<i class="no-highlight">266</i>&nbsp;
+<b class="nc"><i class="no-highlight">267</i>&nbsp;        List&lt;String&gt; env1names = env1.getDatabaseNames();</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;        List&lt;String&gt; env2names = env2.getDatabaseNames();</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        boolean ret = (env1names.size() == env2names.size());</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;        if (!ret) {</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;            output(&quot;Environments have different number of databases.&quot;);</b>
+<i class="no-highlight">272</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        for (String dbName : env1names) {</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            DatabaseConfig dbConfig = new DatabaseConfig();</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            dbConfig.setReadOnly(true);</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;            DbInternal.setUseExistingConfig(dbConfig, true);</b>
+<i class="no-highlight">277</i>&nbsp;            Database db1, db2;
+<i class="no-highlight">278</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">279</i>&nbsp;                db1 = env1.openDatabase(null, dbName, dbConfig);</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;            } catch (DatabaseNotFoundException e) {</b>
+<i class="no-highlight">281</i>&nbsp;                /* Should never happen, ExclusiveCreate is false. */
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                throw EnvironmentFailureException.unexpectedException(e);</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;            }</b>
+<i class="no-highlight">284</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">285</i>&nbsp;                db2 = env2.openDatabase(null, dbName, dbConfig);</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;            } catch (DatabaseNotFoundException e) {</b>
+<i class="no-highlight">287</i>&nbsp;                /* There&#39;s a database in env1 that&#39;s not in env2. */
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                db1.close();</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                output(dbName +</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;                       &quot; does not exist in &quot; + env2.getHome().getName());</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;                ret = false;</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                continue;</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;            }</b>
+<i class="no-highlight">294</i>&nbsp;
+<b class="nc"><i class="no-highlight">295</i>&nbsp;            if (!diff(db1, db2)) {</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;                ret = false;</b>
+<i class="no-highlight">297</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">298</i>&nbsp;            db1.close();</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;            db2.close();</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        if (ret) {</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            output(&quot;No differences exist between the two environments.&quot;);</b>
+<i class="no-highlight">303</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            output(&quot;Differences exist between the two environments.&quot;);</b>
+<i class="no-highlight">305</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">306</i>&nbsp;        return ret;</b>
+<i class="no-highlight">307</i>&nbsp;    }
+<i class="no-highlight">308</i>&nbsp;
+<i class="no-highlight">309</i>&nbsp;    /**
+<i class="no-highlight">310</i>&nbsp;     * A mechanism for efficiently comparing two quiescent databases.
+<i class="no-highlight">311</i>&nbsp;     *
+<i class="no-highlight">312</i>&nbsp;     * @param db1 a valid, open Database handle
+<i class="no-highlight">313</i>&nbsp;     * @param db2 a valid, open Database handle
+<i class="no-highlight">314</i>&nbsp;     * @return true if the db1 and db2 are identical
+<i class="no-highlight">315</i>&nbsp;     * @throws Exception
+<i class="no-highlight">316</i>&nbsp;     */
+<i class="no-highlight">317</i>&nbsp;    public boolean diff(Database db1, Database db2)
+<i class="no-highlight">318</i>&nbsp;        throws Exception {
+<i class="no-highlight">319</i>&nbsp;
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        BlockBag bag = createBlockBag(db2);</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;        final boolean ret = diff(db1, bag);</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        if (cfg.getVerbose()) {</b>
+<b class="nc"><i class="no-highlight">323</i>&nbsp;            final String db1Name = db1.getDatabaseName();</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            final String db2Name = db2.getDatabaseName();</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            final boolean namesMatch = db1Name.equals(db2Name);</b>
+<b class="nc"><i class="no-highlight">326</i>&nbsp;            if (ret) {</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;                if (namesMatch) {</b>
+<b class="nc"><i class="no-highlight">328</i>&nbsp;                    output(&quot;No differences in &quot; + db1Name);</b>
+<i class="no-highlight">329</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">330</i>&nbsp;                    output(db1Name + &quot; matches &quot; + db2Name);</b>
+<i class="no-highlight">331</i>&nbsp;                }
+<i class="no-highlight">332</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">333</i>&nbsp;                if (namesMatch) {</b>
+<b class="nc"><i class="no-highlight">334</i>&nbsp;                    output(&quot;Differences in &quot; + db1Name);</b>
+<i class="no-highlight">335</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">336</i>&nbsp;                    output(db1Name + &quot; does not match &quot; + db2Name);</b>
+<i class="no-highlight">337</i>&nbsp;                }
+<i class="no-highlight">338</i>&nbsp;            }
+<i class="no-highlight">339</i>&nbsp;        }
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;        /* Do the analysis for these two databases. */
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        if (cfg.getDiffAnalysis() &amp;&amp; tracker.getDiffRegions().size() != 0) {</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;            DiffRecordAnalyzer.doAnalysis(db1, db2, tracker, cfg.getVerbose());</b>
+<i class="no-highlight">344</i>&nbsp;        }
+<i class="no-highlight">345</i>&nbsp;
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        return ret;</b>
+<i class="no-highlight">347</i>&nbsp;    }
+<i class="no-highlight">348</i>&nbsp;
+<i class="no-highlight">349</i>&nbsp;    /**
+<i class="no-highlight">350</i>&nbsp;     * A mechanism for efficiently comparing two quiescent environments, one
+<i class="no-highlight">351</i>&nbsp;     * local and one on a remote machine.  This method assumes that only basic,
+<i class="no-highlight">352</i>&nbsp;     * unauthenticated communication is in use.
+<i class="no-highlight">353</i>&nbsp;     *
+<i class="no-highlight">354</i>&nbsp;     * @param env a valid, open Environment handle
+<i class="no-highlight">355</i>&nbsp;     * @param addr the address of the remote machine
+<i class="no-highlight">356</i>&nbsp;     * @return true if all the databases in both environments are the same
+<i class="no-highlight">357</i>&nbsp;     * @throws IOException if a network error occurs
+<i class="no-highlight">358</i>&nbsp;     * @throws ProtocolException if an unexpected message is received
+<i class="no-highlight">359</i>&nbsp;     * @throws ServiceConnectFailedException if the remote service was busy
+<i class="no-highlight">360</i>&nbsp;     * @throws Exception
+<i class="no-highlight">361</i>&nbsp;     */
+<i class="no-highlight">362</i>&nbsp;    public boolean diff(Environment env, InetSocketAddress addr)
+<i class="no-highlight">363</i>&nbsp;        throws IOException,
+<i class="no-highlight">364</i>&nbsp;               ProtocolException,
+<i class="no-highlight">365</i>&nbsp;               ServiceConnectFailedException,
+<i class="no-highlight">366</i>&nbsp;               Exception {
+<b class="nc"><i class="no-highlight">367</i>&nbsp;        return diff(env, addr, new SimpleChannelFactory());</b>
+<i class="no-highlight">368</i>&nbsp;    }
+<i class="no-highlight">369</i>&nbsp;
+<i class="no-highlight">370</i>&nbsp;    /**
+<i class="no-highlight">371</i>&nbsp;     * A mechanism for efficiently comparing two quiescent environments, one
+<i class="no-highlight">372</i>&nbsp;     * local and one on a remote machine.
+<i class="no-highlight">373</i>&nbsp;     *
+<i class="no-highlight">374</i>&nbsp;     * @param env a valid, open Environment handle
+<i class="no-highlight">375</i>&nbsp;     * @param addr the address of the remote machine
+<i class="no-highlight">376</i>&nbsp;     * @param dcFactory the channel factory for connection creation
+<i class="no-highlight">377</i>&nbsp;     * @return true if all the databases in both environments are the same
+<i class="no-highlight">378</i>&nbsp;     * @throws IOException if a network error occurs
+<i class="no-highlight">379</i>&nbsp;     * @throws ProtocolException if an unexpected message is received
+<i class="no-highlight">380</i>&nbsp;     * @throws ServiceConnectFailedException if the remote service was busy
+<i class="no-highlight">381</i>&nbsp;     * @throws Exception
+<i class="no-highlight">382</i>&nbsp;     */
+<i class="no-highlight">383</i>&nbsp;    public boolean diff(Environment env,
+<i class="no-highlight">384</i>&nbsp;                        InetSocketAddress addr,
+<i class="no-highlight">385</i>&nbsp;                        DataChannelFactory dcFactory)
+<i class="no-highlight">386</i>&nbsp;        throws IOException,
+<i class="no-highlight">387</i>&nbsp;               ProtocolException,
+<i class="no-highlight">388</i>&nbsp;               ServiceConnectFailedException,
+<i class="no-highlight">389</i>&nbsp;               Exception {
+<i class="no-highlight">390</i>&nbsp;
+<b class="nc"><i class="no-highlight">391</i>&nbsp;        List&lt;String&gt; envNames = env.getDatabaseNames();</b>
+<b class="nc"><i class="no-highlight">392</i>&nbsp;        boolean ret = true;</b>
+<i class="no-highlight">393</i>&nbsp;
+<b class="nc"><i class="no-highlight">394</i>&nbsp;        DataChannel channel = connect(addr, dcFactory);</b>
+<i class="no-highlight">395</i>&nbsp;
+<b class="nc"><i class="no-highlight">396</i>&nbsp;        final Protocol protocol = new Protocol(</b>
+<i class="no-highlight">397</i>&nbsp;                new NameIdPair(&quot;Ldiff&quot;, -1),
+<b class="nc"><i class="no-highlight">398</i>&nbsp;                DbInternal.getNonNullEnvImpl(env));</b>
+<b class="nc"><i class="no-highlight">399</i>&nbsp;        protocol.write(protocol.new EnvDiff(), channel);</b>
+<i class="no-highlight">400</i>&nbsp;
+<i class="no-highlight">401</i>&nbsp;        /*
+<i class="no-highlight">402</i>&nbsp;         * Check that the number of local databases matches the number of
+<i class="no-highlight">403</i>&nbsp;         * remote databases.  This is how we detect a remote db that doesn&#39;t
+<i class="no-highlight">404</i>&nbsp;         * exist locally.
+<i class="no-highlight">405</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        Protocol.EnvInfo msg = protocol.read(channel, Protocol.EnvInfo.class);</b>
+<b class="nc"><i class="no-highlight">407</i>&nbsp;        ret = (envNames.size() == msg.getNumberOfDBs());</b>
+<b class="nc"><i class="no-highlight">408</i>&nbsp;        if (!ret) {</b>
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            output(&quot;Number of databases in local and remote environments &quot; +</b>
+<i class="no-highlight">410</i>&nbsp;                   &quot;does not match.&quot;);
+<i class="no-highlight">411</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        channel.close();</b>
+<i class="no-highlight">413</i>&nbsp;
+<i class="no-highlight">414</i>&nbsp;        /*
+<i class="no-highlight">415</i>&nbsp;         * Run LDiff for every database in the local environment.  If they all
+<i class="no-highlight">416</i>&nbsp;         * succeed, the environments match.
+<i class="no-highlight">417</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">418</i>&nbsp;        for (String dbName : envNames) {</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;            channel = connect(addr, dcFactory);</b>
+<i class="no-highlight">420</i>&nbsp;
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            DatabaseConfig dbConfig = new DatabaseConfig();</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            dbConfig.setReadOnly(true);</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;            DbInternal.setUseExistingConfig(dbConfig, true);</b>
+<i class="no-highlight">424</i>&nbsp;            Database db;
+<i class="no-highlight">425</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">426</i>&nbsp;                db = env.openDatabase(null, dbName, dbConfig);</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;            } catch (DatabaseNotFoundException e) {</b>
+<i class="no-highlight">428</i>&nbsp;                /* Should never happen, ExclusiveCreate is false. */
+<b class="nc"><i class="no-highlight">429</i>&nbsp;                throw EnvironmentFailureException.unexpectedException(e);</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;            }</b>
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                if (!diff(db, channel)) {</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;                    ret = false;</b>
+<i class="no-highlight">435</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">436</i>&nbsp;            } catch (ProtocolException pe) {</b>
+<b class="nc"><i class="no-highlight">437</i>&nbsp;                output(dbName + &quot; does not exist in remote environment.&quot;);</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;                ret = false;</b>
+<i class="no-highlight">439</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">440</i>&nbsp;                db.close();</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;                if (channel.isOpen()) {</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;                    channel.close();</b>
+<i class="no-highlight">443</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">444</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">446</i>&nbsp;        if (ret) {</b>
+<b class="nc"><i class="no-highlight">447</i>&nbsp;            output(&quot;Local environment matches remote.&quot;);</b>
+<i class="no-highlight">448</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">449</i>&nbsp;            output(&quot;Local environment does not match remote.&quot;);</b>
+<i class="no-highlight">450</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        return ret;</b>
+<i class="no-highlight">452</i>&nbsp;    }
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;    /**
+<i class="no-highlight">455</i>&nbsp;     * A mechanism for efficiently comparing two quiescent databases, one of
+<i class="no-highlight">456</i>&nbsp;     * which resides on a remote machine.
+<i class="no-highlight">457</i>&nbsp;     *
+<i class="no-highlight">458</i>&nbsp;     * @param db a valid, open Database handle
+<i class="no-highlight">459</i>&nbsp;     * @param addr the address of the remote host
+<i class="no-highlight">460</i>&nbsp;     * @param dcFactory the channel factory for connection creation
+<i class="no-highlight">461</i>&nbsp;     * @return true if the local Database and the remote Database are identical
+<i class="no-highlight">462</i>&nbsp;     * @throws IOException if a network error occurs
+<i class="no-highlight">463</i>&nbsp;     * @throws ProtocolException if the remote database does not exist
+<i class="no-highlight">464</i>&nbsp;     * @throws ServiceConnectFailedException if the remote service is busy
+<i class="no-highlight">465</i>&nbsp;     * @throws Exception
+<i class="no-highlight">466</i>&nbsp;     */
+<i class="no-highlight">467</i>&nbsp;    public boolean diff(Database db,
+<i class="no-highlight">468</i>&nbsp;                        InetSocketAddress addr,
+<i class="no-highlight">469</i>&nbsp;                        DataChannelFactory dcFactory)
+<i class="no-highlight">470</i>&nbsp;        throws IOException,
+<i class="no-highlight">471</i>&nbsp;               ProtocolException,
+<i class="no-highlight">472</i>&nbsp;               ServiceConnectFailedException,
+<i class="no-highlight">473</i>&nbsp;               Exception {
+<i class="no-highlight">474</i>&nbsp;
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        final DataChannel channel = connect(addr, dcFactory);</b>
+<i class="no-highlight">476</i>&nbsp;        boolean ret;
+<i class="no-highlight">477</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">478</i>&nbsp;            ret = diff(db, channel);</b>
+<i class="no-highlight">479</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">480</i>&nbsp;            channel.close();</b>
+<b class="nc"><i class="no-highlight">481</i>&nbsp;        }</b>
+<i class="no-highlight">482</i>&nbsp;
+<b class="nc"><i class="no-highlight">483</i>&nbsp;        return ret;</b>
+<i class="no-highlight">484</i>&nbsp;    }
+<i class="no-highlight">485</i>&nbsp;
+<i class="no-highlight">486</i>&nbsp;    private boolean diff(Database db, DataChannel channel)
+<i class="no-highlight">487</i>&nbsp;        throws IOException, ProtocolException, Exception {
+<i class="no-highlight">488</i>&nbsp;
+<b class="nc"><i class="no-highlight">489</i>&nbsp;        final Protocol protocol = new Protocol(</b>
+<i class="no-highlight">490</i>&nbsp;                new NameIdPair(&quot;Ldiff&quot;, -1),
+<b class="nc"><i class="no-highlight">491</i>&nbsp;                DbInternal.getNonNullEnvImpl(db.getEnvironment()));</b>
+<b class="nc"><i class="no-highlight">492</i>&nbsp;        protocol.write(protocol.new DbBlocks</b>
+<b class="nc"><i class="no-highlight">493</i>&nbsp;                       (db.getDatabaseName(), cfg.getBlockSize()), channel);</b>
+<i class="no-highlight">494</i>&nbsp;
+<i class="no-highlight">495</i>&nbsp;        /*
+<i class="no-highlight">496</i>&nbsp;         * A protocol exception will be thrown here if the remote env does not
+<i class="no-highlight">497</i>&nbsp;         * have a database of the same name.
+<i class="no-highlight">498</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">499</i>&nbsp;        protocol.read(channel, Protocol.BlockListStart.class);</b>
+<i class="no-highlight">500</i>&nbsp;
+<b class="nc"><i class="no-highlight">501</i>&nbsp;        BlockBag bag = new BlockBag();</b>
+<i class="no-highlight">502</i>&nbsp;        Protocol.BlockInfo blockMsg;
+<i class="no-highlight">503</i>&nbsp;        while (true) {
+<i class="no-highlight">504</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">505</i>&nbsp;                blockMsg = protocol.read(channel, Protocol.BlockInfo.class);</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;                bag.add(blockMsg.getBlock());</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            } catch (ProtocolException pe) {</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;                if (pe.getUnexpectedMessage().getOp() !=</b>
+<i class="no-highlight">509</i>&nbsp;                    Protocol.BLOCK_LIST_END) {
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                    throw pe;</b>
+<i class="no-highlight">511</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">512</i>&nbsp;                break;</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;            }</b>
+<i class="no-highlight">514</i>&nbsp;
+<i class="no-highlight">515</i>&nbsp;        }
+<i class="no-highlight">516</i>&nbsp;
+<b class="nc"><i class="no-highlight">517</i>&nbsp;        boolean match = diff(db, bag);</b>
+<b class="nc"><i class="no-highlight">518</i>&nbsp;        if (match) {</b>
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            output(db.getDatabaseName() + &quot; matches remote database.&quot;);</b>
+<i class="no-highlight">520</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">521</i>&nbsp;            output(db.getDatabaseName() + &quot;does not match remote database.&quot;);</b>
+<i class="no-highlight">522</i>&nbsp;        }
+<i class="no-highlight">523</i>&nbsp;
+<b class="nc"><i class="no-highlight">524</i>&nbsp;        if (cfg.getDiffAnalysis() &amp;&amp; tracker.getDiffRegions().size() != 0) {</b>
+<b class="nc"><i class="no-highlight">525</i>&nbsp;            DiffRecordAnalyzer.doAnalysis</b>
+<b class="nc"><i class="no-highlight">526</i>&nbsp;                (db, protocol, channel, tracker, cfg.getVerbose());</b>
+<i class="no-highlight">527</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">528</i>&nbsp;        protocol.write(protocol.new Done(), channel);</b>
+<i class="no-highlight">529</i>&nbsp;
+<b class="nc"><i class="no-highlight">530</i>&nbsp;        return match;</b>
+<i class="no-highlight">531</i>&nbsp;    }
+<i class="no-highlight">532</i>&nbsp;
+<i class="no-highlight">533</i>&nbsp;    /**
+<i class="no-highlight">534</i>&nbsp;     * A mechanism for efficiently comparing two quiescent databases, typically
+<i class="no-highlight">535</i>&nbsp;     * residing on different machines connected by a network.
+<i class="no-highlight">536</i>&nbsp;     *
+<i class="no-highlight">537</i>&nbsp;     * @param db a valid, open Database handle
+<i class="no-highlight">538</i>&nbsp;     * @param blkBag a bag of blocks to diff against db.
+<i class="no-highlight">539</i>&nbsp;     *
+<i class="no-highlight">540</i>&nbsp;     * @return true if the two comparing databases are identical.
+<i class="no-highlight">541</i>&nbsp;     * @throws Exception
+<i class="no-highlight">542</i>&nbsp;     */
+<i class="no-highlight">543</i>&nbsp;    public boolean diff(Database db, BlockBag blkBag)
+<i class="no-highlight">544</i>&nbsp;        throws Exception {
+<i class="no-highlight">545</i>&nbsp;
+<i class="no-highlight">546</i>&nbsp;        /* Suppose the two comparing databases are identical, by default. */
+<b class="nc"><i class="no-highlight">547</i>&nbsp;        boolean identical = true;</b>
+<i class="no-highlight">548</i>&nbsp;
+<i class="no-highlight">549</i>&nbsp;        /*
+<i class="no-highlight">550</i>&nbsp;         * window represents a BlockSize window into db. Initialize it to
+<i class="no-highlight">551</i>&nbsp;         * represent the block starting at the first key in db.
+<i class="no-highlight">552</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">553</i>&nbsp;        Cursor cursor = db.openCursor(null, null);</b>
+<i class="no-highlight">554</i>&nbsp;
+<b class="nc"><i class="no-highlight">555</i>&nbsp;        long pos = 1;</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;        int numKeys = cfg.getBlockSize();</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;        Window window = new Window(cursor, numKeys);</b>
+<i class="no-highlight">558</i>&nbsp;
+<b class="nc"><i class="no-highlight">559</i>&nbsp;        int errors = 0;</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        int maxerrors = cfg.getMaxErrors();</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;        tracker = new DiffTracker(numKeys);</b>
+<b class="nc"><i class="no-highlight">562</i>&nbsp;        while (window.getChecksum() != 0 &amp;&amp; blkBag.size() &gt; 0) {</b>
+<i class="no-highlight">563</i>&nbsp;
+<i class="no-highlight">564</i>&nbsp;            /*
+<i class="no-highlight">565</i>&nbsp;             * Find the block in the bag whose checksum and md5 match the
+<i class="no-highlight">566</i>&nbsp;             * current window. This block, if it exists, is match.
+<i class="no-highlight">567</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">568</i>&nbsp;            Block match = findMatch(db.getEnvironment(), blkBag, window);</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;            if (match != null) {</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;                tracker.setBlockDiffBegin</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                    (blkBag.getBlock(), blkBag.getBlockIndex());</b>
+<i class="no-highlight">572</i>&nbsp;                /* Remove match and any earlier blocks from the bag. */
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                List&lt;Block&gt; removed = blkBag.remove(match);</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;                if (removed != null) {</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                    identical = false;</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;                    errors += removed.size();</b>
+<b class="nc"><i class="no-highlight">577</i>&nbsp;                    tracker.calBlockDiffSize(blkBag.getBlockIndex());</b>
+<b class="nc"><i class="no-highlight">578</i>&nbsp;                    if (maxerrors &gt; 0 &amp;&amp; errors &gt;= maxerrors) {</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;                        break;</b>
+<i class="no-highlight">580</i>&nbsp;                    }
+<i class="no-highlight">581</i>&nbsp;                }
+<i class="no-highlight">582</i>&nbsp;
+<b class="nc"><i class="no-highlight">583</i>&nbsp;                tracker.addDiffRegion(window);</b>
+<i class="no-highlight">584</i>&nbsp;
+<i class="no-highlight">585</i>&nbsp;                /* Advance the window beyond the just matched block. */
+<b class="nc"><i class="no-highlight">586</i>&nbsp;                window.nextWindow();</b>
+<b class="nc"><i class="no-highlight">587</i>&nbsp;                pos += window.size();</b>
+<i class="no-highlight">588</i>&nbsp;
+<b class="nc"><i class="no-highlight">589</i>&nbsp;                continue;</b>
+<i class="no-highlight">590</i>&nbsp;            }
+<i class="no-highlight">591</i>&nbsp;
+<b class="nc"><i class="no-highlight">592</i>&nbsp;            identical = false;</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;            LoggerUtils.envLogMsg</b>
+<b class="nc"><i class="no-highlight">594</i>&nbsp;                (Level.FINE,</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;                 DbInternal.getNonNullEnvImpl(db.getEnvironment()),</b>
+<i class="no-highlight">596</i>&nbsp;                 &quot;Unmatched block at position &quot; + pos);
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            errors++;</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;            if (maxerrors &gt; 0 &amp;&amp; errors &gt;= maxerrors) {</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;                break;</b>
+<i class="no-highlight">600</i>&nbsp;            }
+<i class="no-highlight">601</i>&nbsp;
+<i class="no-highlight">602</i>&nbsp;            /* Roll the window forward by one key. */
+<b class="nc"><i class="no-highlight">603</i>&nbsp;            window.rollWindow();</b>
+<i class="no-highlight">604</i>&nbsp;
+<b class="nc"><i class="no-highlight">605</i>&nbsp;            if (window.getChecksum() != 0) {</b>
+<b class="nc"><i class="no-highlight">606</i>&nbsp;                pos++;</b>
+<i class="no-highlight">607</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">608</i>&nbsp;        }</b>
+<i class="no-highlight">609</i>&nbsp;
+<b class="nc"><i class="no-highlight">610</i>&nbsp;        cursor.close();</b>
+<i class="no-highlight">611</i>&nbsp;
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        if (window.getChecksum() != 0) {</b>
+<i class="no-highlight">613</i>&nbsp;
+<i class="no-highlight">614</i>&nbsp;            /*
+<i class="no-highlight">615</i>&nbsp;             * We ran out of blocks in blkBag before we got to the end of db.
+<i class="no-highlight">616</i>&nbsp;             * Update the unmatched key range.
+<i class="no-highlight">617</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">618</i>&nbsp;            LoggerUtils.envLogMsg</b>
+<b class="nc"><i class="no-highlight">619</i>&nbsp;                (Level.FINE,</b>
+<b class="nc"><i class="no-highlight">620</i>&nbsp;                 DbInternal.getNonNullEnvImpl(db.getEnvironment()),</b>
+<i class="no-highlight">621</i>&nbsp;                 &quot;Local Db has addtional records starting at &quot; + pos + &quot;.&quot;);
+<b class="nc"><i class="no-highlight">622</i>&nbsp;            identical = false;</b>
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            tracker.addWindowAdditionalDiffs(window);</b>
+<i class="no-highlight">624</i>&nbsp;        }
+<i class="no-highlight">625</i>&nbsp;
+<b class="nc"><i class="no-highlight">626</i>&nbsp;        if (blkBag.size() &gt; 0) {</b>
+<i class="no-highlight">627</i>&nbsp;            /* All remaining blocks in the bag are unmatched. */
+<b class="nc"><i class="no-highlight">628</i>&nbsp;            for (Block b : blkBag) {</b>
+<b class="nc"><i class="no-highlight">629</i>&nbsp;                LoggerUtils.envLogMsg</b>
+<b class="nc"><i class="no-highlight">630</i>&nbsp;                    (Level.FINE,</b>
+<b class="nc"><i class="no-highlight">631</i>&nbsp;                     DbInternal.getNonNullEnvImpl(db.getEnvironment()),</b>
+<i class="no-highlight">632</i>&nbsp;                     &quot;Unmatched remote block: &quot; + b);
+<b class="nc"><i class="no-highlight">633</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">634</i>&nbsp;            identical = false;</b>
+<b class="nc"><i class="no-highlight">635</i>&nbsp;            tracker.addBlockBagAdditionalDiffs(window, blkBag);</b>
+<i class="no-highlight">636</i>&nbsp;        }
+<i class="no-highlight">637</i>&nbsp;
+<b class="nc"><i class="no-highlight">638</i>&nbsp;        return identical;</b>
+<i class="no-highlight">639</i>&nbsp;    }
+<i class="no-highlight">640</i>&nbsp;
+<i class="no-highlight">641</i>&nbsp;    /* For unit test only. */
+<i class="no-highlight">642</i>&nbsp;    public List&lt;MismatchedRegion&gt; getDiffRegions() {
+<b class="nc"><i class="no-highlight">643</i>&nbsp;        if (tracker == null) {</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;            return null;</b>
+<i class="no-highlight">645</i>&nbsp;        }
+<i class="no-highlight">646</i>&nbsp;
+<b class="nc"><i class="no-highlight">647</i>&nbsp;        return tracker.getDiffRegions();</b>
+<i class="no-highlight">648</i>&nbsp;    }
+<i class="no-highlight">649</i>&nbsp;
+<i class="no-highlight">650</i>&nbsp;    /**
+<i class="no-highlight">651</i>&nbsp;     * Find the block in the bag whose rolling checksum and md5 match the given
+<i class="no-highlight">652</i>&nbsp;     * window. The md5 for the window is computed lazily, since it&#39;s more
+<i class="no-highlight">653</i>&nbsp;     * expensive to compute. There is a slight chance that multiple blocks in
+<i class="no-highlight">654</i>&nbsp;     * the bag will match the checksum and the md5 hash, return the first such
+<i class="no-highlight">655</i>&nbsp;     * block added to the bag in that case.
+<i class="no-highlight">656</i>&nbsp;     *
+<i class="no-highlight">657</i>&nbsp;     * @param blkBag a bag of blocks to search for a match
+<i class="no-highlight">658</i>&nbsp;     * @param window the block sized window of the db we&#39;re diffing
+<i class="no-highlight">659</i>&nbsp;     * @return A block which matches the window&#39;s checksum and the window&#39;s md5
+<i class="no-highlight">660</i>&nbsp;     * hash, or null if no block matches.
+<i class="no-highlight">661</i>&nbsp;     */
+<i class="no-highlight">662</i>&nbsp;    private Block findMatch(Environment env, BlockBag blkBag, Window window) {
+<b class="nc"><i class="no-highlight">663</i>&nbsp;        List&lt;Block&gt; matches = blkBag.get(window.getChecksum());</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;        if (matches == null) {</b>
+<b class="nc"><i class="no-highlight">665</i>&nbsp;            return null;</b>
+<i class="no-highlight">666</i>&nbsp;        }
+<i class="no-highlight">667</i>&nbsp;
+<i class="no-highlight">668</i>&nbsp;        /* Delay the computation of the hash until we know we need it. */
+<b class="nc"><i class="no-highlight">669</i>&nbsp;        byte[] md5 = window.getMd5Hash();</b>
+<b class="nc"><i class="no-highlight">670</i>&nbsp;        for (Block b : matches) {</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;            if (Arrays.equals(b.getMd5Hash(), md5)) {</b>
+<b class="nc"><i class="no-highlight">672</i>&nbsp;                return b;</b>
+<i class="no-highlight">673</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">674</i>&nbsp;            LoggerUtils.envLogMsg</b>
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                (Level.FINE,</b>
+<b class="nc"><i class="no-highlight">676</i>&nbsp;                 DbInternal.getNonNullEnvImpl(env),</b>
+<i class="no-highlight">677</i>&nbsp;                 &quot;Found a remote block whose rolling checksum &quot; +
+<i class="no-highlight">678</i>&nbsp;                 &quot;matches LB but md5 hash doesn&#39;t:&quot; + b);
+<b class="nc"><i class="no-highlight">679</i>&nbsp;        }</b>
+<i class="no-highlight">680</i>&nbsp;        /* No matches. */
+<b class="nc"><i class="no-highlight">681</i>&nbsp;        return null;</b>
+<i class="no-highlight">682</i>&nbsp;    }
+<i class="no-highlight">683</i>&nbsp;
+<i class="no-highlight">684</i>&nbsp;    /**
+<i class="no-highlight">685</i>&nbsp;     * Create a bag of blocks from the records in a given database, using the
+<i class="no-highlight">686</i>&nbsp;     * configuration parameters specified when the LDiff object was created.
+<i class="no-highlight">687</i>&nbsp;     *
+<i class="no-highlight">688</i>&nbsp;     * @param db the database from which to create the bag of blocks
+<i class="no-highlight">689</i>&nbsp;     * @return a bag of blocks built from the records in db
+<i class="no-highlight">690</i>&nbsp;     */
+<i class="no-highlight">691</i>&nbsp;    public BlockBag createBlockBag(Database db) {
+<b class="nc"><i class="no-highlight">692</i>&nbsp;        BlockBag bag = new BlockBag();</b>
+<i class="no-highlight">693</i>&nbsp;
+<i class="no-highlight">694</i>&nbsp;        /* Retrieve the key/data pairs and fill into blocks. */
+<b class="nc"><i class="no-highlight">695</i>&nbsp;        long start = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">696</i>&nbsp;        Iterator&lt;Block&gt; iter = iterator(db);</b>
+<b class="nc"><i class="no-highlight">697</i>&nbsp;        while (iter.hasNext()) {</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;            bag.add(iter.next());</b>
+<i class="no-highlight">699</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">700</i>&nbsp;        long end = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">701</i>&nbsp;        LoggerUtils.envLogMsg</b>
+<b class="nc"><i class="no-highlight">702</i>&nbsp;            (Level.FINE,</b>
+<b class="nc"><i class="no-highlight">703</i>&nbsp;             DbInternal.getNonNullEnvImpl(db.getEnvironment()),</b>
+<i class="no-highlight">704</i>&nbsp;             &quot;Block bag created in : &quot; + (end - start) + &quot; ms.&quot;);
+<b class="nc"><i class="no-highlight">705</i>&nbsp;        return bag;</b>
+<i class="no-highlight">706</i>&nbsp;    }
+<i class="no-highlight">707</i>&nbsp;
+<i class="no-highlight">708</i>&nbsp;    public Iterator&lt;Block&gt; iterator(Database db) {
+<b class="nc"><i class="no-highlight">709</i>&nbsp;        return new LDiffIterator(db);</b>
+<i class="no-highlight">710</i>&nbsp;    }
+<i class="no-highlight">711</i>&nbsp;
+<i class="no-highlight">712</i>&nbsp;    /**
+<i class="no-highlight">713</i>&nbsp;     * Connect to addr and perform a service handshake.  Retry as specified by
+<i class="no-highlight">714</i>&nbsp;     * the config object.
+<i class="no-highlight">715</i>&nbsp;     *
+<i class="no-highlight">716</i>&nbsp;     * @param addr the remote address to connect to
+<i class="no-highlight">717</i>&nbsp;     * @param dcFactory the channel factory for connection creation
+<i class="no-highlight">718</i>&nbsp;     * @return an open DataChannel
+<i class="no-highlight">719</i>&nbsp;     * @throws IOException if an exception occurs with the DataChannel
+<i class="no-highlight">720</i>&nbsp;     * @throws ServiceConnectFailedException if the remote service is busy
+<i class="no-highlight">721</i>&nbsp;     */
+<i class="no-highlight">722</i>&nbsp;    private DataChannel connect(InetSocketAddress addr,
+<i class="no-highlight">723</i>&nbsp;                                DataChannelFactory dcFactory)
+<i class="no-highlight">724</i>&nbsp;        throws IOException, ServiceConnectFailedException {
+<i class="no-highlight">725</i>&nbsp;
+<b class="nc"><i class="no-highlight">726</i>&nbsp;        int triesLeft = cfg.getMaxConnectionAttempts();</b>
+<b class="nc"><i class="no-highlight">727</i>&nbsp;        DataChannel ret = null;</b>
+<i class="no-highlight">728</i>&nbsp;        while (true) {
+<i class="no-highlight">729</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">730</i>&nbsp;                ret = dcFactory.connect(addr,</b>
+<i class="no-highlight">731</i>&nbsp;                                        new ConnectOptions().
+<b class="nc"><i class="no-highlight">732</i>&nbsp;                                        setBlocking(true).</b>
+<b class="nc"><i class="no-highlight">733</i>&nbsp;                                        setTcpNoDelay(true).</b>
+<b class="nc"><i class="no-highlight">734</i>&nbsp;                                        setOpenTimeout(SOCKET_TIMEOUT_MS).</b>
+<b class="nc"><i class="no-highlight">735</i>&nbsp;                                        setReadTimeout(SOCKET_TIMEOUT_MS));</b>
+<b class="nc"><i class="no-highlight">736</i>&nbsp;                ServiceDispatcher.doServiceHandshake(ret, LDiffService.NAME);</b>
+<b class="nc"><i class="no-highlight">737</i>&nbsp;                break;</b>
+<b class="nc"><i class="no-highlight">738</i>&nbsp;            } catch (ServiceConnectFailedException scfe) {</b>
+<b class="nc"><i class="no-highlight">739</i>&nbsp;                if ((ret != null) &amp;&amp; ret.isOpen()) {</b>
+<b class="nc"><i class="no-highlight">740</i>&nbsp;                    ret.close();</b>
+<i class="no-highlight">741</i>&nbsp;                }
+<i class="no-highlight">742</i>&nbsp;
+<i class="no-highlight">743</i>&nbsp;                /*
+<i class="no-highlight">744</i>&nbsp;                 * Unable to connect because the remote service is busy.  If
+<i class="no-highlight">745</i>&nbsp;                 * the user requested it, keep re-trying.  triesLeft == -1
+<i class="no-highlight">746</i>&nbsp;                 * means never abort.
+<i class="no-highlight">747</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">748</i>&nbsp;                if (triesLeft &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                    triesLeft--;</b>
+<i class="no-highlight">750</i>&nbsp;                }
+<i class="no-highlight">751</i>&nbsp;
+<b class="nc"><i class="no-highlight">752</i>&nbsp;                if (!cfg.getWaitIfBusy() || triesLeft == 0) {</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;                    throw scfe;</b>
+<i class="no-highlight">754</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">755</i>&nbsp;            }</b>
+<i class="no-highlight">756</i>&nbsp;        }
+<i class="no-highlight">757</i>&nbsp;
+<b class="nc"><i class="no-highlight">758</i>&nbsp;        return ret;</b>
+<i class="no-highlight">759</i>&nbsp;    }
+<i class="no-highlight">760</i>&nbsp;
+<i class="no-highlight">761</i>&nbsp;    private void output(String msg) {
+<b class="nc"><i class="no-highlight">762</i>&nbsp;        if (cfg.getVerbose()) {</b>
+<b class="nc"><i class="no-highlight">763</i>&nbsp;            System.out.println(msg);</b>
+<i class="no-highlight">764</i>&nbsp;        }
+<i class="no-highlight">765</i>&nbsp;    }
+<i class="no-highlight">766</i>&nbsp;
+<i class="no-highlight">767</i>&nbsp;    /**
+<i class="no-highlight">768</i>&nbsp;     * The exception that is thrown when a database diff detects differences.
+<i class="no-highlight">769</i>&nbsp;     *
+<i class="no-highlight">770</i>&nbsp;     * TODO: we start simple, by just using it as a boolean indicator and
+<i class="no-highlight">771</i>&nbsp;     * perhaps a block id for unit test purposes? As as the local processing
+<i class="no-highlight">772</i>&nbsp;     * gains in sophistication will provide block and key (insert, update,
+<i class="no-highlight">773</i>&nbsp;     * delete) granularity identification of differences.
+<i class="no-highlight">774</i>&nbsp;     */
+<i class="no-highlight">775</i>&nbsp;    @SuppressWarnings(&quot;serial&quot;)
+<i class="no-highlight">776</i>&nbsp;    class MismatchException extends Exception {
+<i class="no-highlight">777</i>&nbsp;
+<b class="nc"><i class="no-highlight">778</i>&nbsp;        public MismatchException(String message) {</b>
+<b class="nc"><i class="no-highlight">779</i>&nbsp;            super(message);</b>
+<i class="no-highlight">780</i>&nbsp;        }
+<i class="no-highlight">781</i>&nbsp;    }
+<i class="no-highlight">782</i>&nbsp;
+<i class="no-highlight">783</i>&nbsp;    private class LDiffIterator implements Iterator&lt;Block&gt; {
+<i class="no-highlight">784</i>&nbsp;        private Block cached;
+<i class="no-highlight">785</i>&nbsp;        private Cursor cursor;
+<i class="no-highlight">786</i>&nbsp;        private final Database db;
+<i class="no-highlight">787</i>&nbsp;        private DatabaseEntry lastKey, lastData;
+<i class="no-highlight">788</i>&nbsp;        private boolean more;
+<i class="no-highlight">789</i>&nbsp;        private int i;
+<i class="no-highlight">790</i>&nbsp;        private final int numKeys;
+<i class="no-highlight">791</i>&nbsp;
+<b class="nc"><i class="no-highlight">792</i>&nbsp;        public LDiffIterator(Database db) {</b>
+<b class="nc"><i class="no-highlight">793</i>&nbsp;            i = 0;</b>
+<b class="nc"><i class="no-highlight">794</i>&nbsp;            numKeys = LDiff.this.cfg.getBlockSize();</b>
+<b class="nc"><i class="no-highlight">795</i>&nbsp;            cached = null;</b>
+<b class="nc"><i class="no-highlight">796</i>&nbsp;            more = true;</b>
+<b class="nc"><i class="no-highlight">797</i>&nbsp;            this.db = db;</b>
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;            /* Prime the pump, get the first block in cached and set more. */
+<b class="nc"><i class="no-highlight">800</i>&nbsp;            next();</b>
+<i class="no-highlight">801</i>&nbsp;        }
+<i class="no-highlight">802</i>&nbsp;
+<i class="no-highlight">803</i>&nbsp;        @Override
+<i class="no-highlight">804</i>&nbsp;        public boolean hasNext() {
+<b class="nc"><i class="no-highlight">805</i>&nbsp;            return more;</b>
+<i class="no-highlight">806</i>&nbsp;        }
+<i class="no-highlight">807</i>&nbsp;
+<i class="no-highlight">808</i>&nbsp;        @Override
+<i class="no-highlight">809</i>&nbsp;        public void remove() {
+<i class="no-highlight">810</i>&nbsp;
+<i class="no-highlight">811</i>&nbsp;        }
+<i class="no-highlight">812</i>&nbsp;
+<i class="no-highlight">813</i>&nbsp;        @Override
+<i class="no-highlight">814</i>&nbsp;        public Block next() {
+<b class="nc"><i class="no-highlight">815</i>&nbsp;            if (!more) {</b>
+<b class="nc"><i class="no-highlight">816</i>&nbsp;                throw new NoSuchElementException();</b>
+<i class="no-highlight">817</i>&nbsp;            }
+<i class="no-highlight">818</i>&nbsp;
+<i class="no-highlight">819</i>&nbsp;            /*
+<i class="no-highlight">820</i>&nbsp;             * We don&#39;t want to return a block with 0 keys, but we can&#39;t know
+<i class="no-highlight">821</i>&nbsp;             * ahead of time whether the block will have any keys and the user
+<i class="no-highlight">822</i>&nbsp;             * likely called hasNext() already.  So when asked for block i, we
+<i class="no-highlight">823</i>&nbsp;             * cache block i+1, check whether it&#39;s empty and return the
+<i class="no-highlight">824</i>&nbsp;             * previously cached block i.  If block i+1 is empty, the next call
+<i class="no-highlight">825</i>&nbsp;             * to hasNext() will return false and the empty block won&#39;t be
+<i class="no-highlight">826</i>&nbsp;             * returned.
+<i class="no-highlight">827</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">828</i>&nbsp;            cursor = db.openCursor(null, null);</b>
+<b class="nc"><i class="no-highlight">829</i>&nbsp;            if (lastKey == null) {</b>
+<b class="nc"><i class="no-highlight">830</i>&nbsp;                lastKey = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">831</i>&nbsp;                lastData = new DatabaseEntry();</b>
+<i class="no-highlight">832</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">833</i>&nbsp;                cursor.getSearchBoth(lastKey, lastData, null);</b>
+<i class="no-highlight">834</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">835</i>&nbsp;            Block ret = cached;</b>
+<b class="nc"><i class="no-highlight">836</i>&nbsp;            cached = LDiffUtil.readBlock(i++, cursor, numKeys);</b>
+<b class="nc"><i class="no-highlight">837</i>&nbsp;            if (cached.numRecords == 0) {</b>
+<b class="nc"><i class="no-highlight">838</i>&nbsp;                more = false;</b>
+<i class="no-highlight">839</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">840</i>&nbsp;                cursor.getCurrent(lastKey, lastData, null);</b>
+<i class="no-highlight">841</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">842</i>&nbsp;            cursor.close();</b>
+<b class="nc"><i class="no-highlight">843</i>&nbsp;            return ret;</b>
+<i class="no-highlight">844</i>&nbsp;        }
+<i class="no-highlight">845</i>&nbsp;
+<i class="no-highlight">846</i>&nbsp;        @Override
+<i class="no-highlight">847</i>&nbsp;        protected void finalize() throws Throwable {
+<i class="no-highlight">848</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">849</i>&nbsp;                cursor.close();</b>
+<i class="no-highlight">850</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">851</i>&nbsp;                super.finalize();</b>
+<b class="nc"><i class="no-highlight">852</i>&nbsp;            }</b>
+<i class="no-highlight">853</i>&nbsp;        }
+<i class="no-highlight">854</i>&nbsp;    }
+<i class="no-highlight">855</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

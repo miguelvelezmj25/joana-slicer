@@ -1,0 +1,1862 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Feeder</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl.node</a>
+</div>
+
+<h1>Coverage Summary for Class: Feeder (com.sleepycat.je.rep.impl.node)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Feeder</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/31)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/161)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">Feeder$ExitException</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Feeder$InputThread</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/7)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/142)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Feeder$IOThreadsHandler</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">Feeder$OutputThread</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/200)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/54)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/516)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.impl.node;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_MAX_REPLICA_LAG;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_MAX_REPLICA_LAG_NAME;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">20</i>&nbsp;import java.lang.Thread.UncaughtExceptionHandler;
+<i class="no-highlight">21</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">22</i>&nbsp;import java.util.concurrent.atomic.AtomicBoolean;
+<i class="no-highlight">23</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">24</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">25</i>&nbsp;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.Durability.SyncPolicy;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.JEVersion;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.log.ChecksumException;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.ReplicationSecurityException;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.impl.RepNodeImpl;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.impl.node.MasterTransfer.VLSNProgress;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.impl.node.cbvlsn.LocalCBVLSNUpdater;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.stream.ArbiterFeederSource;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.Ack;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.Commit;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.GroupAck;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.HeartbeatResponse;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.stream.FeederFilter;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.stream.FeederReplicaHandshake;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.stream.FeederReplicaSyncup;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.rep.stream.FeederReplicaSyncup.NetworkRestoreException;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.rep.stream.FeederSource;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.rep.stream.FeederTxns.TxnInfo;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.rep.stream.MasterFeederSource;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.rep.stream.MasterStatus;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.rep.stream.MasterStatus.MasterSyncException;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.rep.stream.OutputWireRecord;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.rep.stream.Protocol;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.rep.subscription.StreamAuthenticator;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.rep.txn.MasterTxn;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.Message;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.rep.utilint.NamedChannel;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.rep.utilint.NamedChannelWithTimeout;
+<i class="no-highlight">63</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">64</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNIndex;
+<i class="no-highlight">65</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRange;
+<i class="no-highlight">66</i>&nbsp;import com.sleepycat.je.utilint.AtomicLongComponent;
+<i class="no-highlight">67</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">68</i>&nbsp;import com.sleepycat.je.utilint.LongAvgRate;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.utilint.LongAvgRateStat;
+<i class="no-highlight">70</i>&nbsp;import com.sleepycat.je.utilint.LongDiffStat;
+<i class="no-highlight">71</i>&nbsp;import com.sleepycat.je.utilint.LongMaxZeroStat;
+<i class="no-highlight">72</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">73</i>&nbsp;import com.sleepycat.je.utilint.StoppableThread;
+<i class="no-highlight">74</i>&nbsp;import com.sleepycat.je.utilint.StringStat;
+<i class="no-highlight">75</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">76</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">77</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;/**
+<i class="no-highlight">80</i>&nbsp; * There is an instance of a Feeder for each client that needs a replication
+<i class="no-highlight">81</i>&nbsp; * stream. Either a master, or replica (providing feeder services) may
+<i class="no-highlight">82</i>&nbsp; * establish a feeder.
+<i class="no-highlight">83</i>&nbsp; *
+<i class="no-highlight">84</i>&nbsp; * A feeder is created in response to a request from a Replica, and is shutdown
+<i class="no-highlight">85</i>&nbsp; * either upon loss of connectivity, or upon a change in mastership.
+<i class="no-highlight">86</i>&nbsp; *
+<i class="no-highlight">87</i>&nbsp; * The protocol used to validate and negotiate a connection is synchronous, but
+<i class="no-highlight">88</i>&nbsp; * once this phase has been completed, the communication between the feeder and
+<i class="no-highlight">89</i>&nbsp; * replica is asynchronous. To handle the async communications, the feeder has
+<i class="no-highlight">90</i>&nbsp; * two threads associated with it:
+<i class="no-highlight">91</i>&nbsp; *
+<i class="no-highlight">92</i>&nbsp; * 1) An output thread whose sole purpose is to pump log records (and if
+<i class="no-highlight">93</i>&nbsp; * necessary heart beat requests) down to the replica as fast as the network
+<i class="no-highlight">94</i>&nbsp; * will allow it
+<i class="no-highlight">95</i>&nbsp; *
+<i class="no-highlight">96</i>&nbsp; * 2) An input thread that listens for responses to transaction commits and
+<i class="no-highlight">97</i>&nbsp; * heart beat responses.
+<i class="no-highlight">98</i>&nbsp; *
+<i class="no-highlight">99</i>&nbsp; * &lt;p&gt;The feeder maintains several statistics that provide information about
+<i class="no-highlight">100</i>&nbsp; * the replication rate for each replica.  By comparing this information to
+<i class="no-highlight">101</i>&nbsp; * information about master replication maintained by the FeederTxns class, it
+<i class="no-highlight">102</i>&nbsp; * is also possible to estimate the lag between replicas and the master.
+<i class="no-highlight">103</i>&nbsp; *
+<i class="no-highlight">104</i>&nbsp; * &lt;p&gt;The statistics facilities do not expect the set of available statistics
+<i class="no-highlight">105</i>&nbsp; * to change dynamically.  To handle recording statistics about the changing
+<i class="no-highlight">106</i>&nbsp; * set of replicas, the statistics are represented as maps that associated node
+<i class="no-highlight">107</i>&nbsp; * names with statistics.  Each feeder adds individual statistics in these maps
+<i class="no-highlight">108</i>&nbsp; * at startup, and removes them at shutdown time to make sure that the
+<i class="no-highlight">109</i>&nbsp; * statistics in the map only reflect up-to-date information.
+<i class="no-highlight">110</i>&nbsp; *
+<i class="no-highlight">111</i>&nbsp; * &lt;p&gt;Some notes about the specific statistics:&lt;dl&gt;
+<i class="no-highlight">112</i>&nbsp; *
+<i class="no-highlight">113</i>&nbsp; * &lt;dt&gt;replicaDelay
+<i class="no-highlight">114</i>&nbsp; *
+<i class="no-highlight">115</i>&nbsp; * &lt;dd&gt;The difference between the commit times of the latest transaction
+<i class="no-highlight">116</i>&nbsp; * committed on the master and the transaction most recently processed by the
+<i class="no-highlight">117</i>&nbsp; * replica.  The master timestamp comes from the lastCommitTimestamp statistic
+<i class="no-highlight">118</i>&nbsp; * maintained by FeederTxns.  The feeder determines the commit timestamp of the
+<i class="no-highlight">119</i>&nbsp; * replica&#39;s most recently processed transaction by obtaining timestamps from
+<i class="no-highlight">120</i>&nbsp; * commit records being sent to the replica, and noting the last one prior to
+<i class="no-highlight">121</i>&nbsp; * sending a heartbeat.  When a heartbeat response is received, if the latest
+<i class="no-highlight">122</i>&nbsp; * replica VLSN included in the response is equal or greater to the one
+<i class="no-highlight">123</i>&nbsp; * recorded when the heartbeat request was sent, then the delay is computed by
+<i class="no-highlight">124</i>&nbsp; * comparing the commit timestamp for that most recently sent transaction with
+<i class="no-highlight">125</i>&nbsp; * the timestamp of the master&#39;s latest transaction.  Replicas can send
+<i class="no-highlight">126</i>&nbsp; * heartbeat responses on their own, so comparing the VLSNs is necessary to
+<i class="no-highlight">127</i>&nbsp; * make sure that the response matches the request.  Note that this arrangement
+<i class="no-highlight">128</i>&nbsp; * depends on the fact that the replica processes transactions and heartbeats
+<i class="no-highlight">129</i>&nbsp; * in order, and only sends a heartbeat response once all preceding
+<i class="no-highlight">130</i>&nbsp; * transactions have been processed.  If the master processes transactions at a
+<i class="no-highlight">131</i>&nbsp; * fast enough rate that additional transactions are generated while waiting
+<i class="no-highlight">132</i>&nbsp; * for a heartbeat response, then the value of this statistic will not reach
+<i class="no-highlight">133</i>&nbsp; * zero, but will represent the total time for sending a commit operation to
+<i class="no-highlight">134</i>&nbsp; * the replica and receiving the associated response, including the roundtrip
+<i class="no-highlight">135</i>&nbsp; * latency of the network and any time spent due to buffering of replication
+<i class="no-highlight">136</i>&nbsp; * data.
+<i class="no-highlight">137</i>&nbsp; *
+<i class="no-highlight">138</i>&nbsp; * &lt;dt&gt;replicaLastCommitTimestamp
+<i class="no-highlight">139</i>&nbsp; *
+<i class="no-highlight">140</i>&nbsp; * &lt;dd&gt;The commit timestamp of the last transaction committed before the most
+<i class="no-highlight">141</i>&nbsp; * recent heartbeat for which a heartbeat response has been received.  This
+<i class="no-highlight">142</i>&nbsp; * statistic represents the commit time on the master of the most recent data
+<i class="no-highlight">143</i>&nbsp; * known to have been processed on the replica.  It provides the information
+<i class="no-highlight">144</i>&nbsp; * used for the replica component of the replicaDelay statistic.
+<i class="no-highlight">145</i>&nbsp; *
+<i class="no-highlight">146</i>&nbsp; * &lt;dt&gt;replicaLastCommitVLSN
+<i class="no-highlight">147</i>&nbsp; *
+<i class="no-highlight">148</i>&nbsp; * &lt;dd&gt;The VLSN of the committed transaction described for
+<i class="no-highlight">149</i>&nbsp; * replicaLastCommitTimestamp.  This statistic provides the information used
+<i class="no-highlight">150</i>&nbsp; * for the replica component of the replicaVLSNLag statistic.
+<i class="no-highlight">151</i>&nbsp; *
+<i class="no-highlight">152</i>&nbsp; * &lt;dt&gt;replicaVLSNLag
+<i class="no-highlight">153</i>&nbsp; *
+<i class="no-highlight">154</i>&nbsp; * &lt;dd&gt;The difference between the VLSN of the latest transaction committed on
+<i class="no-highlight">155</i>&nbsp; * the master and the one most recently processed by the replica.  The master
+<i class="no-highlight">156</i>&nbsp; * VLSN comes from the lastCommitVLSN statistic maintained by FeederTxns.  This
+<i class="no-highlight">157</i>&nbsp; * statistic is similar to replicaDelay, but provides information about the
+<i class="no-highlight">158</i>&nbsp; * VLSN lag rather than the time delay.
+<i class="no-highlight">159</i>&nbsp; *
+<i class="no-highlight">160</i>&nbsp; * &lt;dt&gt;replicaVLSNRate
+<i class="no-highlight">161</i>&nbsp; *
+<i class="no-highlight">162</i>&nbsp; * &lt;dd&gt;An exponential moving average of the rate of change of the
+<i class="no-highlight">163</i>&nbsp; * replicaLastCommitVLSN statistic over time, averaged over a 10 second time
+<i class="no-highlight">164</i>&nbsp; * period.  This statistic provides information about how quickly the replica
+<i class="no-highlight">165</i>&nbsp; * is processing replication data, which can be used, along with the vlsnRate
+<i class="no-highlight">166</i>&nbsp; * statistic maintained by FeederTxns, to estimate the amount of time it will
+<i class="no-highlight">167</i>&nbsp; * take for the replica to catch up with the master.&lt;/dl&gt;
+<i class="no-highlight">168</i>&nbsp; */
+<b class="nc"><i class="no-highlight">169</i>&nbsp;final public class Feeder {</b>
+<i class="no-highlight">170</i>&nbsp;    /*
+<i class="no-highlight">171</i>&nbsp;     * A heartbeat is written with this period by the feeder output thread.
+<i class="no-highlight">172</i>&nbsp;     * Is mutable.
+<i class="no-highlight">173</i>&nbsp;     */
+<i class="no-highlight">174</i>&nbsp;    private int heartbeatMs;
+<i class="no-highlight">175</i>&nbsp;
+<i class="no-highlight">176</i>&nbsp;    /* The manager for all Feeder instances. */
+<i class="no-highlight">177</i>&nbsp;    private final FeederManager feederManager;
+<i class="no-highlight">178</i>&nbsp;
+<i class="no-highlight">179</i>&nbsp;    /* The replication node that is associated with this Feeder */
+<i class="no-highlight">180</i>&nbsp;    private final RepNode repNode;
+<i class="no-highlight">181</i>&nbsp;    /* The RepImpl that is associated with this rep node. */
+<i class="no-highlight">182</i>&nbsp;    private final RepImpl repImpl;
+<i class="no-highlight">183</i>&nbsp;
+<i class="no-highlight">184</i>&nbsp;    /* The socket on which the feeder communicates with the Replica. */
+<i class="no-highlight">185</i>&nbsp;    private final NamedChannelWithTimeout feederReplicaChannel;
+<i class="no-highlight">186</i>&nbsp;
+<i class="no-highlight">187</i>&nbsp;    /* The Threads that implement the Feeder */
+<i class="no-highlight">188</i>&nbsp;    private final InputThread inputThread;
+<i class="no-highlight">189</i>&nbsp;    private final OutputThread outputThread;
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    /* The filter to be used for records written to the replication stream.*/
+<i class="no-highlight">192</i>&nbsp;    private FeederFilter feederFilter;
+<i class="no-highlight">193</i>&nbsp;
+<i class="no-highlight">194</i>&nbsp;    /* feeder authenticator */
+<i class="no-highlight">195</i>&nbsp;    private final StreamAuthenticator authenticator;
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    /* security check interval in ms */
+<i class="no-highlight">198</i>&nbsp;    private final long securityChkIntvMs;
+<i class="no-highlight">199</i>&nbsp;
+<b class="nc"><i class="no-highlight">200</i>&nbsp;    private boolean isArbiterFeeder = false;</b>
+<i class="no-highlight">201</i>&nbsp;
+<i class="no-highlight">202</i>&nbsp;    /* The source of log records to be sent to the Replica. */
+<i class="no-highlight">203</i>&nbsp;    private FeederSource feederSource;
+<i class="no-highlight">204</i>&nbsp;
+<i class="no-highlight">205</i>&nbsp;    /* Negotiated message protocol version for the replication stream. */
+<i class="no-highlight">206</i>&nbsp;    private int protocolVersion;
+<i class="no-highlight">207</i>&nbsp;
+<i class="no-highlight">208</i>&nbsp;    /**
+<i class="no-highlight">209</i>&nbsp;     * The current position of the feeder, that is, the log record with this
+<i class="no-highlight">210</i>&nbsp;     * VLSN will be sent next to the Replica. Note that this does not mean that
+<i class="no-highlight">211</i>&nbsp;     * the replica has actually processed all log records preceding feederVLSN.
+<i class="no-highlight">212</i>&nbsp;     * The records immediately preceding feederVLSN (down to replicaAckVLSN)
+<i class="no-highlight">213</i>&nbsp;     * may be in the network, in transit to the replica.
+<i class="no-highlight">214</i>&nbsp;     *
+<i class="no-highlight">215</i>&nbsp;     * The feederVLSN can only move forwards post feeder-replica syncup.
+<i class="no-highlight">216</i>&nbsp;     * However, it can move forwards or backwards as matchpoints are
+<i class="no-highlight">217</i>&nbsp;     * negotiated during syncup.
+<i class="no-highlight">218</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">219</i>&nbsp;    private volatile VLSN feederVLSN = VLSN.NULL_VLSN;</b>
+<i class="no-highlight">220</i>&nbsp;
+<i class="no-highlight">221</i>&nbsp;    /**
+<i class="no-highlight">222</i>&nbsp;     * The latest commit or abort that the replica has reported receiving,
+<i class="no-highlight">223</i>&nbsp;     * either by ack (in the case of a commit), or via heartbeat response.  It
+<i class="no-highlight">224</i>&nbsp;     * serves as a rough indication of the replay state of the replica that is
+<i class="no-highlight">225</i>&nbsp;     * used in exception messages.
+<i class="no-highlight">226</i>&nbsp;     *
+<i class="no-highlight">227</i>&nbsp;     * The following invariant must always hold: replicaTxnEndLSN &lt; feederVLSN
+<i class="no-highlight">228</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">229</i>&nbsp;    private volatile VLSN replicaTxnEndVLSN = VLSN.NULL_VLSN;</b>
+<i class="no-highlight">230</i>&nbsp;
+<i class="no-highlight">231</i>&nbsp;    /* The time that the feeder last heard from its Replica */
+<b class="nc"><i class="no-highlight">232</i>&nbsp;    private volatile long lastResponseTime = 0l;</b>
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /*
+<i class="no-highlight">235</i>&nbsp;     * Used to communicate our progress when getting ready for a Master
+<i class="no-highlight">236</i>&nbsp;     * Transfer operation.
+<i class="no-highlight">237</i>&nbsp;     */
+<i class="no-highlight">238</i>&nbsp;    private volatile MasterTransfer masterXfr;
+<b class="nc"><i class="no-highlight">239</i>&nbsp;    private volatile boolean caughtUp = false;</b>
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    /* Used to track the status of the master. */
+<i class="no-highlight">242</i>&nbsp;    private final MasterStatus masterStatus;
+<i class="no-highlight">243</i>&nbsp;
+<i class="no-highlight">244</i>&nbsp;    /*
+<i class="no-highlight">245</i>&nbsp;     * Determines whether the Feeder has been shutdown. Usually this is held
+<i class="no-highlight">246</i>&nbsp;     * within the StoppableThread, but the Feeder&#39;s two child threads have
+<i class="no-highlight">247</i>&nbsp;     * their shutdown coordinated by the parent Feeder.
+<i class="no-highlight">248</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">249</i>&nbsp;    private final AtomicBoolean shutdown = new AtomicBoolean(false);</b>
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;    /* The Feeder&#39;s node ID. */
+<i class="no-highlight">254</i>&nbsp;    private final NameIdPair nameIdPair;
+<i class="no-highlight">255</i>&nbsp;
+<i class="no-highlight">256</i>&nbsp;    /**
+<i class="no-highlight">257</i>&nbsp;     * The replica node ID, that is, the node that is the recipient of the
+<i class="no-highlight">258</i>&nbsp;     * replication stream. Its established at the time of the Feeder/Replica
+<i class="no-highlight">259</i>&nbsp;     * handshake.
+<i class="no-highlight">260</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">261</i>&nbsp;    private volatile NameIdPair replicaNameIdPair = NameIdPair.NULL;</b>
+<i class="no-highlight">262</i>&nbsp;
+<i class="no-highlight">263</i>&nbsp;    /**
+<i class="no-highlight">264</i>&nbsp;     * The agreed upon log format that should be used for writing log entries
+<i class="no-highlight">265</i>&nbsp;     * to send to the replica, or zero if not yet known.
+<i class="no-highlight">266</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">267</i>&nbsp;    private volatile int streamLogVersion = 0;</b>
+<i class="no-highlight">268</i>&nbsp;
+<i class="no-highlight">269</i>&nbsp;    /** The JE version of the replica, or null if not known. */
+<b class="nc"><i class="no-highlight">270</i>&nbsp;    private volatile JEVersion replicaJEVersion = null;</b>
+<i class="no-highlight">271</i>&nbsp;
+<i class="no-highlight">272</i>&nbsp;    /** The RepNodeImpl of the replica, or null if not known. */
+<b class="nc"><i class="no-highlight">273</i>&nbsp;    private volatile RepNodeImpl replicaNode = null;</b>
+<i class="no-highlight">274</i>&nbsp;
+<i class="no-highlight">275</i>&nbsp;    /** Tracks when the last heartbeat was sent, or 0 if none has been sent */
+<i class="no-highlight">276</i>&nbsp;    private volatile long lastHeartbeatTime;
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /**
+<i class="no-highlight">279</i>&nbsp;     * The VLSN of the most recent log entry that committed a transaction and
+<i class="no-highlight">280</i>&nbsp;     * was sent to the replica before the last heartbeat was sent, or 0 if no
+<i class="no-highlight">281</i>&nbsp;     * such log entries have been sent since the previous heartbeat.
+<i class="no-highlight">282</i>&nbsp;     */
+<i class="no-highlight">283</i>&nbsp;    private volatile long lastHeartbeatCommitVLSN;
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;    /**
+<i class="no-highlight">286</i>&nbsp;     * The timestamp of the most recent log entry that committed a transaction
+<i class="no-highlight">287</i>&nbsp;     * and was sent to the replica before the last heartbeat was sent, or 0 if
+<i class="no-highlight">288</i>&nbsp;     * no such log entries have been sent since the previous heartbeat.
+<i class="no-highlight">289</i>&nbsp;     */
+<i class="no-highlight">290</i>&nbsp;    private volatile long lastHeartbeatCommitTimestamp;
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;    /** The VLSN generation rate of the master in VLSNs/minute. */
+<i class="no-highlight">293</i>&nbsp;    private final LongAvgRateStat vlsnRate;
+<i class="no-highlight">294</i>&nbsp;
+<i class="no-highlight">295</i>&nbsp;    /**
+<i class="no-highlight">296</i>&nbsp;     * A test hook that is called before a message is written.  Note that the
+<i class="no-highlight">297</i>&nbsp;     * hook is inherited by the ReplicaFeederHandshake, and will be kept in
+<i class="no-highlight">298</i>&nbsp;     * place there for the entire handshake.
+<i class="no-highlight">299</i>&nbsp;     */
+<i class="no-highlight">300</i>&nbsp;    private volatile TestHook&lt;Message&gt; writeMessageHook;
+<i class="no-highlight">301</i>&nbsp;
+<i class="no-highlight">302</i>&nbsp;    /**
+<i class="no-highlight">303</i>&nbsp;     * A test hook that is used to set the writeMessageHook for newly created
+<i class="no-highlight">304</i>&nbsp;     * feeders.
+<i class="no-highlight">305</i>&nbsp;     */
+<i class="no-highlight">306</i>&nbsp;    private static volatile TestHook&lt;Message&gt; initialWriteMessageHook;
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;    /**
+<i class="no-highlight">309</i>&nbsp;     * Returns a configured DataChannel
+<i class="no-highlight">310</i>&nbsp;     *
+<i class="no-highlight">311</i>&nbsp;     * @param channel the channel to be configured
+<i class="no-highlight">312</i>&nbsp;     * @return the configured DataChannel
+<i class="no-highlight">313</i>&nbsp;     * @throws IOException
+<i class="no-highlight">314</i>&nbsp;     */
+<i class="no-highlight">315</i>&nbsp;    private NamedChannelWithTimeout configureChannel(DataChannel channel)
+<i class="no-highlight">316</i>&nbsp;        throws IOException {
+<i class="no-highlight">317</i>&nbsp;
+<i class="no-highlight">318</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">319</i>&nbsp;            channel.getSocketChannel().configureBlocking(true);</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;            LoggerUtils.info</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;                (logger, repImpl, &quot;Feeder accepted connection from &quot; + channel);</b>
+<b class="nc"><i class="no-highlight">322</i>&nbsp;            final int timeoutMs = repNode.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">323</i>&nbsp;                getDuration(RepParams.PRE_HEARTBEAT_TIMEOUT);</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            final boolean tcpNoDelay = repNode.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;                    getBoolean(RepParams.FEEDER_TCP_NO_DELAY);</b>
+<i class="no-highlight">326</i>&nbsp;
+<i class="no-highlight">327</i>&nbsp;            /* Set use of Nagle&#39;s algorithm on the socket. */
+<b class="nc"><i class="no-highlight">328</i>&nbsp;            channel.getSocketChannel().socket().setTcpNoDelay(tcpNoDelay);</b>
+<b class="nc"><i class="no-highlight">329</i>&nbsp;            return new NamedChannelWithTimeout(repNode, channel, timeoutMs);</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;            LoggerUtils.warning(logger, repImpl,</b>
+<i class="no-highlight">332</i>&nbsp;                                &quot;IO exception while configuring channel &quot; +
+<b class="nc"><i class="no-highlight">333</i>&nbsp;                                &quot;Exception:&quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">334</i>&nbsp;            throw e;</b>
+<i class="no-highlight">335</i>&nbsp;        }
+<i class="no-highlight">336</i>&nbsp;    }
+<i class="no-highlight">337</i>&nbsp;
+<i class="no-highlight">338</i>&nbsp;    Feeder(FeederManager feederManager, DataChannel dataChannel)
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        throws DatabaseException, IOException {</b>
+<i class="no-highlight">340</i>&nbsp;
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        this.feederManager = feederManager;</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        this.repNode = feederManager.repNode();</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;        this.repImpl = repNode.getRepImpl();</b>
+<b class="nc"><i class="no-highlight">344</i>&nbsp;        this.masterStatus = repNode.getMasterStatus();</b>
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        nameIdPair = repNode.getNameIdPair();</b>
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        this.feederSource = null;</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<i class="no-highlight">348</i>&nbsp;
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        this.feederReplicaChannel = configureChannel(dataChannel);</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;        inputThread = new InputThread();</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;        outputThread = new OutputThread();</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;        heartbeatMs = feederManager.repNode().getHeartbeatInterval();</b>
+<b class="nc"><i class="no-highlight">353</i>&nbsp;        vlsnRate = repImpl.getFeederTxns().getVLSNRate();</b>
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        writeMessageHook = initialWriteMessageHook;</b>
+<i class="no-highlight">355</i>&nbsp;
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        feederFilter = null;</b>
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;        /* get authenticator from containing rn */
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        authenticator = feederManager.repNode().getAuthenticator();</b>
+<b class="nc"><i class="no-highlight">360</i>&nbsp;        securityChkIntvMs =</b>
+<b class="nc"><i class="no-highlight">361</i>&nbsp;            feederManager.repNode().getSecurityCheckInterval();</b>
+<i class="no-highlight">362</i>&nbsp;    }
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;    void startFeederThreads() {
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        inputThread.start();</b>
+<i class="no-highlight">366</i>&nbsp;    }
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    /**
+<i class="no-highlight">369</i>&nbsp;     * @hidden
+<i class="no-highlight">370</i>&nbsp;     * Place holder Feeder for testing only
+<i class="no-highlight">371</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">372</i>&nbsp;    public Feeder() {</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;        feederManager = null;</b>
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        repNode = null;</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;        repImpl = null;</b>
+<b class="nc"><i class="no-highlight">376</i>&nbsp;        masterStatus = null;</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        feederSource = null;</b>
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        feederReplicaChannel = null;</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        nameIdPair = NameIdPair.NULL;</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;        logger = LoggerUtils.getLoggerFixedPrefix(getClass(), &quot;TestFeeder&quot;);</b>
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        inputThread = null;</b>
+<b class="nc"><i class="no-highlight">382</i>&nbsp;        outputThread = null;</b>
+<b class="nc"><i class="no-highlight">383</i>&nbsp;        shutdown.set(true);</b>
+<b class="nc"><i class="no-highlight">384</i>&nbsp;        vlsnRate = null;</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        writeMessageHook = initialWriteMessageHook;</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;        feederFilter = null;</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        authenticator = null;</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        securityChkIntvMs = 0;</b>
+<i class="no-highlight">389</i>&nbsp;    }
+<i class="no-highlight">390</i>&nbsp;
+<i class="no-highlight">391</i>&nbsp;    /**
+<i class="no-highlight">392</i>&nbsp;     * Creates the MasterFeederSource, which must be done while all files in
+<i class="no-highlight">393</i>&nbsp;     * the VLSNIndex range are protected by syncup.
+<i class="no-highlight">394</i>&nbsp;     */
+<i class="no-highlight">395</i>&nbsp;    public void initMasterFeederSource(VLSN startVLSN)
+<i class="no-highlight">396</i>&nbsp;        throws IOException, InterruptedException {
+<i class="no-highlight">397</i>&nbsp;
+<b class="nc"><i class="no-highlight">398</i>&nbsp;        replicaTxnEndVLSN = startVLSN.getPrev();</b>
+<b class="nc"><i class="no-highlight">399</i>&nbsp;        if (replicaTxnEndVLSN.compareTo(repNode.getCurrentTxnEndVLSN()) &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;            caughtUp = true;</b>
+<i class="no-highlight">401</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">402</i>&nbsp;        feederVLSN = startVLSN;</b>
+<b class="nc"><i class="no-highlight">403</i>&nbsp;        feederSource = new MasterFeederSource(repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">404</i>&nbsp;            repNode.getVLSNIndex(), replicaNameIdPair, startVLSN);</b>
+<i class="no-highlight">405</i>&nbsp;    }
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;    private void initArbiterFeederSource()
+<i class="no-highlight">408</i>&nbsp;        throws IOException, InterruptedException {
+<i class="no-highlight">409</i>&nbsp;
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        feederSource = new ArbiterFeederSource(repNode.getRepImpl());</b>
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        feederVLSN = VLSN.NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        isArbiterFeeder = true;</b>
+<i class="no-highlight">413</i>&nbsp;    }
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;    /* Get the protocol stats of this Feeder. */
+<i class="no-highlight">416</i>&nbsp;    public StatGroup getProtocolStats(StatsConfig config) {
+<b class="nc"><i class="no-highlight">417</i>&nbsp;        final Protocol protocol = outputThread.protocol;</b>
+<i class="no-highlight">418</i>&nbsp;
+<b class="nc"><i class="no-highlight">419</i>&nbsp;        return (protocol != null) ?</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;               protocol.getStats(config) :</b>
+<i class="no-highlight">421</i>&nbsp;               new StatGroup(BinaryProtocolStatDefinition.GROUP_NAME,
+<i class="no-highlight">422</i>&nbsp;                             BinaryProtocolStatDefinition.GROUP_DESC);
+<i class="no-highlight">423</i>&nbsp;    }
+<i class="no-highlight">424</i>&nbsp;
+<i class="no-highlight">425</i>&nbsp;    void resetStats() {
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        final Protocol protocol = outputThread.protocol;</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        if (protocol != null) {</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;            protocol.resetStats();</b>
+<i class="no-highlight">429</i>&nbsp;        }
+<i class="no-highlight">430</i>&nbsp;    }
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;    void setMasterTransfer(MasterTransfer mt) {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        masterXfr = mt;</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;        if (caughtUp) {</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;            adviseMasterTransferProgress();</b>
+<i class="no-highlight">436</i>&nbsp;        }
+<i class="no-highlight">437</i>&nbsp;    }
+<i class="no-highlight">438</i>&nbsp;
+<i class="no-highlight">439</i>&nbsp;    void adviseMasterTransferProgress() {
+<b class="nc"><i class="no-highlight">440</i>&nbsp;        MasterTransfer mt = masterXfr;</b>
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        if (mt != null) {</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;            mt.noteProgress</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;                (new VLSNProgress(replicaTxnEndVLSN,</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                                  replicaNameIdPair.getName()));</b>
+<i class="no-highlight">445</i>&nbsp;        }
+<i class="no-highlight">446</i>&nbsp;    }
+<i class="no-highlight">447</i>&nbsp;
+<i class="no-highlight">448</i>&nbsp;    public RepNode getRepNode() {
+<b class="nc"><i class="no-highlight">449</i>&nbsp;        return repNode;</b>
+<i class="no-highlight">450</i>&nbsp;    }
+<i class="no-highlight">451</i>&nbsp;
+<i class="no-highlight">452</i>&nbsp;    public NameIdPair getReplicaNameIdPair() {
+<b class="nc"><i class="no-highlight">453</i>&nbsp;        return replicaNameIdPair;</b>
+<i class="no-highlight">454</i>&nbsp;    }
+<i class="no-highlight">455</i>&nbsp;
+<i class="no-highlight">456</i>&nbsp;    public void setFeederFilter(FeederFilter filter) {
+<b class="nc"><i class="no-highlight">457</i>&nbsp;        feederFilter = filter;</b>
+<i class="no-highlight">458</i>&nbsp;    }
+<i class="no-highlight">459</i>&nbsp;
+<i class="no-highlight">460</i>&nbsp;    /**
+<i class="no-highlight">461</i>&nbsp;     * Returns the latest commit VLSN that was acked by the replica, or
+<i class="no-highlight">462</i>&nbsp;     * NULL_VLSN if no commit was acked since the time the feeder was
+<i class="no-highlight">463</i>&nbsp;     * established.
+<i class="no-highlight">464</i>&nbsp;     */
+<i class="no-highlight">465</i>&nbsp;    public VLSN getReplicaTxnEndVLSN() {
+<b class="nc"><i class="no-highlight">466</i>&nbsp;        return replicaTxnEndVLSN;</b>
+<i class="no-highlight">467</i>&nbsp;    }
+<i class="no-highlight">468</i>&nbsp;
+<i class="no-highlight">469</i>&nbsp;    /**
+<i class="no-highlight">470</i>&nbsp;     * Returns the next VLSN that will be sent to the replica. It will
+<i class="no-highlight">471</i>&nbsp;     * return VLSN.NULL if the Feeder is in the process of being created and
+<i class="no-highlight">472</i>&nbsp;     * FeederReplicaSyncup has not yet happened.
+<i class="no-highlight">473</i>&nbsp;     */
+<i class="no-highlight">474</i>&nbsp;    public VLSN getFeederVLSN() {
+<b class="nc"><i class="no-highlight">475</i>&nbsp;        return feederVLSN;</b>
+<i class="no-highlight">476</i>&nbsp;    }
+<i class="no-highlight">477</i>&nbsp;
+<i class="no-highlight">478</i>&nbsp;    /**
+<i class="no-highlight">479</i>&nbsp;     * Returns the JE version supported by the replica, or {@code null} if the
+<i class="no-highlight">480</i>&nbsp;     * value is not yet known.
+<i class="no-highlight">481</i>&nbsp;     *
+<i class="no-highlight">482</i>&nbsp;     * @return the replica JE version or {@code null}
+<i class="no-highlight">483</i>&nbsp;     */
+<i class="no-highlight">484</i>&nbsp;    public JEVersion getReplicaJEVersion() {
+<b class="nc"><i class="no-highlight">485</i>&nbsp;        return replicaJEVersion;</b>
+<i class="no-highlight">486</i>&nbsp;    }
+<i class="no-highlight">487</i>&nbsp;
+<i class="no-highlight">488</i>&nbsp;    /**
+<i class="no-highlight">489</i>&nbsp;     * Returns a RepNodeImpl that describes the replica, or {@code null} if the
+<i class="no-highlight">490</i>&nbsp;     * value is not yet known.  The value will be non-null if the feeder
+<i class="no-highlight">491</i>&nbsp;     * handshake has completed successfully.
+<i class="no-highlight">492</i>&nbsp;     *
+<i class="no-highlight">493</i>&nbsp;     * @return the replica node or {@code null}
+<i class="no-highlight">494</i>&nbsp;     */
+<i class="no-highlight">495</i>&nbsp;    public RepNodeImpl getReplicaNode() {
+<b class="nc"><i class="no-highlight">496</i>&nbsp;        return replicaNode;</b>
+<i class="no-highlight">497</i>&nbsp;    }
+<i class="no-highlight">498</i>&nbsp;
+<i class="no-highlight">499</i>&nbsp;    /**
+<i class="no-highlight">500</i>&nbsp;     * Shutdown the feeder, closing its channel and releasing its threads.  May
+<i class="no-highlight">501</i>&nbsp;     * be called internally upon noticing a problem, or externally when the
+<i class="no-highlight">502</i>&nbsp;     * RepNode is shutting down.
+<i class="no-highlight">503</i>&nbsp;     */
+<i class="no-highlight">504</i>&nbsp;    void shutdown(Exception shutdownException) {
+<i class="no-highlight">505</i>&nbsp;
+<b class="nc"><i class="no-highlight">506</i>&nbsp;        boolean changed = shutdown.compareAndSet(false, true);</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;        if (!changed) {</b>
+<i class="no-highlight">508</i>&nbsp;            return;
+<i class="no-highlight">509</i>&nbsp;        }
+<i class="no-highlight">510</i>&nbsp;
+<b class="nc"><i class="no-highlight">511</i>&nbsp;        MasterTransfer mt = masterXfr;</b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;        final String replicaName = replicaNameIdPair.getName();</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;        if (mt != null) {</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;            mt.giveUp(replicaName);</b>
+<i class="no-highlight">515</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">516</i>&nbsp;        feederManager.removeFeeder(this);</b>
+<i class="no-highlight">517</i>&nbsp;
+<i class="no-highlight">518</i>&nbsp;        /* Shutdown feeder source to remove file protection. */
+<b class="nc"><i class="no-highlight">519</i>&nbsp;        if (feederSource != null) {</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;            feederSource.shutdown(repImpl);</b>
+<i class="no-highlight">521</i>&nbsp;        }
+<i class="no-highlight">522</i>&nbsp;
+<b class="nc"><i class="no-highlight">523</i>&nbsp;        StatGroup pstats = (inputThread.protocol != null) ?</b>
+<b class="nc"><i class="no-highlight">524</i>&nbsp;            inputThread.protocol.getStats(StatsConfig.DEFAULT) :</b>
+<i class="no-highlight">525</i>&nbsp;            new StatGroup(BinaryProtocolStatDefinition.GROUP_NAME,
+<i class="no-highlight">526</i>&nbsp;                          BinaryProtocolStatDefinition.GROUP_DESC);
+<b class="nc"><i class="no-highlight">527</i>&nbsp;        if (outputThread.protocol != null) {</b>
+<b class="nc"><i class="no-highlight">528</i>&nbsp;            pstats.addAll(outputThread.protocol.getStats(StatsConfig.DEFAULT));</b>
+<i class="no-highlight">529</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">530</i>&nbsp;        feederManager.incStats(pstats);</b>
+<i class="no-highlight">531</i>&nbsp;
+<i class="no-highlight">532</i>&nbsp;        /* Remove replica stats */
+<b class="nc"><i class="no-highlight">533</i>&nbsp;        feederManager.getReplicaDelayMap().removeStat(replicaName);</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;        feederManager.getReplicaLastCommitTimestampMap().removeStat(</b>
+<i class="no-highlight">535</i>&nbsp;            replicaName);
+<b class="nc"><i class="no-highlight">536</i>&nbsp;        feederManager.getReplicaLastCommitVLSNMap().removeStat(replicaName);</b>
+<b class="nc"><i class="no-highlight">537</i>&nbsp;        feederManager.getReplicaVLSNLagMap().removeStat(replicaName);</b>
+<b class="nc"><i class="no-highlight">538</i>&nbsp;        feederManager.getReplicaVLSNRateMap().removeStat(replicaName);</b>
+<i class="no-highlight">539</i>&nbsp;
+<b class="nc"><i class="no-highlight">540</i>&nbsp;        LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">541</i>&nbsp;                         &quot;Shutting down feeder for replica &quot; + replicaName +
+<i class="no-highlight">542</i>&nbsp;                         ((shutdownException == null) ?
+<i class="no-highlight">543</i>&nbsp;                          &quot;&quot; :
+<b class="nc"><i class="no-highlight">544</i>&nbsp;                          (&quot; Reason: &quot; + shutdownException.getMessage())) +</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;                         RepUtils.writeTimesString(pstats));</b>
+<i class="no-highlight">546</i>&nbsp;
+<b class="nc"><i class="no-highlight">547</i>&nbsp;        if (repNode.getReplicaCloseCatchupMs() &gt;= 0) {</b>
+<i class="no-highlight">548</i>&nbsp;
+<i class="no-highlight">549</i>&nbsp;            /*
+<i class="no-highlight">550</i>&nbsp;             * Need to shutdown the group cleanly, wait for it to let the
+<i class="no-highlight">551</i>&nbsp;             * replica catchup and exit in the allowed time period.
+<i class="no-highlight">552</i>&nbsp;             */
+<i class="no-highlight">553</i>&nbsp;            try {
+<i class="no-highlight">554</i>&nbsp;
+<i class="no-highlight">555</i>&nbsp;                /*
+<i class="no-highlight">556</i>&nbsp;                 * Note that we wait on the Input thread, since it&#39;s the one
+<i class="no-highlight">557</i>&nbsp;                 * that will exit on the ShutdownResponse message from the
+<i class="no-highlight">558</i>&nbsp;                 * Replica. The output thread will exit immediately after
+<i class="no-highlight">559</i>&nbsp;                 * sending the ShutdownRequest.
+<i class="no-highlight">560</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">561</i>&nbsp;                inputThread.join();</b>
+<i class="no-highlight">562</i>&nbsp;                /* Timed out, or the input thread exited; keep going. */
+<b class="nc"><i class="no-highlight">563</i>&nbsp;            } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">564</i>&nbsp;                LoggerUtils.warning(logger, repImpl,</b>
+<i class="no-highlight">565</i>&nbsp;                                    &quot;Interrupted while waiting to join &quot; +
+<i class="no-highlight">566</i>&nbsp;                                    &quot;thread:&quot; + outputThread);
+<b class="nc"><i class="no-highlight">567</i>&nbsp;            }</b>
+<i class="no-highlight">568</i>&nbsp;        }
+<i class="no-highlight">569</i>&nbsp;
+<b class="nc"><i class="no-highlight">570</i>&nbsp;        outputThread.shutdownThread(logger);</b>
+<b class="nc"><i class="no-highlight">571</i>&nbsp;        inputThread.shutdownThread(logger);</b>
+<i class="no-highlight">572</i>&nbsp;
+<b class="nc"><i class="no-highlight">573</i>&nbsp;        LoggerUtils.finest(logger, repImpl,</b>
+<i class="no-highlight">574</i>&nbsp;                           feederReplicaChannel + &quot; isOpen=&quot; +
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                           feederReplicaChannel.getChannel().isOpen());</b>
+<i class="no-highlight">576</i>&nbsp;    }
+<i class="no-highlight">577</i>&nbsp;
+<i class="no-highlight">578</i>&nbsp;    public boolean isShutdown() {
+<b class="nc"><i class="no-highlight">579</i>&nbsp;        return shutdown.get();</b>
+<i class="no-highlight">580</i>&nbsp;    }
+<i class="no-highlight">581</i>&nbsp;
+<i class="no-highlight">582</i>&nbsp;    public ArbiterFeederSource getArbiterFeederSource() {
+<b class="nc"><i class="no-highlight">583</i>&nbsp;        if (feederSource != null &amp;&amp;</b>
+<i class="no-highlight">584</i>&nbsp;            feederSource instanceof ArbiterFeederSource) {
+<b class="nc"><i class="no-highlight">585</i>&nbsp;            return (ArbiterFeederSource)feederSource;</b>
+<i class="no-highlight">586</i>&nbsp;        }
+<i class="no-highlight">587</i>&nbsp;
+<b class="nc"><i class="no-highlight">588</i>&nbsp;        return null;</b>
+<i class="no-highlight">589</i>&nbsp;    }
+<i class="no-highlight">590</i>&nbsp;
+<i class="no-highlight">591</i>&nbsp;    public StreamAuthenticator getAuthenticator() {
+<b class="nc"><i class="no-highlight">592</i>&nbsp;        return authenticator;</b>
+<i class="no-highlight">593</i>&nbsp;    }
+<i class="no-highlight">594</i>&nbsp;
+<i class="no-highlight">595</i>&nbsp;    /**
+<i class="no-highlight">596</i>&nbsp;     * Implements the thread responsible for processing the responses from a
+<i class="no-highlight">597</i>&nbsp;     * Replica.
+<i class="no-highlight">598</i>&nbsp;     */
+<i class="no-highlight">599</i>&nbsp;    private class InputThread extends StoppableThread {
+<i class="no-highlight">600</i>&nbsp;
+<b class="nc"><i class="no-highlight">601</i>&nbsp;        Protocol protocol = null;</b>
+<i class="no-highlight">602</i>&nbsp;        private LocalCBVLSNUpdater replicaCBVLSN;
+<i class="no-highlight">603</i>&nbsp;
+<i class="no-highlight">604</i>&nbsp;        /*
+<i class="no-highlight">605</i>&nbsp;         * Per-replica stats stored in a map in the feeder manager.  These can
+<i class="no-highlight">606</i>&nbsp;         * only be set once the replica name is found following the handshake.
+<i class="no-highlight">607</i>&nbsp;         *
+<i class="no-highlight">608</i>&nbsp;         * See the class javadoc comment for more information about these
+<i class="no-highlight">609</i>&nbsp;         * statistics and how they can be used to gather information about
+<i class="no-highlight">610</i>&nbsp;         * replication rates.
+<i class="no-highlight">611</i>&nbsp;         */
+<i class="no-highlight">612</i>&nbsp;        private volatile LongDiffStat replicaDelay;
+<i class="no-highlight">613</i>&nbsp;        private volatile AtomicLongComponent replicaLastCommitTimestamp;
+<i class="no-highlight">614</i>&nbsp;        private volatile AtomicLongComponent replicaLastCommitVLSN;
+<i class="no-highlight">615</i>&nbsp;        private volatile LongDiffStat replicaVLSNLag;
+<i class="no-highlight">616</i>&nbsp;        private volatile LongAvgRate replicaVLSNRate;
+<i class="no-highlight">617</i>&nbsp;
+<b class="nc"><i class="no-highlight">618</i>&nbsp;        InputThread() {</b>
+<i class="no-highlight">619</i>&nbsp;            /*
+<i class="no-highlight">620</i>&nbsp;             * The thread will be renamed later on during the life of this
+<i class="no-highlight">621</i>&nbsp;             * thread, when we&#39;re sure who the replica is.
+<i class="no-highlight">622</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            super(repImpl, new IOThreadsHandler(), &quot;Feeder Input&quot;);</b>
+<i class="no-highlight">624</i>&nbsp;        }
+<i class="no-highlight">625</i>&nbsp;
+<i class="no-highlight">626</i>&nbsp;        /**
+<i class="no-highlight">627</i>&nbsp;         * Does the initial negotiation to validate replication group wide
+<i class="no-highlight">628</i>&nbsp;         * consistency and establish the starting VLSN. It then starts up the
+<i class="no-highlight">629</i>&nbsp;         * Output thread and enters the response loop.
+<i class="no-highlight">630</i>&nbsp;         */
+<i class="no-highlight">631</i>&nbsp;        @Override
+<i class="no-highlight">632</i>&nbsp;        public void run() {
+<i class="no-highlight">633</i>&nbsp;
+<i class="no-highlight">634</i>&nbsp;            /* Set to indicate an error-initiated shutdown. */
+<b class="nc"><i class="no-highlight">635</i>&nbsp;            Error feederInputError = null;</b>
+<b class="nc"><i class="no-highlight">636</i>&nbsp;            Exception shutdownException = null;</b>
+<i class="no-highlight">637</i>&nbsp;
+<i class="no-highlight">638</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">639</i>&nbsp;                FeederReplicaHandshake handshake =</b>
+<b class="nc"><i class="no-highlight">640</i>&nbsp;                    new FeederReplicaHandshake(repNode,</b>
+<i class="no-highlight">641</i>&nbsp;                                               Feeder.this,
+<b class="nc"><i class="no-highlight">642</i>&nbsp;                                               feederReplicaChannel);</b>
+<b class="nc"><i class="no-highlight">643</i>&nbsp;                protocol = handshake.execute();</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                protocolVersion = protocol.getVersion();</b>
+<b class="nc"><i class="no-highlight">645</i>&nbsp;                replicaNameIdPair = handshake.getReplicaNameIdPair();</b>
+<b class="nc"><i class="no-highlight">646</i>&nbsp;                streamLogVersion = handshake.getStreamLogVersion();</b>
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                replicaJEVersion = handshake.getReplicaJEVersion();</b>
+<b class="nc"><i class="no-highlight">648</i>&nbsp;                replicaNode = handshake.getReplicaNode();</b>
+<i class="no-highlight">649</i>&nbsp;
+<i class="no-highlight">650</i>&nbsp;                /*
+<i class="no-highlight">651</i>&nbsp;                 * Rename the thread when we get the replica name in, so that
+<i class="no-highlight">652</i>&nbsp;                 * it&#39;s clear who is on the other end.
+<i class="no-highlight">653</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">654</i>&nbsp;                Thread.currentThread().setName(&quot;Feeder Input for &quot; +</b>
+<b class="nc"><i class="no-highlight">655</i>&nbsp;                                               replicaNameIdPair.getName());</b>
+<i class="no-highlight">656</i>&nbsp;
+<b class="nc"><i class="no-highlight">657</i>&nbsp;                if (replicaNode.getType().isArbiter()) {</b>
+<b class="nc"><i class="no-highlight">658</i>&nbsp;                    initArbiterFeederSource();</b>
+<i class="no-highlight">659</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">660</i>&nbsp;                    FeederReplicaSyncup syncup = new FeederReplicaSyncup(</b>
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                            Feeder.this, feederReplicaChannel, protocol);</b>
+<i class="no-highlight">662</i>&nbsp;
+<i class="no-highlight">663</i>&nbsp;                    /*
+<i class="no-highlight">664</i>&nbsp;                     * For data nodes we must update the global CBVLSN using
+<i class="no-highlight">665</i>&nbsp;                     * the replica&#39;s CBVLSN (when the global CBVLSN it is not
+<i class="no-highlight">666</i>&nbsp;                     * defunct). The replicaCBVLSN can only be instantiated
+<i class="no-highlight">667</i>&nbsp;                     * after we know the replica&#39;s name.
+<i class="no-highlight">668</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">669</i>&nbsp;                    if (replicaNode.getType().isDataNode()) {</b>
+<b class="nc"><i class="no-highlight">670</i>&nbsp;                        replicaCBVLSN = new LocalCBVLSNUpdater(</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                            replicaNameIdPair, replicaNode.getType(), repNode);</b>
+<i class="no-highlight">672</i>&nbsp;                    }
+<i class="no-highlight">673</i>&nbsp;
+<i class="no-highlight">674</i>&nbsp;                    /*
+<i class="no-highlight">675</i>&nbsp;                     * Sync-up produces the VLSN of the next log record needed
+<i class="no-highlight">676</i>&nbsp;                     * by the replica, one beyond the last commit or abort it
+<i class="no-highlight">677</i>&nbsp;                     * already has. Sync-up calls initMasterFeederSource while
+<i class="no-highlight">678</i>&nbsp;                     * the VLSNIndex range is protected.
+<i class="no-highlight">679</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">680</i>&nbsp;                    syncup.execute();</b>
+<i class="no-highlight">681</i>&nbsp;                }
+<i class="no-highlight">682</i>&nbsp;
+<i class="no-highlight">683</i>&nbsp;                /* Set up stats */
+<b class="nc"><i class="no-highlight">684</i>&nbsp;                replicaDelay = feederManager.getReplicaDelayMap().createStat(</b>
+<b class="nc"><i class="no-highlight">685</i>&nbsp;                    replicaNameIdPair.getName(),</b>
+<b class="nc"><i class="no-highlight">686</i>&nbsp;                    repNode.getFeederTxns().getLastCommitTimestamp());</b>
+<b class="nc"><i class="no-highlight">687</i>&nbsp;                replicaLastCommitTimestamp =</b>
+<b class="nc"><i class="no-highlight">688</i>&nbsp;                    feederManager.getReplicaLastCommitTimestampMap()</b>
+<b class="nc"><i class="no-highlight">689</i>&nbsp;                                 .createStat(replicaNameIdPair.getName());</b>
+<b class="nc"><i class="no-highlight">690</i>&nbsp;                replicaLastCommitVLSN =</b>
+<b class="nc"><i class="no-highlight">691</i>&nbsp;                    feederManager.getReplicaLastCommitVLSNMap()</b>
+<b class="nc"><i class="no-highlight">692</i>&nbsp;                                 .createStat(replicaNameIdPair.getName());</b>
+<b class="nc"><i class="no-highlight">693</i>&nbsp;                replicaVLSNLag = feederManager.getReplicaVLSNLagMap()</b>
+<b class="nc"><i class="no-highlight">694</i>&nbsp;                                              .createStat(</b>
+<b class="nc"><i class="no-highlight">695</i>&nbsp;                                                  replicaNameIdPair.getName(),</b>
+<b class="nc"><i class="no-highlight">696</i>&nbsp;                                                  repNode.getFeederTxns()</b>
+<b class="nc"><i class="no-highlight">697</i>&nbsp;                                                         .getLastCommitVLSN());</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;                replicaVLSNRate = feederManager.getReplicaVLSNRateMap()</b>
+<b class="nc"><i class="no-highlight">699</i>&nbsp;                                               .createStat(</b>
+<b class="nc"><i class="no-highlight">700</i>&nbsp;                                                   replicaNameIdPair.getName());</b>
+<i class="no-highlight">701</i>&nbsp;
+<i class="no-highlight">702</i>&nbsp;                /* Start the thread to pump out log records */
+<b class="nc"><i class="no-highlight">703</i>&nbsp;                outputThread.start();</b>
+<b class="nc"><i class="no-highlight">704</i>&nbsp;                lastResponseTime = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">705</i>&nbsp;                masterStatus.assertSync();</b>
+<b class="nc"><i class="no-highlight">706</i>&nbsp;                feederManager.activateFeeder(Feeder.this);</b>
+<i class="no-highlight">707</i>&nbsp;
+<b class="nc"><i class="no-highlight">708</i>&nbsp;                runResponseLoop();</b>
+<b class="nc"><i class="no-highlight">709</i>&nbsp;            } catch (ReplicationSecurityException ue) {</b>
+<b class="nc"><i class="no-highlight">710</i>&nbsp;                shutdownException = ue;</b>
+<b class="nc"><i class="no-highlight">711</i>&nbsp;                LoggerUtils.warning(logger, repImpl, ue.getMessage());</b>
+<b class="nc"><i class="no-highlight">712</i>&nbsp;            } catch (NetworkRestoreException e) {</b>
+<b class="nc"><i class="no-highlight">713</i>&nbsp;                shutdownException = e;</b>
+<i class="no-highlight">714</i>&nbsp;                /* The replica will retry after a network restore. */
+<b class="nc"><i class="no-highlight">715</i>&nbsp;                LoggerUtils.info(logger, repImpl, e.getMessage());</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">717</i>&nbsp;                /* Trio of benign &quot;expected&quot; exceptions below. */
+<b class="nc"><i class="no-highlight">718</i>&nbsp;                shutdownException = e; /* Expected. */</b>
+<b class="nc"><i class="no-highlight">719</i>&nbsp;            } catch (MasterSyncException e) {</b>
+<b class="nc"><i class="no-highlight">720</i>&nbsp;                shutdownException = e; /* Expected. */</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;            } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">722</i>&nbsp;                shutdownException = e; /* Expected. */</b>
+<b class="nc"><i class="no-highlight">723</i>&nbsp;            } catch (ExitException e) {</b>
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                shutdownException = e;</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                LoggerUtils.warning(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">726</i>&nbsp;                                    &quot;Exiting feeder loop: &quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">727</i>&nbsp;            } catch (Error e) {</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                feederInputError = e;</b>
+<b class="nc"><i class="no-highlight">729</i>&nbsp;                repNode.getRepImpl().invalidate(e);</b>
+<b class="nc"><i class="no-highlight">730</i>&nbsp;            } catch (ChecksumException e) {</b>
+<b class="nc"><i class="no-highlight">731</i>&nbsp;                shutdownException = e;</b>
+<i class="no-highlight">732</i>&nbsp;
+<i class="no-highlight">733</i>&nbsp;                /* An internal, unexpected error. Invalidate the environment. */
+<b class="nc"><i class="no-highlight">734</i>&nbsp;                throw new EnvironmentFailureException</b>
+<b class="nc"><i class="no-highlight">735</i>&nbsp;                    (repNode.getRepImpl(),</b>
+<i class="no-highlight">736</i>&nbsp;                     EnvironmentFailureReason.LOG_CHECKSUM, e);
+<b class="nc"><i class="no-highlight">737</i>&nbsp;            } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">738</i>&nbsp;                shutdownException = e;</b>
+<i class="no-highlight">739</i>&nbsp;
+<i class="no-highlight">740</i>&nbsp;                /*
+<i class="no-highlight">741</i>&nbsp;                 * An internal error. Shut down the rep node as well for now
+<i class="no-highlight">742</i>&nbsp;                 * by throwing the exception out of the thread.
+<i class="no-highlight">743</i>&nbsp;                 *
+<i class="no-highlight">744</i>&nbsp;                 * In future we may want to close down just the impacted Feeder
+<i class="no-highlight">745</i>&nbsp;                 * but this is the safe course of action.
+<i class="no-highlight">746</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">747</i>&nbsp;                LoggerUtils.severe(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">748</i>&nbsp;                                   &quot;Unexpected exception: &quot; + e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                                   LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;                throw e;</b>
+<i class="no-highlight">751</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">752</i>&nbsp;                if (feederInputError != null) {</b>
+<i class="no-highlight">753</i>&nbsp;                    /* Propagate the error, skip cleanup. */
+<b class="nc"><i class="no-highlight">754</i>&nbsp;                    throw feederInputError;</b>
+<i class="no-highlight">755</i>&nbsp;                }
+<i class="no-highlight">756</i>&nbsp;
+<i class="no-highlight">757</i>&nbsp;                /*
+<i class="no-highlight">758</i>&nbsp;                 * Shutdown the feeder in its entirety, in case the input
+<i class="no-highlight">759</i>&nbsp;                 * thread is the only one to notice a problem. The Replica can
+<i class="no-highlight">760</i>&nbsp;                 * decide to re-establish the connection
+<i class="no-highlight">761</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">762</i>&nbsp;                shutdown(shutdownException);</b>
+<b class="nc"><i class="no-highlight">763</i>&nbsp;                cleanup();</b>
+<b class="nc"><i class="no-highlight">764</i>&nbsp;            }</b>
+<i class="no-highlight">765</i>&nbsp;        }
+<i class="no-highlight">766</i>&nbsp;
+<i class="no-highlight">767</i>&nbsp;        /*
+<i class="no-highlight">768</i>&nbsp;         * This method deals with responses from the Replica. There are exactly
+<i class="no-highlight">769</i>&nbsp;         * two types of responses from the Replica:
+<i class="no-highlight">770</i>&nbsp;         *
+<i class="no-highlight">771</i>&nbsp;         * 1) Responses acknowledging a successful commit by the Replica.
+<i class="no-highlight">772</i>&nbsp;         *
+<i class="no-highlight">773</i>&nbsp;         * 2) Responses to heart beat messages.
+<i class="no-highlight">774</i>&nbsp;         *
+<i class="no-highlight">775</i>&nbsp;         * This loop (like the loop in the OutputThread) is terminated under
+<i class="no-highlight">776</i>&nbsp;         * one of the following conditions:
+<i class="no-highlight">777</i>&nbsp;         *
+<i class="no-highlight">778</i>&nbsp;         * 1) The thread detects a change in masters.
+<i class="no-highlight">779</i>&nbsp;         * 2) There is network connection issue (which might also be an
+<i class="no-highlight">780</i>&nbsp;         *    indication of an unfolding change in masters).
+<i class="no-highlight">781</i>&nbsp;         * 3) If the replica closes its connection -- variation of the above.
+<i class="no-highlight">782</i>&nbsp;         *
+<i class="no-highlight">783</i>&nbsp;         * In addition, the loop will also exit if it gets a ShutdownResponse
+<i class="no-highlight">784</i>&nbsp;         * message sent in response to a ShutdownRequest sent by the
+<i class="no-highlight">785</i>&nbsp;         * OutputThread.
+<i class="no-highlight">786</i>&nbsp;         */
+<i class="no-highlight">787</i>&nbsp;        private void runResponseLoop()
+<i class="no-highlight">788</i>&nbsp;            throws IOException, MasterSyncException {
+<i class="no-highlight">789</i>&nbsp;
+<i class="no-highlight">790</i>&nbsp;            /*
+<i class="no-highlight">791</i>&nbsp;             * Start the acknowledgment loop. It&#39;s very important that this
+<i class="no-highlight">792</i>&nbsp;             * loop be wait/contention free.
+<i class="no-highlight">793</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">794</i>&nbsp;            while (!checkShutdown()) {</b>
+<b class="nc"><i class="no-highlight">795</i>&nbsp;                Message response = protocol.read(feederReplicaChannel);</b>
+<b class="nc"><i class="no-highlight">796</i>&nbsp;                if (checkShutdown()) {</b>
+<i class="no-highlight">797</i>&nbsp;
+<i class="no-highlight">798</i>&nbsp;                    /*
+<i class="no-highlight">799</i>&nbsp;                     * Shutdown quickly, in particular, don&#39;t update sync
+<i class="no-highlight">800</i>&nbsp;                     * VLSNs.
+<i class="no-highlight">801</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">802</i>&nbsp;                    break;</b>
+<i class="no-highlight">803</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">804</i>&nbsp;                masterStatus.assertSync();</b>
+<i class="no-highlight">805</i>&nbsp;
+<b class="nc"><i class="no-highlight">806</i>&nbsp;                lastResponseTime = System.currentTimeMillis();</b>
+<i class="no-highlight">807</i>&nbsp;
+<b class="nc"><i class="no-highlight">808</i>&nbsp;                if (response.getOp() == Protocol.HEARTBEAT_RESPONSE) {</b>
+<b class="nc"><i class="no-highlight">809</i>&nbsp;                    processHeartbeatResponse(response);</b>
+<b class="nc"><i class="no-highlight">810</i>&nbsp;                } else if (response.getOp() == Protocol.ACK) {</b>
+<i class="no-highlight">811</i>&nbsp;
+<i class="no-highlight">812</i>&nbsp;                    /*
+<i class="no-highlight">813</i>&nbsp;                     * Check if a commit has been waiting for this
+<i class="no-highlight">814</i>&nbsp;                     * acknowledgment and signal any waiters.
+<i class="no-highlight">815</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">816</i>&nbsp;                    long txnId = ((Ack) response).getTxnId();</b>
+<b class="nc"><i class="no-highlight">817</i>&nbsp;                    if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">818</i>&nbsp;                        LoggerUtils.fine(logger, repImpl, &quot;Ack for: &quot; + txnId);</b>
+<i class="no-highlight">819</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">820</i>&nbsp;                    deemAcked(txnId);</b>
+<b class="nc"><i class="no-highlight">821</i>&nbsp;                }  else if (response.getOp() == Protocol.GROUP_ACK) {</b>
+<b class="nc"><i class="no-highlight">822</i>&nbsp;                    final long txnIds[] = ((GroupAck) response).getTxnIds();</b>
+<i class="no-highlight">823</i>&nbsp;
+<b class="nc"><i class="no-highlight">824</i>&nbsp;                    for (long txnId : txnIds) {</b>
+<b class="nc"><i class="no-highlight">825</i>&nbsp;                        if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">826</i>&nbsp;                            LoggerUtils.fine(logger, repImpl,</b>
+<i class="no-highlight">827</i>&nbsp;                                             &quot;Group Ack for: &quot; + txnId);
+<i class="no-highlight">828</i>&nbsp;                        }
+<b class="nc"><i class="no-highlight">829</i>&nbsp;                        deemAcked(txnId);</b>
+<i class="no-highlight">830</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">831</i>&nbsp;                } else if (response.getOp() == Protocol.SHUTDOWN_RESPONSE) {</b>
+<b class="nc"><i class="no-highlight">832</i>&nbsp;                    LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">833</i>&nbsp;                                     &quot;Shutdown confirmed by replica &quot; +
+<b class="nc"><i class="no-highlight">834</i>&nbsp;                                     replicaNameIdPair.getName());</b>
+<i class="no-highlight">835</i>&nbsp;                    /* Exit the loop and the thread. */
+<b class="nc"><i class="no-highlight">836</i>&nbsp;                    break;</b>
+<b class="nc"><i class="no-highlight">837</i>&nbsp;                } else if (response.getOp() == Protocol.REAUTHENTICATE) {</b>
+<b class="nc"><i class="no-highlight">838</i>&nbsp;                    processReauthenticate(response);</b>
+<i class="no-highlight">839</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">840</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">841</i>&nbsp;                        (&quot;Unexpected message: &quot; + response);</b>
+<i class="no-highlight">842</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">843</i>&nbsp;            }</b>
+<i class="no-highlight">844</i>&nbsp;        }
+<i class="no-highlight">845</i>&nbsp;
+<i class="no-highlight">846</i>&nbsp;        private void processHeartbeatResponse(Message response) {
+<i class="no-highlight">847</i>&nbsp;            /* Last response has been updated, keep going. */
+<b class="nc"><i class="no-highlight">848</i>&nbsp;            final HeartbeatResponse hbResponse =</b>
+<i class="no-highlight">849</i>&nbsp;                (Protocol.HeartbeatResponse)response;
+<i class="no-highlight">850</i>&nbsp;
+<i class="no-highlight">851</i>&nbsp;            /*
+<i class="no-highlight">852</i>&nbsp;             * For arbiters we do not process the response, but it is still
+<i class="no-highlight">853</i>&nbsp;             * important for preventing the channel from timing out.
+<i class="no-highlight">854</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">855</i>&nbsp;            if (replicaNode.getType().isArbiter()) {</b>
+<i class="no-highlight">856</i>&nbsp;                return;
+<i class="no-highlight">857</i>&nbsp;            }
+<i class="no-highlight">858</i>&nbsp;
+<i class="no-highlight">859</i>&nbsp;            /*
+<i class="no-highlight">860</i>&nbsp;             * When the global CBVLSN is not defunct, update it for a data node
+<i class="no-highlight">861</i>&nbsp;             * (replicaCBVLSN is null for non-data nodes).
+<i class="no-highlight">862</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">863</i>&nbsp;            if (replicaCBVLSN != null) {</b>
+<b class="nc"><i class="no-highlight">864</i>&nbsp;                replicaCBVLSN.updateForReplica(hbResponse);</b>
+<i class="no-highlight">865</i>&nbsp;            }
+<i class="no-highlight">866</i>&nbsp;
+<b class="nc"><i class="no-highlight">867</i>&nbsp;            final VLSN replicaTxnVLSN = hbResponse.getTxnEndVLSN();</b>
+<i class="no-highlight">868</i>&nbsp;
+<i class="no-highlight">869</i>&nbsp;            /* All further work requires the replica&#39;s VLSN */
+<b class="nc"><i class="no-highlight">870</i>&nbsp;            if (replicaTxnVLSN == null) {</b>
+<i class="no-highlight">871</i>&nbsp;                return;
+<i class="no-highlight">872</i>&nbsp;            }
+<i class="no-highlight">873</i>&nbsp;
+<b class="nc"><i class="no-highlight">874</i>&nbsp;            replicaTxnEndVLSN = replicaTxnVLSN;</b>
+<b class="nc"><i class="no-highlight">875</i>&nbsp;            final long replicaTxnVLSNSeq = replicaTxnVLSN.getSequence();</b>
+<i class="no-highlight">876</i>&nbsp;
+<b class="nc"><i class="no-highlight">877</i>&nbsp;            feederManager.updateDTVLSN(replicaTxnVLSNSeq);</b>
+<i class="no-highlight">878</i>&nbsp;
+<b class="nc"><i class="no-highlight">879</i>&nbsp;            if (replicaTxnVLSN.compareTo(</b>
+<b class="nc"><i class="no-highlight">880</i>&nbsp;                repNode.getCurrentTxnEndVLSN()) &gt;= 0) {</b>
+<i class="no-highlight">881</i>&nbsp;
+<b class="nc"><i class="no-highlight">882</i>&nbsp;                caughtUp = true;</b>
+<b class="nc"><i class="no-highlight">883</i>&nbsp;                adviseMasterTransferProgress();</b>
+<i class="no-highlight">884</i>&nbsp;            }
+<i class="no-highlight">885</i>&nbsp;
+<i class="no-highlight">886</i>&nbsp;            /*
+<i class="no-highlight">887</i>&nbsp;             * Only tally statistics for the commit VLSN and timestamp if both
+<i class="no-highlight">888</i>&nbsp;             * values were recorded when the heartbeat was requested.  Make
+<i class="no-highlight">889</i>&nbsp;             * computations based directly on the measured heartbeat delay if
+<i class="no-highlight">890</i>&nbsp;             * the heartbeat reply confirms that the requested VLSN has been
+<i class="no-highlight">891</i>&nbsp;             * processed.  Otherwise, use the master VLSN rate to estimate the
+<i class="no-highlight">892</i>&nbsp;             * delay.
+<i class="no-highlight">893</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">894</i>&nbsp;            final long commitVLSN = lastHeartbeatCommitVLSN;</b>
+<b class="nc"><i class="no-highlight">895</i>&nbsp;            final long commitTimestamp = lastHeartbeatCommitTimestamp;</b>
+<b class="nc"><i class="no-highlight">896</i>&nbsp;            if ((commitVLSN == 0) || (commitTimestamp == 0)) {</b>
+<i class="no-highlight">897</i>&nbsp;                return;
+<i class="no-highlight">898</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">899</i>&nbsp;            final long statCommitVLSN = (commitVLSN &lt;= replicaTxnVLSNSeq) ?</b>
+<i class="no-highlight">900</i>&nbsp;                commitVLSN : replicaTxnVLSNSeq;
+<i class="no-highlight">901</i>&nbsp;
+<i class="no-highlight">902</i>&nbsp;            /* Set the depended-on stats first */
+<b class="nc"><i class="no-highlight">903</i>&nbsp;            replicaLastCommitVLSN.set(statCommitVLSN);</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;            replicaVLSNLag.set(statCommitVLSN, lastResponseTime);</b>
+<b class="nc"><i class="no-highlight">905</i>&nbsp;            replicaVLSNRate.add(statCommitVLSN, lastResponseTime);</b>
+<i class="no-highlight">906</i>&nbsp;
+<i class="no-highlight">907</i>&nbsp;            final long statCommitTimestamp;
+<b class="nc"><i class="no-highlight">908</i>&nbsp;            if (commitVLSN &lt;= replicaTxnVLSNSeq) {</b>
+<b class="nc"><i class="no-highlight">909</i>&nbsp;                statCommitTimestamp = commitTimestamp;</b>
+<i class="no-highlight">910</i>&nbsp;            } else {
+<i class="no-highlight">911</i>&nbsp;
+<i class="no-highlight">912</i>&nbsp;                /* Adjust the commit timestamp based on the VLSN rate */
+<b class="nc"><i class="no-highlight">913</i>&nbsp;                final long vlsnRatePerMinute = vlsnRate.get();</b>
+<b class="nc"><i class="no-highlight">914</i>&nbsp;                if (vlsnRatePerMinute &lt;= 0) {</b>
+<i class="no-highlight">915</i>&nbsp;                    return;
+<i class="no-highlight">916</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">917</i>&nbsp;                final long vlsnLag = commitVLSN - replicaTxnVLSNSeq;</b>
+<b class="nc"><i class="no-highlight">918</i>&nbsp;                final long timeLagMillis =</b>
+<i class="no-highlight">919</i>&nbsp;                    (long) (60000.0 * ((double) vlsnLag / vlsnRatePerMinute));
+<b class="nc"><i class="no-highlight">920</i>&nbsp;                statCommitTimestamp = commitTimestamp - timeLagMillis;</b>
+<i class="no-highlight">921</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">922</i>&nbsp;            replicaLastCommitTimestamp.set(statCommitTimestamp);</b>
+<b class="nc"><i class="no-highlight">923</i>&nbsp;            replicaDelay.set(statCommitTimestamp, lastResponseTime);</b>
+<i class="no-highlight">924</i>&nbsp;        }
+<i class="no-highlight">925</i>&nbsp;
+<i class="no-highlight">926</i>&nbsp;        /*
+<i class="no-highlight">927</i>&nbsp;         * Returns true if the InputThread should be shutdown, that is, if the
+<i class="no-highlight">928</i>&nbsp;         * thread has been marked for shutdown and it&#39;s not a group shutdown
+<i class="no-highlight">929</i>&nbsp;         * request. For a group shutdown the input thread will wait for an
+<i class="no-highlight">930</i>&nbsp;         * acknowledgment of the shutdown message from the Replica.
+<i class="no-highlight">931</i>&nbsp;         */
+<i class="no-highlight">932</i>&nbsp;        private boolean checkShutdown() {
+<b class="nc"><i class="no-highlight">933</i>&nbsp;            return shutdown.get() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">934</i>&nbsp;                   (repNode.getReplicaCloseCatchupMs() &lt; 0);</b>
+<i class="no-highlight">935</i>&nbsp;        }
+<i class="no-highlight">936</i>&nbsp;
+<i class="no-highlight">937</i>&nbsp;        @Override
+<i class="no-highlight">938</i>&nbsp;        protected int initiateSoftShutdown() {
+<i class="no-highlight">939</i>&nbsp;
+<i class="no-highlight">940</i>&nbsp;            /*
+<i class="no-highlight">941</i>&nbsp;             * Provoke an I/O exception that will cause the input thread to
+<i class="no-highlight">942</i>&nbsp;             * exit.
+<i class="no-highlight">943</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">944</i>&nbsp;            RepUtils.shutdownChannel(feederReplicaChannel);</b>
+<b class="nc"><i class="no-highlight">945</i>&nbsp;            return repNode.getThreadWaitInterval();</b>
+<i class="no-highlight">946</i>&nbsp;        }
+<i class="no-highlight">947</i>&nbsp;
+<i class="no-highlight">948</i>&nbsp;        @Override
+<i class="no-highlight">949</i>&nbsp;        protected Logger getLogger() {
+<b class="nc"><i class="no-highlight">950</i>&nbsp;            return logger;</b>
+<i class="no-highlight">951</i>&nbsp;        }
+<i class="no-highlight">952</i>&nbsp;    }
+<i class="no-highlight">953</i>&nbsp;
+<i class="no-highlight">954</i>&nbsp;    /**
+<i class="no-highlight">955</i>&nbsp;     * Simply pumps out log entries as rapidly as it can.
+<i class="no-highlight">956</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">957</i>&nbsp;    private class OutputThread extends StoppableThread {</b>
+<b class="nc"><i class="no-highlight">958</i>&nbsp;        Protocol protocol = null;</b>
+<i class="no-highlight">959</i>&nbsp;
+<b class="nc"><i class="no-highlight">960</i>&nbsp;        private long totalTransferDelay = 0;</b>
+<i class="no-highlight">961</i>&nbsp;
+<i class="no-highlight">962</i>&nbsp;        /* The time at which the group shutdown was initiated. */
+<b class="nc"><i class="no-highlight">963</i>&nbsp;        private long shutdownRequestStart = 0;</b>
+<i class="no-highlight">964</i>&nbsp;
+<i class="no-highlight">965</i>&nbsp;        /**
+<i class="no-highlight">966</i>&nbsp;         * Determines whether writing to the network connection for the replica
+<i class="no-highlight">967</i>&nbsp;         * suffices as a commit acknowledgment.
+<i class="no-highlight">968</i>&nbsp;         */
+<i class="no-highlight">969</i>&nbsp;        private final boolean commitToNetwork;
+<i class="no-highlight">970</i>&nbsp;
+<i class="no-highlight">971</i>&nbsp;        /**
+<i class="no-highlight">972</i>&nbsp;         * The threshold used to trigger the logging of transfers of commit
+<i class="no-highlight">973</i>&nbsp;         * records.
+<i class="no-highlight">974</i>&nbsp;         */
+<i class="no-highlight">975</i>&nbsp;        private final int transferLoggingThresholdMs;
+<i class="no-highlight">976</i>&nbsp;
+<i class="no-highlight">977</i>&nbsp;        /**
+<i class="no-highlight">978</i>&nbsp;         * The max time interval during which feeder records are grouped.
+<i class="no-highlight">979</i>&nbsp;         */
+<i class="no-highlight">980</i>&nbsp;        private final int batchNs;
+<i class="no-highlight">981</i>&nbsp;
+<i class="no-highlight">982</i>&nbsp;        /**
+<i class="no-highlight">983</i>&nbsp;         * The direct byte buffer holding the batched feeder records.
+<i class="no-highlight">984</i>&nbsp;         */
+<i class="no-highlight">985</i>&nbsp;        private final ByteBuffer batchBuff;
+<i class="no-highlight">986</i>&nbsp;
+<i class="no-highlight">987</i>&nbsp;        /* Shared stats used to track max replica lag across all feeders. */
+<i class="no-highlight">988</i>&nbsp;        private final LongMaxZeroStat nMaxReplicaLag;
+<i class="no-highlight">989</i>&nbsp;        private final StringStat nMaxReplicaLagName;
+<i class="no-highlight">990</i>&nbsp;
+<i class="no-highlight">991</i>&nbsp;        private final VLSNIndex vlsnIndex;
+<i class="no-highlight">992</i>&nbsp;
+<i class="no-highlight">993</i>&nbsp;        /* The timestamp of the most recently written commit record or 0 */
+<i class="no-highlight">994</i>&nbsp;        private long lastCommitTimestamp;
+<i class="no-highlight">995</i>&nbsp;
+<i class="no-highlight">996</i>&nbsp;        /* The VLSN of the most recently written commit record or 0 */
+<i class="no-highlight">997</i>&nbsp;        private long lastCommitVLSN;
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;        /*
+<i class="no-highlight">1000</i>&nbsp;         * The delay between writes of a replication message. Note that
+<i class="no-highlight">1001</i>&nbsp;         * setting this to a non-zero value effectively turns off message
+<i class="no-highlight">1002</i>&nbsp;         * batching.
+<i class="no-highlight">1003</i>&nbsp;         */
+<i class="no-highlight">1004</i>&nbsp;        final int testDelayMs;
+<i class="no-highlight">1005</i>&nbsp;
+<b class="nc"><i class="no-highlight">1006</i>&nbsp;        OutputThread() {</b>
+<i class="no-highlight">1007</i>&nbsp;            /*
+<i class="no-highlight">1008</i>&nbsp;             * The thread will be renamed later on during the life of this
+<i class="no-highlight">1009</i>&nbsp;             * thread, when we know who the replica is.
+<i class="no-highlight">1010</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1011</i>&nbsp;            super(repImpl, new IOThreadsHandler(), &quot;Feeder Output&quot;);</b>
+<b class="nc"><i class="no-highlight">1012</i>&nbsp;            final DbConfigManager configManager = repNode.getConfigManager();</b>
+<b class="nc"><i class="no-highlight">1013</i>&nbsp;            commitToNetwork = configManager.</b>
+<b class="nc"><i class="no-highlight">1014</i>&nbsp;                getBoolean(RepParams.COMMIT_TO_NETWORK);</b>
+<b class="nc"><i class="no-highlight">1015</i>&nbsp;            transferLoggingThresholdMs = configManager.</b>
+<b class="nc"><i class="no-highlight">1016</i>&nbsp;                getDuration(RepParams.TRANSFER_LOGGING_THRESHOLD);</b>
+<i class="no-highlight">1017</i>&nbsp;
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;            batchNs = Math.min(configManager.</b>
+<b class="nc"><i class="no-highlight">1019</i>&nbsp;                               getInt(RepParams.FEEDER_BATCH_NS),</b>
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;                               heartbeatMs * 1000000);</b>
+<i class="no-highlight">1021</i>&nbsp;
+<b class="nc"><i class="no-highlight">1022</i>&nbsp;            final int batchBuffSize = configManager.</b>
+<b class="nc"><i class="no-highlight">1023</i>&nbsp;                getInt(RepParams.FEEDER_BATCH_BUFF_KB) * 1024;</b>
+<i class="no-highlight">1024</i>&nbsp;
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;            batchBuff = ByteBuffer.allocateDirect(batchBuffSize);</b>
+<i class="no-highlight">1026</i>&nbsp;
+<b class="nc"><i class="no-highlight">1027</i>&nbsp;            if (feederManager != null) {</b>
+<b class="nc"><i class="no-highlight">1028</i>&nbsp;                nMaxReplicaLag = feederManager.getnMaxReplicaLag();</b>
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;                nMaxReplicaLagName = feederManager.getnMaxReplicaLagName();</b>
+<i class="no-highlight">1030</i>&nbsp;            } else {
+<i class="no-highlight">1031</i>&nbsp;                /* Create a placeholder stat for testing. */
+<b class="nc"><i class="no-highlight">1032</i>&nbsp;                StatGroup stats =</b>
+<i class="no-highlight">1033</i>&nbsp;                    new StatGroup(FeederManagerStatDefinition.GROUP_NAME,
+<i class="no-highlight">1034</i>&nbsp;                                  FeederManagerStatDefinition.GROUP_DESC);
+<b class="nc"><i class="no-highlight">1035</i>&nbsp;                nMaxReplicaLag = new LongMaxZeroStat(stats, N_MAX_REPLICA_LAG);</b>
+<b class="nc"><i class="no-highlight">1036</i>&nbsp;                nMaxReplicaLagName = new StringStat(stats,</b>
+<i class="no-highlight">1037</i>&nbsp;                                                    N_MAX_REPLICA_LAG_NAME);
+<i class="no-highlight">1038</i>&nbsp;            }
+<i class="no-highlight">1039</i>&nbsp;
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;            testDelayMs = feederManager.getTestDelayMs();</b>
+<b class="nc"><i class="no-highlight">1041</i>&nbsp;            if (testDelayMs &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1042</i>&nbsp;                LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">1043</i>&nbsp;                                 &quot;Test delay of:&quot; + testDelayMs + &quot;ms.&quot; +
+<i class="no-highlight">1044</i>&nbsp;                                 &quot; after each message sent&quot;);
+<i class="no-highlight">1045</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1046</i>&nbsp;            vlsnIndex = repNode.getVLSNIndex();</b>
+<i class="no-highlight">1047</i>&nbsp;        }
+<i class="no-highlight">1048</i>&nbsp;
+<i class="no-highlight">1049</i>&nbsp;        /**
+<i class="no-highlight">1050</i>&nbsp;         * Determines whether we should exit the output loop. If we are trying
+<i class="no-highlight">1051</i>&nbsp;         * to shutdown the Replica cleanly, that is, this is a group shutdown,
+<i class="no-highlight">1052</i>&nbsp;         * the method delays the shutdown until the Replica has had a chance
+<i class="no-highlight">1053</i>&nbsp;         * to catch up to the current commit VLSN on this node, after which
+<i class="no-highlight">1054</i>&nbsp;         * it sends the Replica a Shutdown message.
+<i class="no-highlight">1055</i>&nbsp;         *
+<i class="no-highlight">1056</i>&nbsp;         * @return true if the output thread should be shutdown.
+<i class="no-highlight">1057</i>&nbsp;         *
+<i class="no-highlight">1058</i>&nbsp;         * @throws IOException
+<i class="no-highlight">1059</i>&nbsp;         */
+<i class="no-highlight">1060</i>&nbsp;        private boolean checkShutdown()
+<i class="no-highlight">1061</i>&nbsp;            throws IOException {
+<i class="no-highlight">1062</i>&nbsp;
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;            if (!shutdown.get()) {</b>
+<b class="nc"><i class="no-highlight">1064</i>&nbsp;                return false;</b>
+<i class="no-highlight">1065</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;            if (repNode.getReplicaCloseCatchupMs() &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">1067</i>&nbsp;                if (shutdownRequestStart == 0) {</b>
+<b class="nc"><i class="no-highlight">1068</i>&nbsp;                    shutdownRequestStart = System.currentTimeMillis();</b>
+<i class="no-highlight">1069</i>&nbsp;                }
+<i class="no-highlight">1070</i>&nbsp;                /* Determines if the feeder has waited long enough. */
+<i class="no-highlight">1071</i>&nbsp;                boolean timedOut =
+<b class="nc"><i class="no-highlight">1072</i>&nbsp;                    (System.currentTimeMillis() - shutdownRequestStart) &gt;</b>
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;                    repNode.getReplicaCloseCatchupMs();</b>
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;                if (!timedOut &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;                    !isArbiterFeeder &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1076</i>&nbsp;                    (feederVLSN.compareTo</b>
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;                                (repNode.getCurrentTxnEndVLSN()) &lt;= 0)) {</b>
+<i class="no-highlight">1078</i>&nbsp;                    /*
+<i class="no-highlight">1079</i>&nbsp;                     * Replica is not caught up. Note that feederVLSN at stasis
+<i class="no-highlight">1080</i>&nbsp;                     * is one beyond the last value that was actually sent,
+<i class="no-highlight">1081</i>&nbsp;                     * hence the &lt;= instead of &lt; above.
+<i class="no-highlight">1082</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1083</i>&nbsp;                    return false;</b>
+<i class="no-highlight">1084</i>&nbsp;                }
+<i class="no-highlight">1085</i>&nbsp;                /* Replica is caught up or has timed out, shut it down. */
+<b class="nc"><i class="no-highlight">1086</i>&nbsp;                writeMessage(protocol.new ShutdownRequest(shutdownRequestStart),</b>
+<b class="nc"><i class="no-highlight">1087</i>&nbsp;                             feederReplicaChannel);</b>
+<i class="no-highlight">1088</i>&nbsp;
+<b class="nc"><i class="no-highlight">1089</i>&nbsp;                String shutdownMessage =</b>
+<b class="nc"><i class="no-highlight">1090</i>&nbsp;                    String.format(&quot;Shutdown message sent to: %s. &quot; +</b>
+<i class="no-highlight">1091</i>&nbsp;                                  &quot;Feeder vlsn: %,d. &quot; +
+<i class="no-highlight">1092</i>&nbsp;                                  &quot;Shutdown elapsed time: %,dms&quot;,
+<b class="nc"><i class="no-highlight">1093</i>&nbsp;                                  replicaNameIdPair,</b>
+<b class="nc"><i class="no-highlight">1094</i>&nbsp;                                  feederVLSN.getSequence(),</b>
+<b class="nc"><i class="no-highlight">1095</i>&nbsp;                                  (System.currentTimeMillis() -</b>
+<i class="no-highlight">1096</i>&nbsp;                                   shutdownRequestStart));
+<b class="nc"><i class="no-highlight">1097</i>&nbsp;                LoggerUtils.info(logger, repImpl, shutdownMessage);</b>
+<b class="nc"><i class="no-highlight">1098</i>&nbsp;                return true;</b>
+<i class="no-highlight">1099</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1100</i>&nbsp;            return true;</b>
+<i class="no-highlight">1101</i>&nbsp;        }
+<i class="no-highlight">1102</i>&nbsp;
+<i class="no-highlight">1103</i>&nbsp;        /** Write a protocol message to the channel. */
+<i class="no-highlight">1104</i>&nbsp;        private void writeMessage(final Message message,
+<i class="no-highlight">1105</i>&nbsp;                                  final NamedChannel namedChannel)
+<i class="no-highlight">1106</i>&nbsp;            throws IOException {
+<i class="no-highlight">1107</i>&nbsp;
+<b class="nc"><i class="no-highlight">1108</i>&nbsp;            assert TestHookExecute.doHookIfSet(writeMessageHook, message);</b>
+<b class="nc"><i class="no-highlight">1109</i>&nbsp;            protocol.write(message, namedChannel);</b>
+<i class="no-highlight">1110</i>&nbsp;        }
+<i class="no-highlight">1111</i>&nbsp;
+<i class="no-highlight">1112</i>&nbsp;        @Override
+<i class="no-highlight">1113</i>&nbsp;        public void run() {
+<b class="nc"><i class="no-highlight">1114</i>&nbsp;            protocol =</b>
+<b class="nc"><i class="no-highlight">1115</i>&nbsp;                Protocol.get(repNode, protocolVersion, protocolVersion,</b>
+<b class="nc"><i class="no-highlight">1116</i>&nbsp;                             streamLogVersion);</b>
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;            Thread.currentThread().setName</b>
+<b class="nc"><i class="no-highlight">1118</i>&nbsp;                (&quot;Feeder Output for &quot; +</b>
+<b class="nc"><i class="no-highlight">1119</i>&nbsp;                 Feeder.this.getReplicaNameIdPair().getName());</b>
+<i class="no-highlight">1120</i>&nbsp;            {
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;                VLSNRange range = vlsnIndex.getRange();</b>
+<b class="nc"><i class="no-highlight">1122</i>&nbsp;                LoggerUtils.info</b>
+<b class="nc"><i class="no-highlight">1123</i>&nbsp;                    (logger, repImpl, String.format</b>
+<b class="nc"><i class="no-highlight">1124</i>&nbsp;                     (&quot;Feeder output thread for replica %s started at &quot; +</b>
+<i class="no-highlight">1125</i>&nbsp;                      &quot;VLSN %,d master at %,d (DTVLSN:%,d) &quot; +
+<i class="no-highlight">1126</i>&nbsp;                      &quot;VLSN delta=%,d socket=%s&quot;,
+<b class="nc"><i class="no-highlight">1127</i>&nbsp;                      replicaNameIdPair.getName(),</b>
+<b class="nc"><i class="no-highlight">1128</i>&nbsp;                      feederVLSN.getSequence(),</b>
+<b class="nc"><i class="no-highlight">1129</i>&nbsp;                      range.getLast().getSequence(),</b>
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;                      repNode.getAnyDTVLSN(),</b>
+<b class="nc"><i class="no-highlight">1131</i>&nbsp;                      range.getLast().getSequence() - feederVLSN.getSequence(),</b>
+<b class="nc"><i class="no-highlight">1132</i>&nbsp;                      feederReplicaChannel));</b>
+<i class="no-highlight">1133</i>&nbsp;            }
+<i class="no-highlight">1134</i>&nbsp;
+<i class="no-highlight">1135</i>&nbsp;            /* Set to indicate an error-initiated shutdown. */
+<b class="nc"><i class="no-highlight">1136</i>&nbsp;            Error feederOutputError = null;</b>
+<b class="nc"><i class="no-highlight">1137</i>&nbsp;            Exception shutdownException = null;</b>
+<i class="no-highlight">1138</i>&nbsp;            try {
+<i class="no-highlight">1139</i>&nbsp;
+<i class="no-highlight">1140</i>&nbsp;                /*
+<i class="no-highlight">1141</i>&nbsp;                 *  Always start out with a heartbeat; the replica is counting
+<i class="no-highlight">1142</i>&nbsp;                 *  on it.
+<i class="no-highlight">1143</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;                sendHeartbeat();</b>
+<b class="nc"><i class="no-highlight">1145</i>&nbsp;                final int timeoutMs = repNode.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">1146</i>&nbsp;                        getDuration(RepParams.FEEDER_TIMEOUT);</b>
+<b class="nc"><i class="no-highlight">1147</i>&nbsp;                feederReplicaChannel.setTimeoutMs(timeoutMs);</b>
+<i class="no-highlight">1148</i>&nbsp;
+<b class="nc"><i class="no-highlight">1149</i>&nbsp;                while (!checkShutdown()) {</b>
+<b class="nc"><i class="no-highlight">1150</i>&nbsp;                    if (feederVLSN.compareTo</b>
+<b class="nc"><i class="no-highlight">1151</i>&nbsp;                            (repNode.getCurrentTxnEndVLSN()) &gt;= 0) {</b>
+<i class="no-highlight">1152</i>&nbsp;
+<i class="no-highlight">1153</i>&nbsp;                        /*
+<i class="no-highlight">1154</i>&nbsp;                         * The replica is caught up, if we are a Primary stop
+<i class="no-highlight">1155</i>&nbsp;                         * playing that role, and start requesting acks from
+<i class="no-highlight">1156</i>&nbsp;                         * the replica.
+<i class="no-highlight">1157</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">1158</i>&nbsp;                        repNode.getArbiter().endArbitration();</b>
+<i class="no-highlight">1159</i>&nbsp;                    }
+<i class="no-highlight">1160</i>&nbsp;
+<b class="nc"><i class="no-highlight">1161</i>&nbsp;                    doSecurityCheck();</b>
+<i class="no-highlight">1162</i>&nbsp;
+<b class="nc"><i class="no-highlight">1163</i>&nbsp;                    writeAvailableEntries();</b>
+<i class="no-highlight">1164</i>&nbsp;
+<b class="nc"><i class="no-highlight">1165</i>&nbsp;                    masterStatus.assertSync();</b>
+<i class="no-highlight">1166</i>&nbsp;
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;                    sendHeartbeat();</b>
+<i class="no-highlight">1168</i>&nbsp;
+<b class="nc"><i class="no-highlight">1169</i>&nbsp;                    if (testDelayMs &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1170</i>&nbsp;                        Thread.sleep(testDelayMs);</b>
+<i class="no-highlight">1171</i>&nbsp;                    }
+<i class="no-highlight">1172</i>&nbsp;                }
+<i class="no-highlight">1173</i>&nbsp;
+<b class="nc"><i class="no-highlight">1174</i>&nbsp;            } catch (IOException e) {</b>
+<i class="no-highlight">1175</i>&nbsp;                /* Trio of benign &quot;expected&quot; exceptions below. */
+<b class="nc"><i class="no-highlight">1176</i>&nbsp;                shutdownException = e;  /* Expected. */</b>
+<b class="nc"><i class="no-highlight">1177</i>&nbsp;            } catch (MasterSyncException e) {</b>
+<i class="no-highlight">1178</i>&nbsp;                /* Expected, shutdown just the feeder. */
+<b class="nc"><i class="no-highlight">1179</i>&nbsp;                shutdownException = e; /* Expected. */</b>
+<b class="nc"><i class="no-highlight">1180</i>&nbsp;            } catch (InterruptedException e) {</b>
+<i class="no-highlight">1181</i>&nbsp;                /* Expected, shutdown just the feeder. */
+<b class="nc"><i class="no-highlight">1182</i>&nbsp;                shutdownException = e;  /* Expected. */</b>
+<b class="nc"><i class="no-highlight">1183</i>&nbsp;            } catch (ReplicationSecurityException ure) {</b>
+<b class="nc"><i class="no-highlight">1184</i>&nbsp;                shutdownException = ure;</b>
+<i class="no-highlight">1185</i>&nbsp;                /* dump warning if client is not authorized */
+<b class="nc"><i class="no-highlight">1186</i>&nbsp;                LoggerUtils.warning(logger, repImpl,</b>
+<i class="no-highlight">1187</i>&nbsp;                                    &quot;Unauthorized replication stream &quot; +
+<b class="nc"><i class="no-highlight">1188</i>&nbsp;                                    &quot;consumer &quot; + ure.getConsumer() +</b>
+<b class="nc"><i class="no-highlight">1189</i>&nbsp;                                    &quot;, exception: &quot; + ure.getMessage());</b>
+<i class="no-highlight">1190</i>&nbsp;
+<b class="nc"><i class="no-highlight">1191</i>&nbsp;            } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">1192</i>&nbsp;                shutdownException = e;</b>
+<i class="no-highlight">1193</i>&nbsp;
+<i class="no-highlight">1194</i>&nbsp;                /*
+<i class="no-highlight">1195</i>&nbsp;                 * An internal error. Shut down the rep node as well for now
+<i class="no-highlight">1196</i>&nbsp;                 * by throwing the exception out of the thread.
+<i class="no-highlight">1197</i>&nbsp;                 *
+<i class="no-highlight">1198</i>&nbsp;                 * In future we may want to close down just the impacted
+<i class="no-highlight">1199</i>&nbsp;                 * Feeder but this is the safe course of action.
+<i class="no-highlight">1200</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1201</i>&nbsp;                LoggerUtils.severe(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">1202</i>&nbsp;                                   &quot;Unexpected exception: &quot; + e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">1203</i>&nbsp;                                   LoggerUtils.getStackTrace(e));</b>
+<b class="nc"><i class="no-highlight">1204</i>&nbsp;                throw e;</b>
+<b class="nc"><i class="no-highlight">1205</i>&nbsp;            } catch (Error e) {</b>
+<b class="nc"><i class="no-highlight">1206</i>&nbsp;                feederOutputError = e;</b>
+<b class="nc"><i class="no-highlight">1207</i>&nbsp;                repNode.getRepImpl().invalidate(e);</b>
+<i class="no-highlight">1208</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">1209</i>&nbsp;                if (feederOutputError != null) {</b>
+<i class="no-highlight">1210</i>&nbsp;                    /* Propagate the error, skip cleanup. */
+<b class="nc"><i class="no-highlight">1211</i>&nbsp;                    throw feederOutputError;</b>
+<i class="no-highlight">1212</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1213</i>&nbsp;                LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">1214</i>&nbsp;                                 &quot;Feeder output for replica &quot; +
+<b class="nc"><i class="no-highlight">1215</i>&nbsp;                                 replicaNameIdPair.getName() +</b>
+<b class="nc"><i class="no-highlight">1216</i>&nbsp;                                 &quot; shutdown. feeder VLSN: &quot; + feederVLSN +</b>
+<i class="no-highlight">1217</i>&nbsp;                                 &quot; currentTxnEndVLSN: &quot; +
+<b class="nc"><i class="no-highlight">1218</i>&nbsp;                                 repNode.getCurrentTxnEndVLSN());</b>
+<i class="no-highlight">1219</i>&nbsp;
+<i class="no-highlight">1220</i>&nbsp;                /*
+<i class="no-highlight">1221</i>&nbsp;                 * Shutdown the feeder in its entirety, in case the output
+<i class="no-highlight">1222</i>&nbsp;                 * thread is the only one to notice a problem. The Replica can
+<i class="no-highlight">1223</i>&nbsp;                 * decide to re-establish the connection
+<i class="no-highlight">1224</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1225</i>&nbsp;                shutdown(shutdownException);</b>
+<b class="nc"><i class="no-highlight">1226</i>&nbsp;                cleanup();</b>
+<b class="nc"><i class="no-highlight">1227</i>&nbsp;            }</b>
+<i class="no-highlight">1228</i>&nbsp;        }
+<i class="no-highlight">1229</i>&nbsp;
+<i class="no-highlight">1230</i>&nbsp;        /**
+<i class="no-highlight">1231</i>&nbsp;         * Write as many readily &quot;available&quot; log entries as possible to the
+<i class="no-highlight">1232</i>&nbsp;         * network. The term &quot;available&quot; is used in the sense that these values
+<i class="no-highlight">1233</i>&nbsp;         * are typically sitting around in the JE or FS cache especially for
+<i class="no-highlight">1234</i>&nbsp;         * messages that are recent enough to need timely acknowledgement. The
+<i class="no-highlight">1235</i>&nbsp;         * method tried to batch multiple entries, to minimize the number of
+<i class="no-highlight">1236</i>&nbsp;         * network calls permitting better packet utilization and fewer network
+<i class="no-highlight">1237</i>&nbsp;         * related interrupts, since FEEDER_TCP_NO_DELAY is set on the channel.
+<i class="no-highlight">1238</i>&nbsp;         *
+<i class="no-highlight">1239</i>&nbsp;         * The size of the batch is limited by one of:
+<i class="no-highlight">1240</i>&nbsp;         *
+<i class="no-highlight">1241</i>&nbsp;         * 1) The number of &quot;available&quot; trailing vlsn entries between the
+<i class="no-highlight">1242</i>&nbsp;         * current position of the feeder and the end of the log.
+<i class="no-highlight">1243</i>&nbsp;         *
+<i class="no-highlight">1244</i>&nbsp;         * 2) The size of the batchWriteBuffer and
+<i class="no-highlight">1245</i>&nbsp;         *
+<i class="no-highlight">1246</i>&nbsp;         * 3) The time it takes to accumulate the batch without exceeding the
+<i class="no-highlight">1247</i>&nbsp;         * minimum of:
+<i class="no-highlight">1248</i>&nbsp;         *
+<i class="no-highlight">1249</i>&nbsp;         *    a) heartbeat interval, a larger time window typically in effect
+<i class="no-highlight">1250</i>&nbsp;         *    when the replica is not in the ack window. It effectively favors
+<i class="no-highlight">1251</i>&nbsp;         *    batching.
+<i class="no-highlight">1252</i>&nbsp;         *
+<i class="no-highlight">1253</i>&nbsp;         *    b) (batchNs + time to first ack requiring) transaction,
+<i class="no-highlight">1254</i>&nbsp;         *    typically in effect when the replica is in the ack window and
+<i class="no-highlight">1255</i>&nbsp;         *    more timely acks are needed.
+<i class="no-highlight">1256</i>&nbsp;         *
+<i class="no-highlight">1257</i>&nbsp;         * This adaptive time interval strategy effectively adapts the batch
+<i class="no-highlight">1258</i>&nbsp;         * sizes to the behavior needed of the replica at any given instant
+<i class="no-highlight">1259</i>&nbsp;         * in time.
+<i class="no-highlight">1260</i>&nbsp;         */
+<i class="no-highlight">1261</i>&nbsp;        private void writeAvailableEntries()
+<i class="no-highlight">1262</i>&nbsp;            throws DatabaseException, InterruptedException,
+<i class="no-highlight">1263</i>&nbsp;                   IOException, MasterSyncException {
+<i class="no-highlight">1264</i>&nbsp;
+<i class="no-highlight">1265</i>&nbsp;            /*
+<i class="no-highlight">1266</i>&nbsp;             * Set the initial limit at the heartbeat and constrain it, if the
+<i class="no-highlight">1267</i>&nbsp;             * batch contains commits that need acks. The batchLimitNS
+<i class="no-highlight">1268</i>&nbsp;             * calculation is slightly sloppy in that it does not allow for
+<i class="no-highlight">1269</i>&nbsp;             * disk and network latencies, but that&#39;s ok. We don&#39;t need to send
+<i class="no-highlight">1270</i>&nbsp;             * heartbeats exactly on a heartbeat boundary since the code is
+<i class="no-highlight">1271</i>&nbsp;             * resilient in this regard. It&#39;s the feeder timeout that&#39;s the
+<i class="no-highlight">1272</i>&nbsp;             * main worry here; it&#39;s 30 sec by default and is set at 10s for
+<i class="no-highlight">1273</i>&nbsp;             * KVS, so lots of built in slop.
+<i class="no-highlight">1274</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1275</i>&nbsp;            long batchLimitNs = System.nanoTime() + (heartbeatMs * 1000000l);</b>
+<b class="nc"><i class="no-highlight">1276</i>&nbsp;            boolean batchNeedsAcks = false;</b>
+<b class="nc"><i class="no-highlight">1277</i>&nbsp;            int nMessages = 0;</b>
+<b class="nc"><i class="no-highlight">1278</i>&nbsp;            batchBuff.clear();</b>
+<i class="no-highlight">1279</i>&nbsp;
+<i class="no-highlight">1280</i>&nbsp;            do {
+<b class="nc"><i class="no-highlight">1281</i>&nbsp;                OutputWireRecord record =</b>
+<b class="nc"><i class="no-highlight">1282</i>&nbsp;                    feederSource.getWireRecord(feederVLSN, heartbeatMs);</b>
+<i class="no-highlight">1283</i>&nbsp;
+<b class="nc"><i class="no-highlight">1284</i>&nbsp;                masterStatus.assertSync();</b>
+<i class="no-highlight">1285</i>&nbsp;
+<b class="nc"><i class="no-highlight">1286</i>&nbsp;                if (record == null) {</b>
+<i class="no-highlight">1287</i>&nbsp;                    /* Caught up -- no more records from feeder source */
+<b class="nc"><i class="no-highlight">1288</i>&nbsp;                    break;</b>
+<i class="no-highlight">1289</i>&nbsp;                }
+<i class="no-highlight">1290</i>&nbsp;
+<i class="no-highlight">1291</i>&nbsp;                /* apply the filter if it is available */
+<b class="nc"><i class="no-highlight">1292</i>&nbsp;                if (feederFilter != null) {</b>
+<b class="nc"><i class="no-highlight">1293</i>&nbsp;                    record = feederFilter.execute(record, repImpl);</b>
+<b class="nc"><i class="no-highlight">1294</i>&nbsp;                    if (record == null) {</b>
+<i class="no-highlight">1295</i>&nbsp;                        /* skip the record, go to the next VLSN */
+<b class="nc"><i class="no-highlight">1296</i>&nbsp;                        feederVLSN = feederVLSN.getNext();</b>
+<b class="nc"><i class="no-highlight">1297</i>&nbsp;                        continue;</b>
+<i class="no-highlight">1298</i>&nbsp;                    }
+<i class="no-highlight">1299</i>&nbsp;                }
+<i class="no-highlight">1300</i>&nbsp;
+<b class="nc"><i class="no-highlight">1301</i>&nbsp;                final long txnId = record.getCommitTxnId();</b>
+<b class="nc"><i class="no-highlight">1302</i>&nbsp;                final long commitTimestamp = record.getCommitTimeStamp();</b>
+<b class="nc"><i class="no-highlight">1303</i>&nbsp;                if (commitTimestamp != 0) {</b>
+<b class="nc"><i class="no-highlight">1304</i>&nbsp;                    lastCommitTimestamp = commitTimestamp;</b>
+<b class="nc"><i class="no-highlight">1305</i>&nbsp;                    lastCommitVLSN = record.getVLSN().getSequence();</b>
+<i class="no-highlight">1306</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1307</i>&nbsp;                if (commitToNetwork &amp;&amp; txnId != 0) {</b>
+<b class="nc"><i class="no-highlight">1308</i>&nbsp;                    deemAcked(txnId);</b>
+<i class="no-highlight">1309</i>&nbsp;                }
+<i class="no-highlight">1310</i>&nbsp;
+<b class="nc"><i class="no-highlight">1311</i>&nbsp;                if (isArbiterFeeder) {</b>
+<b class="nc"><i class="no-highlight">1312</i>&nbsp;                    feederVLSN = record.getVLSN();</b>
+<i class="no-highlight">1313</i>&nbsp;                }
+<i class="no-highlight">1314</i>&nbsp;
+<b class="nc"><i class="no-highlight">1315</i>&nbsp;                validate(record);</b>
+<b class="nc"><i class="no-highlight">1316</i>&nbsp;                final Message message = createMessage(txnId, record);</b>
+<i class="no-highlight">1317</i>&nbsp;
+<b class="nc"><i class="no-highlight">1318</i>&nbsp;                if (!batchNeedsAcks &amp;&amp; (txnId != 0)) {</b>
+<b class="nc"><i class="no-highlight">1319</i>&nbsp;                    final Commit commit = (Commit) message;</b>
+<b class="nc"><i class="no-highlight">1320</i>&nbsp;                    if (commit.getNeedsAck()) {</b>
+<b class="nc"><i class="no-highlight">1321</i>&nbsp;                        batchNeedsAcks = true;</b>
+<i class="no-highlight">1322</i>&nbsp;                        /* Tighten the time constraints if needed. */
+<b class="nc"><i class="no-highlight">1323</i>&nbsp;                        final long ackLimitNs = System.nanoTime() + batchNs;</b>
+<b class="nc"><i class="no-highlight">1324</i>&nbsp;                        batchLimitNs = ackLimitNs &lt; batchLimitNs ?</b>
+<i class="no-highlight">1325</i>&nbsp;                            ackLimitNs : batchLimitNs;
+<i class="no-highlight">1326</i>&nbsp;                    }
+<i class="no-highlight">1327</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1328</i>&nbsp;                assert TestHookExecute.doHookIfSet(writeMessageHook, message);</b>
+<i class="no-highlight">1329</i>&nbsp;
+<b class="nc"><i class="no-highlight">1330</i>&nbsp;                nMessages = protocol.bufferWrite(feederReplicaChannel,</b>
+<i class="no-highlight">1331</i>&nbsp;                                                 batchBuff,
+<i class="no-highlight">1332</i>&nbsp;                                                 ++nMessages,
+<i class="no-highlight">1333</i>&nbsp;                                                 message);
+<i class="no-highlight">1334</i>&nbsp;
+<b class="nc"><i class="no-highlight">1335</i>&nbsp;                feederVLSN = feederVLSN.getNext();</b>
+<b class="nc"><i class="no-highlight">1336</i>&nbsp;            } while ((testDelayMs == 0) &amp;&amp; /* Don&#39;t batch if set by test. */</b>
+<b class="nc"><i class="no-highlight">1337</i>&nbsp;                (vlsnIndex.getLatestAllocatedVal() &gt;=</b>
+<b class="nc"><i class="no-highlight">1338</i>&nbsp;                feederVLSN.getSequence()) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1339</i>&nbsp;                ((System.nanoTime() - batchLimitNs) &lt; 0)) ;</b>
+<i class="no-highlight">1340</i>&nbsp;
+<b class="nc"><i class="no-highlight">1341</i>&nbsp;            if (batchBuff.position() == 0) {</b>
+<i class="no-highlight">1342</i>&nbsp;                /* No entries -- timed out waiting for one. */
+<i class="no-highlight">1343</i>&nbsp;                return;
+<i class="no-highlight">1344</i>&nbsp;            }
+<i class="no-highlight">1345</i>&nbsp;
+<i class="no-highlight">1346</i>&nbsp;            /*
+<i class="no-highlight">1347</i>&nbsp;             * We have collected the largest possible batch given the
+<i class="no-highlight">1348</i>&nbsp;             * batching constraints, flush it out.
+<i class="no-highlight">1349</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1350</i>&nbsp;            protocol.flushBufferedWrites(feederReplicaChannel,</b>
+<i class="no-highlight">1351</i>&nbsp;                                         batchBuff,
+<i class="no-highlight">1352</i>&nbsp;                                         nMessages);
+<i class="no-highlight">1353</i>&nbsp;        }
+<i class="no-highlight">1354</i>&nbsp;
+<i class="no-highlight">1355</i>&nbsp;        /**
+<i class="no-highlight">1356</i>&nbsp;         * Sends a heartbeat message, if we have exceeded the heartbeat
+<i class="no-highlight">1357</i>&nbsp;         * interval.
+<i class="no-highlight">1358</i>&nbsp;         *
+<i class="no-highlight">1359</i>&nbsp;         * @throws IOException
+<i class="no-highlight">1360</i>&nbsp;         */
+<i class="no-highlight">1361</i>&nbsp;        private void sendHeartbeat()
+<i class="no-highlight">1362</i>&nbsp;            throws IOException {
+<i class="no-highlight">1363</i>&nbsp;
+<b class="nc"><i class="no-highlight">1364</i>&nbsp;            long now = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">1365</i>&nbsp;            long interval = now - lastHeartbeatTime;</b>
+<i class="no-highlight">1366</i>&nbsp;
+<b class="nc"><i class="no-highlight">1367</i>&nbsp;            if (interval &lt;= heartbeatMs) {</b>
+<i class="no-highlight">1368</i>&nbsp;                return;
+<i class="no-highlight">1369</i>&nbsp;            }
+<i class="no-highlight">1370</i>&nbsp;
+<b class="nc"><i class="no-highlight">1371</i>&nbsp;            final VLSN vlsn = repNode.getCurrentTxnEndVLSN();</b>
+<b class="nc"><i class="no-highlight">1372</i>&nbsp;            writeMessage(protocol.new Heartbeat(now, vlsn.getSequence()),</b>
+<b class="nc"><i class="no-highlight">1373</i>&nbsp;                         feederReplicaChannel);</b>
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;            lastHeartbeatTime = now;</b>
+<i class="no-highlight">1375</i>&nbsp;
+<b class="nc"><i class="no-highlight">1376</i>&nbsp;            if (isArbiterFeeder) {</b>
+<i class="no-highlight">1377</i>&nbsp;                return;
+<i class="no-highlight">1378</i>&nbsp;            }
+<i class="no-highlight">1379</i>&nbsp;
+<i class="no-highlight">1380</i>&nbsp;            /* Record the most recent transaction end or clear */
+<b class="nc"><i class="no-highlight">1381</i>&nbsp;            if (lastCommitTimestamp != 0) {</b>
+<b class="nc"><i class="no-highlight">1382</i>&nbsp;                lastHeartbeatCommitTimestamp = lastCommitTimestamp;</b>
+<b class="nc"><i class="no-highlight">1383</i>&nbsp;                lastHeartbeatCommitVLSN = lastCommitVLSN;</b>
+<i class="no-highlight">1384</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1385</i>&nbsp;                lastHeartbeatCommitTimestamp = 0;</b>
+<b class="nc"><i class="no-highlight">1386</i>&nbsp;                lastHeartbeatCommitVLSN = 0;</b>
+<i class="no-highlight">1387</i>&nbsp;            }
+<i class="no-highlight">1388</i>&nbsp;
+<b class="nc"><i class="no-highlight">1389</i>&nbsp;            final long lag = vlsn.getSequence() - feederVLSN.getSequence();</b>
+<b class="nc"><i class="no-highlight">1390</i>&nbsp;            if (nMaxReplicaLag.setMax(lag)) {</b>
+<b class="nc"><i class="no-highlight">1391</i>&nbsp;                nMaxReplicaLagName.set(replicaNameIdPair.getName());</b>
+<i class="no-highlight">1392</i>&nbsp;            }
+<i class="no-highlight">1393</i>&nbsp;        }
+<i class="no-highlight">1394</i>&nbsp;
+<i class="no-highlight">1395</i>&nbsp;        @Override
+<i class="no-highlight">1396</i>&nbsp;        protected int initiateSoftShutdown() {
+<i class="no-highlight">1397</i>&nbsp;
+<i class="no-highlight">1398</i>&nbsp;            /*
+<i class="no-highlight">1399</i>&nbsp;             * Provoke an I/O exception that will cause the output thread to
+<i class="no-highlight">1400</i>&nbsp;             * exit.
+<i class="no-highlight">1401</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1402</i>&nbsp;            RepUtils.shutdownChannel(feederReplicaChannel);</b>
+<b class="nc"><i class="no-highlight">1403</i>&nbsp;            return repNode.getThreadWaitInterval();</b>
+<i class="no-highlight">1404</i>&nbsp;        }
+<i class="no-highlight">1405</i>&nbsp;
+<i class="no-highlight">1406</i>&nbsp;        /**
+<i class="no-highlight">1407</i>&nbsp;         * Converts a log entry into a specific Message to be sent out by the
+<i class="no-highlight">1408</i>&nbsp;         * Feeder.
+<i class="no-highlight">1409</i>&nbsp;         *
+<i class="no-highlight">1410</i>&nbsp;         * @param txnId &gt; 0 if the entry is a LOG_TXN_COMMIT
+<i class="no-highlight">1411</i>&nbsp;         *
+<i class="no-highlight">1412</i>&nbsp;         * @return the Message representing the entry
+<i class="no-highlight">1413</i>&nbsp;         *
+<i class="no-highlight">1414</i>&nbsp;         * @throws DatabaseException
+<i class="no-highlight">1415</i>&nbsp;         */
+<i class="no-highlight">1416</i>&nbsp;        private Message createMessage(long txnId,
+<i class="no-highlight">1417</i>&nbsp;                                      OutputWireRecord wireRecord)
+<i class="no-highlight">1418</i>&nbsp;
+<i class="no-highlight">1419</i>&nbsp;            throws DatabaseException {
+<i class="no-highlight">1420</i>&nbsp;
+<i class="no-highlight">1421</i>&nbsp;            /* A vanilla entry */
+<b class="nc"><i class="no-highlight">1422</i>&nbsp;            if (txnId == 0) {</b>
+<b class="nc"><i class="no-highlight">1423</i>&nbsp;                return protocol.new Entry(wireRecord);</b>
+<i class="no-highlight">1424</i>&nbsp;            }
+<i class="no-highlight">1425</i>&nbsp;
+<i class="no-highlight">1426</i>&nbsp;            boolean needsAck;
+<i class="no-highlight">1427</i>&nbsp;
+<b class="nc"><i class="no-highlight">1428</i>&nbsp;            MasterTxn ackTxn = repNode.getFeederTxns().getAckTxn(txnId);</b>
+<b class="nc"><i class="no-highlight">1429</i>&nbsp;            SyncPolicy replicaSync = SyncPolicy.NO_SYNC;</b>
+<b class="nc"><i class="no-highlight">1430</i>&nbsp;            if (ackTxn != null) {</b>
+<b class="nc"><i class="no-highlight">1431</i>&nbsp;                ackTxn.stampRepWriteTime();</b>
+<b class="nc"><i class="no-highlight">1432</i>&nbsp;                long messageTransferMs = ackTxn.messageTransferMs();</b>
+<b class="nc"><i class="no-highlight">1433</i>&nbsp;                totalTransferDelay  += messageTransferMs;</b>
+<b class="nc"><i class="no-highlight">1434</i>&nbsp;                if (messageTransferMs &gt; transferLoggingThresholdMs) {</b>
+<b class="nc"><i class="no-highlight">1435</i>&nbsp;                    final String message =</b>
+<b class="nc"><i class="no-highlight">1436</i>&nbsp;                        String.format(&quot;Feeder for: %s, Txn: %,d &quot; +</b>
+<i class="no-highlight">1437</i>&nbsp;                                      &quot; log to rep stream time %,dms.&quot; +
+<i class="no-highlight">1438</i>&nbsp;                                      &quot; Total transfer time: %,dms.&quot;,
+<b class="nc"><i class="no-highlight">1439</i>&nbsp;                                      replicaNameIdPair.getName(),</b>
+<b class="nc"><i class="no-highlight">1440</i>&nbsp;                                      txnId, messageTransferMs,</b>
+<b class="nc"><i class="no-highlight">1441</i>&nbsp;                                      totalTransferDelay);</b>
+<b class="nc"><i class="no-highlight">1442</i>&nbsp;                    LoggerUtils.info(logger, repImpl, message);</b>
+<i class="no-highlight">1443</i>&nbsp;                }
+<i class="no-highlight">1444</i>&nbsp;
+<i class="no-highlight">1445</i>&nbsp;                /*
+<i class="no-highlight">1446</i>&nbsp;                 * Only request an acknowledgment if we are not committing to
+<i class="no-highlight">1447</i>&nbsp;                 * the network and DurabilityQuorum says the acknowledgment
+<i class="no-highlight">1448</i>&nbsp;                 * qualifies
+<i class="no-highlight">1449</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1450</i>&nbsp;                needsAck = !commitToNetwork &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1451</i>&nbsp;                    repNode.getDurabilityQuorum().replicaAcksQualify(</b>
+<b class="nc"><i class="no-highlight">1452</i>&nbsp;                        replicaNode);</b>
+<b class="nc"><i class="no-highlight">1453</i>&nbsp;                replicaSync = ackTxn.getCommitDurability().getReplicaSync();</b>
+<b class="nc"><i class="no-highlight">1454</i>&nbsp;            } else {</b>
+<i class="no-highlight">1455</i>&nbsp;
+<i class="no-highlight">1456</i>&nbsp;                /*
+<i class="no-highlight">1457</i>&nbsp;                 * Replica is catching up. Specify the weakest and leave it
+<i class="no-highlight">1458</i>&nbsp;                 * up to the replica.
+<i class="no-highlight">1459</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1460</i>&nbsp;                needsAck = false;</b>
+<b class="nc"><i class="no-highlight">1461</i>&nbsp;                replicaSync = SyncPolicy.NO_SYNC;</b>
+<i class="no-highlight">1462</i>&nbsp;            }
+<i class="no-highlight">1463</i>&nbsp;
+<b class="nc"><i class="no-highlight">1464</i>&nbsp;            return protocol.new Commit(needsAck, replicaSync, wireRecord);</b>
+<i class="no-highlight">1465</i>&nbsp;        }
+<i class="no-highlight">1466</i>&nbsp;
+<i class="no-highlight">1467</i>&nbsp;        /**
+<i class="no-highlight">1468</i>&nbsp;         * Sanity check the outgoing record.
+<i class="no-highlight">1469</i>&nbsp;         */
+<i class="no-highlight">1470</i>&nbsp;        private void validate(OutputWireRecord record) {
+<i class="no-highlight">1471</i>&nbsp;
+<i class="no-highlight">1472</i>&nbsp;            /* Check that we&#39;ve fetched the right message. */
+<b class="nc"><i class="no-highlight">1473</i>&nbsp;            if (!record.getVLSN().equals(feederVLSN)) {</b>
+<b class="nc"><i class="no-highlight">1474</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">1475</i>&nbsp;                    (&quot;Expected VLSN:&quot; + feederVLSN + &quot; log entry VLSN:&quot; +</b>
+<b class="nc"><i class="no-highlight">1476</i>&nbsp;                     record.getVLSN());</b>
+<i class="no-highlight">1477</i>&nbsp;            }
+<i class="no-highlight">1478</i>&nbsp;
+<b class="nc"><i class="no-highlight">1479</i>&nbsp;            if (!repImpl.isRepConverted()) {</b>
+<b class="nc"><i class="no-highlight">1480</i>&nbsp;                assert record.verifyNegativeSequences(&quot;node=&quot; + nameIdPair);</b>
+<i class="no-highlight">1481</i>&nbsp;            }
+<i class="no-highlight">1482</i>&nbsp;        }
+<i class="no-highlight">1483</i>&nbsp;
+<i class="no-highlight">1484</i>&nbsp;        @Override
+<i class="no-highlight">1485</i>&nbsp;        protected Logger getLogger() {
+<b class="nc"><i class="no-highlight">1486</i>&nbsp;            return logger;</b>
+<i class="no-highlight">1487</i>&nbsp;        }
+<i class="no-highlight">1488</i>&nbsp;    }
+<i class="no-highlight">1489</i>&nbsp;
+<i class="no-highlight">1490</i>&nbsp;    private void deemAcked(long txnId) {
+<b class="nc"><i class="no-highlight">1491</i>&nbsp;        final TxnInfo txnInfo =</b>
+<b class="nc"><i class="no-highlight">1492</i>&nbsp;            repNode.getFeederTxns().noteReplicaAck(replicaNode,</b>
+<i class="no-highlight">1493</i>&nbsp;                                                   txnId);
+<b class="nc"><i class="no-highlight">1494</i>&nbsp;        if (txnInfo == null) {</b>
+<i class="no-highlight">1495</i>&nbsp;            /* Txn did not call for an ack. */
+<i class="no-highlight">1496</i>&nbsp;            return;
+<i class="no-highlight">1497</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1498</i>&nbsp;        final VLSN commitVLSN = txnInfo.getCommitVLSN();</b>
+<b class="nc"><i class="no-highlight">1499</i>&nbsp;        if (commitVLSN == null) {</b>
+<i class="no-highlight">1500</i>&nbsp;            return;
+<i class="no-highlight">1501</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1502</i>&nbsp;        if (commitVLSN.compareTo(replicaTxnEndVLSN) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">1503</i>&nbsp;            replicaTxnEndVLSN = commitVLSN;</b>
+<i class="no-highlight">1504</i>&nbsp;
+<b class="nc"><i class="no-highlight">1505</i>&nbsp;            if (txnInfo.getPendingAcks() == 0) {</b>
+<i class="no-highlight">1506</i>&nbsp;                /*
+<i class="no-highlight">1507</i>&nbsp;                 * We could do better for ACK all, when we get a majority of
+<i class="no-highlight">1508</i>&nbsp;                 * acks but not all of them but we don&#39;t worry about optimizing
+<i class="no-highlight">1509</i>&nbsp;                 * this failure case. The heartbeat response will correct it.
+<i class="no-highlight">1510</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1511</i>&nbsp;                repNode.updateDTVLSN(replicaTxnEndVLSN.getSequence());</b>
+<i class="no-highlight">1512</i>&nbsp;            }
+<i class="no-highlight">1513</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1514</i>&nbsp;        caughtUp = true;</b>
+<b class="nc"><i class="no-highlight">1515</i>&nbsp;        adviseMasterTransferProgress();</b>
+<i class="no-highlight">1516</i>&nbsp;    }
+<i class="no-highlight">1517</i>&nbsp;
+<i class="no-highlight">1518</i>&nbsp;    /**
+<i class="no-highlight">1519</i>&nbsp;     * Defines the handler for the RepNode thread. The handler invalidates the
+<i class="no-highlight">1520</i>&nbsp;     * environment by ensuring that an EnvironmentFailureException is in place.
+<i class="no-highlight">1521</i>&nbsp;     *
+<i class="no-highlight">1522</i>&nbsp;     * The handler communicates the cause of the exception back to the
+<i class="no-highlight">1523</i>&nbsp;     * FeederManager&#39;s thread by setting the repNodeShutdownException and then
+<i class="no-highlight">1524</i>&nbsp;     * interrupting the FM thread. The FM thread upon handling the interrupt
+<i class="no-highlight">1525</i>&nbsp;     * notices the exception and propagates it out in turn to other threads
+<i class="no-highlight">1526</i>&nbsp;     * that might be coordinating activities with it.
+<i class="no-highlight">1527</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">1528</i>&nbsp;    private class IOThreadsHandler implements UncaughtExceptionHandler {</b>
+<i class="no-highlight">1529</i>&nbsp;
+<i class="no-highlight">1530</i>&nbsp;        @Override
+<i class="no-highlight">1531</i>&nbsp;        public void uncaughtException(Thread t, Throwable e) {
+<b class="nc"><i class="no-highlight">1532</i>&nbsp;            LoggerUtils.severe(logger, repImpl,</b>
+<i class="no-highlight">1533</i>&nbsp;                               &quot;Uncaught exception in feeder thread &quot; + t +
+<b class="nc"><i class="no-highlight">1534</i>&nbsp;                               e.getMessage() +</b>
+<b class="nc"><i class="no-highlight">1535</i>&nbsp;                               LoggerUtils.getStackTrace(e));</b>
+<i class="no-highlight">1536</i>&nbsp;
+<i class="no-highlight">1537</i>&nbsp;            /* Bring the exception to the parent thread&#39;s attention. */
+<b class="nc"><i class="no-highlight">1538</i>&nbsp;            feederManager.setRepNodeShutdownException</b>
+<b class="nc"><i class="no-highlight">1539</i>&nbsp;                (EnvironmentFailureException.promote</b>
+<b class="nc"><i class="no-highlight">1540</i>&nbsp;                 (repNode.getRepImpl(),</b>
+<i class="no-highlight">1541</i>&nbsp;                  EnvironmentFailureReason.UNCAUGHT_EXCEPTION,
+<i class="no-highlight">1542</i>&nbsp;                  &quot;Uncaught exception in feeder thread:&quot; + t,
+<i class="no-highlight">1543</i>&nbsp;                  e));
+<i class="no-highlight">1544</i>&nbsp;
+<i class="no-highlight">1545</i>&nbsp;            /*
+<i class="no-highlight">1546</i>&nbsp;             * Bring it to the FeederManager&#39;s attention, it&#39;s currently the
+<i class="no-highlight">1547</i>&nbsp;             * same as the rep node&#39;s thread.
+<i class="no-highlight">1548</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">1549</i>&nbsp;            repNode.interrupt();</b>
+<i class="no-highlight">1550</i>&nbsp;        }
+<i class="no-highlight">1551</i>&nbsp;    }
+<i class="no-highlight">1552</i>&nbsp;
+<i class="no-highlight">1553</i>&nbsp;    /**
+<i class="no-highlight">1554</i>&nbsp;     * A marker exception that wraps the real exception. It indicates that the
+<i class="no-highlight">1555</i>&nbsp;     * impact of wrapped exception can be contained, that is, it&#39;s sufficient
+<i class="no-highlight">1556</i>&nbsp;     * cause to exit the Feeder, but does not otherwise impact the RepNode.
+<i class="no-highlight">1557</i>&nbsp;     */
+<i class="no-highlight">1558</i>&nbsp;    @SuppressWarnings(&quot;serial&quot;)
+<i class="no-highlight">1559</i>&nbsp;    public static class ExitException extends Exception {
+<i class="no-highlight">1560</i>&nbsp;        /*
+<i class="no-highlight">1561</i>&nbsp;         * If true, cause the remote replica to throw an EFE instead of
+<i class="no-highlight">1562</i>&nbsp;         * retrying.
+<i class="no-highlight">1563</i>&nbsp;         */
+<i class="no-highlight">1564</i>&nbsp;        final boolean failReplica;
+<i class="no-highlight">1565</i>&nbsp;
+<i class="no-highlight">1566</i>&nbsp;        public ExitException(String message) {
+<b class="nc"><i class="no-highlight">1567</i>&nbsp;            super(message);</b>
+<b class="nc"><i class="no-highlight">1568</i>&nbsp;            this.failReplica = true;</b>
+<i class="no-highlight">1569</i>&nbsp;        }
+<i class="no-highlight">1570</i>&nbsp;
+<i class="no-highlight">1571</i>&nbsp;        public ExitException(Throwable cause,
+<i class="no-highlight">1572</i>&nbsp;                             boolean failReplica) {
+<b class="nc"><i class="no-highlight">1573</i>&nbsp;            super(cause);</b>
+<b class="nc"><i class="no-highlight">1574</i>&nbsp;            this.failReplica = failReplica;</b>
+<i class="no-highlight">1575</i>&nbsp;        }
+<i class="no-highlight">1576</i>&nbsp;
+<i class="no-highlight">1577</i>&nbsp;        public boolean failReplica() {
+<b class="nc"><i class="no-highlight">1578</i>&nbsp;            return failReplica;</b>
+<i class="no-highlight">1579</i>&nbsp;        }
+<i class="no-highlight">1580</i>&nbsp;    }
+<i class="no-highlight">1581</i>&nbsp;
+<i class="no-highlight">1582</i>&nbsp;    /**  For debugging and exception messages. */
+<i class="no-highlight">1583</i>&nbsp;    public String dumpState() {
+<b class="nc"><i class="no-highlight">1584</i>&nbsp;        return &quot;feederVLSN=&quot; + feederVLSN +</b>
+<i class="no-highlight">1585</i>&nbsp;                &quot; replicaTxnEndVLSN=&quot; + replicaTxnEndVLSN +
+<b class="nc"><i class="no-highlight">1586</i>&nbsp;            ((replicaNode != null) &amp;&amp; !replicaNode.getType().isElectable() ?</b>
+<b class="nc"><i class="no-highlight">1587</i>&nbsp;             &quot; nodeType=&quot; + replicaNode.getType() :</b>
+<i class="no-highlight">1588</i>&nbsp;             &quot;&quot;);
+<i class="no-highlight">1589</i>&nbsp;    }
+<i class="no-highlight">1590</i>&nbsp;
+<i class="no-highlight">1591</i>&nbsp;    /**
+<i class="no-highlight">1592</i>&nbsp;     * Set a test hook that will be called before sending a message using the
+<i class="no-highlight">1593</i>&nbsp;     * protocol&#39;s write method, supplying the hook with the message as an
+<i class="no-highlight">1594</i>&nbsp;     * argument.
+<i class="no-highlight">1595</i>&nbsp;     */
+<i class="no-highlight">1596</i>&nbsp;    public void setWriteMessageHook(final TestHook&lt;Message&gt; writeMessageHook) {
+<b class="nc"><i class="no-highlight">1597</i>&nbsp;        this.writeMessageHook = writeMessageHook;</b>
+<i class="no-highlight">1598</i>&nbsp;    }
+<i class="no-highlight">1599</i>&nbsp;
+<i class="no-highlight">1600</i>&nbsp;    /**
+<i class="no-highlight">1601</i>&nbsp;     * Get the test hook to be called before sending a message using the
+<i class="no-highlight">1602</i>&nbsp;     * protocol&#39;s write method.
+<i class="no-highlight">1603</i>&nbsp;     */
+<i class="no-highlight">1604</i>&nbsp;    public TestHook&lt;Message&gt; getWriteMessageHook() {
+<b class="nc"><i class="no-highlight">1605</i>&nbsp;        return writeMessageHook;</b>
+<i class="no-highlight">1606</i>&nbsp;    }
+<i class="no-highlight">1607</i>&nbsp;
+<i class="no-highlight">1608</i>&nbsp;    /**
+<i class="no-highlight">1609</i>&nbsp;     * Set the value of the write message hook that will be used for newly
+<i class="no-highlight">1610</i>&nbsp;     * created feeders.
+<i class="no-highlight">1611</i>&nbsp;     */
+<i class="no-highlight">1612</i>&nbsp;    public static void setInitialWriteMessageHook(
+<i class="no-highlight">1613</i>&nbsp;        final TestHook&lt;Message&gt; initialWriteMessageHook) {
+<i class="no-highlight">1614</i>&nbsp;
+<b class="nc"><i class="no-highlight">1615</i>&nbsp;        Feeder.initialWriteMessageHook = initialWriteMessageHook;</b>
+<i class="no-highlight">1616</i>&nbsp;    }
+<i class="no-highlight">1617</i>&nbsp;
+<i class="no-highlight">1618</i>&nbsp;    /* Returns if feeder needs to do security checks */
+<i class="no-highlight">1619</i>&nbsp;    public boolean needSecurityChecks() {
+<i class="no-highlight">1620</i>&nbsp;
+<i class="no-highlight">1621</i>&nbsp;        /* no check for non-secure store without an authenticator */
+<b class="nc"><i class="no-highlight">1622</i>&nbsp;        if (authenticator == null) {</b>
+<b class="nc"><i class="no-highlight">1623</i>&nbsp;            return false;</b>
+<i class="no-highlight">1624</i>&nbsp;        }
+<i class="no-highlight">1625</i>&nbsp;
+<b class="nc"><i class="no-highlight">1626</i>&nbsp;        final DataChannel channel = feederReplicaChannel.getChannel();</b>
+<b class="nc"><i class="no-highlight">1627</i>&nbsp;        return channel.isTrustCapable() &amp;&amp; !channel.isTrusted();</b>
+<i class="no-highlight">1628</i>&nbsp;    }
+<i class="no-highlight">1629</i>&nbsp;
+<i class="no-highlight">1630</i>&nbsp;    /* Authenticates the replication stream consumer and checks authorization */
+<i class="no-highlight">1631</i>&nbsp;    private void doSecurityCheck() throws ReplicationSecurityException {
+<i class="no-highlight">1632</i>&nbsp;
+<b class="nc"><i class="no-highlight">1633</i>&nbsp;        if (!needSecurityChecks()) {</b>
+<i class="no-highlight">1634</i>&nbsp;            return;
+<i class="no-highlight">1635</i>&nbsp;        }
+<i class="no-highlight">1636</i>&nbsp;
+<b class="nc"><i class="no-highlight">1637</i>&nbsp;        final long curr = System.currentTimeMillis();</b>
+<i class="no-highlight">1638</i>&nbsp;
+<b class="nc"><i class="no-highlight">1639</i>&nbsp;        if ((curr - authenticator.getLastCheckTimeMs()) &gt;= securityChkIntvMs) {</b>
+<b class="nc"><i class="no-highlight">1640</i>&nbsp;            checkAccess(authenticator,</b>
+<b class="nc"><i class="no-highlight">1641</i>&nbsp;                        feederReplicaChannel.getNameIdPair().getName());</b>
+<i class="no-highlight">1642</i>&nbsp;        }
+<i class="no-highlight">1643</i>&nbsp;    }
+<i class="no-highlight">1644</i>&nbsp;
+<i class="no-highlight">1645</i>&nbsp;    /* Re-authenticates the stream consumer if applicable */
+<i class="no-highlight">1646</i>&nbsp;    private void processReauthenticate(Message msg) {
+<i class="no-highlight">1647</i>&nbsp;
+<i class="no-highlight">1648</i>&nbsp;        /* ignore if replica is not an external node */
+<b class="nc"><i class="no-highlight">1649</i>&nbsp;        if (!getReplicaNode().getType().isExternal()) {</b>
+<i class="no-highlight">1650</i>&nbsp;            return;
+<i class="no-highlight">1651</i>&nbsp;        }
+<i class="no-highlight">1652</i>&nbsp;
+<i class="no-highlight">1653</i>&nbsp;        /* ignore the message if no authentication is enabled */
+<b class="nc"><i class="no-highlight">1654</i>&nbsp;        if (authenticator == null) {</b>
+<i class="no-highlight">1655</i>&nbsp;            return;
+<i class="no-highlight">1656</i>&nbsp;        }
+<i class="no-highlight">1657</i>&nbsp;
+<b class="nc"><i class="no-highlight">1658</i>&nbsp;        final Protocol.ReAuthenticate reauth = (Protocol.ReAuthenticate)msg;</b>
+<b class="nc"><i class="no-highlight">1659</i>&nbsp;        authenticator.setToken(reauth.getTokenBytes());</b>
+<b class="nc"><i class="no-highlight">1660</i>&nbsp;        checkAccess(authenticator,</b>
+<b class="nc"><i class="no-highlight">1661</i>&nbsp;                    feederReplicaChannel.getNameIdPair().getName());</b>
+<i class="no-highlight">1662</i>&nbsp;    }
+<i class="no-highlight">1663</i>&nbsp;
+<i class="no-highlight">1664</i>&nbsp;    private static void checkAccess(StreamAuthenticator authenticator,
+<i class="no-highlight">1665</i>&nbsp;                                    String replicaName) {
+<i class="no-highlight">1666</i>&nbsp;        /* both authentication and authorization */
+<b class="nc"><i class="no-highlight">1667</i>&nbsp;        if (!authenticator.checkAccess()) {</b>
+<b class="nc"><i class="no-highlight">1668</i>&nbsp;            final String err =</b>
+<i class="no-highlight">1669</i>&nbsp;                &quot;replica &quot; + replicaName +
+<i class="no-highlight">1670</i>&nbsp;                &quot;fails the security check to stream requested data.&quot;;
+<b class="nc"><i class="no-highlight">1671</i>&nbsp;            throw new ReplicationSecurityException(err, replicaName, null);</b>
+<i class="no-highlight">1672</i>&nbsp;        }
+<i class="no-highlight">1673</i>&nbsp;    }
+<i class="no-highlight">1674</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

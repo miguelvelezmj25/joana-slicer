@@ -1,0 +1,587 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > TxnChain</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: TxnChain (com.sleepycat.je.txn)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">TxnChain</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/77)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">TxnChain$CompareSlot</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/13)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">TxnChain$RevertInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/24)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/15)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/114)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.FileNotFoundException;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">18</i>&nbsp;import java.util.LinkedList;
+<i class="no-highlight">19</i>&nbsp;import java.util.Map;
+<i class="no-highlight">20</i>&nbsp;import java.util.Set;
+<i class="no-highlight">21</i>&nbsp;import java.util.TreeMap;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.DatabaseId;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentFailureReason;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.log.LogManager;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.log.WholeEntry;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.log.entry.LNLogEntry;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.tree.Key;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">36</i>&nbsp;
+<i class="no-highlight">37</i>&nbsp;/**
+<i class="no-highlight">38</i>&nbsp; * TxnChain supports &quot;txn rollback&quot;, which undoes the write operations for a
+<i class="no-highlight">39</i>&nbsp; * given txn to an arbitrary point. Txn rollback (and TxnChain construction)
+<i class="no-highlight">40</i>&nbsp; * is done in 2 occasions:
+<i class="no-highlight">41</i>&nbsp; * 1. During normal processing, when an ongoing txn must be rolled-back due to
+<i class="no-highlight">42</i>&nbsp; *    a syncup operation (see rep/txn/ReplayTxn.java).
+<i class="no-highlight">43</i>&nbsp; * 2. During recovery, to process a &quot;rollback period&quot; (see RollbackTracker.java)
+<i class="no-highlight">44</i>&nbsp; *
+<i class="no-highlight">45</i>&nbsp; * In the JE log, the logrecs that make up a txn are chained, but each logrec
+<i class="no-highlight">46</i>&nbsp; * contains undo info that refers to the pre-txn version of the associated
+<i class="no-highlight">47</i>&nbsp; * record, which may not be the immediately previous version, if the txn writes
+<i class="no-highlight">48</i>&nbsp; * the same record multiple times. For example, a log looks like this:
+<i class="no-highlight">49</i>&nbsp; *
+<i class="no-highlight">50</i>&nbsp; * lsn       key   data         abortlsn
+<i class="no-highlight">51</i>&nbsp; * 100       A      10          null_lsn (first instance of record A)
+<i class="no-highlight">52</i>&nbsp; * 150       B      100         null_lsn (first instance of record B)
+<i class="no-highlight">53</i>&nbsp; *  .....  txn begins .....
+<i class="no-highlight">54</i>&nbsp; * 200       A      20          100
+<i class="no-highlight">55</i>&nbsp; * 300       A    deleted       100
+<i class="no-highlight">56</i>&nbsp; * 400       B     200          150
+<i class="no-highlight">57</i>&nbsp; * 500       A      30          100
+<i class="no-highlight">58</i>&nbsp; * 600       C      10          null_lsn
+<i class="no-highlight">59</i>&nbsp; *
+<i class="no-highlight">60</i>&nbsp; * When reading the log, we can find all the records in the transaction. This
+<i class="no-highlight">61</i>&nbsp; * chain exists:
+<i class="no-highlight">62</i>&nbsp; * 500-&gt;400-&gt;300-&gt;200-&gt;null_lsn
+<i class="no-highlight">63</i>&nbsp; *
+<i class="no-highlight">64</i>&nbsp; * To rollback to an arbitrary entry in the transaction, we need a chain of all
+<i class="no-highlight">65</i>&nbsp; * the records that occupied a given BIN slot during the transaction.
+<i class="no-highlight">66</i>&nbsp; * chain. The key, data, and comparators are used to determine which records
+<i class="no-highlight">67</i>&nbsp; * hash to the same slot, mimicking the btree itself.
+<i class="no-highlight">68</i>&nbsp; *
+<i class="no-highlight">69</i>&nbsp; *
+<i class="no-highlight">70</i>&nbsp; *   300      400      500     600
+<i class="no-highlight">71</i>&nbsp; *    |        |        |       |
+<i class="no-highlight">72</i>&nbsp; *   \ /      \ /      \ /     \ /
+<i class="no-highlight">73</i>&nbsp; *    
+<i class="no-highlight">74</i>&nbsp; *   200      150      300    null_lsn   revertToLsn
+<i class="no-highlight">75</i>&nbsp; *                             true       revertKD
+<i class="no-highlight">76</i>&nbsp; */
+<i class="no-highlight">77</i>&nbsp;public class TxnChain {
+<i class="no-highlight">78</i>&nbsp;
+<i class="no-highlight">79</i>&nbsp;    private final EnvironmentImpl envImpl;
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /*
+<i class="no-highlight">82</i>&nbsp;     * Null if we are in recovery. Otherwise, it points to the same map as the
+<i class="no-highlight">83</i>&nbsp;     * undoDatabases field of the ReplayTxn.
+<i class="no-highlight">84</i>&nbsp;     */
+<i class="no-highlight">85</i>&nbsp;    private final Map&lt;DatabaseId, DatabaseImpl&gt; undoDatabases;
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    /*
+<i class="no-highlight">88</i>&nbsp;     * Set of LSNs that will not be undone (i.e. the preserved portion of the
+<i class="no-highlight">89</i>&nbsp;     * txn&#39;s log chain).
+<i class="no-highlight">90</i>&nbsp;     */
+<i class="no-highlight">91</i>&nbsp;    private final Set&lt;Long&gt; remainingLockedNodes;
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /*
+<i class="no-highlight">94</i>&nbsp;     * For each logrec that will be undone, revertList contains a RevertInfo
+<i class="no-highlight">95</i>&nbsp;     * obj, which refers to the record version to revert to. The list is 
+<i class="no-highlight">96</i>&nbsp;     * ordered in reverse LSN order.
+<i class="no-highlight">97</i>&nbsp;     */
+<i class="no-highlight">98</i>&nbsp;    private final LinkedList&lt;RevertInfo&gt; revertList;
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;    /* The last applied VLSN in this txn, after rollback has occurred. */
+<i class="no-highlight">101</i>&nbsp;    private VLSN lastValidVLSN;
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    /*
+<i class="no-highlight">104</i>&nbsp;     * Find the previous version for all entries in this transaction. Used by
+<i class="no-highlight">105</i>&nbsp;     * recovery. This differs from the constructor used by syncup rollback
+<i class="no-highlight">106</i>&nbsp;     * which is instigated by the txn. In this case, there is no cache of
+<i class="no-highlight">107</i>&nbsp;     * DatabaseImpls.
+<i class="no-highlight">108</i>&nbsp;     */
+<i class="no-highlight">109</i>&nbsp;    public TxnChain(
+<i class="no-highlight">110</i>&nbsp;        long lastLoggedLsn,
+<i class="no-highlight">111</i>&nbsp;        long txnId,
+<i class="no-highlight">112</i>&nbsp;        long matchpoint,
+<i class="no-highlight">113</i>&nbsp;        EnvironmentImpl envImpl)  {
+<i class="no-highlight">114</i>&nbsp;
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        this(lastLoggedLsn, txnId, matchpoint, null, envImpl);</b>
+<i class="no-highlight">116</i>&nbsp;    }
+<i class="no-highlight">117</i>&nbsp;
+<i class="no-highlight">118</i>&nbsp;    /*
+<i class="no-highlight">119</i>&nbsp;     * Find the previous version for all entries in this transaction.
+<i class="no-highlight">120</i>&nbsp;     * DatabaseImpls used during txn chain creation are taken from the
+<i class="no-highlight">121</i>&nbsp;     * transaction&#39;s undoDatabases cache.
+<i class="no-highlight">122</i>&nbsp;     */
+<i class="no-highlight">123</i>&nbsp;    public TxnChain(
+<i class="no-highlight">124</i>&nbsp;        long lastLoggedLsn,
+<i class="no-highlight">125</i>&nbsp;        long txnId,
+<i class="no-highlight">126</i>&nbsp;        long matchpoint,
+<i class="no-highlight">127</i>&nbsp;        Map&lt;DatabaseId, DatabaseImpl&gt; undoDatabases,
+<i class="no-highlight">128</i>&nbsp;        EnvironmentImpl envImpl)
+<b class="nc"><i class="no-highlight">129</i>&nbsp;        throws DatabaseException {</b>
+<i class="no-highlight">130</i>&nbsp;
+<b class="nc"><i class="no-highlight">131</i>&nbsp;        LogManager logManager = envImpl.getLogManager();</b>
+<i class="no-highlight">132</i>&nbsp;
+<b class="nc"><i class="no-highlight">133</i>&nbsp;        this.envImpl = envImpl;</b>
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        this.undoDatabases = undoDatabases;</b>
+<i class="no-highlight">135</i>&nbsp;
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        remainingLockedNodes = new HashSet&lt;Long&gt;();</b>
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;        /*
+<i class="no-highlight">139</i>&nbsp;         * A map that stores for each record R the revert info for the
+<i class="no-highlight">140</i>&nbsp;         * latest R-logrec seen during the backwards traversal of the
+<i class="no-highlight">141</i>&nbsp;         * txn chain done below.
+<i class="no-highlight">142</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        TreeMap&lt;CompareSlot, RevertInfo&gt; recordsMap =</b>
+<i class="no-highlight">144</i>&nbsp;            new TreeMap&lt;CompareSlot, RevertInfo&gt;();
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        revertList = new LinkedList&lt;RevertInfo&gt;();</b>
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;        /*
+<i class="no-highlight">149</i>&nbsp;         * Traverse this txn&#39;s entire logrec chain and record revert info
+<i class="no-highlight">150</i>&nbsp;         * for each logrec in the chain. Start the traversal with the last
+<i class="no-highlight">151</i>&nbsp;         * logrec generated by this txn and move backwards.
+<i class="no-highlight">152</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        long currLsn = lastLoggedLsn;</b>
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">156</i>&nbsp;            lastValidVLSN = VLSN.NULL_VLSN;</b>
+<i class="no-highlight">157</i>&nbsp;
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            while (currLsn != DbLsn.NULL_LSN) {</b>
+<i class="no-highlight">159</i>&nbsp;
+<b class="nc"><i class="no-highlight">160</i>&nbsp;                WholeEntry wholeEntry =</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                    logManager.getLogEntryAllowInvisible(currLsn);</b>
+<i class="no-highlight">162</i>&nbsp;
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                LNLogEntry&lt;?&gt; currLogrec =</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                    (LNLogEntry&lt;?&gt;) wholeEntry.getEntry();</b>
+<i class="no-highlight">165</i>&nbsp;
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                DatabaseImpl dbImpl = getDatabaseImpl(currLogrec.getDbId());</b>
+<i class="no-highlight">167</i>&nbsp;
+<b class="nc"><i class="no-highlight">168</i>&nbsp;                if (dbImpl == null) {</b>
+<i class="no-highlight">169</i>&nbsp;
+<b class="nc"><i class="no-highlight">170</i>&nbsp;                    if (undoDatabases != null) {</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                        throw EnvironmentFailureException.unexpectedState(</b>
+<i class="no-highlight">172</i>&nbsp;                            envImpl, // fatal error, this is a corruption
+<i class="no-highlight">173</i>&nbsp;                            &quot;DB missing during non-recovery rollback, dbId=&quot; +
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                            currLogrec.getDbId() + &quot; txnId=&quot; + txnId);</b>
+<i class="no-highlight">175</i>&nbsp;                    }
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;                    /*
+<i class="no-highlight">178</i>&nbsp;                     * For recovery rollback, simply skip this entry when the
+<i class="no-highlight">179</i>&nbsp;                     * DB has been deleted.  This has no impact on the chain
+<i class="no-highlight">180</i>&nbsp;                     * for other LNs.  This LN will not be processed by
+<i class="no-highlight">181</i>&nbsp;                     * recovery rollback, since RollbackTracker.rollback
+<i class="no-highlight">182</i>&nbsp;                     * ignores LNs in deleted DBs.  [#22071] [#22052]
+<i class="no-highlight">183</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                    currLsn = currLogrec.getUserTxn().getLastLsn();</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;                    continue;</b>
+<i class="no-highlight">186</i>&nbsp;                }
+<i class="no-highlight">187</i>&nbsp;
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                currLogrec.postFetchInit(dbImpl);</b>
+<i class="no-highlight">189</i>&nbsp;
+<i class="no-highlight">190</i>&nbsp;                try {
+<i class="no-highlight">191</i>&nbsp;                    /*
+<i class="no-highlight">192</i>&nbsp;                     * Let L be the current logrec, and let R and T be the
+<i class="no-highlight">193</i>&nbsp;                     * record and txn associated with L. If T wrote R again
+<i class="no-highlight">194</i>&nbsp;                     * after L, let Ln be the 1st R-logrec by T after L. 
+<i class="no-highlight">195</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">196</i>&nbsp;                    CompareSlot recId = new CompareSlot(dbImpl, currLogrec);</b>
+<i class="no-highlight">197</i>&nbsp;
+<b class="nc"><i class="no-highlight">198</i>&nbsp;                    RevertInfo ri = recordsMap.get(recId);</b>
+<i class="no-highlight">199</i>&nbsp;
+<i class="no-highlight">200</i>&nbsp;                    /*
+<i class="no-highlight">201</i>&nbsp;                     * If Ln exists, update the RevertInfo created earlier for
+<i class="no-highlight">202</i>&nbsp;                     * Ln so that it now refers to the L version of R.
+<i class="no-highlight">203</i>&nbsp;                      */
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                    if (ri != null) {</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                        ri.revertLsn = currLsn;</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                        ri.revertKD = false;</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;                        ri.revertPD = currLogrec.isDeleted();</b>
+<i class="no-highlight">208</i>&nbsp;
+<b class="nc"><i class="no-highlight">209</i>&nbsp;                        ri.revertKey = </b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;                            (dbImpl.allowsKeyUpdates() ?</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                             currLogrec.getKey() : null);</b>
+<i class="no-highlight">212</i>&nbsp;
+<b class="nc"><i class="no-highlight">213</i>&nbsp;                        ri.revertData =</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;                            (currLogrec.isEmbeddedLN() ?</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;                             currLogrec.getData() : null);</b>
+<i class="no-highlight">216</i>&nbsp;
+<b class="nc"><i class="no-highlight">217</i>&nbsp;                        ri.revertVLSN =</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;                            (currLogrec.isEmbeddedLN() ?</b>
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                             currLogrec.getLN().getVLSNSequence() :</b>
+<i class="no-highlight">220</i>&nbsp;                             VLSN.NULL_VLSN_SEQUENCE);
+<i class="no-highlight">221</i>&nbsp;
+<b class="nc"><i class="no-highlight">222</i>&nbsp;                        ri.revertExpiration = currLogrec.getExpiration();</b>
+<i class="no-highlight">223</i>&nbsp;
+<b class="nc"><i class="no-highlight">224</i>&nbsp;                        ri.revertExpirationInHours =</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                            currLogrec.isExpirationInHours();</b>
+<i class="no-highlight">226</i>&nbsp;                    }
+<i class="no-highlight">227</i>&nbsp;
+<i class="no-highlight">228</i>&nbsp;                    /*
+<i class="no-highlight">229</i>&nbsp;                     * If L will be rolled back, assume that it is the 1st
+<i class="no-highlight">230</i>&nbsp;                     * R-logrec by T and thus set its revert info to refer
+<i class="no-highlight">231</i>&nbsp;                     * to the pre-T version of R. 
+<i class="no-highlight">232</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                    if (DbLsn.compareTo(currLsn, matchpoint) &gt; 0) {</b>
+<i class="no-highlight">234</i>&nbsp;
+<b class="nc"><i class="no-highlight">235</i>&nbsp;                        ri = new RevertInfo(</b>
+<b class="nc"><i class="no-highlight">236</i>&nbsp;                            currLogrec.getAbortLsn(),</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                            currLogrec.getAbortKnownDeleted(),</b>
+<b class="nc"><i class="no-highlight">238</i>&nbsp;                            currLogrec.getAbortKey(),</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                            currLogrec.getAbortData(),</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                            currLogrec.getAbortVLSN(),</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                            currLogrec.getAbortExpiration(),</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                            currLogrec.isAbortExpirationInHours());</b>
+<i class="no-highlight">243</i>&nbsp;
+<b class="nc"><i class="no-highlight">244</i>&nbsp;                        revertList.add(ri);</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                        recordsMap.put(recId, ri);</b>
+<i class="no-highlight">246</i>&nbsp;
+<i class="no-highlight">247</i>&nbsp;                    } else {
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;                        /*
+<i class="no-highlight">250</i>&nbsp;                         * We are done with record R, so remove it from the
+<i class="no-highlight">251</i>&nbsp;                         * map, if it is still there.
+<i class="no-highlight">252</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">253</i>&nbsp;                        if (ri != null) {</b>
+<b class="nc"><i class="no-highlight">254</i>&nbsp;                            recordsMap.remove(recId);</b>
+<i class="no-highlight">255</i>&nbsp;                        }
+<i class="no-highlight">256</i>&nbsp;
+<b class="nc"><i class="no-highlight">257</i>&nbsp;                        remainingLockedNodes.add(currLsn);</b>
+<i class="no-highlight">258</i>&nbsp;
+<b class="nc"><i class="no-highlight">259</i>&nbsp;                        if (lastValidVLSN != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;                            lastValidVLSN.isNull() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                            wholeEntry.getHeader().getVLSN() != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;                            !wholeEntry.getHeader().getVLSN().isNull()) {</b>
+<i class="no-highlight">263</i>&nbsp;
+<b class="nc"><i class="no-highlight">264</i>&nbsp;                            lastValidVLSN = wholeEntry.getHeader().getVLSN();</b>
+<i class="no-highlight">265</i>&nbsp;                        }
+<i class="no-highlight">266</i>&nbsp;                    }
+<i class="no-highlight">267</i>&nbsp;
+<i class="no-highlight">268</i>&nbsp;                    /* Move on to the previous logrec for this txn. */
+<b class="nc"><i class="no-highlight">269</i>&nbsp;                    currLsn = currLogrec.getUserTxn().getLastLsn();</b>
+<i class="no-highlight">270</i>&nbsp;
+<i class="no-highlight">271</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">272</i>&nbsp;                    releaseDatabaseImpl(dbImpl);</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        } catch (FileNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;            throw EnvironmentFailureException.promote(</b>
+<i class="no-highlight">277</i>&nbsp;                envImpl, EnvironmentFailureReason.LOG_INTEGRITY,
+<i class="no-highlight">278</i>&nbsp;                &quot;Problem finding intermediates for txn &quot; + txnId +
+<b class="nc"><i class="no-highlight">279</i>&nbsp;                &quot; at lsn &quot; + DbLsn.getNoFormatString(currLsn), e);</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        }</b>
+<i class="no-highlight">281</i>&nbsp;    }
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;    /**
+<i class="no-highlight">284</i>&nbsp;     * Hide the details of whether we are getting a databaseImpl from the txn&#39;s
+<i class="no-highlight">285</i>&nbsp;     * cache, or whether we&#39;re fetching it from the dbMapTree at recovery or 
+<i class="no-highlight">286</i>&nbsp;     * during master-&gt;replica transition.
+<i class="no-highlight">287</i>&nbsp;     */
+<i class="no-highlight">288</i>&nbsp;    private DatabaseImpl getDatabaseImpl(DatabaseId dbId) {
+<b class="nc"><i class="no-highlight">289</i>&nbsp;        if (undoDatabases != null) {</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;            return undoDatabases.get(dbId);</b>
+<i class="no-highlight">291</i>&nbsp;        }
+<i class="no-highlight">292</i>&nbsp;
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        return envImpl.getDbTree().getDb(dbId);</b>
+<i class="no-highlight">294</i>&nbsp;    }
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;    /** Only needed if we are in recovery, and fetched the DatabaseImpl. */
+<i class="no-highlight">297</i>&nbsp;    private void releaseDatabaseImpl(DatabaseImpl dbImpl) {
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        if (undoDatabases == null) {</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;            envImpl.getDbTree().releaseDb(dbImpl);</b>
+<i class="no-highlight">300</i>&nbsp;        }
+<i class="no-highlight">301</i>&nbsp;    }
+<i class="no-highlight">302</i>&nbsp;
+<i class="no-highlight">303</i>&nbsp;    /**
+<i class="no-highlight">304</i>&nbsp;     * Returns LSNs for all nodes that should remain locked by the txn.  Note
+<i class="no-highlight">305</i>&nbsp;     * that when multiple versions of a record were locked by the txn, the LSNs
+<i class="no-highlight">306</i>&nbsp;     * of all versions are returned.  Only the latest version will actually be
+<i class="no-highlight">307</i>&nbsp;     * locked.
+<i class="no-highlight">308</i>&nbsp;     */
+<i class="no-highlight">309</i>&nbsp;    public Set&lt;Long&gt; getRemainingLockedNodes() {
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        return remainingLockedNodes;</b>
+<i class="no-highlight">311</i>&nbsp;    }
+<i class="no-highlight">312</i>&nbsp;
+<i class="no-highlight">313</i>&nbsp;    /**
+<i class="no-highlight">314</i>&nbsp;     * Return information about the next item on the transaction chain and
+<i class="no-highlight">315</i>&nbsp;     * remove it from the chain.
+<i class="no-highlight">316</i>&nbsp;     */
+<i class="no-highlight">317</i>&nbsp;    public RevertInfo pop() {
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        return revertList.remove();</b>
+<i class="no-highlight">319</i>&nbsp;    }
+<i class="no-highlight">320</i>&nbsp;
+<i class="no-highlight">321</i>&nbsp;    public VLSN getLastValidVLSN() {
+<b class="nc"><i class="no-highlight">322</i>&nbsp;        return lastValidVLSN;</b>
+<i class="no-highlight">323</i>&nbsp;    }
+<i class="no-highlight">324</i>&nbsp;
+<i class="no-highlight">325</i>&nbsp;    @Override
+<i class="no-highlight">326</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">327</i>&nbsp;        return revertList.toString();</b>
+<i class="no-highlight">328</i>&nbsp;    }
+<i class="no-highlight">329</i>&nbsp;
+<i class="no-highlight">330</i>&nbsp;    public static class RevertInfo {
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;        public long revertLsn;
+<i class="no-highlight">333</i>&nbsp;        public boolean revertKD;
+<i class="no-highlight">334</i>&nbsp;        public boolean revertPD;
+<i class="no-highlight">335</i>&nbsp;        public byte[] revertKey;
+<i class="no-highlight">336</i>&nbsp;        public byte[] revertData;
+<i class="no-highlight">337</i>&nbsp;        public long revertVLSN;
+<i class="no-highlight">338</i>&nbsp;        public int revertExpiration;
+<i class="no-highlight">339</i>&nbsp;        public boolean revertExpirationInHours;
+<i class="no-highlight">340</i>&nbsp;
+<i class="no-highlight">341</i>&nbsp;        RevertInfo(
+<i class="no-highlight">342</i>&nbsp;            long revertLsn,
+<i class="no-highlight">343</i>&nbsp;            boolean revertKD,
+<i class="no-highlight">344</i>&nbsp;            byte[] revertKey,
+<i class="no-highlight">345</i>&nbsp;            byte[] revertData,
+<i class="no-highlight">346</i>&nbsp;            long revertVLSN,
+<i class="no-highlight">347</i>&nbsp;            int revertExpiration,
+<b class="nc"><i class="no-highlight">348</i>&nbsp;            boolean revertExpirationInHours) {</b>
+<i class="no-highlight">349</i>&nbsp;
+<b class="nc"><i class="no-highlight">350</i>&nbsp;            this.revertLsn = revertLsn;</b>
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            this.revertKD = revertKD;</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;            this.revertPD = false;</b>
+<b class="nc"><i class="no-highlight">353</i>&nbsp;            this.revertKey = revertKey;</b>
+<b class="nc"><i class="no-highlight">354</i>&nbsp;            this.revertData = revertData;</b>
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            this.revertVLSN = revertVLSN;</b>
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            this.revertExpiration = revertExpiration;</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;            this.revertExpirationInHours = revertExpirationInHours;</b>
+<i class="no-highlight">358</i>&nbsp;        }
+<i class="no-highlight">359</i>&nbsp;
+<i class="no-highlight">360</i>&nbsp;        @Override
+<i class="no-highlight">361</i>&nbsp;        public String toString() {
+<b class="nc"><i class="no-highlight">362</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;            sb.append(&quot;revertLsn=&quot;);</b>
+<b class="nc"><i class="no-highlight">364</i>&nbsp;            sb.append(DbLsn.getNoFormatString(revertLsn));</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;            sb.append(&quot; revertKD=&quot;).append(revertKD);</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;            sb.append(&quot; revertPD=&quot;).append(revertPD);</b>
+<b class="nc"><i class="no-highlight">367</i>&nbsp;            if (revertKey != null) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;                sb.append(&quot; revertKey=&quot;);</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;                sb.append(Key.getNoFormatString(revertKey));</b>
+<i class="no-highlight">370</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">371</i>&nbsp;            if (revertData != null) {</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;                sb.append(&quot; revertData=&quot;);</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;                sb.append(Key.getNoFormatString(revertData));</b>
+<i class="no-highlight">374</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">375</i>&nbsp;            sb.append(&quot; revertVLSN=&quot;).append(revertVLSN);</b>
+<b class="nc"><i class="no-highlight">376</i>&nbsp;            sb.append(&quot; revertExpires=&quot;);</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;            sb.append(TTL.formatExpiration(</b>
+<i class="no-highlight">378</i>&nbsp;                revertExpiration, revertExpirationInHours));
+<b class="nc"><i class="no-highlight">379</i>&nbsp;            return sb.toString();</b>
+<i class="no-highlight">380</i>&nbsp;        }
+<i class="no-highlight">381</i>&nbsp;    }
+<i class="no-highlight">382</i>&nbsp;
+<i class="no-highlight">383</i>&nbsp;    /**
+<i class="no-highlight">384</i>&nbsp;     * Compare two keys using the appropriate comparator. Keys from different
+<i class="no-highlight">385</i>&nbsp;     * databases should never be equal.
+<i class="no-highlight">386</i>&nbsp;     */
+<i class="no-highlight">387</i>&nbsp;    public static class CompareSlot implements Comparable&lt;CompareSlot&gt; {
+<i class="no-highlight">388</i>&nbsp;
+<i class="no-highlight">389</i>&nbsp;        private final DatabaseImpl dbImpl;
+<i class="no-highlight">390</i>&nbsp;        private final byte[] key;
+<i class="no-highlight">391</i>&nbsp;
+<i class="no-highlight">392</i>&nbsp;        public CompareSlot(DatabaseImpl dbImpl, LNLogEntry&lt;?&gt; undoEntry) {
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            this(dbImpl, undoEntry.getKey());</b>
+<i class="no-highlight">394</i>&nbsp;        }
+<i class="no-highlight">395</i>&nbsp;
+<b class="nc"><i class="no-highlight">396</i>&nbsp;        private CompareSlot(DatabaseImpl dbImpl, byte[] key) {</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;            this.dbImpl = dbImpl;</b>
+<b class="nc"><i class="no-highlight">398</i>&nbsp;            this.key = key;</b>
+<i class="no-highlight">399</i>&nbsp;        }
+<i class="no-highlight">400</i>&nbsp;
+<i class="no-highlight">401</i>&nbsp;        public int compareTo(CompareSlot other) {
+<b class="nc"><i class="no-highlight">402</i>&nbsp;            int dbCompare = dbImpl.getId().compareTo(other.dbImpl.getId());</b>
+<b class="nc"><i class="no-highlight">403</i>&nbsp;            if (dbCompare != 0) {</b>
+<i class="no-highlight">404</i>&nbsp;                /* LNs are from different databases. */
+<b class="nc"><i class="no-highlight">405</i>&nbsp;                return dbCompare;</b>
+<i class="no-highlight">406</i>&nbsp;            }
+<i class="no-highlight">407</i>&nbsp;
+<i class="no-highlight">408</i>&nbsp;            /* Compare keys. */
+<b class="nc"><i class="no-highlight">409</i>&nbsp;            return Key.compareKeys(key, other.key, dbImpl.getKeyComparator());</b>
+<i class="no-highlight">410</i>&nbsp;        }
+<i class="no-highlight">411</i>&nbsp;
+<i class="no-highlight">412</i>&nbsp;        @Override
+<i class="no-highlight">413</i>&nbsp;        public boolean equals(Object other) {
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            if (!(other instanceof CompareSlot)) {</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;                return false;</b>
+<i class="no-highlight">416</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            return compareTo((CompareSlot) other) == 0;</b>
+<i class="no-highlight">418</i>&nbsp;        }
+<i class="no-highlight">419</i>&nbsp;
+<i class="no-highlight">420</i>&nbsp;        @Override
+<i class="no-highlight">421</i>&nbsp;        public int hashCode() {
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;            /*
+<i class="no-highlight">424</i>&nbsp;             * Disallow use of HashSet/HashMap/etc.  TreeSet/TreeMap/etc should
+<i class="no-highlight">425</i>&nbsp;             * be used instead when a CompareSlot is used as a key.
+<i class="no-highlight">426</i>&nbsp;             *
+<i class="no-highlight">427</i>&nbsp;             * Because a comparator may be configured that compares only a part
+<i class="no-highlight">428</i>&nbsp;             * of the key, a hash code cannot take into account the key or
+<i class="no-highlight">429</i>&nbsp;             * data, because hashCode() must return the same value for two
+<i class="no-highlight">430</i>&nbsp;             * objects whenever equals() returns true.  We could hash the DB ID
+<i class="no-highlight">431</i>&nbsp;             * alone, but that would not produce an efficient hash table.
+<i class="no-highlight">432</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;                (&quot;Hashing not supported&quot;);</b>
+<i class="no-highlight">435</i>&nbsp;        }
+<i class="no-highlight">436</i>&nbsp;    }
+<i class="no-highlight">437</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

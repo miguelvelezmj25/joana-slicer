@@ -1,0 +1,360 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ArbiterVLSNTracker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.arbiter.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: ArbiterVLSNTracker (com.sleepycat.je.rep.arbiter.impl)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ArbiterVLSNTracker</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/14)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/113)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.arbiter.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.rep.arbiter.impl.ArbiterStatDefinition.ARB_N_FSYNCS;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.rep.arbiter.impl.ArbiterStatDefinition.ARB_N_WRITES;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.rep.arbiter.impl.ArbiterStatDefinition.ARB_VLSN;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.rep.arbiter.impl.ArbiterStatDefinition.ARB_DTVLSN;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import java.io.File;
+<i class="no-highlight">22</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">23</i>&nbsp;import java.io.RandomAccessFile;
+<i class="no-highlight">24</i>&nbsp;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.utilint.LongStat;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">30</i>&nbsp;
+<i class="no-highlight">31</i>&nbsp;/**
+<i class="no-highlight">32</i>&nbsp; * This class is used to maintain two pieces of persistent state. The
+<i class="no-highlight">33</i>&nbsp; * replication group node identifier of the Arbiter and a VLSN value that
+<i class="no-highlight">34</i>&nbsp; * represents the highest commit record VLSN the Arbiter has acknowledged.
+<i class="no-highlight">35</i>&nbsp; */
+<i class="no-highlight">36</i>&nbsp;class ArbiterVLSNTracker {
+<i class="no-highlight">37</i>&nbsp;    private static final int VERSION = 1;
+<i class="no-highlight">38</i>&nbsp;
+<i class="no-highlight">39</i>&nbsp;    private RandomAccessFile raf;
+<i class="no-highlight">40</i>&nbsp;    private final File dataFile;
+<b class="nc"><i class="no-highlight">41</i>&nbsp;    private VLSN currentVLSN = VLSN.NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">42</i>&nbsp;    private volatile VLSN dtvlsn = VLSN.NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">43</i>&nbsp;    private final int VERSION_OFFSET = 0;</b>
+<b class="nc"><i class="no-highlight">44</i>&nbsp;    private final int NODEID_OFFSET = Integer.SIZE + VERSION_OFFSET;</b>
+<b class="nc"><i class="no-highlight">45</i>&nbsp;    private final int DATA_OFFSET = Integer.SIZE + NODEID_OFFSET;</b>
+<b class="nc"><i class="no-highlight">46</i>&nbsp;    private int nodeId = NameIdPair.NULL_NODE_ID;</b>
+<i class="no-highlight">47</i>&nbsp;    private final StatGroup stats;
+<i class="no-highlight">48</i>&nbsp;    private final LongStat nWrites;
+<i class="no-highlight">49</i>&nbsp;    private final LongStat nFSyncs;
+<i class="no-highlight">50</i>&nbsp;    private final LongStat vlsnStat;
+<i class="no-highlight">51</i>&nbsp;    private final LongStat dtVlsnStat;
+<i class="no-highlight">52</i>&nbsp;
+<b class="nc"><i class="no-highlight">53</i>&nbsp;    ArbiterVLSNTracker(File file) {</b>
+<b class="nc"><i class="no-highlight">54</i>&nbsp;        dataFile = file;</b>
+<b class="nc"><i class="no-highlight">55</i>&nbsp;        boolean fileExists = dataFile.exists();</b>
+<i class="no-highlight">56</i>&nbsp;
+<b class="nc"><i class="no-highlight">57</i>&nbsp;        stats = new StatGroup(ArbiterStatDefinition.ARBIO_GROUP_NAME,</b>
+<i class="no-highlight">58</i>&nbsp;                              ArbiterStatDefinition.ARBIO_GROUP_DESC);
+<b class="nc"><i class="no-highlight">59</i>&nbsp;        nFSyncs = new LongStat(stats, ARB_N_FSYNCS);</b>
+<b class="nc"><i class="no-highlight">60</i>&nbsp;        nWrites = new LongStat(stats, ARB_N_WRITES);</b>
+<b class="nc"><i class="no-highlight">61</i>&nbsp;        vlsnStat = new LongStat(stats, ARB_VLSN);</b>
+<b class="nc"><i class="no-highlight">62</i>&nbsp;        dtVlsnStat = new LongStat(stats, ARB_DTVLSN);</b>
+<i class="no-highlight">63</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">64</i>&nbsp;            raf = new RandomAccessFile(dataFile, &quot;rw&quot;);</b>
+<b class="nc"><i class="no-highlight">65</i>&nbsp;            if (fileExists) {</b>
+<b class="nc"><i class="no-highlight">66</i>&nbsp;                final int readVersion = readVersion();</b>
+<b class="nc"><i class="no-highlight">67</i>&nbsp;                if (readVersion &gt; VERSION) {</b>
+<b class="nc"><i class="no-highlight">68</i>&nbsp;                    throw new RuntimeException(</b>
+<i class="no-highlight">69</i>&nbsp;                        &quot;Arbiter data file does not have a supported &quot; +
+<i class="no-highlight">70</i>&nbsp;                        &quot;version field &quot; +
+<b class="nc"><i class="no-highlight">71</i>&nbsp;                        dataFile.getAbsolutePath());</b>
+<i class="no-highlight">72</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">73</i>&nbsp;                nodeId = readNodeId();</b>
+<b class="nc"><i class="no-highlight">74</i>&nbsp;                if (raf.length() &gt; DATA_OFFSET) {</b>
+<b class="nc"><i class="no-highlight">75</i>&nbsp;                    raf.seek(DATA_OFFSET);</b>
+<b class="nc"><i class="no-highlight">76</i>&nbsp;                    currentVLSN = new VLSN(raf.readLong());</b>
+<b class="nc"><i class="no-highlight">77</i>&nbsp;                    dtvlsn =  new VLSN(raf.readLong());</b>
+<i class="no-highlight">78</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">79</i>&nbsp;            } else {</b>
+<b class="nc"><i class="no-highlight">80</i>&nbsp;                writeVersion(VERSION);</b>
+<b class="nc"><i class="no-highlight">81</i>&nbsp;                writeNodeIdInternal(nodeId);</b>
+<i class="no-highlight">82</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">83</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">84</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">85</i>&nbsp;                &quot;Unable to read the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">86</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">87</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">88</i>&nbsp;        catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">89</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">90</i>&nbsp;                &quot;Unable to open the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">91</i>&nbsp;                dataFile.getAbsolutePath() + &quot; exception &quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">92</i>&nbsp;        }</b>
+<i class="no-highlight">93</i>&nbsp;    }
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;    public StatGroup loadStats(StatsConfig config) {
+<b class="nc"><i class="no-highlight">96</i>&nbsp;        vlsnStat.set(get().getSequence());</b>
+<b class="nc"><i class="no-highlight">97</i>&nbsp;        dtVlsnStat.set(getDTVLSN().getSequence());</b>
+<b class="nc"><i class="no-highlight">98</i>&nbsp;        return stats.cloneGroup(config.getClear());</b>
+<i class="no-highlight">99</i>&nbsp;    }
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    public synchronized void writeNodeId(int id) {
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        if (nodeId == id) {</b>
+<i class="no-highlight">103</i>&nbsp;            return;
+<i class="no-highlight">104</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        writeNodeIdInternal(id);</b>
+<i class="no-highlight">106</i>&nbsp;    }
+<i class="no-highlight">107</i>&nbsp;
+<i class="no-highlight">108</i>&nbsp;    public synchronized int getCachedNodeId() {
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        return nodeId;</b>
+<i class="no-highlight">110</i>&nbsp;    }
+<i class="no-highlight">111</i>&nbsp;
+<i class="no-highlight">112</i>&nbsp;    private void writeNodeIdInternal(int id) {
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        if (raf == null) {</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">115</i>&nbsp;                &quot;Internal error: Unable to write the Arbiter data file &quot; +
+<i class="no-highlight">116</i>&nbsp;                &quot; because the file is not open.&quot; +
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">118</i>&nbsp;        }
+<i class="no-highlight">119</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">120</i>&nbsp;            raf.seek(NODEID_OFFSET);</b>
+<b class="nc"><i class="no-highlight">121</i>&nbsp;            raf.writeInt(id);</b>
+<b class="nc"><i class="no-highlight">122</i>&nbsp;            nWrites.increment();</b>
+<b class="nc"><i class="no-highlight">123</i>&nbsp;            doFSync();</b>
+<b class="nc"><i class="no-highlight">124</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">125</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">126</i>&nbsp;                &quot;Unable to write the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">127</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<b class="nc"><i class="no-highlight">128</i>&nbsp;        }</b>
+<i class="no-highlight">129</i>&nbsp;    }
+<i class="no-highlight">130</i>&nbsp;
+<i class="no-highlight">131</i>&nbsp;    private int readNodeId() {
+<b class="nc"><i class="no-highlight">132</i>&nbsp;        if (raf == null) {</b>
+<b class="nc"><i class="no-highlight">133</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">134</i>&nbsp;                &quot;Internal error: Unable to read the Arbiter data file &quot; +
+<i class="no-highlight">135</i>&nbsp;                &quot; because the file is not open.&quot; +
+<b class="nc"><i class="no-highlight">136</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">137</i>&nbsp;        }
+<i class="no-highlight">138</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">139</i>&nbsp;            raf.seek(NODEID_OFFSET);</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;            return raf.readInt();</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">143</i>&nbsp;                &quot;Unable to read the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">144</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">145</i>&nbsp;        }
+<i class="no-highlight">146</i>&nbsp;    }
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;    public synchronized void writeVersion(int id) {
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        if (raf == null) {</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">151</i>&nbsp;                &quot;Internal error: Unable to write the Arbiter data file &quot; +
+<i class="no-highlight">152</i>&nbsp;                &quot; because the file is not open.&quot; +
+<b class="nc"><i class="no-highlight">153</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">154</i>&nbsp;        }
+<i class="no-highlight">155</i>&nbsp;
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        if (nodeId == id) {</b>
+<i class="no-highlight">157</i>&nbsp;            return;
+<i class="no-highlight">158</i>&nbsp;        }
+<i class="no-highlight">159</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            raf.seek(VERSION_OFFSET);</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;            raf.writeInt(id);</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            nWrites.increment();</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;            doFSync();</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">166</i>&nbsp;                &quot;Unable to write the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<b class="nc"><i class="no-highlight">168</i>&nbsp;        }</b>
+<i class="no-highlight">169</i>&nbsp;    }
+<i class="no-highlight">170</i>&nbsp;
+<i class="no-highlight">171</i>&nbsp;    private int readVersion() {
+<b class="nc"><i class="no-highlight">172</i>&nbsp;        if (raf == null) {</b>
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">174</i>&nbsp;                &quot;Internal error: Unable to read the Arbiter data file &quot; +
+<i class="no-highlight">175</i>&nbsp;                &quot; because the file is not open.&quot; +
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">177</i>&nbsp;        }
+<i class="no-highlight">178</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">179</i>&nbsp;            raf.seek(VERSION_OFFSET);</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;            return raf.readInt();</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;        } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">183</i>&nbsp;                &quot;Unable to write the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">184</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">185</i>&nbsp;        }
+<i class="no-highlight">186</i>&nbsp;    }
+<i class="no-highlight">187</i>&nbsp;
+<i class="no-highlight">188</i>&nbsp;    public synchronized void write(VLSN nextCurrentVLSN,
+<i class="no-highlight">189</i>&nbsp;                                   VLSN nextDTVLSN,
+<i class="no-highlight">190</i>&nbsp;                                   boolean doFSync) {
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        if (raf == null) {</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;            throw new RuntimeException(</b>
+<i class="no-highlight">193</i>&nbsp;                &quot;Internal error: Unable to write the Arbiter data file &quot; +
+<i class="no-highlight">194</i>&nbsp;                &quot; because the file is not open.&quot; +
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                dataFile.getAbsolutePath());</b>
+<i class="no-highlight">196</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">197</i>&nbsp;        if (nextCurrentVLSN.compareTo(currentVLSN) &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;            this.currentVLSN = nextCurrentVLSN;</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            this.dtvlsn = nextDTVLSN;</b>
+<i class="no-highlight">200</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                raf.seek(DATA_OFFSET);</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;                raf.writeLong(nextCurrentVLSN.getSequence());</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                raf.writeLong(nextDTVLSN.getSequence());</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;                nWrites.add(2);</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                if (doFSync) {</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;                    doFSync();</b>
+<i class="no-highlight">207</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">208</i>&nbsp;            } catch (IOException e) {</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;                throw new RuntimeException(</b>
+<i class="no-highlight">210</i>&nbsp;                    &quot;Unable to write the Arbiter data file &quot; +
+<b class="nc"><i class="no-highlight">211</i>&nbsp;                    dataFile.getAbsolutePath());</b>
+<b class="nc"><i class="no-highlight">212</i>&nbsp;            }</b>
+<i class="no-highlight">213</i>&nbsp;        }
+<i class="no-highlight">214</i>&nbsp;    }
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;    public synchronized void close() {
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        if (raf != null) {</b>
+<i class="no-highlight">218</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">219</i>&nbsp;                doFSync();</b>
+<b class="nc"><i class="no-highlight">220</i>&nbsp;                raf.close();</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            } catch (IOException ignore) {</b>
+<i class="no-highlight">222</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">223</i>&nbsp;                raf = null;</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;            }</b>
+<i class="no-highlight">225</i>&nbsp;        }
+<i class="no-highlight">226</i>&nbsp;    }
+<i class="no-highlight">227</i>&nbsp;
+<i class="no-highlight">228</i>&nbsp;    public VLSN get() {
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        return currentVLSN;</b>
+<i class="no-highlight">230</i>&nbsp;    }
+<i class="no-highlight">231</i>&nbsp;
+<i class="no-highlight">232</i>&nbsp;    public VLSN getDTVLSN() {
+<b class="nc"><i class="no-highlight">233</i>&nbsp;        return dtvlsn;</b>
+<i class="no-highlight">234</i>&nbsp;    }
+<i class="no-highlight">235</i>&nbsp;
+<i class="no-highlight">236</i>&nbsp;    public static StatGroup loadEmptyStats() {
+<b class="nc"><i class="no-highlight">237</i>&nbsp;        StatGroup tmpStats =</b>
+<i class="no-highlight">238</i>&nbsp;            new StatGroup(ArbiterStatDefinition.ARBIO_GROUP_NAME,
+<i class="no-highlight">239</i>&nbsp;                          ArbiterStatDefinition.ARBIO_GROUP_DESC);
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        new LongStat(tmpStats, ARB_N_FSYNCS);</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        new LongStat(tmpStats, ARB_N_WRITES);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        new LongStat(tmpStats, ARB_VLSN);</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        new LongStat(tmpStats, ARB_DTVLSN);</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        return tmpStats;</b>
+<i class="no-highlight">245</i>&nbsp;    }
+<i class="no-highlight">246</i>&nbsp;
+<i class="no-highlight">247</i>&nbsp;    private void doFSync() throws IOException {
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        if (raf == null) {</b>
+<i class="no-highlight">249</i>&nbsp;            return;
+<i class="no-highlight">250</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">251</i>&nbsp;        raf.getFD().sync();</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        nFSyncs.increment();</b>
+<i class="no-highlight">253</i>&nbsp;
+<i class="no-highlight">254</i>&nbsp;    }
+<i class="no-highlight">255</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

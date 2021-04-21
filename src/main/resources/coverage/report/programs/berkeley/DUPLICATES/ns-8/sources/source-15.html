@@ -1,0 +1,512 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > DiskOrderedCursor</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: DiskOrderedCursor (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">DiskOrderedCursor</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/64)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">DiskOrderedCursor$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/13)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/65)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">17</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.DiskOrderedCursorImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;/**
+<i class="no-highlight">24</i>&nbsp; * DiskOrderedCursor returns records in unsorted order in exchange for
+<i class="no-highlight">25</i>&nbsp; * generally faster retrieval times. Instead of key order, an approximation of
+<i class="no-highlight">26</i>&nbsp; * disk order is used, which results in less I/O. This can be useful when the
+<i class="no-highlight">27</i>&nbsp; * application needs to scan all records in one or more databases, and will be
+<i class="no-highlight">28</i>&nbsp; * applying filtering logic which does not need key ordered retrieval.
+<i class="no-highlight">29</i>&nbsp; * A DiskOrderedCursor is created using the {@link
+<i class="no-highlight">30</i>&nbsp; * Database#openCursor(DiskOrderedCursorConfig)} method or the {@link
+<i class="no-highlight">31</i>&nbsp; * Environment#openDiskOrderedCursor(Database[], DiskOrderedCursorConfig)}
+<i class="no-highlight">32</i>&nbsp; * method.
+<i class="no-highlight">33</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">34</i>&nbsp; * &lt;em&gt;WARNING:&lt;/em&gt; After opening a DiskOrderedCursor, deletion of log files
+<i class="no-highlight">35</i>&nbsp; * by the JE log cleaner will be disabled until {@link #close()} is called.  To
+<i class="no-highlight">36</i>&nbsp; * prevent unbounded growth of disk usage, be sure to call {@link #close()} to
+<i class="no-highlight">37</i>&nbsp; * re-enable log file deletion.
+<i class="no-highlight">38</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">39</i>&nbsp; * &lt;em&gt;Optional configurations:&lt;/em&gt; the following options are available to
+<i class="no-highlight">40</i>&nbsp; * tune the DiskOrderedCursor.
+<i class="no-highlight">41</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">42</i>&nbsp; * The DiskOrderedCursor creates a background producer thread which prefetches
+<i class="no-highlight">43</i>&nbsp; * some target records and inserts them in a queue for use by the cursor. The
+<i class="no-highlight">44</i>&nbsp; * parameter {@link EnvironmentConfig#DOS_PRODUCER_QUEUE_TIMEOUT} applies to
+<i class="no-highlight">45</i>&nbsp; * this background thread, and controls the timeout which governs the blocking
+<i class="no-highlight">46</i>&nbsp; * queue.
+<i class="no-highlight">47</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">48</i>&nbsp; * See {@link DiskOrderedCursorConfig} for additional options.
+<i class="no-highlight">49</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">50</i>&nbsp; * &lt;h3&gt;Consistency Guarantees&lt;/h3&gt;
+<i class="no-highlight">51</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">52</i>&nbsp; * The consistency guarantees provided by a DiskOrderedCursor are, at best, the
+<i class="no-highlight">53</i>&nbsp; * same as those provided by READ_UNCOMMITTED (see {@link LockMode}).  With
+<i class="no-highlight">54</i>&nbsp; * READ_UNCOMMITTED, changes made by all transactions, including uncommitted
+<i class="no-highlight">55</i>&nbsp; * transactions, may be returned by the scan.  Also, a record returned by the
+<i class="no-highlight">56</i>&nbsp; * scan is not locked, and may be modified or deleted by the application after
+<i class="no-highlight">57</i>&nbsp; * it is returned, including modification or deletion of the record at the
+<i class="no-highlight">58</i>&nbsp; * cursor position.
+<i class="no-highlight">59</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">60</i>&nbsp; * In other words, the records returned by the scan correspond to the state
+<i class="no-highlight">61</i>&nbsp; * of the database (as if READ_UNCOMMITTED were used) at the beginning of the
+<i class="no-highlight">62</i>&nbsp; * scan plus some, but not all, changes made by the application after the start
+<i class="no-highlight">63</i>&nbsp; * of the scan.  The user should not rely on the scan returning any changes
+<i class="no-highlight">64</i>&nbsp; * made after the start of the scan.  For example, if the record referred to by
+<i class="no-highlight">65</i>&nbsp; * the DiskOrderedCursor is deleted after the DiskOrderedCursor is positioned
+<i class="no-highlight">66</i>&nbsp; * at that record, getCurrent() will still return the key and value of that
+<i class="no-highlight">67</i>&nbsp; * record and OperationStatus.SUCCESS.
+<i class="no-highlight">68</i>&nbsp; * 
+<i class="no-highlight">69</i>&nbsp; * If a transactionally correct data set is required (as defined by
+<i class="no-highlight">70</i>&nbsp; * READ_COMMITTED), the application must ensure that all transactions that
+<i class="no-highlight">71</i>&nbsp; * write to the database are committed before the beginning of the scan.
+<i class="no-highlight">72</i>&nbsp; * During the scan, no records in the database of the scan may be
+<i class="no-highlight">73</i>&nbsp; * inserted, deleted, or modified.  While this is possible, it is not the
+<i class="no-highlight">74</i>&nbsp; * expected use case for a DiskOrderedCursor.
+<i class="no-highlight">75</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">76</i>&nbsp; * &lt;h3&gt;Performance Considerations&lt;/h3&gt;
+<i class="no-highlight">77</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">78</i>&nbsp; * The internal algorithm used to approximate disk ordered reads is as follows.
+<i class="no-highlight">79</i>&nbsp; * For simplicity, the algorithm description assumes that a single database is
+<i class="no-highlight">80</i>&nbsp; * being scanned, but the algorithm is almost the same when multiple databases
+<i class="no-highlight">81</i>&nbsp; * are involved.  
+<i class="no-highlight">82</i>&nbsp; * An internal producer thread is used to scan the database. This thread is
+<i class="no-highlight">83</i>&nbsp; * created and started when the {@code DiskOrderedCursor} is created, and is
+<i class="no-highlight">84</i>&nbsp; * destroyed by {@link DiskOrderedCursor#close}. Scanning consists of two
+<i class="no-highlight">85</i>&nbsp; * phases.  In phase I the in-cache Btree of the scanned database is traversed
+<i class="no-highlight">86</i>&nbsp; * in key order.  The LSNs (physical record addresses) of the data to be
+<i class="no-highlight">87</i>&nbsp; * fetched are accumulated in a memory buffer.  Btree latches are held during
+<i class="no-highlight">88</i>&nbsp; * the traversal, but only for short durations.  In phase II the accumulated
+<i class="no-highlight">89</i>&nbsp; * LSNs are sorted into disk order, fetched one at a time in that order, and
+<i class="no-highlight">90</i>&nbsp; * the fetched data is added to a blocking queue.  The {@code getNext} method
+<i class="no-highlight">91</i>&nbsp; * in this class removes the next entry from the queue.  This approach allows
+<i class="no-highlight">92</i>&nbsp; * concurrent access to the Database during both phases of the scan, including
+<i class="no-highlight">93</i>&nbsp; * access by the application&#39;s consumer thread (the thread calling {@code
+<i class="no-highlight">94</i>&nbsp; * getNext}).
+<i class="no-highlight">95</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">96</i>&nbsp; * Phase I does not always process the entire Btree.  During phase I if the
+<i class="no-highlight">97</i>&nbsp; * accumulation of LSNs causes the {@link
+<i class="no-highlight">98</i>&nbsp; * DiskOrderedCursorConfig#setInternalMemoryLimit internal memory limit} or
+<i class="no-highlight">99</i>&nbsp; * {@link DiskOrderedCursorConfig#setLSNBatchSize LSN batch size} to be
+<i class="no-highlight">100</i>&nbsp; * exceeded, phase I is ended and phase II begins.  In this case, after phase
+<i class="no-highlight">101</i>&nbsp; * II finishes, phase I resumes where it left off in the Btree traversal.
+<i class="no-highlight">102</i>&nbsp; * Phase I and II are repeated until the entire database is scanned.
+<i class="no-highlight">103</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">104</i>&nbsp; * By default, the internal memory limit and LSN batch size are unbounded (see
+<i class="no-highlight">105</i>&nbsp; * {@link DiskOrderedCursorConfig}).  For a database with a large number of
+<i class="no-highlight">106</i>&nbsp; * records, this could cause an {@code OutOfMemoryError}.  Therefore, it is
+<i class="no-highlight">107</i>&nbsp; * strongly recommended that either the internal memory limit or LSN batch size
+<i class="no-highlight">108</i>&nbsp; * is configured to limit the use of memory during the scan.  On the other
+<i class="no-highlight">109</i>&nbsp; * hand, the efficiency of the scan is proportional to the amount of memory
+<i class="no-highlight">110</i>&nbsp; * used.  If enough memory is available, the ideal case would be that the
+<i class="no-highlight">111</i>&nbsp; * database is scanned in in a single iteration of phase I and II.  The more
+<i class="no-highlight">112</i>&nbsp; * iterations, the more random IO will occur.
+<i class="no-highlight">113</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">114</i>&nbsp; * Another factor is the {@link DiskOrderedCursorConfig#setQueueSize queue
+<i class="no-highlight">115</i>&nbsp; * size}.  During the phase I Btree traversal, data that is resident in the JE
+<i class="no-highlight">116</i>&nbsp; * cache will be added to the queue immediately, rather than waiting until
+<i class="no-highlight">117</i>&nbsp; * phase II and fetching it, but only if the queue is not full.  Therefore,
+<i class="no-highlight">118</i>&nbsp; * increasing the size of the queue can avoid fetching data that is resident in
+<i class="no-highlight">119</i>&nbsp; * the JE cache.  Also, increasing the queue size can improve parallelism of
+<i class="no-highlight">120</i>&nbsp; * the work done by the producer and consumer threads.
+<i class="no-highlight">121</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">122</i>&nbsp; * Also note that a {@link DiskOrderedCursorConfig#setKeysOnly keys-only} scan
+<i class="no-highlight">123</i>&nbsp; * is much more efficient than the default keys-and-data scan.  With a
+<i class="no-highlight">124</i>&nbsp; * keys-only scan, only the BINs (bottom internal nodes) of the Btree need to
+<i class="no-highlight">125</i>&nbsp; * be fetched; the LNs (leaf nodes) do not.  This is also true of databases
+<i class="no-highlight">126</i>&nbsp; * {@link DatabaseConfig#setSortedDuplicates configured for duplicates}, even
+<i class="no-highlight">127</i>&nbsp; * for a keys-and-data scan, since internally the key and data are both
+<i class="no-highlight">128</i>&nbsp; * contained in the BIN.
+<i class="no-highlight">129</i>&nbsp; *
+<i class="no-highlight">130</i>&nbsp; * @since 5.0
+<i class="no-highlight">131</i>&nbsp; */
+<b class="nc"><i class="no-highlight">132</i>&nbsp;public class DiskOrderedCursor implements ForwardCursor {</b>
+<i class="no-highlight">133</i>&nbsp;
+<i class="no-highlight">134</i>&nbsp;    private final Database[] dbHandles;
+<i class="no-highlight">135</i>&nbsp;
+<i class="no-highlight">136</i>&nbsp;    private final DatabaseImpl[] dbImpls;
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    private final DiskOrderedCursorConfig config;
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;    private final DiskOrderedCursorImpl dosCursorImpl;
+<i class="no-highlight">141</i>&nbsp;
+<i class="no-highlight">142</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    DiskOrderedCursor(
+<i class="no-highlight">145</i>&nbsp;        final Database[] dbHandles,
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        final DiskOrderedCursorConfig config) {</b>
+<i class="no-highlight">147</i>&nbsp;
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        this.dbHandles = dbHandles;</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        this.config = config;</b>
+<i class="no-highlight">150</i>&nbsp;
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        assert(dbHandles != null &amp;&amp; dbHandles.length &gt; 0);</b>
+<i class="no-highlight">152</i>&nbsp;
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        dbImpls = new DatabaseImpl[dbHandles.length];</b>
+<i class="no-highlight">154</i>&nbsp;
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        boolean dups = false;</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        int i = 0;</b>
+<i class="no-highlight">157</i>&nbsp;
+<i class="no-highlight">158</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            for (; i &lt; dbHandles.length; ++i) {</b>
+<i class="no-highlight">160</i>&nbsp;
+<b class="nc"><i class="no-highlight">161</i>&nbsp;                Database db = dbHandles[i];</b>
+<i class="no-highlight">162</i>&nbsp;                DatabaseImpl dbImpl;
+<i class="no-highlight">163</i>&nbsp;
+<b class="nc"><i class="no-highlight">164</i>&nbsp;                synchronized (db) {</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;                    db.addCursor(this);</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                    dbImpl = db.getDbImpl();</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;                }</b>
+<i class="no-highlight">168</i>&nbsp;
+<b class="nc"><i class="no-highlight">169</i>&nbsp;                assert(dbImpl != null);</b>
+<i class="no-highlight">170</i>&nbsp;
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                if (i == 0) {</b>
+<b class="nc"><i class="no-highlight">172</i>&nbsp;                    dups = dbImpl.getSortedDuplicates();</b>
+<i class="no-highlight">173</i>&nbsp;
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                } else if (dbImpl.getSortedDuplicates() != dups) {</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;                    throw new IllegalArgumentException(</b>
+<i class="no-highlight">176</i>&nbsp;                        &quot;In a multi-database disk ordered cursor &quot; +
+<i class="no-highlight">177</i>&nbsp;                        &quot;either all or none of the databases should support &quot; +
+<i class="no-highlight">178</i>&nbsp;                        &quot;duplicates&quot;);
+<i class="no-highlight">179</i>&nbsp;                }
+<i class="no-highlight">180</i>&nbsp;
+<b class="nc"><i class="no-highlight">181</i>&nbsp;                dbImpls[i] = dbImpl;</b>
+<i class="no-highlight">182</i>&nbsp;            }
+<i class="no-highlight">183</i>&nbsp;
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            dosCursorImpl = new DiskOrderedCursorImpl(dbImpls, config);</b>
+<i class="no-highlight">185</i>&nbsp;
+<b class="nc"><i class="no-highlight">186</i>&nbsp;            this.logger = dbImpls[0].getEnv().getLogger();</b>
+<i class="no-highlight">187</i>&nbsp;
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        } catch (final Throwable e) {</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;            for (int j = 0; j &lt; i; ++j) {</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;                dbHandles[j].removeCursor(this);</b>
+<i class="no-highlight">191</i>&nbsp;            }
+<i class="no-highlight">192</i>&nbsp;
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            throw e;</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;        }</b>
+<i class="no-highlight">195</i>&nbsp;    }
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    /**
+<i class="no-highlight">198</i>&nbsp;     * Returns the Database handle for the database that contains the
+<i class="no-highlight">199</i>&nbsp;     * latest record returned by getNext().
+<i class="no-highlight">200</i>&nbsp;     *
+<i class="no-highlight">201</i>&nbsp;     * @return The Database handle associated with this Cursor.
+<i class="no-highlight">202</i>&nbsp;     */
+<i class="no-highlight">203</i>&nbsp;    @Override
+<i class="no-highlight">204</i>&nbsp;    public Database getDatabase() {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        return dbHandles[dosCursorImpl.getCurrDb()];</b>
+<i class="no-highlight">206</i>&nbsp;    }
+<i class="no-highlight">207</i>&nbsp;
+<i class="no-highlight">208</i>&nbsp;    /**
+<i class="no-highlight">209</i>&nbsp;     * Discards the cursor.
+<i class="no-highlight">210</i>&nbsp;     *
+<i class="no-highlight">211</i>&nbsp;     * &lt;p&gt;The cursor handle may not be used again after this method has been
+<i class="no-highlight">212</i>&nbsp;     * called, regardless of the method&#39;s success or failure.&lt;/p&gt;
+<i class="no-highlight">213</i>&nbsp;     *
+<i class="no-highlight">214</i>&nbsp;     * &lt;p&gt;WARNING: To guard against memory leaks, the application should
+<i class="no-highlight">215</i>&nbsp;     * discard all references to the closed handle.  While BDB makes an effort
+<i class="no-highlight">216</i>&nbsp;     * to discard references from closed objects to the allocated memory for an
+<i class="no-highlight">217</i>&nbsp;     * environment, this behavior is not guaranteed.  The safe course of action
+<i class="no-highlight">218</i>&nbsp;     * for an application is to discard all references to closed BDB
+<i class="no-highlight">219</i>&nbsp;     * objects.&lt;/p&gt;
+<i class="no-highlight">220</i>&nbsp;     *
+<i class="no-highlight">221</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">222</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">223</i>&nbsp;     */
+<i class="no-highlight">224</i>&nbsp;    @Override
+<i class="no-highlight">225</i>&nbsp;    public void close()
+<i class="no-highlight">226</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">227</i>&nbsp;
+<b class="nc"><i class="no-highlight">228</i>&nbsp;        if (dosCursorImpl.isClosed()) {</b>
+<i class="no-highlight">229</i>&nbsp;            return;
+<i class="no-highlight">230</i>&nbsp;        }
+<i class="no-highlight">231</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">232</i>&nbsp;            dosCursorImpl.checkEnv();</b>
+<i class="no-highlight">233</i>&nbsp;
+<b class="nc"><i class="no-highlight">234</i>&nbsp;            dosCursorImpl.close();</b>
+<i class="no-highlight">235</i>&nbsp;
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            for (int i = 0; i &lt; dbHandles.length; ++i) {</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                dbHandles[i].removeCursor(this);</b>
+<i class="no-highlight">238</i>&nbsp;            }
+<i class="no-highlight">239</i>&nbsp;
+<b class="nc"><i class="no-highlight">240</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;            dbImpls[0].getEnv().invalidate(E);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;            throw E;</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        }</b>
+<i class="no-highlight">244</i>&nbsp;    }
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;    /**
+<i class="no-highlight">247</i>&nbsp;     * @param options the ReadOptions, or null to use default options.
+<i class="no-highlight">248</i>&nbsp;     * For DiskOrderedCursors, {@link ReadOptions#getLockMode} must return
+<i class="no-highlight">249</i>&nbsp;     * null, {@link LockMode#DEFAULT} or
+<i class="no-highlight">250</i>&nbsp;     * {@link LockMode#READ_UNCOMMITTED}, and no locking
+<i class="no-highlight">251</i>&nbsp;     * is performed.
+<i class="no-highlight">252</i>&nbsp;     */
+<i class="no-highlight">253</i>&nbsp;    @Override
+<i class="no-highlight">254</i>&nbsp;    public OperationResult get(
+<i class="no-highlight">255</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">256</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">257</i>&nbsp;        final Get getType,
+<i class="no-highlight">258</i>&nbsp;        final ReadOptions options) {
+<i class="no-highlight">259</i>&nbsp;
+<i class="no-highlight">260</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">261</i>&nbsp;            checkState();</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;            checkLockMode((options != null) ? options.getLockMode() : null);</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;            trace(Level.FINEST, getType);</b>
+<i class="no-highlight">264</i>&nbsp;
+<b class="nc"><i class="no-highlight">265</i>&nbsp;            switch (getType) {</b>
+<i class="no-highlight">266</i>&nbsp;            case CURRENT:
+<b class="nc"><i class="no-highlight">267</i>&nbsp;                return dosCursorImpl.getCurrent(key, data);</b>
+<i class="no-highlight">268</i>&nbsp;            case NEXT:
+<b class="nc"><i class="no-highlight">269</i>&nbsp;                return dosCursorImpl.getNext(key, data);</b>
+<i class="no-highlight">270</i>&nbsp;            default:
+<b class="nc"><i class="no-highlight">271</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">272</i>&nbsp;                    &quot;Get type not allowed: &quot; + getType);
+<i class="no-highlight">273</i>&nbsp;            }
+<i class="no-highlight">274</i>&nbsp;
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;            dbImpls[0].getEnv().invalidate(E);</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            throw E;</b>
+<i class="no-highlight">278</i>&nbsp;        }
+<i class="no-highlight">279</i>&nbsp;    }
+<i class="no-highlight">280</i>&nbsp;
+<i class="no-highlight">281</i>&nbsp;    /**
+<i class="no-highlight">282</i>&nbsp;     * @param lockMode the locking attributes.  For DiskOrderedCursors this
+<i class="no-highlight">283</i>&nbsp;     * parameter must be either null, {@link LockMode#DEFAULT}
+<i class="no-highlight">284</i>&nbsp;     * or {@link LockMode#READ_UNCOMMITTED}, and no locking
+<i class="no-highlight">285</i>&nbsp;     * is performed.
+<i class="no-highlight">286</i>&nbsp;     *
+<i class="no-highlight">287</i>&nbsp;     * @return {@link OperationStatus#KEYEMPTY
+<i class="no-highlight">288</i>&nbsp;     * OperationStatus.KEYEMPTY} if there are no more records in the
+<i class="no-highlight">289</i>&nbsp;     * DiskOrderedCursor set, otherwise, {@link
+<i class="no-highlight">290</i>&nbsp;     * OperationStatus#SUCCESS OperationStatus.SUCCESS}.  If
+<i class="no-highlight">291</i>&nbsp;     * the record referred to by a DiskOrderedCursor is deleted after the
+<i class="no-highlight">292</i>&nbsp;     * ForwardCursor is positioned at that record, getCurrent() will still
+<i class="no-highlight">293</i>&nbsp;     * return the key and value of that record and OperationStatus.SUCCESS.
+<i class="no-highlight">294</i>&nbsp;     */
+<i class="no-highlight">295</i>&nbsp;    @Override
+<i class="no-highlight">296</i>&nbsp;    public OperationStatus getCurrent(
+<i class="no-highlight">297</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">298</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">299</i>&nbsp;        final LockMode lockMode) {
+<i class="no-highlight">300</i>&nbsp;
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        final OperationResult result = get(</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            key, data, Get.CURRENT, DbInternal.getReadOptions(lockMode));</b>
+<i class="no-highlight">303</i>&nbsp;
+<b class="nc"><i class="no-highlight">304</i>&nbsp;        return result == null ?</b>
+<i class="no-highlight">305</i>&nbsp;            OperationStatus.KEYEMPTY : OperationStatus.SUCCESS;
+<i class="no-highlight">306</i>&nbsp;    }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;    /**
+<i class="no-highlight">309</i>&nbsp;     * @param lockMode the locking attributes.  For DiskOrderedCursors this
+<i class="no-highlight">310</i>&nbsp;     * parameter must be either null, {@link LockMode#DEFAULT}
+<i class="no-highlight">311</i>&nbsp;     * or {@link LockMode#READ_UNCOMMITTED}, and no locking
+<i class="no-highlight">312</i>&nbsp;     * is performed.
+<i class="no-highlight">313</i>&nbsp;     */
+<i class="no-highlight">314</i>&nbsp;    @Override
+<i class="no-highlight">315</i>&nbsp;    public OperationStatus getNext(
+<i class="no-highlight">316</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">317</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">318</i>&nbsp;        final LockMode lockMode) {
+<i class="no-highlight">319</i>&nbsp;
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        final OperationResult result = get(</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;            key, data, Get.NEXT, DbInternal.getReadOptions(lockMode));</b>
+<i class="no-highlight">322</i>&nbsp;
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        return result == null ?</b>
+<i class="no-highlight">324</i>&nbsp;            OperationStatus.NOTFOUND : OperationStatus.SUCCESS;
+<i class="no-highlight">325</i>&nbsp;    }
+<i class="no-highlight">326</i>&nbsp;
+<i class="no-highlight">327</i>&nbsp;    /**
+<i class="no-highlight">328</i>&nbsp;     * Returns this cursor&#39;s configuration.
+<i class="no-highlight">329</i>&nbsp;     *
+<i class="no-highlight">330</i>&nbsp;     * &lt;p&gt;This may differ from the configuration used to open this object if
+<i class="no-highlight">331</i>&nbsp;     * the cursor existed previously.&lt;/p&gt;
+<i class="no-highlight">332</i>&nbsp;     *
+<i class="no-highlight">333</i>&nbsp;     * @return This cursor&#39;s configuration.
+<i class="no-highlight">334</i>&nbsp;     */
+<i class="no-highlight">335</i>&nbsp;    public DiskOrderedCursorConfig getConfig() {
+<i class="no-highlight">336</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            return config.clone();</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            dbImpls[0].getEnv().invalidate(E);</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;            throw E;</b>
+<i class="no-highlight">341</i>&nbsp;        }
+<i class="no-highlight">342</i>&nbsp;    }
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;    private void checkLockMode(final LockMode lockMode) {
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        if (lockMode == null ||</b>
+<i class="no-highlight">346</i>&nbsp;            lockMode == LockMode.DEFAULT ||
+<i class="no-highlight">347</i>&nbsp;            lockMode == LockMode.READ_UNCOMMITTED) {
+<i class="no-highlight">348</i>&nbsp;            return;
+<i class="no-highlight">349</i>&nbsp;        }
+<i class="no-highlight">350</i>&nbsp;
+<b class="nc"><i class="no-highlight">351</i>&nbsp;        throw new IllegalArgumentException(</b>
+<i class="no-highlight">352</i>&nbsp;            &quot;lockMode must be null or LockMode.READ_UNCOMMITTED&quot;);
+<i class="no-highlight">353</i>&nbsp;    }
+<i class="no-highlight">354</i>&nbsp;
+<i class="no-highlight">355</i>&nbsp;    /**
+<i class="no-highlight">356</i>&nbsp;     * Checks the environment and cursor state.
+<i class="no-highlight">357</i>&nbsp;     */
+<i class="no-highlight">358</i>&nbsp;    private void checkState() {
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        dosCursorImpl.checkEnv();</b>
+<i class="no-highlight">360</i>&nbsp;    }
+<i class="no-highlight">361</i>&nbsp;
+<i class="no-highlight">362</i>&nbsp;    /**
+<i class="no-highlight">363</i>&nbsp;     * Sends trace messages to the java.util.logger. Don&#39;t rely on the logger
+<i class="no-highlight">364</i>&nbsp;     * alone to conditionalize whether we send this message, we don&#39;t even want
+<i class="no-highlight">365</i>&nbsp;     * to construct the message if the level is not enabled.
+<i class="no-highlight">366</i>&nbsp;     */
+<i class="no-highlight">367</i>&nbsp;    private void trace(final Level level, final Get getType) {
+<i class="no-highlight">368</i>&nbsp;
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        if (logger.isLoggable(level)) {</b>
+<b class="nc"><i class="no-highlight">370</i>&nbsp;            LoggerUtils.logMsg(</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;                logger, dbImpls[0].getEnv(), level, getType.toString());</b>
+<i class="no-highlight">372</i>&nbsp;        }
+<i class="no-highlight">373</i>&nbsp;    }
+<i class="no-highlight">374</i>&nbsp;
+<i class="no-highlight">375</i>&nbsp;    /**
+<i class="no-highlight">376</i>&nbsp;     * For testing and other internal use.
+<i class="no-highlight">377</i>&nbsp;     */
+<i class="no-highlight">378</i>&nbsp;    DiskOrderedCursorImpl getCursorImpl() {
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        return dosCursorImpl;</b>
+<i class="no-highlight">380</i>&nbsp;    }
+<i class="no-highlight">381</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

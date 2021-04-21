@@ -1,0 +1,470 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > BaseUtilizationTracker</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.cleaner</a>
+</div>
+
+<h1>Coverage Summary for Class: BaseUtilizationTracker (com.sleepycat.je.cleaner)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">BaseUtilizationTracker</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    73.3%
+  </span>
+  <span class="absValue">
+    (11/15)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    80.7%
+  </span>
+  <span class="absValue">
+    (88/109)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.cleaner;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">18</i>&nbsp;import java.util.Map;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.log.LogEntryType;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">23</i>&nbsp;
+<i class="no-highlight">24</i>&nbsp;/**
+<i class="no-highlight">25</i>&nbsp; * Shared implementation for all utilization trackers.  The base implementation
+<i class="no-highlight">26</i>&nbsp; * keeps track of per-file utilization info only.  Subclasses keep track of
+<i class="no-highlight">27</i>&nbsp; * per-database info.
+<i class="no-highlight">28</i>&nbsp; */
+<b class="fc"><i class="no-highlight">29</i>&nbsp;public abstract class BaseUtilizationTracker {</b>
+<i class="no-highlight">30</i>&nbsp;
+<i class="no-highlight">31</i>&nbsp;    EnvironmentImpl env;
+<i class="no-highlight">32</i>&nbsp;    Cleaner cleaner;
+<i class="no-highlight">33</i>&nbsp;    private long activeFile;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;    /**
+<i class="no-highlight">36</i>&nbsp;     * The tracked files are maintained in a volatile field Map that is &quot;copied
+<i class="no-highlight">37</i>&nbsp;     * on write&quot; whenever an element is added or removed.  Add and remove are
+<i class="no-highlight">38</i>&nbsp;     * called only under the log write latch, but get and iteration may be
+<i class="no-highlight">39</i>&nbsp;     * performed at any time because the map is read-only.
+<i class="no-highlight">40</i>&nbsp;     */
+<i class="no-highlight">41</i>&nbsp;    private volatile Map&lt;Long,TrackedFileSummary&gt; fileSummaries;
+<i class="no-highlight">42</i>&nbsp;
+<b class="fc"><i class="no-highlight">43</i>&nbsp;    BaseUtilizationTracker(EnvironmentImpl env, Cleaner cleaner) {</b>
+<b class="fc"><i class="no-highlight">44</i>&nbsp;        assert cleaner != null;</b>
+<b class="fc"><i class="no-highlight">45</i>&nbsp;        this.env = env;</b>
+<b class="fc"><i class="no-highlight">46</i>&nbsp;        this.cleaner = cleaner;</b>
+<b class="fc"><i class="no-highlight">47</i>&nbsp;        fileSummaries = new HashMap&lt;Long,TrackedFileSummary&gt;();</b>
+<b class="fc"><i class="no-highlight">48</i>&nbsp;        activeFile = -1;</b>
+<b class="fc"><i class="no-highlight">49</i>&nbsp;    }</b>
+<i class="no-highlight">50</i>&nbsp;
+<i class="no-highlight">51</i>&nbsp;    public EnvironmentImpl getEnvironment() {
+<b class="nc"><i class="no-highlight">52</i>&nbsp;        return env;</b>
+<i class="no-highlight">53</i>&nbsp;    }
+<i class="no-highlight">54</i>&nbsp;
+<i class="no-highlight">55</i>&nbsp;    public int getNumTFSs() {
+<b class="nc"><i class="no-highlight">56</i>&nbsp;        return fileSummaries.size();</b>
+<i class="no-highlight">57</i>&nbsp;    }
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /**
+<i class="no-highlight">60</i>&nbsp;     * Returns a snapshot of the files being tracked as of the last time a
+<i class="no-highlight">61</i>&nbsp;     * log entry was added.  The summary info returned is the delta since the
+<i class="no-highlight">62</i>&nbsp;     * last checkpoint, not the grand totals, and is approximate since it is
+<i class="no-highlight">63</i>&nbsp;     * changing in real time.  This method may be called without holding the
+<i class="no-highlight">64</i>&nbsp;     * log write latch.
+<i class="no-highlight">65</i>&nbsp;     *
+<i class="no-highlight">66</i>&nbsp;     * &lt;p&gt;If files are added or removed from the collection of tracked files in
+<i class="no-highlight">67</i>&nbsp;     * real time, the returned collection will not be changed since it is a
+<i class="no-highlight">68</i>&nbsp;     * snapshot.  But the objects contained in the collection are live and will
+<i class="no-highlight">69</i>&nbsp;     * be updated in real time under the log write latch.  The collection and
+<i class="no-highlight">70</i>&nbsp;     * the objects in the collection should not be modified by the caller.&lt;/p&gt;
+<i class="no-highlight">71</i>&nbsp;     */
+<i class="no-highlight">72</i>&nbsp;    public Collection&lt;TrackedFileSummary&gt; getTrackedFiles() {
+<b class="fc"><i class="no-highlight">73</i>&nbsp;        return fileSummaries.values();</b>
+<i class="no-highlight">74</i>&nbsp;    }
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /**
+<i class="no-highlight">77</i>&nbsp;     * Returns one file from the snapshot of tracked files, or null if the
+<i class="no-highlight">78</i>&nbsp;     * given file number is not in the snapshot array.
+<i class="no-highlight">79</i>&nbsp;     *
+<i class="no-highlight">80</i>&nbsp;     * @see #getTrackedFiles
+<i class="no-highlight">81</i>&nbsp;     */
+<i class="no-highlight">82</i>&nbsp;    public TrackedFileSummary getTrackedFile(long fileNum) {
+<i class="no-highlight">83</i>&nbsp;
+<b class="fc"><i class="no-highlight">84</i>&nbsp;        return fileSummaries.get(fileNum);</b>
+<i class="no-highlight">85</i>&nbsp;    }
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    /**
+<i class="no-highlight">88</i>&nbsp;     * Counts the addition of all new log entries including LNs.
+<i class="no-highlight">89</i>&nbsp;     *
+<i class="no-highlight">90</i>&nbsp;     * &lt;p&gt;For the global tracker, must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">91</i>&nbsp;     */
+<i class="no-highlight">92</i>&nbsp;    final void countNew(long lsn,
+<i class="no-highlight">93</i>&nbsp;                        Object databaseKey,
+<i class="no-highlight">94</i>&nbsp;                        LogEntryType type,
+<i class="no-highlight">95</i>&nbsp;                        int size) {
+<b class="fc"><i class="no-highlight">96</i>&nbsp;        assert type != null;</b>
+<i class="no-highlight">97</i>&nbsp;        /* Count in per-file and per-file-per-db summaries. */
+<b class="fc"><i class="no-highlight">98</i>&nbsp;        long fileNum = DbLsn.getFileNumber(lsn);</b>
+<b class="fc"><i class="no-highlight">99</i>&nbsp;        FileSummary fileSummary = getFileSummary(fileNum);</b>
+<b class="fc"><i class="no-highlight">100</i>&nbsp;        fileSummary.totalCount += 1;</b>
+<b class="fc"><i class="no-highlight">101</i>&nbsp;        fileSummary.totalSize += size;</b>
+<b class="fc"><i class="no-highlight">102</i>&nbsp;        boolean isLN = isLNType(type);</b>
+<b class="fc"><i class="no-highlight">103</i>&nbsp;        if (isLN &amp;&amp; fileSummary.maxLNSize &lt; size) {</b>
+<b class="fc"><i class="no-highlight">104</i>&nbsp;            fileSummary.maxLNSize = size;</b>
+<i class="no-highlight">105</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">106</i>&nbsp;        if (trackObsoleteInfo(type)) {</b>
+<b class="fc"><i class="no-highlight">107</i>&nbsp;            assert databaseKey != null :</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;                &quot;No DB for lsn=&quot; + DbLsn.getNoFormatString(lsn) +</b>
+<i class="no-highlight">109</i>&nbsp;                &quot; type: &quot; + type;
+<b class="fc"><i class="no-highlight">110</i>&nbsp;            DbFileSummary dbFileSummary =</b>
+<b class="fc"><i class="no-highlight">111</i>&nbsp;                getDbFileSummary(databaseKey, fileNum);</b>
+<b class="fc"><i class="no-highlight">112</i>&nbsp;            if (isLN) {</b>
+<b class="fc"><i class="no-highlight">113</i>&nbsp;                fileSummary.totalLNCount += 1;</b>
+<b class="fc"><i class="no-highlight">114</i>&nbsp;                fileSummary.totalLNSize += size;</b>
+<b class="fc"><i class="no-highlight">115</i>&nbsp;                if (dbFileSummary != null) {</b>
+<b class="fc"><i class="no-highlight">116</i>&nbsp;                    dbFileSummary.totalLNCount += 1;</b>
+<b class="fc"><i class="no-highlight">117</i>&nbsp;                    dbFileSummary.totalLNSize += size;</b>
+<i class="no-highlight">118</i>&nbsp;                }
+<i class="no-highlight">119</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">120</i>&nbsp;                fileSummary.totalINCount += 1;</b>
+<b class="fc"><i class="no-highlight">121</i>&nbsp;                fileSummary.totalINSize += size;</b>
+<b class="fc"><i class="no-highlight">122</i>&nbsp;                if (dbFileSummary != null) {</b>
+<b class="fc"><i class="no-highlight">123</i>&nbsp;                    dbFileSummary.totalINCount += 1;</b>
+<b class="fc"><i class="no-highlight">124</i>&nbsp;                    dbFileSummary.totalINSize += size;</b>
+<i class="no-highlight">125</i>&nbsp;                }
+<i class="no-highlight">126</i>&nbsp;            }
+<i class="no-highlight">127</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">128</i>&nbsp;    }</b>
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;    /**
+<i class="no-highlight">131</i>&nbsp;     * Counts an obsolete node by incrementing the obsolete count and size.
+<i class="no-highlight">132</i>&nbsp;     * Tracks the LSN offset if trackOffset is true and the offset is non-zero.
+<i class="no-highlight">133</i>&nbsp;     *
+<i class="no-highlight">134</i>&nbsp;     * &lt;p&gt;For the global tracker, must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">135</i>&nbsp;     */
+<i class="no-highlight">136</i>&nbsp;    final void countObsolete(
+<i class="no-highlight">137</i>&nbsp;        long lsn,
+<i class="no-highlight">138</i>&nbsp;        Object databaseKey,
+<i class="no-highlight">139</i>&nbsp;        LogEntryType type,
+<i class="no-highlight">140</i>&nbsp;        int size,
+<i class="no-highlight">141</i>&nbsp;        boolean countPerFile,
+<i class="no-highlight">142</i>&nbsp;        boolean countPerDb,
+<i class="no-highlight">143</i>&nbsp;        boolean trackOffset,
+<i class="no-highlight">144</i>&nbsp;        boolean checkDupOffsets) {
+<i class="no-highlight">145</i>&nbsp;        
+<b class="fc"><i class="no-highlight">146</i>&nbsp;        assert trackObsoleteInfo(type);</b>
+<i class="no-highlight">147</i>&nbsp;
+<b class="fc"><i class="no-highlight">148</i>&nbsp;        boolean isLN = isLNType(type);</b>
+<b class="fc"><i class="no-highlight">149</i>&nbsp;        long fileNum = DbLsn.getFileNumber(lsn);</b>
+<i class="no-highlight">150</i>&nbsp;
+<b class="fc"><i class="no-highlight">151</i>&nbsp;        if (countPerFile) {</b>
+<b class="fc"><i class="no-highlight">152</i>&nbsp;            TrackedFileSummary fileSummary = getFileSummary(fileNum);</b>
+<b class="fc"><i class="no-highlight">153</i>&nbsp;            if (isLN) {</b>
+<b class="fc"><i class="no-highlight">154</i>&nbsp;                fileSummary.obsoleteLNCount += 1;</b>
+<i class="no-highlight">155</i>&nbsp;                /* The size is optional when tracking obsolete LNs. */
+<b class="fc"><i class="no-highlight">156</i>&nbsp;                if (size &gt; 0) {</b>
+<b class="fc"><i class="no-highlight">157</i>&nbsp;                    fileSummary.obsoleteLNSize += size;</b>
+<b class="fc"><i class="no-highlight">158</i>&nbsp;                    fileSummary.obsoleteLNSizeCounted += 1;</b>
+<i class="no-highlight">159</i>&nbsp;                }
+<i class="no-highlight">160</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">161</i>&nbsp;                fileSummary.obsoleteINCount += 1;</b>
+<i class="no-highlight">162</i>&nbsp;                /* The size is not allowed when tracking obsolete INs. */
+<b class="fc"><i class="no-highlight">163</i>&nbsp;                assert size == 0;</b>
+<i class="no-highlight">164</i>&nbsp;            }
+<i class="no-highlight">165</i>&nbsp;
+<b class="fc"><i class="no-highlight">166</i>&nbsp;            if (trackOffset) {</b>
+<b class="fc"><i class="no-highlight">167</i>&nbsp;                long offset = DbLsn.getFileOffset(lsn);</b>
+<b class="fc"><i class="no-highlight">168</i>&nbsp;                if (offset != 0) {</b>
+<b class="fc"><i class="no-highlight">169</i>&nbsp;                    fileSummary.trackObsolete(offset, checkDupOffsets);</b>
+<i class="no-highlight">170</i>&nbsp;                }
+<i class="no-highlight">171</i>&nbsp;            }
+<i class="no-highlight">172</i>&nbsp;        }
+<i class="no-highlight">173</i>&nbsp;
+<b class="fc"><i class="no-highlight">174</i>&nbsp;        if (countPerDb) {</b>
+<b class="fc"><i class="no-highlight">175</i>&nbsp;            assert databaseKey != null :</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                &quot;No DB for lsn=&quot; + DbLsn.getNoFormatString(lsn) + </b>
+<i class="no-highlight">177</i>&nbsp;                &quot; type: &quot; + type;
+<i class="no-highlight">178</i>&nbsp;
+<b class="fc"><i class="no-highlight">179</i>&nbsp;            DbFileSummary dbFileSummary =</b>
+<b class="fc"><i class="no-highlight">180</i>&nbsp;                getDbFileSummary(databaseKey, fileNum);</b>
+<i class="no-highlight">181</i>&nbsp;
+<b class="fc"><i class="no-highlight">182</i>&nbsp;            if (dbFileSummary != null) {</b>
+<b class="fc"><i class="no-highlight">183</i>&nbsp;                if (isLN) {</b>
+<b class="fc"><i class="no-highlight">184</i>&nbsp;                    dbFileSummary.obsoleteLNCount += 1;</b>
+<i class="no-highlight">185</i>&nbsp;                    /* The size is optional when tracking obsolete LNs. */
+<b class="fc"><i class="no-highlight">186</i>&nbsp;                    if (size &gt; 0) {</b>
+<b class="fc"><i class="no-highlight">187</i>&nbsp;                        dbFileSummary.obsoleteLNSize += size;</b>
+<b class="fc"><i class="no-highlight">188</i>&nbsp;                        dbFileSummary.obsoleteLNSizeCounted += 1;</b>
+<i class="no-highlight">189</i>&nbsp;                    }
+<i class="no-highlight">190</i>&nbsp;                } else {
+<b class="fc"><i class="no-highlight">191</i>&nbsp;                    dbFileSummary.obsoleteINCount += 1;</b>
+<i class="no-highlight">192</i>&nbsp;                    /* The size is not allowed when tracking obsolete INs. */
+<b class="fc"><i class="no-highlight">193</i>&nbsp;                    assert size == 0;</b>
+<i class="no-highlight">194</i>&nbsp;                }
+<i class="no-highlight">195</i>&nbsp;            }
+<i class="no-highlight">196</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">197</i>&nbsp;    }</b>
+<i class="no-highlight">198</i>&nbsp;
+<i class="no-highlight">199</i>&nbsp;    /**
+<i class="no-highlight">200</i>&nbsp;     * Counts all active LSNs in a database as obsolete in the per-file
+<i class="no-highlight">201</i>&nbsp;     * utilization summaries.  This method is called during database
+<i class="no-highlight">202</i>&nbsp;     * remove/truncate or when replaying those operations during recovery.
+<i class="no-highlight">203</i>&nbsp;     *
+<i class="no-highlight">204</i>&nbsp;     * &lt;p&gt;For the global tracker, must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">205</i>&nbsp;     *
+<i class="no-highlight">206</i>&nbsp;     * @param dbFileSummaries the map of Long file number to DbFileSummary for
+<i class="no-highlight">207</i>&nbsp;     * a database that is being deleted.
+<i class="no-highlight">208</i>&nbsp;     *
+<i class="no-highlight">209</i>&nbsp;     * @param mapLnLsn is the LSN of the MapLN when recovery is replaying the
+<i class="no-highlight">210</i>&nbsp;     * truncate/remove, or NULL_LSN when called outside of recovery; obsolete
+<i class="no-highlight">211</i>&nbsp;     * totals should only be counted when this LSN is prior to the LSN of the
+<i class="no-highlight">212</i>&nbsp;     * FileSummaryLN for the file being counted.
+<i class="no-highlight">213</i>&nbsp;     */
+<i class="no-highlight">214</i>&nbsp;    public void countObsoleteDb(
+<i class="no-highlight">215</i>&nbsp;        DbFileSummaryMap dbFileSummaries,
+<i class="no-highlight">216</i>&nbsp;        long mapLnLsn) {
+<i class="no-highlight">217</i>&nbsp;
+<i class="no-highlight">218</i>&nbsp;        for (Map.Entry&lt;Long, DbFileSummary&gt; entry :
+<b class="nc"><i class="no-highlight">219</i>&nbsp;             dbFileSummaries.entrySet()) {</b>
+<i class="no-highlight">220</i>&nbsp;
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            Long fileNum = entry.getKey();</b>
+<i class="no-highlight">222</i>&nbsp;
+<b class="nc"><i class="no-highlight">223</i>&nbsp;            if (isFileUncounted(fileNum, mapLnLsn)) {</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;                DbFileSummary dbFileSummary = entry.getValue();</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                TrackedFileSummary fileSummary =</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;                    getFileSummary(fileNum.longValue());</b>
+<i class="no-highlight">227</i>&nbsp;
+<i class="no-highlight">228</i>&nbsp;                /*
+<i class="no-highlight">229</i>&nbsp;                 * Count as obsolete the currently active amounts in the
+<i class="no-highlight">230</i>&nbsp;                 * database, which are the total amounts minus the previously
+<i class="no-highlight">231</i>&nbsp;                 * counted obsolete amounts.
+<i class="no-highlight">232</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">233</i>&nbsp;                int lnObsoleteCount = dbFileSummary.totalLNCount -</b>
+<i class="no-highlight">234</i>&nbsp;                                      dbFileSummary.obsoleteLNCount;
+<b class="nc"><i class="no-highlight">235</i>&nbsp;                int lnObsoleteSize  = dbFileSummary.totalLNSize -</b>
+<i class="no-highlight">236</i>&nbsp;                                      dbFileSummary.obsoleteLNSize;
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                int inObsoleteCount = dbFileSummary.totalINCount -</b>
+<i class="no-highlight">238</i>&nbsp;                                      dbFileSummary.obsoleteINCount;
+<b class="nc"><i class="no-highlight">239</i>&nbsp;                fileSummary.obsoleteLNCount += lnObsoleteCount;</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;                fileSummary.obsoleteLNSize += lnObsoleteSize;</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;                fileSummary.obsoleteINCount += inObsoleteCount;</b>
+<i class="no-highlight">242</i>&nbsp;
+<i class="no-highlight">243</i>&nbsp;                /*
+<i class="no-highlight">244</i>&nbsp;                 * When a DB becomes obsolete, the size of all obsolete LNs can
+<i class="no-highlight">245</i>&nbsp;                 * now be counted accurately because all LN bytes in the DB are
+<i class="no-highlight">246</i>&nbsp;                 * now obsolete.  The lnObsoleteSize value calculated above
+<i class="no-highlight">247</i>&nbsp;                 * includes LNs that become obsolete now, plus those that
+<i class="no-highlight">248</i>&nbsp;                 * became obsolete previously but whose size was not counted.
+<i class="no-highlight">249</i>&nbsp;                 * The obsoleteLNSizeCounted field is updated accordingly
+<i class="no-highlight">250</i>&nbsp;                 * below.  In other words, DB obsolescence is self-healing with
+<i class="no-highlight">251</i>&nbsp;                 * respect to obsolete LN sizes.  [#19144]
+<i class="no-highlight">252</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">253</i>&nbsp;                int lnObsoleteSizeCounted = lnObsoleteCount +</b>
+<i class="no-highlight">254</i>&nbsp;                                     (dbFileSummary.obsoleteLNCount -
+<i class="no-highlight">255</i>&nbsp;                                      dbFileSummary.obsoleteLNSizeCounted);
+<b class="nc"><i class="no-highlight">256</i>&nbsp;                fileSummary.obsoleteLNSizeCounted += lnObsoleteSizeCounted;</b>
+<i class="no-highlight">257</i>&nbsp;
+<i class="no-highlight">258</i>&nbsp;                /*
+<i class="no-highlight">259</i>&nbsp;                 * Do not update the DbFileSummary.  It will be flushed when
+<i class="no-highlight">260</i>&nbsp;                 * the MapLN is deleted.  If later replayed during recovery, we
+<i class="no-highlight">261</i>&nbsp;                 * will call this method to update the per-file utilization.
+<i class="no-highlight">262</i>&nbsp;                 */
+<i class="no-highlight">263</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;    }</b>
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;    /**
+<i class="no-highlight">268</i>&nbsp;     * Returns whether file summary information for the given LSN is not
+<i class="no-highlight">269</i>&nbsp;     * already counted.  Outside of recovery, always returns true.  For
+<i class="no-highlight">270</i>&nbsp;     * recovery, is overridden by RecoveryUtilizationTracker and returns
+<i class="no-highlight">271</i>&nbsp;     * whether the FileSummaryLN for the given file is prior to the given LSN.
+<i class="no-highlight">272</i>&nbsp;     * .
+<i class="no-highlight">273</i>&nbsp;     */
+<i class="no-highlight">274</i>&nbsp;    boolean isFileUncounted(Long fileNum, long lsn) {
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        return true;</b>
+<i class="no-highlight">276</i>&nbsp;    }
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /**
+<i class="no-highlight">279</i>&nbsp;     * Returns a DbFileSummary for the given database key and file number,
+<i class="no-highlight">280</i>&nbsp;     * adding an empty one if the file is not already being tracked.
+<i class="no-highlight">281</i>&nbsp;     *
+<i class="no-highlight">282</i>&nbsp;     * &lt;p&gt;This method is implemented by subclasses which interpret the
+<i class="no-highlight">283</i>&nbsp;     * databaseKey as either the DatabaseImpl or a DatabaseId.&lt;/p&gt;
+<i class="no-highlight">284</i>&nbsp;     *
+<i class="no-highlight">285</i>&nbsp;     * &lt;p&gt;For the global tracker, must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">286</i>&nbsp;     *
+<i class="no-highlight">287</i>&nbsp;     * @return the summary, or null if the DB should not be tracked because
+<i class="no-highlight">288</i>&nbsp;     * the file has been deleted.
+<i class="no-highlight">289</i>&nbsp;     */
+<i class="no-highlight">290</i>&nbsp;    abstract DbFileSummary getDbFileSummary(Object databaseKey, long fileNum);
+<i class="no-highlight">291</i>&nbsp;
+<i class="no-highlight">292</i>&nbsp;    /**
+<i class="no-highlight">293</i>&nbsp;     * Returns a tracked file for the given file number, adding an empty one
+<i class="no-highlight">294</i>&nbsp;     * if the file is not already being tracked.
+<i class="no-highlight">295</i>&nbsp;     *
+<i class="no-highlight">296</i>&nbsp;     * &lt;p&gt;For the global tracker, must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">297</i>&nbsp;     */
+<i class="no-highlight">298</i>&nbsp;    TrackedFileSummary getFileSummary(long fileNum) {
+<i class="no-highlight">299</i>&nbsp;
+<b class="fc"><i class="no-highlight">300</i>&nbsp;        if (activeFile &lt; fileNum) {</b>
+<b class="fc"><i class="no-highlight">301</i>&nbsp;            activeFile = fileNum;</b>
+<i class="no-highlight">302</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">303</i>&nbsp;        Long fileNumLong = Long.valueOf(fileNum);</b>
+<b class="fc"><i class="no-highlight">304</i>&nbsp;        TrackedFileSummary file = fileSummaries.get(fileNumLong);</b>
+<b class="fc"><i class="no-highlight">305</i>&nbsp;        if (file == null) {</b>
+<i class="no-highlight">306</i>&nbsp;            /* Assign fileSummaries field after modifying the new map. */
+<b class="fc"><i class="no-highlight">307</i>&nbsp;            file = new TrackedFileSummary(this, fileNum, cleaner.trackDetail);</b>
+<b class="fc"><i class="no-highlight">308</i>&nbsp;            Map&lt;Long, TrackedFileSummary&gt; newFiles = </b>
+<i class="no-highlight">309</i>&nbsp;                new HashMap&lt;Long,TrackedFileSummary&gt;(fileSummaries);
+<b class="fc"><i class="no-highlight">310</i>&nbsp;            newFiles.put(fileNumLong, file);</b>
+<b class="fc"><i class="no-highlight">311</i>&nbsp;            fileSummaries = newFiles;</b>
+<i class="no-highlight">312</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">313</i>&nbsp;        return file;</b>
+<i class="no-highlight">314</i>&nbsp;    }
+<i class="no-highlight">315</i>&nbsp;
+<i class="no-highlight">316</i>&nbsp;    /**
+<i class="no-highlight">317</i>&nbsp;     * Called after the FileSummaryLN is written to the log during checkpoint.
+<i class="no-highlight">318</i>&nbsp;     *
+<i class="no-highlight">319</i>&nbsp;     * &lt;p&gt;We keep the active file summary in the tracked file map, but we
+<i class="no-highlight">320</i>&nbsp;     * remove older files to prevent unbounded growth of the map.&lt;/p&gt;
+<i class="no-highlight">321</i>&nbsp;     *
+<i class="no-highlight">322</i>&nbsp;     * &lt;p&gt;Must be called under the log write latch.&lt;/p&gt;
+<i class="no-highlight">323</i>&nbsp;     */
+<i class="no-highlight">324</i>&nbsp;    void resetFile(TrackedFileSummary fileSummary) {
+<i class="no-highlight">325</i>&nbsp;
+<b class="fc"><i class="no-highlight">326</i>&nbsp;        if (fileSummary.getFileNumber() &lt; activeFile &amp;&amp;</b>
+<b class="fc"><i class="no-highlight">327</i>&nbsp;            fileSummary.getAllowFlush()) {</b>
+<i class="no-highlight">328</i>&nbsp;            /* Assign fileSummaries field after modifying the new map. */
+<b class="fc"><i class="no-highlight">329</i>&nbsp;            Map&lt;Long, TrackedFileSummary&gt; newFiles = </b>
+<i class="no-highlight">330</i>&nbsp;                new HashMap&lt;Long,TrackedFileSummary&gt;(fileSummaries);
+<b class="fc"><i class="no-highlight">331</i>&nbsp;            newFiles.remove(fileSummary.getFileNumber());</b>
+<b class="fc"><i class="no-highlight">332</i>&nbsp;            fileSummaries = newFiles;</b>
+<i class="no-highlight">333</i>&nbsp;        }
+<b class="fc"><i class="no-highlight">334</i>&nbsp;    }</b>
+<i class="no-highlight">335</i>&nbsp;
+<i class="no-highlight">336</i>&nbsp;    /**
+<i class="no-highlight">337</i>&nbsp;     * Returns whether obsoleteness is tracked for the given type. Obsoleteness
+<i class="no-highlight">338</i>&nbsp;     * is tracked for node types and BIN-deltas. A null type is assumed to be
+<i class="no-highlight">339</i>&nbsp;     * an LN.
+<i class="no-highlight">340</i>&nbsp;     */
+<i class="no-highlight">341</i>&nbsp;    public static boolean trackObsoleteInfo(LogEntryType type) {
+<b class="fc"><i class="no-highlight">342</i>&nbsp;        return type == null ||</b>
+<b class="fc"><i class="no-highlight">343</i>&nbsp;               type.isNodeType() ||</b>
+<b class="fc"><i class="no-highlight">344</i>&nbsp;               type.equals(LogEntryType.LOG_BIN_DELTA) ||</b>
+<b class="fc"><i class="no-highlight">345</i>&nbsp;               type.equals(LogEntryType.LOG_OLD_BIN_DELTA);</b>
+<i class="no-highlight">346</i>&nbsp;    }
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;    /**
+<i class="no-highlight">349</i>&nbsp;     * Returns whether the given type is an LN; a null type is assumed to be an
+<i class="no-highlight">350</i>&nbsp;     * LN.
+<i class="no-highlight">351</i>&nbsp;     */
+<i class="no-highlight">352</i>&nbsp;    public static boolean isLNType(LogEntryType type) {
+<b class="fc"><i class="no-highlight">353</i>&nbsp;        return type == null || type.isLNType();</b>
+<i class="no-highlight">354</i>&nbsp;    }
+<i class="no-highlight">355</i>&nbsp;
+<i class="no-highlight">356</i>&nbsp;    /**
+<i class="no-highlight">357</i>&nbsp;     * Update memory budgets when this tracker is closed and will never be
+<i class="no-highlight">358</i>&nbsp;     * accessed again.
+<i class="no-highlight">359</i>&nbsp;     */
+<i class="no-highlight">360</i>&nbsp;    void close() {
+<b class="fc"><i class="no-highlight">361</i>&nbsp;        for (TrackedFileSummary t: fileSummaries.values()) {</b>
+<b class="fc"><i class="no-highlight">362</i>&nbsp;            t.close();</b>
+<b class="fc"><i class="no-highlight">363</i>&nbsp;        }</b>
+<b class="fc"><i class="no-highlight">364</i>&nbsp;    }</b>
+<i class="no-highlight">365</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

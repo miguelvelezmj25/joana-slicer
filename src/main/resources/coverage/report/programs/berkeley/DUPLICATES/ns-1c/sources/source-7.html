@@ -1,0 +1,1197 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > FeederManager</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.impl.node</a>
+</div>
+
+<h1>Coverage Summary for Class: FeederManager (com.sleepycat.je.rep.impl.node)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">FeederManager</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/37)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/282)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">FeederManager$DTVLSNFlusher</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/38)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">FeederManager$MatchElectableFeeders</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/4)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/41)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/324)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.impl.node;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_FEEDERS_CREATED;
+<i class="no-highlight">17</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_FEEDERS_SHUTDOWN;
+<i class="no-highlight">18</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_MAX_REPLICA_LAG;
+<i class="no-highlight">19</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.N_MAX_REPLICA_LAG_NAME;
+<i class="no-highlight">20</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_DELAY_MAP;
+<i class="no-highlight">21</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_LAST_COMMIT_TIMESTAMP_MAP;
+<i class="no-highlight">22</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_LAST_COMMIT_VLSN_MAP;
+<i class="no-highlight">23</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_VLSN_LAG_MAP;
+<i class="no-highlight">24</i>&nbsp;import static com.sleepycat.je.rep.impl.node.FeederManagerStatDefinition.REPLICA_VLSN_RATE_MAP;
+<i class="no-highlight">25</i>&nbsp;import static java.util.concurrent.TimeUnit.MINUTES;
+<i class="no-highlight">26</i>&nbsp;
+<i class="no-highlight">27</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">28</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">29</i>&nbsp;import java.util.HashMap;
+<i class="no-highlight">30</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">31</i>&nbsp;import java.util.Map;
+<i class="no-highlight">32</i>&nbsp;import java.util.Map.Entry;
+<i class="no-highlight">33</i>&nbsp;import java.util.Set;
+<i class="no-highlight">34</i>&nbsp;import java.util.concurrent.BlockingQueue;
+<i class="no-highlight">35</i>&nbsp;import java.util.concurrent.LinkedBlockingQueue;
+<i class="no-highlight">36</i>&nbsp;import java.util.concurrent.TimeUnit;
+<i class="no-highlight">37</i>&nbsp;import java.util.concurrent.atomic.AtomicBoolean;
+<i class="no-highlight">38</i>&nbsp;import java.util.concurrent.atomic.AtomicInteger;
+<i class="no-highlight">39</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.Durability;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.Durability.ReplicaAckPolicy;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.Durability.SyncPolicy;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.NodeType;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.rep.UnknownMasterException;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.rep.impl.RepNodeImpl;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">53</i>&nbsp;import com.sleepycat.je.rep.impl.node.cbvlsn.LocalCBVLSNTracker;
+<i class="no-highlight">54</i>&nbsp;import com.sleepycat.je.rep.impl.node.cbvlsn.LocalCBVLSNUpdater;
+<i class="no-highlight">55</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">56</i>&nbsp;import com.sleepycat.je.rep.stream.MasterStatus.MasterSyncException;
+<i class="no-highlight">57</i>&nbsp;import com.sleepycat.je.rep.txn.MasterTxn;
+<i class="no-highlight">58</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocolStatDefinition;
+<i class="no-highlight">59</i>&nbsp;import com.sleepycat.je.rep.utilint.IntRunningTotalStat;
+<i class="no-highlight">60</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">61</i>&nbsp;import com.sleepycat.je.rep.utilint.SizeAwaitMap;
+<i class="no-highlight">62</i>&nbsp;import com.sleepycat.je.rep.utilint.SizeAwaitMap.Predicate;
+<i class="no-highlight">63</i>&nbsp;import com.sleepycat.je.utilint.AtomicLongMapStat;
+<i class="no-highlight">64</i>&nbsp;import com.sleepycat.je.utilint.IntStat;
+<i class="no-highlight">65</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">66</i>&nbsp;import com.sleepycat.je.utilint.LongAvgRateMapStat;
+<i class="no-highlight">67</i>&nbsp;import com.sleepycat.je.utilint.LongDiffMapStat;
+<i class="no-highlight">68</i>&nbsp;import com.sleepycat.je.utilint.LongMaxZeroStat;
+<i class="no-highlight">69</i>&nbsp;import com.sleepycat.je.utilint.StatGroup;
+<i class="no-highlight">70</i>&nbsp;import com.sleepycat.je.utilint.StringStat;
+<i class="no-highlight">71</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">72</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">73</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">74</i>&nbsp;
+<i class="no-highlight">75</i>&nbsp;/**
+<i class="no-highlight">76</i>&nbsp; * FeedManager is responsible for the creation and management of the Feeders
+<i class="no-highlight">77</i>&nbsp; * used to respond to connections initiated by a Replica. runfeeders() is the
+<i class="no-highlight">78</i>&nbsp; * central loop that listens for replica connections and manages the lifecycle
+<i class="no-highlight">79</i>&nbsp; * of individual Feeders. It&#39;s re-entered each time the node becomes a Master
+<i class="no-highlight">80</i>&nbsp; * and is exited when its status changes.
+<i class="no-highlight">81</i>&nbsp; *
+<i class="no-highlight">82</i>&nbsp; * There is a single instance of FeederManager that is created for a
+<i class="no-highlight">83</i>&nbsp; * replication node. There are many instances of Feeders per FeederManager.
+<i class="no-highlight">84</i>&nbsp; * Each Feeder instance represents an instance of a connection between the node
+<i class="no-highlight">85</i>&nbsp; * serving as the feeder and the replica.
+<i class="no-highlight">86</i>&nbsp; *
+<i class="no-highlight">87</i>&nbsp; * Note that the FeederManager and the Replica currently reuse the Replication
+<i class="no-highlight">88</i>&nbsp; * node&#39;s thread of control. When we implement r2r we will need to revisit the
+<i class="no-highlight">89</i>&nbsp; * thread management to provide for concurrent operation of the FeederManger
+<i class="no-highlight">90</i>&nbsp; * and the Replica.
+<i class="no-highlight">91</i>&nbsp; */
+<b class="nc"><i class="no-highlight">92</i>&nbsp;final public class FeederManager {</b>
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    private final RepNode repNode;
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    /*
+<i class="no-highlight">97</i>&nbsp;     * The queue into which the ServiceDispatcher queues socket channels for
+<i class="no-highlight">98</i>&nbsp;     * new Feeder instances.
+<i class="no-highlight">99</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">100</i>&nbsp;    private final BlockingQueue&lt;DataChannel&gt; channelQueue =</b>
+<i class="no-highlight">101</i>&nbsp;        new LinkedBlockingQueue&lt;DataChannel&gt;();
+<i class="no-highlight">102</i>&nbsp;
+<i class="no-highlight">103</i>&nbsp;    /*
+<i class="no-highlight">104</i>&nbsp;     * Feeders are stored in either nascentFeeders or activeFeeders, and not
+<i class="no-highlight">105</i>&nbsp;     * both.  To avoid deadlock, if locking both collections, lock
+<i class="no-highlight">106</i>&nbsp;     * nascentFeeders first and then activeFeeders.
+<i class="no-highlight">107</i>&nbsp;     */
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /*
+<i class="no-highlight">110</i>&nbsp;     * Nascent feeders that are starting up and are not yet active. They have
+<i class="no-highlight">111</i>&nbsp;     * network connections but have not synched up or completed handshakes.
+<i class="no-highlight">112</i>&nbsp;     * They are moved into the active feeder map, once they become active.
+<i class="no-highlight">113</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">114</i>&nbsp;    private final Set&lt;Feeder&gt; nascentFeeders =</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        Collections.synchronizedSet(new HashSet&lt;Feeder&gt;());</b>
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    /*
+<i class="no-highlight">118</i>&nbsp;     * The collection of active feeders currently feeding replicas. The map is
+<i class="no-highlight">119</i>&nbsp;     * indexed by the Replica&#39;s node name. Access to this map must be
+<i class="no-highlight">120</i>&nbsp;     * synchronized, since it&#39;s updated concurrently by the Feeders that share
+<i class="no-highlight">121</i>&nbsp;     * it.
+<i class="no-highlight">122</i>&nbsp;     *
+<i class="no-highlight">123</i>&nbsp;     * A feeder is considered to be active after it has completed the handshake
+<i class="no-highlight">124</i>&nbsp;     * sequence with its associated Replica.
+<i class="no-highlight">125</i>&nbsp;     *
+<i class="no-highlight">126</i>&nbsp;     * Note that the SizeAwaitMap will only wait for feeders that are connected
+<i class="no-highlight">127</i>&nbsp;     * to electable replicas, since those are the only ones participating in
+<i class="no-highlight">128</i>&nbsp;     * durability decisions.
+<i class="no-highlight">129</i>&nbsp;     */
+<i class="no-highlight">130</i>&nbsp;    private final SizeAwaitMap&lt;String, Feeder&gt; activeFeeders;
+<i class="no-highlight">131</i>&nbsp;
+<i class="no-highlight">132</i>&nbsp;    /*
+<i class="no-highlight">133</i>&nbsp;     * The number of active ack feeders feeding electable, i.e. acking, nodes.
+<i class="no-highlight">134</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">135</i>&nbsp;    private final AtomicInteger ackFeeders = new AtomicInteger(0);</b>
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;    /*
+<i class="no-highlight">138</i>&nbsp;     * The number of arbiter feeders; there can only be one currently. It&#39;s
+<i class="no-highlight">139</i>&nbsp;     * Atomic for consistency with ackFeeders.
+<i class="no-highlight">140</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">141</i>&nbsp;    private final AtomicInteger arbiterFeeders = new AtomicInteger(0);</b>
+<i class="no-highlight">142</i>&nbsp;    private String arbiterFeederName;
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;    /*
+<i class="no-highlight">145</i>&nbsp;     * A test delay introduced in the feeder loop to simulate a loaded master.
+<i class="no-highlight">146</i>&nbsp;     * The feeder waits this amount of time after each message is sent.
+<i class="no-highlight">147</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">148</i>&nbsp;    private int testDelayMs = 0;</b>
+<i class="no-highlight">149</i>&nbsp;
+<i class="no-highlight">150</i>&nbsp;    /* Set to true to force a shutdown of the FeederManager. */
+<b class="nc"><i class="no-highlight">151</i>&nbsp;    AtomicBoolean shutdown = new AtomicBoolean(false);</b>
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;    /*
+<i class="no-highlight">154</i>&nbsp;     * Non null if the replication node must be shutdown as well. This is
+<i class="no-highlight">155</i>&nbsp;     * typically the result of an unexpected exception in the feeder.
+<i class="no-highlight">156</i>&nbsp;     */
+<i class="no-highlight">157</i>&nbsp;    private RuntimeException repNodeShutdownException;
+<i class="no-highlight">158</i>&nbsp;
+<i class="no-highlight">159</i>&nbsp;    /**
+<i class="no-highlight">160</i>&nbsp;     * Used to manage the flushing of the DTVLSN via a null TXN commit
+<i class="no-highlight">161</i>&nbsp;     * when appropriate.
+<i class="no-highlight">162</i>&nbsp;     */
+<i class="no-highlight">163</i>&nbsp;    private final DTVLSNFlusher dtvlsnFlusher;
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">166</i>&nbsp;
+<i class="no-highlight">167</i>&nbsp;    /* FeederManager statistics. */
+<i class="no-highlight">168</i>&nbsp;    private final StatGroup stats;
+<i class="no-highlight">169</i>&nbsp;    private final IntStat nFeedersCreated;
+<i class="no-highlight">170</i>&nbsp;    private final IntStat nFeedersShutdown;
+<i class="no-highlight">171</i>&nbsp;    private final LongDiffMapStat replicaDelayMap;
+<i class="no-highlight">172</i>&nbsp;    private final AtomicLongMapStat replicaLastCommitTimestampMap;
+<i class="no-highlight">173</i>&nbsp;    private final AtomicLongMapStat replicaLastCommitVLSNMap;
+<i class="no-highlight">174</i>&nbsp;    private final LongDiffMapStat replicaVLSNLagMap;
+<i class="no-highlight">175</i>&nbsp;    private final LongAvgRateMapStat replicaVLSNRateMap;
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    /*
+<i class="no-highlight">178</i>&nbsp;     * The maximum lag across all replicas. Atomic values or synchronization
+<i class="no-highlight">179</i>&nbsp;     * are not used for the shared statistic to minimize overheads and the
+<i class="no-highlight">180</i>&nbsp;     * resulting occasional inaccuracy in the statics is an acceptable
+<i class="no-highlight">181</i>&nbsp;     * tradeoff.
+<i class="no-highlight">182</i>&nbsp;     */
+<i class="no-highlight">183</i>&nbsp;    private final LongMaxZeroStat nMaxReplicaLag;
+<i class="no-highlight">184</i>&nbsp;    private final StringStat nMaxReplicaLagName;
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;    /* The poll timeout used when accepting feeder connections. */
+<i class="no-highlight">187</i>&nbsp;    public final long pollTimeoutMs ;
+<i class="no-highlight">188</i>&nbsp;
+<i class="no-highlight">189</i>&nbsp;    /* Identifies the Feeder Service. */
+<i class="no-highlight">190</i>&nbsp;    public static final String FEEDER_SERVICE = &quot;Feeder&quot;;
+<i class="no-highlight">191</i>&nbsp;
+<i class="no-highlight">192</i>&nbsp;    /** The moving average period in milliseconds */
+<i class="no-highlight">193</i>&nbsp;    private static final long MOVING_AVG_PERIOD_MILLIS = 10000;
+<i class="no-highlight">194</i>&nbsp;
+<i class="no-highlight">195</i>&nbsp;    /**
+<i class="no-highlight">196</i>&nbsp;     * A test hook, parameterized by feeder&#39;s Name/ID pair, that delays CBVLSN
+<i class="no-highlight">197</i>&nbsp;     * updates if it throws an IllegalStateException.
+<i class="no-highlight">198</i>&nbsp;     */
+<i class="no-highlight">199</i>&nbsp;    private static volatile TestHook&lt;NameIdPair&gt; delayCBVLSNUpdateHook;
+<i class="no-highlight">200</i>&nbsp;
+<b class="nc"><i class="no-highlight">201</i>&nbsp;    FeederManager(RepNode repNode) {</b>
+<b class="nc"><i class="no-highlight">202</i>&nbsp;        this.repNode = repNode;</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;        activeFeeders = new SizeAwaitMap&lt;String, Feeder&gt;(</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;            repNode.getRepImpl(), new MatchElectableFeeders());</b>
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        stats = new StatGroup(FeederManagerStatDefinition.GROUP_NAME,</b>
+<i class="no-highlight">207</i>&nbsp;                              FeederManagerStatDefinition.GROUP_DESC);
+<b class="nc"><i class="no-highlight">208</i>&nbsp;        nFeedersCreated = new IntRunningTotalStat(stats, N_FEEDERS_CREATED);</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;        nFeedersShutdown = new IntRunningTotalStat(stats, N_FEEDERS_SHUTDOWN);</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;        nMaxReplicaLag = new LongMaxZeroStat(stats, N_MAX_REPLICA_LAG);</b>
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        nMaxReplicaLagName = new StringStat(stats, N_MAX_REPLICA_LAG_NAME);</b>
+<i class="no-highlight">212</i>&nbsp;
+<i class="no-highlight">213</i>&nbsp;        /*
+<i class="no-highlight">214</i>&nbsp;         * Treat delays and lags as valid for twice the heartbeat interval, to
+<i class="no-highlight">215</i>&nbsp;         * allow for minor networking delays when receiving heartbeats
+<i class="no-highlight">216</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        final long validityMillis = 2 * repNode.getHeartbeatInterval();</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;        replicaDelayMap =</b>
+<i class="no-highlight">219</i>&nbsp;            new LongDiffMapStat(stats, REPLICA_DELAY_MAP, validityMillis);
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        replicaLastCommitTimestampMap =</b>
+<i class="no-highlight">221</i>&nbsp;            new AtomicLongMapStat(stats, REPLICA_LAST_COMMIT_TIMESTAMP_MAP);
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        replicaLastCommitVLSNMap =</b>
+<i class="no-highlight">223</i>&nbsp;            new AtomicLongMapStat(stats, REPLICA_LAST_COMMIT_VLSN_MAP);
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        replicaVLSNLagMap =</b>
+<i class="no-highlight">225</i>&nbsp;            new LongDiffMapStat(stats, REPLICA_VLSN_LAG_MAP, validityMillis);
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        replicaVLSNRateMap = new LongAvgRateMapStat(</b>
+<i class="no-highlight">227</i>&nbsp;            stats, REPLICA_VLSN_RATE_MAP, MOVING_AVG_PERIOD_MILLIS, MINUTES);
+<i class="no-highlight">228</i>&nbsp;
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        pollTimeoutMs = repNode.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;            getDuration(RepParams.FEEDER_MANAGER_POLL_TIMEOUT);</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        dtvlsnFlusher = new DTVLSNFlusher();</b>
+<i class="no-highlight">232</i>&nbsp;    }
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /**
+<i class="no-highlight">235</i>&nbsp;     * A SizeAwaitMap predicate that matches feeders connected to electable
+<i class="no-highlight">236</i>&nbsp;     * replicas.
+<i class="no-highlight">237</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">238</i>&nbsp;    private class MatchElectableFeeders implements Predicate&lt;Feeder&gt; {</b>
+<i class="no-highlight">239</i>&nbsp;        @Override
+<i class="no-highlight">240</i>&nbsp;        public boolean match(final Feeder value) {
+<i class="no-highlight">241</i>&nbsp;
+<i class="no-highlight">242</i>&nbsp;            /* The replica node might be null during unit testing */
+<b class="nc"><i class="no-highlight">243</i>&nbsp;            final RepNodeImpl replica = value.getReplicaNode();</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;            return (replica != null) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                repNode.getDurabilityQuorum().replicaAcksQualify(replica);</b>
+<i class="no-highlight">246</i>&nbsp;        }
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    /**
+<i class="no-highlight">250</i>&nbsp;     * Returns the statistics associated with the FeederManager.
+<i class="no-highlight">251</i>&nbsp;     *
+<i class="no-highlight">252</i>&nbsp;     * @return the statistics
+<i class="no-highlight">253</i>&nbsp;     */
+<i class="no-highlight">254</i>&nbsp;    public StatGroup getFeederManagerStats(StatsConfig config) {
+<i class="no-highlight">255</i>&nbsp;
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            return stats.cloneGroup(config.getClear());</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        }</b>
+<i class="no-highlight">259</i>&nbsp;    }
+<i class="no-highlight">260</i>&nbsp;
+<i class="no-highlight">261</i>&nbsp;    /* Get the protocol stats for this FeederManager. */
+<i class="no-highlight">262</i>&nbsp;    public StatGroup getProtocolStats(StatsConfig config) {
+<i class="no-highlight">263</i>&nbsp;        /* Aggregate stats that have not yet been aggregated. */
+<b class="nc"><i class="no-highlight">264</i>&nbsp;        StatGroup protocolStats =</b>
+<i class="no-highlight">265</i>&nbsp;            new StatGroup(BinaryProtocolStatDefinition.GROUP_NAME,
+<i class="no-highlight">266</i>&nbsp;                          BinaryProtocolStatDefinition.GROUP_DESC);
+<b class="nc"><i class="no-highlight">267</i>&nbsp;        synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;            for (Feeder feeder : activeFeeders.values()) {</b>
+<b class="nc"><i class="no-highlight">269</i>&nbsp;                protocolStats.addAll(feeder.getProtocolStats(config));</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;        }</b>
+<i class="no-highlight">272</i>&nbsp;
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        return protocolStats;</b>
+<i class="no-highlight">274</i>&nbsp;    }
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;    /* Reset the feeders&#39; stats of this FeederManager. */
+<i class="no-highlight">277</i>&nbsp;    public void resetStats() {
+<b class="nc"><i class="no-highlight">278</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">279</i>&nbsp;            stats.clear();</b>
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;        synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;            for (Feeder feeder : activeFeeders.values()) {</b>
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                feeder.resetStats();</b>
+<b class="nc"><i class="no-highlight">284</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        }</b>
+<i class="no-highlight">286</i>&nbsp;    }
+<i class="no-highlight">287</i>&nbsp;
+<i class="no-highlight">288</i>&nbsp;    /**
+<i class="no-highlight">289</i>&nbsp;     * Accumulates statistics from a terminating feeder.
+<i class="no-highlight">290</i>&nbsp;     * @param feederStats  stats of feeder
+<i class="no-highlight">291</i>&nbsp;     */
+<i class="no-highlight">292</i>&nbsp;    void incStats(StatGroup feederStats) {
+<b class="nc"><i class="no-highlight">293</i>&nbsp;        synchronized (stats) {</b>
+<b class="nc"><i class="no-highlight">294</i>&nbsp;            stats.addAll(feederStats);</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        }</b>
+<i class="no-highlight">296</i>&nbsp;    }
+<i class="no-highlight">297</i>&nbsp;
+<i class="no-highlight">298</i>&nbsp;    public int getTestDelayMs() {
+<b class="nc"><i class="no-highlight">299</i>&nbsp;        return testDelayMs;</b>
+<i class="no-highlight">300</i>&nbsp;    }
+<i class="no-highlight">301</i>&nbsp;
+<i class="no-highlight">302</i>&nbsp;    public void setTestDelayMs(int testDelayMs) {
+<b class="nc"><i class="no-highlight">303</i>&nbsp;        this.testDelayMs = testDelayMs;</b>
+<i class="no-highlight">304</i>&nbsp;    }
+<i class="no-highlight">305</i>&nbsp;
+<i class="no-highlight">306</i>&nbsp;    /**
+<i class="no-highlight">307</i>&nbsp;     * Returns the RepNode associated with the FeederManager
+<i class="no-highlight">308</i>&nbsp;     * @return
+<i class="no-highlight">309</i>&nbsp;     */
+<i class="no-highlight">310</i>&nbsp;    RepNode repNode() {
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        return repNode;</b>
+<i class="no-highlight">312</i>&nbsp;    }
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;    /**
+<i class="no-highlight">315</i>&nbsp;     * Returns the Feeder associated with the node, if such a feeder is
+<i class="no-highlight">316</i>&nbsp;     * currently active.
+<i class="no-highlight">317</i>&nbsp;     */
+<i class="no-highlight">318</i>&nbsp;    public Feeder getFeeder(String nodeName) {
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        return activeFeeders.get(nodeName);</b>
+<i class="no-highlight">320</i>&nbsp;    }
+<i class="no-highlight">321</i>&nbsp;
+<i class="no-highlight">322</i>&nbsp;    public Feeder getArbiterFeeder() {
+<b class="nc"><i class="no-highlight">323</i>&nbsp;        synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;            return activeFeeders.get(arbiterFeederName);</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;        }</b>
+<i class="no-highlight">326</i>&nbsp;    }
+<i class="no-highlight">327</i>&nbsp;
+<i class="no-highlight">328</i>&nbsp;    /*
+<i class="no-highlight">329</i>&nbsp;     * For test use only.
+<i class="no-highlight">330</i>&nbsp;     */
+<i class="no-highlight">331</i>&nbsp;    public Feeder putFeeder(String nodeName, Feeder feeder) {
+<i class="no-highlight">332</i>&nbsp;        /*
+<i class="no-highlight">333</i>&nbsp;         * Can&#39;t check for an electable node since the feeder object can be
+<i class="no-highlight">334</i>&nbsp;         * mocked for testing so it does not have a rep node.
+<i class="no-highlight">335</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        ackFeeders.incrementAndGet();</b>
+<b class="nc"><i class="no-highlight">337</i>&nbsp;        return activeFeeders.put(nodeName, feeder);</b>
+<i class="no-highlight">338</i>&nbsp;    }
+<i class="no-highlight">339</i>&nbsp;
+<i class="no-highlight">340</i>&nbsp;    public LongMaxZeroStat getnMaxReplicaLag() {
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        return nMaxReplicaLag;</b>
+<i class="no-highlight">342</i>&nbsp;    }
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;    public StringStat getnMaxReplicaLagName() {
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        return nMaxReplicaLagName;</b>
+<i class="no-highlight">346</i>&nbsp;    }
+<i class="no-highlight">347</i>&nbsp;
+<i class="no-highlight">348</i>&nbsp;    LongDiffMapStat getReplicaDelayMap() {
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        return replicaDelayMap;</b>
+<i class="no-highlight">350</i>&nbsp;    }
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;    AtomicLongMapStat getReplicaLastCommitTimestampMap() {
+<b class="nc"><i class="no-highlight">353</i>&nbsp;        return replicaLastCommitTimestampMap;</b>
+<i class="no-highlight">354</i>&nbsp;    }
+<i class="no-highlight">355</i>&nbsp;
+<i class="no-highlight">356</i>&nbsp;    AtomicLongMapStat getReplicaLastCommitVLSNMap() {
+<b class="nc"><i class="no-highlight">357</i>&nbsp;        return replicaLastCommitVLSNMap;</b>
+<i class="no-highlight">358</i>&nbsp;    }
+<i class="no-highlight">359</i>&nbsp;
+<i class="no-highlight">360</i>&nbsp;    LongDiffMapStat getReplicaVLSNLagMap() {
+<b class="nc"><i class="no-highlight">361</i>&nbsp;        return replicaVLSNLagMap;</b>
+<i class="no-highlight">362</i>&nbsp;    }
+<i class="no-highlight">363</i>&nbsp;
+<i class="no-highlight">364</i>&nbsp;    LongAvgRateMapStat getReplicaVLSNRateMap() {
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        return replicaVLSNRateMap;</b>
+<i class="no-highlight">366</i>&nbsp;    }
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    void setRepNodeShutdownException(RuntimeException rNSE) {
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        this.repNodeShutdownException = rNSE;</b>
+<i class="no-highlight">370</i>&nbsp;    }
+<i class="no-highlight">371</i>&nbsp;
+<i class="no-highlight">372</i>&nbsp;    /**
+<i class="no-highlight">373</i>&nbsp;     * The numbers of Replicas currently &quot;active&quot; with this feeder. Active
+<i class="no-highlight">374</i>&nbsp;     * currently means they are connected. It does not make any guarantees
+<i class="no-highlight">375</i>&nbsp;     * about where they are in the replication stream. They may, for example,
+<i class="no-highlight">376</i>&nbsp;     * be too far behind to participate in timely acks.
+<i class="no-highlight">377</i>&nbsp;     *
+<i class="no-highlight">378</i>&nbsp;     * @return the active replica count
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    public int activeReplicaCount() {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        return activeFeeders.size();</b>
+<i class="no-highlight">382</i>&nbsp;    }
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;    public int activeAckReplicaCount() {
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        return ackFeeders.get();</b>
+<i class="no-highlight">386</i>&nbsp;    }
+<i class="no-highlight">387</i>&nbsp;
+<i class="no-highlight">388</i>&nbsp;    public int activeAckArbiterCount() {
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        return arbiterFeeders.get();</b>
+<i class="no-highlight">390</i>&nbsp;    }
+<i class="no-highlight">391</i>&nbsp;
+<i class="no-highlight">392</i>&nbsp;    /**
+<i class="no-highlight">393</i>&nbsp;     * Returns the set of Replicas that are currently active with this feeder.
+<i class="no-highlight">394</i>&nbsp;     * A replica is active if it has completed the handshake sequence.
+<i class="no-highlight">395</i>&nbsp;     *
+<i class="no-highlight">396</i>&nbsp;     * @return the set of replica node names
+<i class="no-highlight">397</i>&nbsp;     */
+<i class="no-highlight">398</i>&nbsp;    public Set&lt;String&gt; activeReplicas() {
+<b class="nc"><i class="no-highlight">399</i>&nbsp;        synchronized (activeFeeders) {</b>
+<i class="no-highlight">400</i>&nbsp;
+<i class="no-highlight">401</i>&nbsp;            /*
+<i class="no-highlight">402</i>&nbsp;             * Create a copy to avoid inadvertent concurrency conflicts,
+<i class="no-highlight">403</i>&nbsp;             * since the keySet is a view of the underlying map.
+<i class="no-highlight">404</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">405</i>&nbsp;            return new HashSet&lt;&gt;(activeFeeders.keySet());</b>
+<b class="nc"><i class="no-highlight">406</i>&nbsp;        }</b>
+<i class="no-highlight">407</i>&nbsp;    }
+<i class="no-highlight">408</i>&nbsp;
+<i class="no-highlight">409</i>&nbsp;    /**
+<i class="no-highlight">410</i>&nbsp;     * Returns the set of active replicas and arbiters, that are currently
+<i class="no-highlight">411</i>&nbsp;     * active with this feeder and are supplying acknowledgments. A replica is
+<i class="no-highlight">412</i>&nbsp;     * active if it has completed the handshake sequence. An Arbiter is only
+<i class="no-highlight">413</i>&nbsp;     * returned if it&#39;s in active arbitration.
+<i class="no-highlight">414</i>&nbsp;     *
+<i class="no-highlight">415</i>&nbsp;     * @param includeArbiters include active arbiters in the list of returned
+<i class="no-highlight">416</i>&nbsp;     * node names if true; exclude arbiters otherwise.
+<i class="no-highlight">417</i>&nbsp;     *
+<i class="no-highlight">418</i>&nbsp;     * @return the set of replica and if includeArbiters active arbiter node names
+<i class="no-highlight">419</i>&nbsp;     */
+<i class="no-highlight">420</i>&nbsp;    public  Set&lt;String&gt; activeAckReplicas(boolean includeArbiters) {
+<b class="nc"><i class="no-highlight">421</i>&nbsp;        final Set&lt;String&gt; nodeNames = new HashSet&lt;String&gt;();</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;        synchronized (activeFeeders) {</b>
+<i class="no-highlight">423</i>&nbsp;            for (final Entry&lt;String, Feeder&gt; entry :
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                activeFeeders.entrySet()) {</b>
+<b class="nc"><i class="no-highlight">425</i>&nbsp;                final Feeder feeder = entry.getValue();</b>
+<i class="no-highlight">426</i>&nbsp;
+<i class="no-highlight">427</i>&nbsp;                /* The replica node should be non-null for an active feeder */
+<b class="nc"><i class="no-highlight">428</i>&nbsp;                final RepNodeImpl replica = feeder.getReplicaNode();</b>
+<b class="nc"><i class="no-highlight">429</i>&nbsp;                if (!replica.getType().isElectable()) {</b>
+<b class="nc"><i class="no-highlight">430</i>&nbsp;                    continue;</b>
+<i class="no-highlight">431</i>&nbsp;                }
+<i class="no-highlight">432</i>&nbsp;
+<b class="nc"><i class="no-highlight">433</i>&nbsp;                if (replica.getType().isArbiter()) {</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;                    if (!includeArbiters ||</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;                        !feeder.getRepNode().getArbiter().isActive()) {</b>
+<i class="no-highlight">436</i>&nbsp;                        /* Skip the arbiter. */
+<b class="nc"><i class="no-highlight">437</i>&nbsp;                        continue;</b>
+<i class="no-highlight">438</i>&nbsp;                    }
+<i class="no-highlight">439</i>&nbsp;                }
+<i class="no-highlight">440</i>&nbsp;
+<b class="nc"><i class="no-highlight">441</i>&nbsp;                nodeNames.add(entry.getKey());</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">443</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        return nodeNames;</b>
+<i class="no-highlight">445</i>&nbsp;    }
+<i class="no-highlight">446</i>&nbsp;
+<i class="no-highlight">447</i>&nbsp;    public Map&lt;String, Feeder&gt; activeReplicasMap() {
+<b class="nc"><i class="no-highlight">448</i>&nbsp;        synchronized (activeFeeders){</b>
+<b class="nc"><i class="no-highlight">449</i>&nbsp;            return new HashMap&lt;String, Feeder&gt;(activeFeeders);</b>
+<b class="nc"><i class="no-highlight">450</i>&nbsp;        }</b>
+<i class="no-highlight">451</i>&nbsp;    }
+<i class="no-highlight">452</i>&nbsp;
+<i class="no-highlight">453</i>&nbsp;    /**
+<i class="no-highlight">454</i>&nbsp;     * Transitions a Feeder to being active, so that it can be used in
+<i class="no-highlight">455</i>&nbsp;     * considerations relating to commit acknowledgments and decisions about
+<i class="no-highlight">456</i>&nbsp;     * choosing feeders related to system load.
+<i class="no-highlight">457</i>&nbsp;     *
+<i class="no-highlight">458</i>&nbsp;     * @param feeder the feeder being transitioned.
+<i class="no-highlight">459</i>&nbsp;     */
+<i class="no-highlight">460</i>&nbsp;    void activateFeeder(Feeder feeder) {
+<b class="nc"><i class="no-highlight">461</i>&nbsp;        synchronized (nascentFeeders) {</b>
+<b class="nc"><i class="no-highlight">462</i>&nbsp;            synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">463</i>&nbsp;                boolean removed = nascentFeeders.remove(feeder);</b>
+<b class="nc"><i class="no-highlight">464</i>&nbsp;                if (feeder.isShutdown()) {</b>
+<b class="nc"><i class="no-highlight">465</i>&nbsp;                    return;</b>
+<i class="no-highlight">466</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">467</i>&nbsp;                assert(removed);</b>
+<b class="nc"><i class="no-highlight">468</i>&nbsp;                String replicaName = feeder.getReplicaNameIdPair().getName();</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;                assert(!feeder.getReplicaNameIdPair().equals(NameIdPair.NULL));</b>
+<b class="nc"><i class="no-highlight">470</i>&nbsp;                Feeder dup = activeFeeders.get(replicaName);</b>
+<b class="nc"><i class="no-highlight">471</i>&nbsp;                if ((dup != null) &amp;&amp; !dup.isShutdown()) {</b>
+<b class="nc"><i class="no-highlight">472</i>&nbsp;                    throw EnvironmentFailureException.</b>
+<b class="nc"><i class="no-highlight">473</i>&nbsp;                        unexpectedState(repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">474</i>&nbsp;                                        feeder.getReplicaNameIdPair() +</b>
+<i class="no-highlight">475</i>&nbsp;                                        &quot; is present in both nascent and &quot; +
+<i class="no-highlight">476</i>&nbsp;                                        &quot;active feeder sets&quot;);
+<i class="no-highlight">477</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">478</i>&nbsp;                activeFeeders.put(replicaName, feeder);</b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;                if (feeder.getReplicaNode().getType().isArbiter()) {</b>
+<b class="nc"><i class="no-highlight">480</i>&nbsp;                    assert(arbiterFeeders.get() == 0);</b>
+<b class="nc"><i class="no-highlight">481</i>&nbsp;                    arbiterFeeders.incrementAndGet();</b>
+<b class="nc"><i class="no-highlight">482</i>&nbsp;                    arbiterFeederName = replicaName;</b>
+<i class="no-highlight">483</i>&nbsp;
+<b class="nc"><i class="no-highlight">484</i>&nbsp;                } else if (feeder.getReplicaNode().getType().isElectable()) {</b>
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                    ackFeeders.incrementAndGet();</b>
+<i class="no-highlight">486</i>&nbsp;                }
+<i class="no-highlight">487</i>&nbsp;
+<b class="nc"><i class="no-highlight">488</i>&nbsp;                MasterTransfer xfr = repNode.getActiveTransfer();</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;                if (xfr != null) {</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;                    xfr.addFeeder(feeder);</b>
+<i class="no-highlight">491</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">493</i>&nbsp;        }</b>
+<i class="no-highlight">494</i>&nbsp;    }
+<i class="no-highlight">495</i>&nbsp;
+<i class="no-highlight">496</i>&nbsp;    /**
+<i class="no-highlight">497</i>&nbsp;     * Remove the feeder from the sets used to track it. Invoked when a feeder
+<i class="no-highlight">498</i>&nbsp;     * is shutdown.
+<i class="no-highlight">499</i>&nbsp;     *
+<i class="no-highlight">500</i>&nbsp;     * @param feeder
+<i class="no-highlight">501</i>&nbsp;     */
+<i class="no-highlight">502</i>&nbsp;    void removeFeeder(Feeder feeder) {
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        assert(feeder.isShutdown());</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;        final String replicaName = feeder.getReplicaNameIdPair().getName();</b>
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        synchronized (nascentFeeders) {</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;            synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">507</i>&nbsp;                nascentFeeders.remove(feeder);</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;                if (activeFeeders.remove(replicaName) != null) {</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                    if (arbiterFeederName != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                        arbiterFeederName.equals(replicaName)) {</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                        arbiterFeeders.decrementAndGet();</b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;                        arbiterFeederName = null;</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;                    } else if (feeder.getReplicaNode().getType().isElectable()) {</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                        ackFeeders.decrementAndGet();</b>
+<i class="no-highlight">515</i>&nbsp;                    }
+<i class="no-highlight">516</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">517</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">518</i>&nbsp;        }</b>
+<i class="no-highlight">519</i>&nbsp;
+<b class="nc"><i class="no-highlight">520</i>&nbsp;        final RepNodeImpl node = feeder.getReplicaNode();</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;        if ((node != null) &amp;&amp; node.getType().hasTransientId()) {</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;            repNode.removeTransientNode(node);</b>
+<i class="no-highlight">523</i>&nbsp;        }
+<i class="no-highlight">524</i>&nbsp;    }
+<i class="no-highlight">525</i>&nbsp;
+<i class="no-highlight">526</i>&nbsp;    /**
+<i class="no-highlight">527</i>&nbsp;     * Clears and shuts down the runFeeders by inserting a special EOF marker
+<i class="no-highlight">528</i>&nbsp;     * value into the queue.
+<i class="no-highlight">529</i>&nbsp;     */
+<i class="no-highlight">530</i>&nbsp;    void shutdownQueue() {
+<b class="nc"><i class="no-highlight">531</i>&nbsp;        if (!repNode.isShutdown()) {</b>
+<b class="nc"><i class="no-highlight">532</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">533</i>&nbsp;                (&quot;Rep node is still active&quot;);</b>
+<i class="no-highlight">534</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">535</i>&nbsp;        channelQueue.clear();</b>
+<i class="no-highlight">536</i>&nbsp;        /* Add special entry so that the channelQueue.poll operation exits. */
+<b class="nc"><i class="no-highlight">537</i>&nbsp;        channelQueue.add(RepUtils.CHANNEL_EOF_MARKER);</b>
+<i class="no-highlight">538</i>&nbsp;    }
+<i class="no-highlight">539</i>&nbsp;
+<i class="no-highlight">540</i>&nbsp;    /**
+<i class="no-highlight">541</i>&nbsp;     * The core feeder listener loop that is run either in a Master node, or in
+<i class="no-highlight">542</i>&nbsp;     * a Replica that is serving as a Feeder to other Replica nodes. The core
+<i class="no-highlight">543</i>&nbsp;     * loop accepts connections from Replicas as they come in and establishes a
+<i class="no-highlight">544</i>&nbsp;     * Feeder on that connection.
+<i class="no-highlight">545</i>&nbsp;     *
+<i class="no-highlight">546</i>&nbsp;     * The loop can be terminated for one of the following reasons:
+<i class="no-highlight">547</i>&nbsp;     *
+<i class="no-highlight">548</i>&nbsp;     *  1) A change in Masters.
+<i class="no-highlight">549</i>&nbsp;     *
+<i class="no-highlight">550</i>&nbsp;     *  2) A forced shutdown, via a thread interrupt.
+<i class="no-highlight">551</i>&nbsp;     *
+<i class="no-highlight">552</i>&nbsp;     *  3) A server socket level exception.
+<i class="no-highlight">553</i>&nbsp;     *
+<i class="no-highlight">554</i>&nbsp;     * The timeout on the accept is used to ensure that the check is done at
+<i class="no-highlight">555</i>&nbsp;     * least once per timeout period.
+<i class="no-highlight">556</i>&nbsp;     */
+<i class="no-highlight">557</i>&nbsp;    void runFeeders()
+<i class="no-highlight">558</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">559</i>&nbsp;
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        if (shutdown.get()) {</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                (&quot;Feeder manager was shutdown&quot;);</b>
+<i class="no-highlight">563</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">564</i>&nbsp;        Exception feederShutdownException = null;</b>
+<b class="nc"><i class="no-highlight">565</i>&nbsp;        LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">566</i>&nbsp;                         &quot;Feeder manager accepting requests.&quot;);
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;        /* Init GlobalCBVLSN using minJEVersion in the rep group DB. */
+<b class="nc"><i class="no-highlight">569</i>&nbsp;        repNode.globalCBVLSN.init(repNode, repNode.getMinJEVersion());</b>
+<i class="no-highlight">570</i>&nbsp;
+<i class="no-highlight">571</i>&nbsp;        /* This updater represents the masters&#39;s local cbvlsn, which the master
+<i class="no-highlight">572</i>&nbsp;           updates directly. */
+<b class="nc"><i class="no-highlight">573</i>&nbsp;        final LocalCBVLSNUpdater updater = new LocalCBVLSNUpdater(</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            repNode.getNameIdPair(), repNode.getNodeType(), repNode);</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;        final LocalCBVLSNTracker tracker = repNode.getCBVLSNTracker();</b>
+<i class="no-highlight">576</i>&nbsp;
+<i class="no-highlight">577</i>&nbsp;        try {
+<i class="no-highlight">578</i>&nbsp;
+<i class="no-highlight">579</i>&nbsp;            /*
+<i class="no-highlight">580</i>&nbsp;             * Ensure that the Global CBVLSN is initialized for the master when
+<i class="no-highlight">581</i>&nbsp;             * it first comes up; it&#39;s subsequently maintained in the loop
+<i class="no-highlight">582</i>&nbsp;             * below.
+<i class="no-highlight">583</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">584</i>&nbsp;            updater.updateForMaster(tracker);</b>
+<i class="no-highlight">585</i>&nbsp;
+<b class="nc"><i class="no-highlight">586</i>&nbsp;            repNode.getServiceDispatcher().</b>
+<b class="nc"><i class="no-highlight">587</i>&nbsp;                register(FEEDER_SERVICE, channelQueue);</b>
+<i class="no-highlight">588</i>&nbsp;
+<i class="no-highlight">589</i>&nbsp;            /*
+<i class="no-highlight">590</i>&nbsp;             * The Feeder is ready for business, indicate that the node is
+<i class="no-highlight">591</i>&nbsp;             * ready by counting down the latch and releasing any waiters.
+<i class="no-highlight">592</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">593</i>&nbsp;            repNode.getReadyLatch().countDown();</b>
+<i class="no-highlight">594</i>&nbsp;
+<i class="no-highlight">595</i>&nbsp;            while (true) {
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                final DataChannel feederReplicaChannel =</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;                    channelQueue.poll(pollTimeoutMs, TimeUnit.MILLISECONDS);</b>
+<i class="no-highlight">598</i>&nbsp;
+<b class="nc"><i class="no-highlight">599</i>&nbsp;                if (feederReplicaChannel == RepUtils.CHANNEL_EOF_MARKER) {</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                    LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">601</i>&nbsp;                                     &quot;Feeder manager soft shutdown.&quot;);
+<i class="no-highlight">602</i>&nbsp;                    return;
+<i class="no-highlight">603</i>&nbsp;                }
+<i class="no-highlight">604</i>&nbsp;
+<b class="nc"><i class="no-highlight">605</i>&nbsp;                repNode.getMasterStatus().assertSync();</b>
+<b class="nc"><i class="no-highlight">606</i>&nbsp;                if (feederReplicaChannel == null) {</b>
+<b class="nc"><i class="no-highlight">607</i>&nbsp;                    if (repNode.isShutdownOrInvalid()) {</b>
+<i class="no-highlight">608</i>&nbsp;                        /* Timeout and shutdown request */
+<b class="nc"><i class="no-highlight">609</i>&nbsp;                        LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">610</i>&nbsp;                                         &quot;Feeder manager forced shutdown.&quot;);
+<i class="no-highlight">611</i>&nbsp;                        return;
+<i class="no-highlight">612</i>&nbsp;                    }
+<i class="no-highlight">613</i>&nbsp;
+<i class="no-highlight">614</i>&nbsp;                    /*
+<i class="no-highlight">615</i>&nbsp;                     * Simulate extending the polling period for channel input
+<i class="no-highlight">616</i>&nbsp;                     * by delay updating the CBVLSN, to allow tests to control
+<i class="no-highlight">617</i>&nbsp;                     * the timing.
+<i class="no-highlight">618</i>&nbsp;                     */
+<i class="no-highlight">619</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">620</i>&nbsp;                        assert TestHookExecute.doHookIfSet(</b>
+<b class="nc"><i class="no-highlight">621</i>&nbsp;                            delayCBVLSNUpdateHook, repNode.getNameIdPair());</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;                    } catch (IllegalStateException e) {</b>
+<b class="nc"><i class="no-highlight">623</i>&nbsp;                        continue;</b>
+<b class="nc"><i class="no-highlight">624</i>&nbsp;                    }</b>
+<i class="no-highlight">625</i>&nbsp;
+<i class="no-highlight">626</i>&nbsp;                    /*
+<i class="no-highlight">627</i>&nbsp;                     * Take this opportunity to update this node&#39;s CBVLSN The
+<i class="no-highlight">628</i>&nbsp;                     * replicas are sending in their CBVLSNs through the
+<i class="no-highlight">629</i>&nbsp;                     * heartbeat responses, but a master does not send any
+<i class="no-highlight">630</i>&nbsp;                     * heartbeat responses, and needs a different path to
+<i class="no-highlight">631</i>&nbsp;                     * update its local CBVLSN.
+<i class="no-highlight">632</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">633</i>&nbsp;                    updater.updateForMaster(tracker);</b>
+<i class="no-highlight">634</i>&nbsp;
+<i class="no-highlight">635</i>&nbsp;                    /* Flush the DTVLSN if it&#39;s warranted. */
+<b class="nc"><i class="no-highlight">636</i>&nbsp;                    dtvlsnFlusher.flush();</b>
+<i class="no-highlight">637</i>&nbsp;
+<i class="no-highlight">638</i>&nbsp;                    /*
+<i class="no-highlight">639</i>&nbsp;                     * Opportunistically attempt to update minJEVersion.
+<i class="no-highlight">640</i>&nbsp;                     * This must be done while the feeder is active.
+<i class="no-highlight">641</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">642</i>&nbsp;                    repNode.globalCBVLSN.setDefunctJEVersion(repNode);</b>
+<i class="no-highlight">643</i>&nbsp;
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                    continue;</b>
+<i class="no-highlight">645</i>&nbsp;                }
+<i class="no-highlight">646</i>&nbsp;
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                nFeedersCreated.increment();</b>
+<i class="no-highlight">648</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">649</i>&nbsp;                    Feeder feeder = new Feeder(this, feederReplicaChannel);</b>
+<b class="nc"><i class="no-highlight">650</i>&nbsp;                    nascentFeeders.add(feeder);</b>
+<b class="nc"><i class="no-highlight">651</i>&nbsp;                    feeder.startFeederThreads();</b>
+<b class="nc"><i class="no-highlight">652</i>&nbsp;                } catch (IOException e) {</b>
+<i class="no-highlight">653</i>&nbsp;
+<i class="no-highlight">654</i>&nbsp;                    /*
+<i class="no-highlight">655</i>&nbsp;                     * Indicates a feeder socket level exception.
+<i class="no-highlight">656</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">657</i>&nbsp;                    LoggerUtils.fine</b>
+<b class="nc"><i class="no-highlight">658</i>&nbsp;                        (logger, repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">659</i>&nbsp;                         &quot;Feeder I/O exception: &quot; + e.getMessage());</b>
+<i class="no-highlight">660</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                        feederReplicaChannel.close();</b>
+<b class="nc"><i class="no-highlight">662</i>&nbsp;                    } catch (IOException e1) {</b>
+<b class="nc"><i class="no-highlight">663</i>&nbsp;                        LoggerUtils.fine</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;                            (logger, repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">665</i>&nbsp;                             &quot;Exception during cleanup.&quot; + e.getMessage());</b>
+<b class="nc"><i class="no-highlight">666</i>&nbsp;                    }</b>
+<b class="nc"><i class="no-highlight">667</i>&nbsp;                    continue;</b>
+<b class="nc"><i class="no-highlight">668</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">669</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">670</i>&nbsp;        } catch (MasterSyncException e) {</b>
+<b class="nc"><i class="no-highlight">671</i>&nbsp;            LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<b class="nc"><i class="no-highlight">672</i>&nbsp;                             &quot;Master change: &quot; + e.getMessage());</b>
+<i class="no-highlight">673</i>&nbsp;
+<b class="nc"><i class="no-highlight">674</i>&nbsp;            feederShutdownException = new UnknownMasterException(&quot;Node &quot; +</b>
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                                repNode.getRepImpl().getName() +</b>
+<i class="no-highlight">676</i>&nbsp;                                &quot; is not a master anymore&quot;);
+<b class="nc"><i class="no-highlight">677</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">678</i>&nbsp;            if (this.repNodeShutdownException != null) {</b>
+<i class="no-highlight">679</i>&nbsp;
+<i class="no-highlight">680</i>&nbsp;                /*
+<i class="no-highlight">681</i>&nbsp;                 * The interrupt was issued to propagate an exception from one
+<i class="no-highlight">682</i>&nbsp;                 * of the Feeder threads. It&#39;s not a normal exit.
+<i class="no-highlight">683</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">684</i>&nbsp;                LoggerUtils.warning(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">685</i>&nbsp;                                    &quot;Feeder manager unexpected interrupt&quot;);
+<b class="nc"><i class="no-highlight">686</i>&nbsp;                throw repNodeShutdownException; /* Terminate the rep node */</b>
+<i class="no-highlight">687</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">688</i>&nbsp;            if (repNode.isShutdown()) {</b>
+<b class="nc"><i class="no-highlight">689</i>&nbsp;                LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">690</i>&nbsp;                                 &quot;Feeder manager interrupted for shutdown&quot;);
+<i class="no-highlight">691</i>&nbsp;                return;
+<i class="no-highlight">692</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">693</i>&nbsp;            feederShutdownException = e;</b>
+<b class="nc"><i class="no-highlight">694</i>&nbsp;            LoggerUtils.warning(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">695</i>&nbsp;                                &quot;Feeder manager unexpected interrupt&quot;);
+<i class="no-highlight">696</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">697</i>&nbsp;            repNode.resetReadyLatch(feederShutdownException);</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;            repNode.getServiceDispatcher().cancel(FEEDER_SERVICE);</b>
+<b class="nc"><i class="no-highlight">699</i>&nbsp;            shutdownFeeders(feederShutdownException);</b>
+<b class="nc"><i class="no-highlight">700</i>&nbsp;            LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">701</i>&nbsp;                             &quot;Feeder manager exited. CurrentTxnEnd VLSN: &quot; +
+<b class="nc"><i class="no-highlight">702</i>&nbsp;                             repNode.getCurrentTxnEndVLSN());</b>
+<b class="nc"><i class="no-highlight">703</i>&nbsp;        }</b>
+<i class="no-highlight">704</i>&nbsp;    }
+<i class="no-highlight">705</i>&nbsp;
+<i class="no-highlight">706</i>&nbsp;    /**
+<i class="no-highlight">707</i>&nbsp;     * Shuts down all the feeders managed by the FeederManager
+<i class="no-highlight">708</i>&nbsp;     *
+<i class="no-highlight">709</i>&nbsp;     * @param feederShutdownException the exception provoking the shutdown.
+<i class="no-highlight">710</i>&nbsp;     */
+<i class="no-highlight">711</i>&nbsp;    private void shutdownFeeders(Exception feederShutdownException) {
+<b class="nc"><i class="no-highlight">712</i>&nbsp;        boolean changed = shutdown.compareAndSet(false, true);</b>
+<b class="nc"><i class="no-highlight">713</i>&nbsp;        if (!changed) {</b>
+<i class="no-highlight">714</i>&nbsp;            return;
+<i class="no-highlight">715</i>&nbsp;        }
+<i class="no-highlight">716</i>&nbsp;
+<i class="no-highlight">717</i>&nbsp;        try {
+<i class="no-highlight">718</i>&nbsp;            /* Copy sets for safe iteration in the presence of deletes.*/
+<i class="no-highlight">719</i>&nbsp;            final Set&lt;Feeder&gt; feederSet;
+<b class="nc"><i class="no-highlight">720</i>&nbsp;            synchronized (nascentFeeders) {</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;                synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">722</i>&nbsp;                    feederSet = new HashSet&lt;Feeder&gt;(activeFeeders.values());</b>
+<b class="nc"><i class="no-highlight">723</i>&nbsp;                    feederSet.addAll(nascentFeeders);</b>
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;            }</b>
+<i class="no-highlight">726</i>&nbsp;
+<b class="nc"><i class="no-highlight">727</i>&nbsp;            for (Feeder feeder : feederSet) {</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                nFeedersShutdown.increment();</b>
+<b class="nc"><i class="no-highlight">729</i>&nbsp;                feeder.shutdown(feederShutdownException);</b>
+<b class="nc"><i class="no-highlight">730</i>&nbsp;            }</b>
+<i class="no-highlight">731</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">732</i>&nbsp;            if (feederShutdownException == null) {</b>
+<b class="nc"><i class="no-highlight">733</i>&nbsp;                feederShutdownException =</b>
+<i class="no-highlight">734</i>&nbsp;                    new IllegalStateException(&quot;FeederManager shutdown&quot;);
+<i class="no-highlight">735</i>&nbsp;                /*
+<i class="no-highlight">736</i>&nbsp;                 * Release any threads that may have been waiting, but
+<i class="no-highlight">737</i>&nbsp;                 * don&#39;t throw any exception
+<i class="no-highlight">738</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">739</i>&nbsp;                activeFeeders.clear(null);</b>
+<i class="no-highlight">740</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">741</i>&nbsp;                activeFeeders.clear(feederShutdownException);</b>
+<i class="no-highlight">742</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">743</i>&nbsp;            nascentFeeders.clear();</b>
+<b class="nc"><i class="no-highlight">744</i>&nbsp;        }</b>
+<i class="no-highlight">745</i>&nbsp;    }
+<i class="no-highlight">746</i>&nbsp;
+<i class="no-highlight">747</i>&nbsp;    /**
+<i class="no-highlight">748</i>&nbsp;     * Shuts down a specific feeder. It&#39;s typically done in response to the
+<i class="no-highlight">749</i>&nbsp;     * removal of a member from the group.
+<i class="no-highlight">750</i>&nbsp;     */
+<i class="no-highlight">751</i>&nbsp;    public void shutdownFeeder(RepNodeImpl node) {
+<b class="nc"><i class="no-highlight">752</i>&nbsp;        Feeder feeder = activeFeeders.get(node.getName());</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;        if (feeder == null) {</b>
+<i class="no-highlight">754</i>&nbsp;            return;
+<i class="no-highlight">755</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">756</i>&nbsp;        nFeedersShutdown.increment();</b>
+<b class="nc"><i class="no-highlight">757</i>&nbsp;        feeder.shutdown(null);</b>
+<i class="no-highlight">758</i>&nbsp;    }
+<i class="no-highlight">759</i>&nbsp;
+<i class="no-highlight">760</i>&nbsp;    /**
+<i class="no-highlight">761</i>&nbsp;     * Block until the required number of electable feeders/replica connections
+<i class="no-highlight">762</i>&nbsp;     * are established. Used for establishing durability quorums. Since this is
+<i class="no-highlight">763</i>&nbsp;     * counting feeder/replica connections, requiredReplicaCount does not
+<i class="no-highlight">764</i>&nbsp;     * include the master.
+<i class="no-highlight">765</i>&nbsp;     *
+<i class="no-highlight">766</i>&nbsp;     * In the future this could be improved by also taking account the position
+<i class="no-highlight">767</i>&nbsp;     * of each feeder. If a feeder is lagging far behind the master and this
+<i class="no-highlight">768</i>&nbsp;     * is likely to prevent commit, we may want to reject the transaction at
+<i class="no-highlight">769</i>&nbsp;     * the outset to reduce the number of wasted txns/aborts. A special case
+<i class="no-highlight">770</i>&nbsp;     * is when the replica is in out-of-disk mode and not acking at all.
+<i class="no-highlight">771</i>&nbsp;     */
+<i class="no-highlight">772</i>&nbsp;    boolean awaitFeederReplicaConnections(
+<i class="no-highlight">773</i>&nbsp;        int requiredReplicaCount, long insufficientReplicasTimeout)
+<i class="no-highlight">774</i>&nbsp;        throws InterruptedException {
+<b class="nc"><i class="no-highlight">775</i>&nbsp;        return activeFeeders.sizeAwait(requiredReplicaCount,</b>
+<i class="no-highlight">776</i>&nbsp;                                       insufficientReplicasTimeout,
+<i class="no-highlight">777</i>&nbsp;                                       TimeUnit.MILLISECONDS);
+<i class="no-highlight">778</i>&nbsp;    }
+<i class="no-highlight">779</i>&nbsp;
+<i class="no-highlight">780</i>&nbsp;    /*
+<i class="no-highlight">781</i>&nbsp;     * For debugging help, and for expanded exception messages, dump feeder
+<i class="no-highlight">782</i>&nbsp;     * related state.  If acksOnly is true, only include information about
+<i class="no-highlight">783</i>&nbsp;     * feeders for replicas that supply acknowledgments.
+<i class="no-highlight">784</i>&nbsp;     */
+<i class="no-highlight">785</i>&nbsp;    public String dumpState(final boolean acksOnly) {
+<b class="nc"><i class="no-highlight">786</i>&nbsp;        StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">787</i>&nbsp;        synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">788</i>&nbsp;            Set&lt;Entry&lt;String, Feeder&gt;&gt; feeds = activeFeeders.entrySet();</b>
+<b class="nc"><i class="no-highlight">789</i>&nbsp;            if (feeds.size() == 0) {</b>
+<b class="nc"><i class="no-highlight">790</i>&nbsp;                sb.append(&quot;No feeders.&quot;);</b>
+<i class="no-highlight">791</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">792</i>&nbsp;                sb.append(&quot;Current feeds:&quot;);</b>
+<b class="nc"><i class="no-highlight">793</i>&nbsp;                for (Entry&lt;String, Feeder&gt; feedEntry : feeds) {</b>
+<b class="nc"><i class="no-highlight">794</i>&nbsp;                    final Feeder feeder = feedEntry.getValue();</b>
+<i class="no-highlight">795</i>&nbsp;
+<i class="no-highlight">796</i>&nbsp;                    /*
+<i class="no-highlight">797</i>&nbsp;                     * Ignore secondary and external nodes if only want nodes
+<i class="no-highlight">798</i>&nbsp;                     * that provide acknowledgments
+<i class="no-highlight">799</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">800</i>&nbsp;                    if (acksOnly) {</b>
+<b class="nc"><i class="no-highlight">801</i>&nbsp;                        final NodeType nodeType =</b>
+<b class="nc"><i class="no-highlight">802</i>&nbsp;                            feeder.getReplicaNode().getType();</b>
+<b class="nc"><i class="no-highlight">803</i>&nbsp;                        if (nodeType.isSecondary() || nodeType.isExternal()) {</b>
+<b class="nc"><i class="no-highlight">804</i>&nbsp;                            continue;</b>
+<i class="no-highlight">805</i>&nbsp;                        }
+<i class="no-highlight">806</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">807</i>&nbsp;                    sb.append(&quot;\n &quot;).append(feedEntry.getKey()).append(&quot;: &quot;);</b>
+<b class="nc"><i class="no-highlight">808</i>&nbsp;                    sb.append(feeder.dumpState());</b>
+<b class="nc"><i class="no-highlight">809</i>&nbsp;                }</b>
+<i class="no-highlight">810</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">811</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">812</i>&nbsp;        return sb.toString();</b>
+<i class="no-highlight">813</i>&nbsp;    }
+<i class="no-highlight">814</i>&nbsp;
+<i class="no-highlight">815</i>&nbsp;    /**
+<i class="no-highlight">816</i>&nbsp;     * Returns a count of the number of feeders whose replicas are counted in
+<i class="no-highlight">817</i>&nbsp;     * durability decisions and have acknowledged txn-end VLSNs &gt;= the
+<i class="no-highlight">818</i>&nbsp;     * commitVLSN argument.
+<i class="no-highlight">819</i>&nbsp;     *
+<i class="no-highlight">820</i>&nbsp;     * @param commitVLSN the commitVLSN being checked
+<i class="no-highlight">821</i>&nbsp;     */
+<i class="no-highlight">822</i>&nbsp;    public int getNumCurrentAckFeeders(VLSN commitVLSN) {
+<b class="nc"><i class="no-highlight">823</i>&nbsp;        final DurabilityQuorum durabilityQuorum =</b>
+<b class="nc"><i class="no-highlight">824</i>&nbsp;            repNode.getDurabilityQuorum();</b>
+<b class="nc"><i class="no-highlight">825</i>&nbsp;        int count = 0;</b>
+<b class="nc"><i class="no-highlight">826</i>&nbsp;        synchronized (activeFeeders) {</b>
+<b class="nc"><i class="no-highlight">827</i>&nbsp;            for (Feeder feeder : activeFeeders.values()) {</b>
+<b class="nc"><i class="no-highlight">828</i>&nbsp;                if ((commitVLSN.compareTo(feeder.getReplicaTxnEndVLSN()) &lt;= 0)</b>
+<b class="nc"><i class="no-highlight">829</i>&nbsp;                    &amp;&amp; durabilityQuorum.replicaAcksQualify(</b>
+<b class="nc"><i class="no-highlight">830</i>&nbsp;                        feeder.getReplicaNode())) {</b>
+<b class="nc"><i class="no-highlight">831</i>&nbsp;                    count++;</b>
+<i class="no-highlight">832</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">833</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">834</i>&nbsp;            return count;</b>
+<b class="nc"><i class="no-highlight">835</i>&nbsp;        }</b>
+<i class="no-highlight">836</i>&nbsp;    }
+<i class="no-highlight">837</i>&nbsp;
+<i class="no-highlight">838</i>&nbsp;    /**
+<i class="no-highlight">839</i>&nbsp;     * Update the Master&#39;s DTVLSN if we can conclude based upon the state of
+<i class="no-highlight">840</i>&nbsp;     * the replicas that the DTVLSN needs to be advanced.
+<i class="no-highlight">841</i>&nbsp;     *
+<i class="no-highlight">842</i>&nbsp;     * This method is invoked when a replica heartbeat reports a more recent
+<i class="no-highlight">843</i>&nbsp;     * txn VLSN. This (sometimes) redundant form of DTVLS update is useful in
+<i class="no-highlight">844</i>&nbsp;     * circumstances when the value could not be maintained via the usual ack
+<i class="no-highlight">845</i>&nbsp;     * response processing:
+<i class="no-highlight">846</i>&nbsp;     *
+<i class="no-highlight">847</i>&nbsp;     * 1) The application is using no ack transactions explicitly.
+<i class="no-highlight">848</i>&nbsp;     *
+<i class="no-highlight">849</i>&nbsp;     * 2) There were ack transaction timeouts due to network problems and the
+<i class="no-highlight">850</i>&nbsp;     * acks were never received or were received after the timeout had expired.
+<i class="no-highlight">851</i>&nbsp;     */
+<i class="no-highlight">852</i>&nbsp;    public void updateDTVLSN(long heartbeatVLSN) {
+<i class="no-highlight">853</i>&nbsp;
+<b class="nc"><i class="no-highlight">854</i>&nbsp;        final long currDTVLSN = repNode.getDTVLSN();</b>
+<b class="nc"><i class="no-highlight">855</i>&nbsp;        if (heartbeatVLSN &lt;= currDTVLSN) {</b>
+<i class="no-highlight">856</i>&nbsp;            /* Nothing to update, a lagging replica that&#39;s catching up */
+<i class="no-highlight">857</i>&nbsp;            return;
+<i class="no-highlight">858</i>&nbsp;        }
+<i class="no-highlight">859</i>&nbsp;
+<b class="nc"><i class="no-highlight">860</i>&nbsp;        final DurabilityQuorum durabilityQuorum = repNode.getDurabilityQuorum();</b>
+<b class="nc"><i class="no-highlight">861</i>&nbsp;        final int durableAckCount = durabilityQuorum.</b>
+<b class="nc"><i class="no-highlight">862</i>&nbsp;            getCurrentRequiredAckCount(ReplicaAckPolicy.SIMPLE_MAJORITY);</b>
+<i class="no-highlight">863</i>&nbsp;
+<b class="nc"><i class="no-highlight">864</i>&nbsp;        long min = Long.MAX_VALUE;</b>
+<i class="no-highlight">865</i>&nbsp;
+<b class="nc"><i class="no-highlight">866</i>&nbsp;        synchronized (activeFeeders) {</b>
+<i class="no-highlight">867</i>&nbsp;
+<b class="nc"><i class="no-highlight">868</i>&nbsp;            int ackCount = 0;</b>
+<b class="nc"><i class="no-highlight">869</i>&nbsp;            for (Feeder feeder : activeFeeders.values()) {</b>
+<i class="no-highlight">870</i>&nbsp;
+<b class="nc"><i class="no-highlight">871</i>&nbsp;                if (!durabilityQuorum.</b>
+<b class="nc"><i class="no-highlight">872</i>&nbsp;                    replicaAcksQualify(feeder.getReplicaNode())) {</b>
+<b class="nc"><i class="no-highlight">873</i>&nbsp;                    continue;</b>
+<i class="no-highlight">874</i>&nbsp;                }
+<i class="no-highlight">875</i>&nbsp;
+<b class="nc"><i class="no-highlight">876</i>&nbsp;                final long replicaTxnVLSN =</b>
+<b class="nc"><i class="no-highlight">877</i>&nbsp;                    feeder.getReplicaTxnEndVLSN().getSequence();</b>
+<i class="no-highlight">878</i>&nbsp;
+<b class="nc"><i class="no-highlight">879</i>&nbsp;                if (replicaTxnVLSN &lt;= currDTVLSN) {</b>
+<b class="nc"><i class="no-highlight">880</i>&nbsp;                    continue;</b>
+<i class="no-highlight">881</i>&nbsp;                }
+<i class="no-highlight">882</i>&nbsp;
+<b class="nc"><i class="no-highlight">883</i>&nbsp;                if (replicaTxnVLSN &lt; min) {</b>
+<b class="nc"><i class="no-highlight">884</i>&nbsp;                    min = replicaTxnVLSN;</b>
+<i class="no-highlight">885</i>&nbsp;                }
+<i class="no-highlight">886</i>&nbsp;
+<b class="nc"><i class="no-highlight">887</i>&nbsp;                if (++ackCount &gt;= durableAckCount) {</b>
+<i class="no-highlight">888</i>&nbsp;                    /*
+<i class="no-highlight">889</i>&nbsp;                     * If a majority of replicas have vlsns &gt;= durable txn
+<i class="no-highlight">890</i>&nbsp;                     * vlsn, advance the DTVLSN.
+<i class="no-highlight">891</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">892</i>&nbsp;                    repNode.updateDTVLSN(min);</b>
+<b class="nc"><i class="no-highlight">893</i>&nbsp;                    return;</b>
+<i class="no-highlight">894</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">895</i>&nbsp;            }</b>
+<i class="no-highlight">896</i>&nbsp;
+<i class="no-highlight">897</i>&nbsp;            /* DTVLSN unchanged. */
+<b class="nc"><i class="no-highlight">898</i>&nbsp;            return;</b>
+<b class="nc"><i class="no-highlight">899</i>&nbsp;        }</b>
+<i class="no-highlight">900</i>&nbsp;    }
+<i class="no-highlight">901</i>&nbsp;
+<i class="no-highlight">902</i>&nbsp;    /**
+<i class="no-highlight">903</i>&nbsp;     * Set a test hook, parameterized by feeder&#39;s Name/ID pair, that delays
+<i class="no-highlight">904</i>&nbsp;     * CBVLSN updates if it throws an IllegalStateException.
+<i class="no-highlight">905</i>&nbsp;     */
+<i class="no-highlight">906</i>&nbsp;    public static void setDelayCBVLSNUpdateHook(TestHook&lt;NameIdPair&gt; hook) {
+<b class="nc"><i class="no-highlight">907</i>&nbsp;        delayCBVLSNUpdateHook = hook;</b>
+<i class="no-highlight">908</i>&nbsp;    }
+<i class="no-highlight">909</i>&nbsp;
+<i class="no-highlight">910</i>&nbsp;    /**
+<i class="no-highlight">911</i>&nbsp;     * Convenience constant used by the DTVLSN flusher when committing the null
+<i class="no-highlight">912</i>&nbsp;     * transaction.
+<i class="no-highlight">913</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">914</i>&nbsp;    private static TransactionConfig NULL_TXN_CONFIG = new TransactionConfig();</b>
+<i class="no-highlight">915</i>&nbsp;    static {
+<b class="nc"><i class="no-highlight">916</i>&nbsp;       NULL_TXN_CONFIG.setDurability(new Durability(SyncPolicy.WRITE_NO_SYNC,</b>
+<i class="no-highlight">917</i>&nbsp;                                                    SyncPolicy.WRITE_NO_SYNC,
+<i class="no-highlight">918</i>&nbsp;                                                    ReplicaAckPolicy.NONE));
+<i class="no-highlight">919</i>&nbsp;    }
+<i class="no-highlight">920</i>&nbsp;
+<i class="no-highlight">921</i>&nbsp;    /**
+<i class="no-highlight">922</i>&nbsp;     * Writes a null (no modifications) commit record when it detects that the
+<i class="no-highlight">923</i>&nbsp;     * DTVLSN is ahead of the persistent DTVLSN and needs to be updated.
+<i class="no-highlight">924</i>&nbsp;     *
+<i class="no-highlight">925</i>&nbsp;     * Note that without this mechanism, the in-memory DTVLSN would always be
+<i class="no-highlight">926</i>&nbsp;     * ahead of the persisted VLSN, since in general DTVLSN(vlsn) &lt; vlsn. That
+<i class="no-highlight">927</i>&nbsp;     * is, the commit or abort log record containing the DTVLSN always has a
+<i class="no-highlight">928</i>&nbsp;     * more recent VLSN than the one it contains.
+<i class="no-highlight">929</i>&nbsp;     */
+<i class="no-highlight">930</i>&nbsp;    private class DTVLSNFlusher {
+<i class="no-highlight">931</i>&nbsp;
+<i class="no-highlight">932</i>&nbsp;        /**
+<i class="no-highlight">933</i>&nbsp;         * The number of feeder ticks for which the in-memory DTVLSN must be
+<i class="no-highlight">934</i>&nbsp;         * stable before it&#39;s written to the log as a null TXN. We are using
+<i class="no-highlight">935</i>&nbsp;         * this &quot;tick&quot; indirection to avoid yet another call to the clock. A
+<i class="no-highlight">936</i>&nbsp;         * &quot;tick&quot; in this context is the FEEDER_MANAGER_POLL_TIMEOUT.
+<i class="no-highlight">937</i>&nbsp;         */
+<i class="no-highlight">938</i>&nbsp;        final int targetStableTicks;
+<i class="no-highlight">939</i>&nbsp;
+<i class="no-highlight">940</i>&nbsp;        /**
+<i class="no-highlight">941</i>&nbsp;         * The number of ticks for which the DTVLSN has been stable.
+<i class="no-highlight">942</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">943</i>&nbsp;        private int stableTicks = 0;</b>
+<i class="no-highlight">944</i>&nbsp;
+<b class="nc"><i class="no-highlight">945</i>&nbsp;        public DTVLSNFlusher() {</b>
+<b class="nc"><i class="no-highlight">946</i>&nbsp;            final int heartbeatMs = repNode.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">947</i>&nbsp;                getInt(RepParams.HEARTBEAT_INTERVAL);</b>
+<b class="nc"><i class="no-highlight">948</i>&nbsp;            targetStableTicks =</b>
+<b class="nc"><i class="no-highlight">949</i>&nbsp;                (int) Math.max(1, (2 * heartbeatMs) / pollTimeoutMs);</b>
+<i class="no-highlight">950</i>&nbsp;        }
+<i class="no-highlight">951</i>&nbsp;
+<i class="no-highlight">952</i>&nbsp;        /**
+<i class="no-highlight">953</i>&nbsp;         * Used to track whether the DTVLSN has been stable enough to write
+<i class="no-highlight">954</i>&nbsp;         * out. While it&#39;s changing application commits and aborts are writing
+<i class="no-highlight">955</i>&nbsp;         * it out, so no need to write it here.
+<i class="no-highlight">956</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">957</i>&nbsp;        private long stableDTVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">958</i>&nbsp;
+<i class="no-highlight">959</i>&nbsp;        /**
+<i class="no-highlight">960</i>&nbsp;         * Update each time we actually persist the DTVLSN via a null txn. It
+<i class="no-highlight">961</i>&nbsp;         * represents the DTVLSN that&#39;s been written out.
+<i class="no-highlight">962</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">963</i>&nbsp;        private long persistedDTVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">964</i>&nbsp;
+<i class="no-highlight">965</i>&nbsp;        /* Identifies the Txn that was used to persist the DTVLSN. */
+<b class="nc"><i class="no-highlight">966</i>&nbsp;        private long nullTxnVLSN = VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">967</i>&nbsp;
+<i class="no-highlight">968</i>&nbsp;        /**
+<i class="no-highlight">969</i>&nbsp;         * Persists the DTVLSN if necessary. The DTVLSN is persisted if the
+<i class="no-highlight">970</i>&nbsp;         * version in memory is more current than the version on disk and has
+<i class="no-highlight">971</i>&nbsp;         * not changed for targetStableTicks.
+<i class="no-highlight">972</i>&nbsp;         */
+<i class="no-highlight">973</i>&nbsp;        void flush() {
+<b class="nc"><i class="no-highlight">974</i>&nbsp;            final long dtvlsn = repNode.getDTVLSN();</b>
+<i class="no-highlight">975</i>&nbsp;
+<b class="nc"><i class="no-highlight">976</i>&nbsp;            if (dtvlsn == nullTxnVLSN) {</b>
+<i class="no-highlight">977</i>&nbsp;                /* Don&#39;t save VLSN from null transaction as DTVLSN */
+<i class="no-highlight">978</i>&nbsp;                return;
+<i class="no-highlight">979</i>&nbsp;            }
+<i class="no-highlight">980</i>&nbsp;
+<b class="nc"><i class="no-highlight">981</i>&nbsp;            if (dtvlsn &gt; stableDTVLSN) {</b>
+<b class="nc"><i class="no-highlight">982</i>&nbsp;                stableTicks = 0;</b>
+<b class="nc"><i class="no-highlight">983</i>&nbsp;                stableDTVLSN = dtvlsn;</b>
+<i class="no-highlight">984</i>&nbsp;
+<i class="no-highlight">985</i>&nbsp;                /* The durable DTVLSN is being actively updated. */
+<i class="no-highlight">986</i>&nbsp;                return;
+<i class="no-highlight">987</i>&nbsp;            }
+<i class="no-highlight">988</i>&nbsp;
+<b class="nc"><i class="no-highlight">989</i>&nbsp;            if (dtvlsn &lt; stableDTVLSN) {</b>
+<i class="no-highlight">990</i>&nbsp;                /* Enforce the invariant that the DTVLSN cannot decrease. */
+<b class="nc"><i class="no-highlight">991</i>&nbsp;                throw new IllegalStateException(&quot;The DTVLSN sequence cannot decrease&quot; +</b>
+<i class="no-highlight">992</i>&nbsp;                                                &quot;current DTVLSN:&quot; + dtvlsn +
+<i class="no-highlight">993</i>&nbsp;                                                &quot; previous DTVLSN:&quot; + stableDTVLSN);
+<i class="no-highlight">994</i>&nbsp;            }
+<i class="no-highlight">995</i>&nbsp;
+<i class="no-highlight">996</i>&nbsp;            /* DTVLSN == stableDTVLSN */
+<b class="nc"><i class="no-highlight">997</i>&nbsp;            if (++stableTicks &lt;= targetStableTicks) {</b>
+<i class="no-highlight">998</i>&nbsp;                /*
+<i class="no-highlight">999</i>&nbsp;                 * Increase the stable tick counter. it has not been stable
+<i class="no-highlight">1000</i>&nbsp;                 * long enough.
+<i class="no-highlight">1001</i>&nbsp;                 */
+<i class="no-highlight">1002</i>&nbsp;                return;
+<i class="no-highlight">1003</i>&nbsp;            }
+<i class="no-highlight">1004</i>&nbsp;
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;            stableTicks = 0;</b>
+<i class="no-highlight">1006</i>&nbsp;
+<i class="no-highlight">1007</i>&nbsp;            /* dtvlsn has been stable */
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;            if (stableDTVLSN &gt; persistedDTVLSN) {</b>
+<b class="nc"><i class="no-highlight">1009</i>&nbsp;                if (repNode.getActiveTransfer() != null) {</b>
+<i class="no-highlight">1010</i>&nbsp;                    /*
+<i class="no-highlight">1011</i>&nbsp;                     * Don&#39;t attempt writing a transaction. while a transfer is
+<i class="no-highlight">1012</i>&nbsp;                     * in progress and txns will be blocked.
+<i class="no-highlight">1013</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1014</i>&nbsp;                    LoggerUtils.info(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">1015</i>&nbsp;                                     &quot;Skipped null txn updating DTVLSN: &quot; +
+<i class="no-highlight">1016</i>&nbsp;                                     dtvlsn + &quot; Master transfer in progress&quot;);
+<i class="no-highlight">1017</i>&nbsp;                    return;
+<i class="no-highlight">1018</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1019</i>&nbsp;                final RepImpl repImpl = repNode.getRepImpl();</b>
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;                final MasterTxn nullTxn =</b>
+<b class="nc"><i class="no-highlight">1021</i>&nbsp;                    MasterTxn.createNullTxn(repImpl, NULL_TXN_CONFIG,</b>
+<b class="nc"><i class="no-highlight">1022</i>&nbsp;                                            repImpl.getNameIdPair());</b>
+<i class="no-highlight">1023</i>&nbsp;                /*
+<i class="no-highlight">1024</i>&nbsp;                 * We don&#39;t want to wait for any reason, if the txn fails,
+<i class="no-highlight">1025</i>&nbsp;                 * we can try later.
+<i class="no-highlight">1026</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">1027</i>&nbsp;                nullTxn.setTxnTimeout(1);</b>
+<i class="no-highlight">1028</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;                    nullTxn.commit();</b>
+<b class="nc"><i class="no-highlight">1030</i>&nbsp;                    LoggerUtils.fine(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">1031</i>&nbsp;                                     &quot;Persist DTVLSN: &quot; + dtvlsn +
+<b class="nc"><i class="no-highlight">1032</i>&nbsp;                                     &quot; at VLSN: &quot; + nullTxn.getCommitVLSN() +</b>
+<b class="nc"><i class="no-highlight">1033</i>&nbsp;                                     &quot; via null transaction:&quot; + nullTxn.getId());</b>
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;                    nullTxnVLSN = nullTxn.getCommitVLSN().getSequence();</b>
+<b class="nc"><i class="no-highlight">1035</i>&nbsp;                    persistedDTVLSN = dtvlsn;</b>
+<b class="nc"><i class="no-highlight">1036</i>&nbsp;                    stableDTVLSN = persistedDTVLSN;</b>
+<b class="nc"><i class="no-highlight">1037</i>&nbsp;                } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">1038</i>&nbsp;                    nullTxn.abort();</b>
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;                    LoggerUtils.warning(logger, repNode.getRepImpl(),</b>
+<i class="no-highlight">1040</i>&nbsp;                               &quot;Failed to write null txn updating DTVLSN; &quot; +
+<b class="nc"><i class="no-highlight">1041</i>&nbsp;                               e.getMessage());</b>
+<b class="nc"><i class="no-highlight">1042</i>&nbsp;                }</b>
+<i class="no-highlight">1043</i>&nbsp;            }
+<i class="no-highlight">1044</i>&nbsp;        }
+<i class="no-highlight">1045</i>&nbsp;    }
+<i class="no-highlight">1046</i>&nbsp;
+<i class="no-highlight">1047</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,868 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > MasterTxn</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.txn</a>
+</div>
+
+<h1>Coverage Summary for Class: MasterTxn (com.sleepycat.je.rep.txn)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">MasterTxn</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/36)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/148)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">MasterTxn$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">MasterTxn$1$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/41)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/153)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.txn;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">18</i>&nbsp;import java.util.List;
+<i class="no-highlight">19</i>&nbsp;import java.util.Set;
+<i class="no-highlight">20</i>&nbsp;import java.util.UUID;
+<i class="no-highlight">21</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.CommitToken;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.Durability.ReplicaAckPolicy;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.LockConflictException;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.LockNotAvailableException;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.ThreadInterruptedException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.TransactionConfig;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.log.LogItem;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.log.ReplicationContext;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.InsufficientAcksException;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.ReplicaWriteException;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.ReplicatedEnvironment;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.UnknownMasterException;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.impl.node.NameIdPair;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replay;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replica;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.txn.LockResult;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.txn.LockType;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.txn.Txn;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.txn.TxnManager;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.txn.WriteLockInfo;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.utilint.TestHook;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;/**
+<i class="no-highlight">55</i>&nbsp; * A MasterTxn represents:
+<i class="no-highlight">56</i>&nbsp; *  - a user initiated Txn executed on the Master node, when local-write and
+<i class="no-highlight">57</i>&nbsp; *    read-only are not configured, or
+<i class="no-highlight">58</i>&nbsp; *  - an auto-commit Txn on the Master node for a replicated DB.
+<i class="no-highlight">59</i>&nbsp; *
+<i class="no-highlight">60</i>&nbsp; * This class uses the hooks defined by Txn to support the durability
+<i class="no-highlight">61</i>&nbsp; * requirements of a replicated transaction on the Master.
+<i class="no-highlight">62</i>&nbsp; */
+<b class="nc"><i class="no-highlight">63</i>&nbsp;public class MasterTxn extends Txn {</b>
+<i class="no-highlight">64</i>&nbsp;
+<i class="no-highlight">65</i>&nbsp;    /* Holds the commit VLSN after a successful commit. */
+<b class="nc"><i class="no-highlight">66</i>&nbsp;    private VLSN commitVLSN = VLSN.NULL_VLSN;</b>
+<i class="no-highlight">67</i>&nbsp;    private final NameIdPair nameIdPair;
+<i class="no-highlight">68</i>&nbsp;    private final UUID envUUID;
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    /* The number of acks required by this txn commit. */
+<b class="nc"><i class="no-highlight">71</i>&nbsp;    private int requiredAckCount = -1;</b>
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;    /* If this transaction requests an Arbiter ack. */
+<i class="no-highlight">74</i>&nbsp;    private boolean needsArbiterAck;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /*
+<i class="no-highlight">77</i>&nbsp;     * Used to measure replicated transaction commit performance. All deltas
+<i class="no-highlight">78</i>&nbsp;     * are measured relative to the start time, to minimize storage overhead.
+<i class="no-highlight">79</i>&nbsp;     */
+<i class="no-highlight">80</i>&nbsp;
+<i class="no-highlight">81</i>&nbsp;    /* The time the transaction was started. */
+<b class="nc"><i class="no-highlight">82</i>&nbsp;    private final long startMs = System.currentTimeMillis();</b>
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    /* The start relative delta time when the commit pre hook exited. */
+<b class="nc"><i class="no-highlight">85</i>&nbsp;    private int preLogCommitEndDeltaMs = 0;</b>
+<i class="no-highlight">86</i>&nbsp;
+<i class="no-highlight">87</i>&nbsp;    /*
+<i class="no-highlight">88</i>&nbsp;     * The start relative delta time when the commit message was written to
+<i class="no-highlight">89</i>&nbsp;     * the rep stream.
+<i class="no-highlight">90</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">91</i>&nbsp;    private int repWriteStartDeltaMs = 0;</b>
+<i class="no-highlight">92</i>&nbsp;
+<i class="no-highlight">93</i>&nbsp;    /**
+<i class="no-highlight">94</i>&nbsp;     * Flag to keep track of whether this transaction has taken the read lock
+<i class="no-highlight">95</i>&nbsp;     * that protects access to the blocking latch used by Master Transfer.
+<i class="no-highlight">96</i>&nbsp;     */
+<i class="no-highlight">97</i>&nbsp;    private boolean locked;
+<i class="no-highlight">98</i>&nbsp;
+<i class="no-highlight">99</i>&nbsp;    /**
+<i class="no-highlight">100</i>&nbsp;     * Flag to prevent any change to the txn&#39;s contents. Used in
+<i class="no-highlight">101</i>&nbsp;     * master-&gt;replica transition. Intentionally volatile, so it can be
+<i class="no-highlight">102</i>&nbsp;     * interleaved with use of the MasterTxn mutex.
+<i class="no-highlight">103</i>&nbsp;     */
+<i class="no-highlight">104</i>&nbsp;    private volatile boolean freeze;
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;    /* For unit testing */
+<i class="no-highlight">107</i>&nbsp;    private TestHook&lt;Integer&gt; convertHook;
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /* The default factory used to create MasterTxns */
+<b class="nc"><i class="no-highlight">110</i>&nbsp;    private static final MasterTxnFactory DEFAULT_FACTORY =</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;        new MasterTxnFactory() {</b>
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;            @Override
+<i class="no-highlight">114</i>&nbsp;            public MasterTxn create(EnvironmentImpl envImpl,
+<i class="no-highlight">115</i>&nbsp;                                    TransactionConfig config,
+<i class="no-highlight">116</i>&nbsp;                                    NameIdPair nameIdPair) {
+<b class="nc"><i class="no-highlight">117</i>&nbsp;                return new MasterTxn(envImpl, config, nameIdPair);</b>
+<i class="no-highlight">118</i>&nbsp;            }
+<i class="no-highlight">119</i>&nbsp;
+<i class="no-highlight">120</i>&nbsp;            @Override
+<i class="no-highlight">121</i>&nbsp;            public MasterTxn createNullTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">122</i>&nbsp;                                           TransactionConfig config,
+<i class="no-highlight">123</i>&nbsp;                                           NameIdPair nameIdPair) {
+<i class="no-highlight">124</i>&nbsp;
+<b class="nc"><i class="no-highlight">125</i>&nbsp;                return new MasterTxn(envImpl, config, nameIdPair) {</b>
+<i class="no-highlight">126</i>&nbsp;                    @Override
+<i class="no-highlight">127</i>&nbsp;                    protected boolean updateLoggedForTxn() {
+<i class="no-highlight">128</i>&nbsp;                        /*
+<i class="no-highlight">129</i>&nbsp;                         * Return true so that the commit will be logged even
+<i class="no-highlight">130</i>&nbsp;                         * though there are no changes associated with this txn
+<i class="no-highlight">131</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">132</i>&nbsp;                        return true;</b>
+<i class="no-highlight">133</i>&nbsp;                    }
+<i class="no-highlight">134</i>&nbsp;                };
+<i class="no-highlight">135</i>&nbsp;            }
+<i class="no-highlight">136</i>&nbsp;    };
+<i class="no-highlight">137</i>&nbsp;
+<i class="no-highlight">138</i>&nbsp;    /* The current Txn Factory. */
+<b class="nc"><i class="no-highlight">139</i>&nbsp;    private static MasterTxnFactory factory = DEFAULT_FACTORY;</b>
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;    public MasterTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">142</i>&nbsp;                     TransactionConfig config,
+<i class="no-highlight">143</i>&nbsp;                     NameIdPair nameIdPair)
+<i class="no-highlight">144</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">145</i>&nbsp;
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        super(envImpl, config, ReplicationContext.MASTER);</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        this.nameIdPair = nameIdPair;</b>
+<b class="nc"><i class="no-highlight">148</i>&nbsp;        this.envUUID = ((RepImpl) envImpl).getUUID();</b>
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        assert !config.getLocalWrite();</b>
+<i class="no-highlight">150</i>&nbsp;    }
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;    @Override
+<i class="no-highlight">153</i>&nbsp;    public boolean isLocalWrite() {
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        return false;</b>
+<i class="no-highlight">155</i>&nbsp;    }
+<i class="no-highlight">156</i>&nbsp;
+<i class="no-highlight">157</i>&nbsp;    /**
+<i class="no-highlight">158</i>&nbsp;     * Returns the transaction commit token used to identify the transaction.
+<i class="no-highlight">159</i>&nbsp;     *
+<i class="no-highlight">160</i>&nbsp;     * @see com.sleepycat.je.txn.Txn#getCommitToken()
+<i class="no-highlight">161</i>&nbsp;     */
+<i class="no-highlight">162</i>&nbsp;    @Override
+<i class="no-highlight">163</i>&nbsp;    public CommitToken getCommitToken() {
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        if (commitVLSN.isNull()) {</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;            return null;</b>
+<i class="no-highlight">166</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">167</i>&nbsp;        return new CommitToken(envUUID, commitVLSN.getSequence());</b>
+<i class="no-highlight">168</i>&nbsp;    }
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;    public VLSN getCommitVLSN() {
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        return commitVLSN;</b>
+<i class="no-highlight">172</i>&nbsp;    }
+<i class="no-highlight">173</i>&nbsp;
+<i class="no-highlight">174</i>&nbsp;    /**
+<i class="no-highlight">175</i>&nbsp;     * MasterTxns use txn ids from a reserved negative space. So override
+<i class="no-highlight">176</i>&nbsp;     * the default generation of ids.
+<i class="no-highlight">177</i>&nbsp;     */
+<i class="no-highlight">178</i>&nbsp;    @Override
+<i class="no-highlight">179</i>&nbsp;    protected long generateId(TxnManager txnManager,
+<i class="no-highlight">180</i>&nbsp;                              long ignore /* mandatedId */) {
+<b class="nc"><i class="no-highlight">181</i>&nbsp;        assert(ignore == 0);</b>
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        return txnManager.getNextReplicatedTxnId();</b>
+<i class="no-highlight">183</i>&nbsp;    }
+<i class="no-highlight">184</i>&nbsp;
+<i class="no-highlight">185</i>&nbsp;    /**
+<i class="no-highlight">186</i>&nbsp;     * Causes the transaction to wait until we have sufficient replicas to
+<i class="no-highlight">187</i>&nbsp;     * acknowledge the commit.
+<i class="no-highlight">188</i>&nbsp;     */
+<i class="no-highlight">189</i>&nbsp;    @Override
+<i class="no-highlight">190</i>&nbsp;    protected void txnBeginHook(TransactionConfig config)
+<i class="no-highlight">191</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">192</i>&nbsp;
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        RepImpl repImpl = (RepImpl) envImpl;</b>
+<i class="no-highlight">194</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">195</i>&nbsp;            repImpl.txnBeginHook(this);</b>
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;            throw new ThreadInterruptedException(envImpl, e);</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        }</b>
+<i class="no-highlight">199</i>&nbsp;    }
+<i class="no-highlight">200</i>&nbsp;
+<i class="no-highlight">201</i>&nbsp;    @Override
+<i class="no-highlight">202</i>&nbsp;    protected void preLogCommitHook()
+<i class="no-highlight">203</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">204</i>&nbsp;
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        RepImpl repImpl = (RepImpl) envImpl;</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;        ReplicaAckPolicy ackPolicy = getCommitDurability().getReplicaAck();</b>
+<b class="nc"><i class="no-highlight">207</i>&nbsp;        requiredAckCount =</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;            repImpl.getRepNode().getDurabilityQuorum().</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;            getCurrentRequiredAckCount(ackPolicy);</b>
+<i class="no-highlight">210</i>&nbsp;
+<i class="no-highlight">211</i>&nbsp;        /*
+<i class="no-highlight">212</i>&nbsp;         * TODO: An optimization we&#39;d like to do is to identify transactions
+<i class="no-highlight">213</i>&nbsp;         * that only modify non-replicated databases, so they can avoid waiting
+<i class="no-highlight">214</i>&nbsp;         * for Replica commit acks and avoid checks like the one that requires
+<i class="no-highlight">215</i>&nbsp;         * that the node be a master before proceeding with the transaction.
+<i class="no-highlight">216</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">217</i>&nbsp;        repImpl.preLogCommitHook(this);</b>
+<b class="nc"><i class="no-highlight">218</i>&nbsp;        preLogCommitEndDeltaMs = (int) (System.currentTimeMillis() - startMs);</b>
+<i class="no-highlight">219</i>&nbsp;    }
+<i class="no-highlight">220</i>&nbsp;
+<i class="no-highlight">221</i>&nbsp;    @Override
+<i class="no-highlight">222</i>&nbsp;    protected void postLogCommitHook(LogItem commitItem)
+<i class="no-highlight">223</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">224</i>&nbsp;
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        commitVLSN = commitItem.header.getVLSN();</b>
+<i class="no-highlight">226</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            RepImpl repImpl = (RepImpl) envImpl;</b>
+<b class="nc"><i class="no-highlight">228</i>&nbsp;            repImpl.postLogCommitHook(this, commitItem);</b>
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        } catch (InterruptedException e) {</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;            throw new ThreadInterruptedException(envImpl, e);</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        }</b>
+<i class="no-highlight">232</i>&nbsp;    }
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    @Override
+<i class="no-highlight">235</i>&nbsp;    protected void preLogAbortHook()
+<i class="no-highlight">236</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">237</i>&nbsp;
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        RepImpl repImpl = (RepImpl) envImpl;</b>
+<b class="nc"><i class="no-highlight">239</i>&nbsp;        repImpl.preLogAbortHook(this);</b>
+<i class="no-highlight">240</i>&nbsp;    }
+<i class="no-highlight">241</i>&nbsp;
+<i class="no-highlight">242</i>&nbsp;    @Override
+<i class="no-highlight">243</i>&nbsp;    protected void postLogCommitAbortHook() {
+<i class="no-highlight">244</i>&nbsp;
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        RepImpl repImpl = (RepImpl) envImpl;</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        repImpl.postLogCommitAbortHook(this);</b>
+<i class="no-highlight">247</i>&nbsp;    }
+<i class="no-highlight">248</i>&nbsp;
+<i class="no-highlight">249</i>&nbsp;    @Override
+<i class="no-highlight">250</i>&nbsp;    protected void postLogAbortHook() {
+<b class="nc"><i class="no-highlight">251</i>&nbsp;        RepImpl repImpl = (RepImpl)envImpl;</b>
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        repImpl.postLogAbortHook(this);</b>
+<i class="no-highlight">253</i>&nbsp;    }
+<i class="no-highlight">254</i>&nbsp;
+<i class="no-highlight">255</i>&nbsp;    /**
+<i class="no-highlight">256</i>&nbsp;     * Prevent this MasterTxn from taking locks if the node becomes a
+<i class="no-highlight">257</i>&nbsp;     * replica. The application has a reference to this Txn, and may
+<i class="no-highlight">258</i>&nbsp;     * attempt to use it well after the node has transitioned from master
+<i class="no-highlight">259</i>&nbsp;     * to replica.
+<i class="no-highlight">260</i>&nbsp;     */
+<i class="no-highlight">261</i>&nbsp;    @Override
+<i class="no-highlight">262</i>&nbsp;    public LockResult lockInternal(long lsn,
+<i class="no-highlight">263</i>&nbsp;                                   LockType lockType,
+<i class="no-highlight">264</i>&nbsp;                                   boolean noWait,
+<i class="no-highlight">265</i>&nbsp;                                   boolean jumpAheadOfWaiters,
+<i class="no-highlight">266</i>&nbsp;                                   DatabaseImpl database)
+<i class="no-highlight">267</i>&nbsp;        throws LockNotAvailableException, LockConflictException,
+<i class="no-highlight">268</i>&nbsp;               DatabaseException {
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        ReplicatedEnvironment.State nodeState = ((RepImpl)envImpl).getState();</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;        if (nodeState.isMaster()) {</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;            return super.lockInternal</b>
+<b class="nc"><i class="no-highlight">272</i>&nbsp;                (lsn, lockType, noWait, jumpAheadOfWaiters, database);</b>
+<i class="no-highlight">273</i>&nbsp;        }
+<i class="no-highlight">274</i>&nbsp;
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        throwNotMaster(nodeState);</b>
+<b class="nc"><i class="no-highlight">276</i>&nbsp;        return null; /* not reached */</b>
+<i class="no-highlight">277</i>&nbsp;    }
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;    private void throwNotMaster(ReplicatedEnvironment.State nodeState) {
+<b class="nc"><i class="no-highlight">280</i>&nbsp;        if (nodeState.isReplica()) {</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;            throw new ReplicaWriteException</b>
+<b class="nc"><i class="no-highlight">282</i>&nbsp;                (this, ((RepImpl)envImpl).getStateChangeEvent());</b>
+<i class="no-highlight">283</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">284</i>&nbsp;        throw new UnknownMasterException</b>
+<b class="nc"><i class="no-highlight">285</i>&nbsp;            (&quot;Transaction &quot; + getId() +</b>
+<i class="no-highlight">286</i>&nbsp;             &quot; cannot execute write operations because this node is&quot; +
+<i class="no-highlight">287</i>&nbsp;             &quot; no longer a master&quot;);
+<i class="no-highlight">288</i>&nbsp;    }
+<i class="no-highlight">289</i>&nbsp;
+<i class="no-highlight">290</i>&nbsp;    /**
+<i class="no-highlight">291</i>&nbsp;     * If logging occurs before locking, we must screen out write locks here.
+<i class="no-highlight">292</i>&nbsp;     */
+<i class="no-highlight">293</i>&nbsp;    @Override
+<i class="no-highlight">294</i>&nbsp;    public synchronized void preLogWithoutLock(DatabaseImpl database) {
+<b class="nc"><i class="no-highlight">295</i>&nbsp;        ReplicatedEnvironment.State nodeState = ((RepImpl)envImpl).getState();</b>
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        if (nodeState.isMaster()) {</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;            super.preLogWithoutLock(database);</b>
+<i class="no-highlight">298</i>&nbsp;            return;
+<i class="no-highlight">299</i>&nbsp;        }
+<i class="no-highlight">300</i>&nbsp;
+<b class="nc"><i class="no-highlight">301</i>&nbsp;        throwNotMaster(nodeState);</b>
+<i class="no-highlight">302</i>&nbsp;    }
+<i class="no-highlight">303</i>&nbsp;
+<i class="no-highlight">304</i>&nbsp;    /**
+<i class="no-highlight">305</i>&nbsp;     * Determines whether we should lock the block-latch lock.
+<i class="no-highlight">306</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">307</i>&nbsp;     * We acquire the lock during pre-log hook, and release it during post-log
+<i class="no-highlight">308</i>&nbsp;     * hook.  Specifically, there are the following cases:
+<i class="no-highlight">309</i>&nbsp;     * &lt;ol&gt;
+<i class="no-highlight">310</i>&nbsp;     * &lt;li&gt;
+<i class="no-highlight">311</i>&nbsp;     * For a normal commit, we acquire it in {@code preLogCommitHook()} and
+<i class="no-highlight">312</i>&nbsp;     * release it in {@code postLogCommitHook()}
+<i class="no-highlight">313</i>&nbsp;     * &lt;li&gt;
+<i class="no-highlight">314</i>&nbsp;     * For a normal abort (invoked by the application on the {@code
+<i class="no-highlight">315</i>&nbsp;     * Txn.abort()} API), we acquire the lock in {@code preLogAbortHook()} and
+<i class="no-highlight">316</i>&nbsp;     * release it in {@code postLogAbortHook()}.
+<i class="no-highlight">317</i>&nbsp;     * &lt;li&gt;
+<i class="no-highlight">318</i>&nbsp;     * When a commit fails in such a way as to call {@code
+<i class="no-highlight">319</i>&nbsp;     * Txn.throwPreCommitException()}, we go through the abort path as well.
+<i class="no-highlight">320</i>&nbsp;     * In this case:
+<i class="no-highlight">321</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">322</i>&nbsp;     * &lt;li&gt;we will of course already have called {@code preLogCommitHook()};
+<i class="no-highlight">323</i>&nbsp;     * &lt;li&gt;the abort path calls {@code preLogAbortHook()} and {@code
+<i class="no-highlight">324</i>&nbsp;     * postLogAbortHook()} as always;
+<i class="no-highlight">325</i>&nbsp;     * &lt;li&gt;finally we call {@code postLogCommitAbortHook()}
+<i class="no-highlight">326</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">327</i>&nbsp;     * Fortunately we can avoid the complexity of dealing with a second
+<i class="no-highlight">328</i>&nbsp;     * (recursive) lock acquisition here, because by the time either post-hook
+<i class="no-highlight">329</i>&nbsp;     * is called we&#39;ve done any writing of VLSNs.  Thus, when we want to
+<i class="no-highlight">330</i>&nbsp;     * take the lock, we take it if it hasn&#39;t already been taken, and do
+<i class="no-highlight">331</i>&nbsp;     * nothing if it has; when releasing, we release it if we have it, and do
+<i class="no-highlight">332</i>&nbsp;     * nothing if we don&#39;t.
+<i class="no-highlight">333</i>&nbsp;     * &lt;/ol&gt;
+<i class="no-highlight">334</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">335</i>&nbsp;     * See additional javadoc at {@code RepImpl.blockLatchLock}
+<i class="no-highlight">336</i>&nbsp;     */
+<i class="no-highlight">337</i>&nbsp;    public boolean lockOnce() {
+<b class="nc"><i class="no-highlight">338</i>&nbsp;        if (locked) {</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;            return false;</b>
+<i class="no-highlight">340</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        locked = true;</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;        return true;</b>
+<i class="no-highlight">343</i>&nbsp;    }
+<i class="no-highlight">344</i>&nbsp;
+<i class="no-highlight">345</i>&nbsp;    /**
+<i class="no-highlight">346</i>&nbsp;     * Determines whether we should unlock the block-latch lock.
+<i class="no-highlight">347</i>&nbsp;     *
+<i class="no-highlight">348</i>&nbsp;     * @see #lockOnce
+<i class="no-highlight">349</i>&nbsp;     */
+<i class="no-highlight">350</i>&nbsp;    public boolean unlockOnce() {
+<b class="nc"><i class="no-highlight">351</i>&nbsp;        if (locked) {</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;            locked = false;</b>
+<b class="nc"><i class="no-highlight">353</i>&nbsp;            return true;</b>
+<i class="no-highlight">354</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">355</i>&nbsp;        return false;</b>
+<i class="no-highlight">356</i>&nbsp;    }
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;    public int getRequiredAckCount() {
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        return requiredAckCount;</b>
+<i class="no-highlight">360</i>&nbsp;    }
+<i class="no-highlight">361</i>&nbsp;
+<i class="no-highlight">362</i>&nbsp;    public void resetRequiredAckCount() {
+<b class="nc"><i class="no-highlight">363</i>&nbsp;        requiredAckCount = 0;</b>
+<i class="no-highlight">364</i>&nbsp;    }
+<i class="no-highlight">365</i>&nbsp;
+<i class="no-highlight">366</i>&nbsp;    /** A masterTxn always writes its own id into the commit or abort. */
+<i class="no-highlight">367</i>&nbsp;    @Override
+<i class="no-highlight">368</i>&nbsp;    protected int getReplicatorNodeId() {
+<b class="nc"><i class="no-highlight">369</i>&nbsp;        return nameIdPair.getId();</b>
+<i class="no-highlight">370</i>&nbsp;    }
+<i class="no-highlight">371</i>&nbsp;
+<i class="no-highlight">372</i>&nbsp;    @Override
+<i class="no-highlight">373</i>&nbsp;    protected long getDTVLSN() {
+<i class="no-highlight">374</i>&nbsp;        /*
+<i class="no-highlight">375</i>&nbsp;         * For the master transaction, it should always be null, and will
+<i class="no-highlight">376</i>&nbsp;         * be corrected under the write log latch on its way to disk.
+<i class="no-highlight">377</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        return VLSN.NULL_VLSN_SEQUENCE;</b>
+<i class="no-highlight">379</i>&nbsp;    }
+<i class="no-highlight">380</i>&nbsp;
+<i class="no-highlight">381</i>&nbsp;    public long getStartMs() {
+<b class="nc"><i class="no-highlight">382</i>&nbsp;        return startMs;</b>
+<i class="no-highlight">383</i>&nbsp;    }
+<i class="no-highlight">384</i>&nbsp;
+<i class="no-highlight">385</i>&nbsp;    public void stampRepWriteTime() {
+<b class="nc"><i class="no-highlight">386</i>&nbsp;        this.repWriteStartDeltaMs =</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;            (int)(System.currentTimeMillis() - startMs);</b>
+<i class="no-highlight">388</i>&nbsp;    }
+<i class="no-highlight">389</i>&nbsp;
+<i class="no-highlight">390</i>&nbsp;    /**
+<i class="no-highlight">391</i>&nbsp;     * Returns the amount of time it took to copy the commit record from the
+<i class="no-highlight">392</i>&nbsp;     * log buffer to the rep stream. It&#39;s measured as the time interval
+<i class="no-highlight">393</i>&nbsp;     * starting with the time the preCommit hook completed, to the time the
+<i class="no-highlight">394</i>&nbsp;     * message write to the replication stream was initiated.
+<i class="no-highlight">395</i>&nbsp;     */
+<i class="no-highlight">396</i>&nbsp;    public long messageTransferMs() {
+<b class="nc"><i class="no-highlight">397</i>&nbsp;        return repWriteStartDeltaMs &gt; 0 ?</b>
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;                (repWriteStartDeltaMs - preLogCommitEndDeltaMs) :
+<i class="no-highlight">400</i>&nbsp;
+<i class="no-highlight">401</i>&nbsp;                /*
+<i class="no-highlight">402</i>&nbsp;                 * The message was invoked before the post commit hook fired.
+<i class="no-highlight">403</i>&nbsp;                 */
+<i class="no-highlight">404</i>&nbsp;                0;
+<i class="no-highlight">405</i>&nbsp;    }
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;    @Override
+<i class="no-highlight">408</i>&nbsp;    protected boolean
+<i class="no-highlight">409</i>&nbsp;        propagatePostCommitException(DatabaseException postCommitException) {
+<b class="nc"><i class="no-highlight">410</i>&nbsp;        return (postCommitException instanceof InsufficientAcksException) ?</b>
+<i class="no-highlight">411</i>&nbsp;                true :
+<b class="nc"><i class="no-highlight">412</i>&nbsp;                super.propagatePostCommitException(postCommitException);</b>
+<i class="no-highlight">413</i>&nbsp;    }
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;    /* The Txn factory interface. */
+<i class="no-highlight">416</i>&nbsp;    public interface MasterTxnFactory {
+<i class="no-highlight">417</i>&nbsp;        MasterTxn create(EnvironmentImpl envImpl,
+<i class="no-highlight">418</i>&nbsp;            TransactionConfig config,
+<i class="no-highlight">419</i>&nbsp;            NameIdPair nameIdPair);
+<i class="no-highlight">420</i>&nbsp;
+<i class="no-highlight">421</i>&nbsp;        /**
+<i class="no-highlight">422</i>&nbsp;         * Create a special &quot;null&quot; txn that does not result in any changes to
+<i class="no-highlight">423</i>&nbsp;         * the environment. It&#39;s sole purpose is to persist and communicate
+<i class="no-highlight">424</i>&nbsp;         * DTVLSN values.
+<i class="no-highlight">425</i>&nbsp;         */
+<i class="no-highlight">426</i>&nbsp;        MasterTxn createNullTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">427</i>&nbsp;            TransactionConfig config,
+<i class="no-highlight">428</i>&nbsp;            NameIdPair nameIdPair);
+<i class="no-highlight">429</i>&nbsp;    }
+<i class="no-highlight">430</i>&nbsp;
+<i class="no-highlight">431</i>&nbsp;    /* The method used to create user Master Txns via the factory. */
+<i class="no-highlight">432</i>&nbsp;    public static MasterTxn create(EnvironmentImpl envImpl,
+<i class="no-highlight">433</i>&nbsp;                                   TransactionConfig config,
+<i class="no-highlight">434</i>&nbsp;                                   NameIdPair nameIdPair) {
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        return factory.create(envImpl, config, nameIdPair);</b>
+<i class="no-highlight">436</i>&nbsp;    }
+<i class="no-highlight">437</i>&nbsp;
+<i class="no-highlight">438</i>&nbsp;    public static MasterTxn createNullTxn(EnvironmentImpl envImpl,
+<i class="no-highlight">439</i>&nbsp;                                   TransactionConfig config,
+<i class="no-highlight">440</i>&nbsp;                                   NameIdPair nameIdPair) {
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        return factory.createNullTxn(envImpl, config, nameIdPair);</b>
+<i class="no-highlight">442</i>&nbsp;    }
+<i class="no-highlight">443</i>&nbsp;
+<i class="no-highlight">444</i>&nbsp;    /**
+<i class="no-highlight">445</i>&nbsp;     * Method used for unit testing.
+<i class="no-highlight">446</i>&nbsp;     *
+<i class="no-highlight">447</i>&nbsp;     * Sets the factory to the one supplied. If the argument is null it
+<i class="no-highlight">448</i>&nbsp;     * restores the factory to the original default value.
+<i class="no-highlight">449</i>&nbsp;     */
+<i class="no-highlight">450</i>&nbsp;    public static void setFactory(MasterTxnFactory factory) {
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        MasterTxn.factory = (factory == null) ? DEFAULT_FACTORY : factory;</b>
+<i class="no-highlight">452</i>&nbsp;    }
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;    /**
+<i class="no-highlight">455</i>&nbsp;     * Convert a MasterTxn that has any write locks into a ReplayTxn, and close
+<i class="no-highlight">456</i>&nbsp;     * the MasterTxn after it is disemboweled. A MasterTxn that only has read
+<i class="no-highlight">457</i>&nbsp;     * locks is unchanged and is still usable by the application. To be clear,
+<i class="no-highlight">458</i>&nbsp;     * the application can never use a MasterTxn to obtain a lock if the node
+<i class="no-highlight">459</i>&nbsp;     * is in Replica mode, but may indeed be able to use a read-lock-only
+<i class="no-highlight">460</i>&nbsp;     * MasterTxn if the node cycles back into Master status.
+<i class="no-highlight">461</i>&nbsp;     *
+<i class="no-highlight">462</i>&nbsp;     * For converted MasterTxns, all write locks are transferred to a replay
+<i class="no-highlight">463</i>&nbsp;     * transaction, read locks are released, and the txn is closed. Used when a
+<i class="no-highlight">464</i>&nbsp;     * node is transitioning from master to replica mode without recovery,
+<i class="no-highlight">465</i>&nbsp;     * which may happen for an explicit master transfer request, or merely for
+<i class="no-highlight">466</i>&nbsp;     * a network partition/election of new
+<i class="no-highlight">467</i>&nbsp;     * master.
+<i class="no-highlight">468</i>&nbsp;     *
+<i class="no-highlight">469</i>&nbsp;     * The newly created replay transaction will need to be in the appropriate
+<i class="no-highlight">470</i>&nbsp;     * state, holding all write locks, so that the node in replica form can
+<i class="no-highlight">471</i>&nbsp;     * execute the proper syncups.  Note that the resulting replay txn will
+<i class="no-highlight">472</i>&nbsp;     * only be aborted, and will never be committed, because the txn originated
+<i class="no-highlight">473</i>&nbsp;     * on this node, which is transitioning from master -&gt; replica.
+<i class="no-highlight">474</i>&nbsp;     *
+<i class="no-highlight">475</i>&nbsp;     * We only transfer write locks. We need not transfer read locks, because
+<i class="no-highlight">476</i>&nbsp;     * replays only operate on writes, and are never required to obtain read
+<i class="no-highlight">477</i>&nbsp;     * locks. Read locks are released though, because (a) this txn is now only
+<i class="no-highlight">478</i>&nbsp;     * abortable, and (b) although the Replay can preempt any read locks held
+<i class="no-highlight">479</i>&nbsp;     * by the MasterTxn, such preemption will add delay.
+<i class="no-highlight">480</i>&nbsp;     *
+<i class="no-highlight">481</i>&nbsp;     * @return a ReplayTxn, if there were locks in this transaction, and
+<i class="no-highlight">482</i>&nbsp;     * there&#39;s a need to create a ReplayTxn.
+<i class="no-highlight">483</i>&nbsp;     */
+<i class="no-highlight">484</i>&nbsp;    public ReplayTxn convertToReplayTxnAndClose(Logger logger,
+<i class="no-highlight">485</i>&nbsp;                                                Replay replay) {
+<i class="no-highlight">486</i>&nbsp;
+<i class="no-highlight">487</i>&nbsp;        /* Assertion */
+<b class="nc"><i class="no-highlight">488</i>&nbsp;        if (!freeze) {</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;                (envImpl,</b>
+<b class="nc"><i class="no-highlight">491</i>&nbsp;                 &quot;Txn &quot; + getId() +</b>
+<i class="no-highlight">492</i>&nbsp;                 &quot; should be frozen when converting to replay txn&quot;);
+<i class="no-highlight">493</i>&nbsp;        }
+<i class="no-highlight">494</i>&nbsp;
+<i class="no-highlight">495</i>&nbsp;        /*
+<i class="no-highlight">496</i>&nbsp;         * This is an important and relatively rare operation, and worth
+<i class="no-highlight">497</i>&nbsp;         * logging.
+<i class="no-highlight">498</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">499</i>&nbsp;        LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;                         &quot;Transforming txn &quot; + getId() +</b>
+<i class="no-highlight">501</i>&nbsp;                         &quot; from MasterTxn to ReplayTxn&quot;);
+<i class="no-highlight">502</i>&nbsp;
+<b class="nc"><i class="no-highlight">503</i>&nbsp;        int hookCount = 0;</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;        ReplayTxn replayTxn = null;</b>
+<b class="nc"><i class="no-highlight">505</i>&nbsp;        boolean needToClose = true;</b>
+<i class="no-highlight">506</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            synchronized (this) {</b>
+<i class="no-highlight">508</i>&nbsp;
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                if (isClosed()) {</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                    LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                                     &quot;Txn &quot; + getId() +</b>
+<i class="no-highlight">512</i>&nbsp;                                     &quot; is closed, no tranform needed&quot;);
+<b class="nc"><i class="no-highlight">513</i>&nbsp;                    needToClose = false;</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                    return null;</b>
+<i class="no-highlight">515</i>&nbsp;                }
+<i class="no-highlight">516</i>&nbsp;
+<i class="no-highlight">517</i>&nbsp;                /*
+<i class="no-highlight">518</i>&nbsp;                 * Get the list of write locks, and process them in lsn order,
+<i class="no-highlight">519</i>&nbsp;                 * so we properly maintain the lastLoggedLsn and firstLoggedLSN
+<i class="no-highlight">520</i>&nbsp;                 * fields of the newly created ReplayTxn.
+<i class="no-highlight">521</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">522</i>&nbsp;                final Set&lt;Long&gt; lockedLSNs = getWriteLockIds();</b>
+<i class="no-highlight">523</i>&nbsp;
+<i class="no-highlight">524</i>&nbsp;                /*
+<i class="no-highlight">525</i>&nbsp;                 * This transaction may not actually have any write locks. In
+<i class="no-highlight">526</i>&nbsp;                 * that case, we permit it to live on.
+<i class="no-highlight">527</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">528</i>&nbsp;                if (lockedLSNs.size() == 0) {</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                    LoggerUtils.info(logger, envImpl, &quot;Txn &quot; + getId() +</b>
+<i class="no-highlight">530</i>&nbsp;                                     &quot; had no write locks, didn&#39;t create&quot; +
+<i class="no-highlight">531</i>&nbsp;                                     &quot; ReplayTxn&quot;);
+<b class="nc"><i class="no-highlight">532</i>&nbsp;                    needToClose = false;</b>
+<b class="nc"><i class="no-highlight">533</i>&nbsp;                    return null;</b>
+<i class="no-highlight">534</i>&nbsp;                }
+<i class="no-highlight">535</i>&nbsp;
+<i class="no-highlight">536</i>&nbsp;                /*
+<i class="no-highlight">537</i>&nbsp;                 * We have write locks. Make sure that this txn can now
+<i class="no-highlight">538</i>&nbsp;                 * only be aborted. Otherwise, there could be this window
+<i class="no-highlight">539</i>&nbsp;                 * in this method:
+<i class="no-highlight">540</i>&nbsp;                 *  t1: locks stolen, no locks left in this txn
+<i class="no-highlight">541</i>&nbsp;                 *  t2: txn unfrozen, commits and aborts possible
+<i class="no-highlight">542</i>&nbsp;                 *    -- at this point, another thread could sneak in and
+<i class="no-highlight">543</i>&nbsp;                 *    -- try to commit. The txn would commmit successfully,
+<i class="no-highlight">544</i>&nbsp;                 *    -- because a commit w/no write locks is a no-op.
+<i class="no-highlight">545</i>&nbsp;                 *    -- but that would convey the false impression that the
+<i class="no-highlight">546</i>&nbsp;                 *    -- txn&#39;s write operations had commmitted.
+<i class="no-highlight">547</i>&nbsp;                 *  t3: txn is closed
+<i class="no-highlight">548</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">549</i>&nbsp;                setOnlyAbortable(new UnknownMasterException</b>
+<b class="nc"><i class="no-highlight">550</i>&nbsp;                                 (envImpl.getName() +</b>
+<i class="no-highlight">551</i>&nbsp;                                  &quot; is no longer a master&quot;));
+<b class="nc"><i class="no-highlight">552</i>&nbsp;                replayTxn = replay.getReplayTxn(getId(), false);</b>
+<i class="no-highlight">553</i>&nbsp;
+<i class="no-highlight">554</i>&nbsp;                /*
+<i class="no-highlight">555</i>&nbsp;                 * Order the lsns, so that the locks are taken in the proper
+<i class="no-highlight">556</i>&nbsp;                 * order, and the txn&#39;s firstLoggedLsn and lastLoggedLsn fields
+<i class="no-highlight">557</i>&nbsp;                 * are properly set.
+<i class="no-highlight">558</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">559</i>&nbsp;                List&lt;Long&gt; sortedLsns = new ArrayList&lt;&gt;(lockedLSNs);</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                Collections.sort(sortedLsns);</b>
+<b class="nc"><i class="no-highlight">561</i>&nbsp;                LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">562</i>&nbsp;                                 &quot;Txn &quot; + getId()  + &quot; has &quot; +</b>
+<b class="nc"><i class="no-highlight">563</i>&nbsp;                                 lockedLSNs.size() + &quot; locks to transform&quot;);</b>
+<i class="no-highlight">564</i>&nbsp;
+<i class="no-highlight">565</i>&nbsp;                /*
+<i class="no-highlight">566</i>&nbsp;                 * Transfer each lock. Note that ultimately, since mastership
+<i class="no-highlight">567</i>&nbsp;                 * is changing, and replicated commits will only be executed
+<i class="no-highlight">568</i>&nbsp;                 * when a txn has originated on that node, the target ReplayTxn
+<i class="no-highlight">569</i>&nbsp;                 * can never be committed, and will only be aborted.
+<i class="no-highlight">570</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                for (Long lsn: sortedLsns) {</b>
+<i class="no-highlight">572</i>&nbsp;
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                    LoggerUtils.info(logger, envImpl,</b>
+<b class="nc"><i class="no-highlight">574</i>&nbsp;                                     &quot;Txn &quot; + getId() +</b>
+<i class="no-highlight">575</i>&nbsp;                                     &quot; is transferring lock &quot; + lsn);
+<i class="no-highlight">576</i>&nbsp;
+<i class="no-highlight">577</i>&nbsp;                    /*
+<i class="no-highlight">578</i>&nbsp;                     * Use a special method to steal the lock. Another approach
+<i class="no-highlight">579</i>&nbsp;                     * might have been to have the replayTxn merely attempt a
+<i class="no-highlight">580</i>&nbsp;                     * lock(); as an importunate txn, the replayTxn would
+<i class="no-highlight">581</i>&nbsp;                     * preempt the MasterTxn&#39;s lock. However, that path doesn&#39;t
+<i class="no-highlight">582</i>&nbsp;                     * work because lock() requires having a databaseImpl in
+<i class="no-highlight">583</i>&nbsp;                     * hand, and that&#39;s not available here.
+<i class="no-highlight">584</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">585</i>&nbsp;                    replayTxn.stealLockFromMasterTxn(lsn);</b>
+<i class="no-highlight">586</i>&nbsp;
+<i class="no-highlight">587</i>&nbsp;                    /*
+<i class="no-highlight">588</i>&nbsp;                     * Copy all the lock&#39;s info into the Replay and remove it
+<i class="no-highlight">589</i>&nbsp;                     * from the master. Normally, undo clears write locks, but
+<i class="no-highlight">590</i>&nbsp;                     * this MasterTxn will not be executing undo.
+<i class="no-highlight">591</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">592</i>&nbsp;                    WriteLockInfo replayWLI = replayTxn.getWriteLockInfo(lsn);</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;                    WriteLockInfo masterWLI = getWriteLockInfo(lsn);</b>
+<b class="nc"><i class="no-highlight">594</i>&nbsp;                    replayWLI.copyAllInfo(masterWLI);</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;                    removeLock(lsn);</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                }</b>
+<i class="no-highlight">597</i>&nbsp;
+<i class="no-highlight">598</i>&nbsp;                /*
+<i class="no-highlight">599</i>&nbsp;                 * Txns have collections of undoDatabases and deletedDatabases.
+<i class="no-highlight">600</i>&nbsp;                 * Undo databases are normally incrementally added to the txn
+<i class="no-highlight">601</i>&nbsp;                 * as locks are obtained Unlike normal locking or recovery
+<i class="no-highlight">602</i>&nbsp;                 * locking, in this case we don&#39;t have a reference to the
+<i class="no-highlight">603</i>&nbsp;                 * databaseImpl that goes with this lock, so we copy the undo
+<i class="no-highlight">604</i>&nbsp;                 * collection in one fell swoop.
+<i class="no-highlight">605</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">606</i>&nbsp;                replayTxn.copyDatabasesForConversion(this);</b>
+<i class="no-highlight">607</i>&nbsp;
+<i class="no-highlight">608</i>&nbsp;                /*
+<i class="no-highlight">609</i>&nbsp;                 * This txn is no longer responsible for databaseImpl
+<i class="no-highlight">610</i>&nbsp;                 * cleanup, as that issue now lies with the ReplayTxn, so
+<i class="no-highlight">611</i>&nbsp;                 * remove the collection.
+<i class="no-highlight">612</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">613</i>&nbsp;                deletedDatabases = null;</b>
+<i class="no-highlight">614</i>&nbsp;
+<i class="no-highlight">615</i>&nbsp;                /*
+<i class="no-highlight">616</i>&nbsp;                 * All locks have been removed from this transaction. Clear
+<i class="no-highlight">617</i>&nbsp;                 * the firstLoggedLsn and lastLoggedLsn so there&#39;s no danger
+<i class="no-highlight">618</i>&nbsp;                 * of attempting to undo anything; this txn is no longer
+<i class="no-highlight">619</i>&nbsp;                 * responsible for any records.
+<i class="no-highlight">620</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">621</i>&nbsp;                lastLoggedLsn = DbLsn.NULL_LSN;</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;                firstLoggedLsn = DbLsn.NULL_LSN;</b>
+<i class="no-highlight">623</i>&nbsp;
+<i class="no-highlight">624</i>&nbsp;                /* If this txn also had read locks, clear them */
+<b class="nc"><i class="no-highlight">625</i>&nbsp;                clearReadLocks();</b>
+<b class="nc"><i class="no-highlight">626</i>&nbsp;            }</b>
+<i class="no-highlight">627</i>&nbsp;        } finally {
+<i class="no-highlight">628</i>&nbsp;
+<b class="nc"><i class="no-highlight">629</i>&nbsp;            assert TestHookExecute.doHookIfSet(convertHook, hookCount++);</b>
+<i class="no-highlight">630</i>&nbsp;
+<b class="nc"><i class="no-highlight">631</i>&nbsp;            unfreeze();</b>
+<i class="no-highlight">632</i>&nbsp;
+<b class="nc"><i class="no-highlight">633</i>&nbsp;            assert TestHookExecute.doHookIfSet(convertHook, hookCount++);</b>
+<i class="no-highlight">634</i>&nbsp;
+<i class="no-highlight">635</i>&nbsp;            /*
+<i class="no-highlight">636</i>&nbsp;             * We need to abort the txn, but we can&#39;t call abort() because that
+<i class="no-highlight">637</i>&nbsp;             * method checks whether we are the master! Instead, call the
+<i class="no-highlight">638</i>&nbsp;             * internal method, close(), in order to end this transaction and
+<i class="no-highlight">639</i>&nbsp;             * unregister it from the transactionManager. Must be called
+<i class="no-highlight">640</i>&nbsp;             * outside the synchronization block.
+<i class="no-highlight">641</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">642</i>&nbsp;            if (needToClose) {</b>
+<b class="nc"><i class="no-highlight">643</i>&nbsp;                LoggerUtils.info(logger, envImpl, &quot;About to close txn &quot; +</b>
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                                 getId() + &quot; state=&quot; + getState());</b>
+<b class="nc"><i class="no-highlight">645</i>&nbsp;                close(false /*isCommit */);</b>
+<b class="nc"><i class="no-highlight">646</i>&nbsp;                LoggerUtils.info(logger, envImpl, &quot;Closed txn &quot; +  getId() +</b>
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                                 &quot; state=&quot; + getState());</b>
+<i class="no-highlight">648</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">649</i>&nbsp;            assert TestHookExecute.doHookIfSet(convertHook, hookCount++);</b>
+<b class="nc"><i class="no-highlight">650</i>&nbsp;        }</b>
+<i class="no-highlight">651</i>&nbsp;
+<b class="nc"><i class="no-highlight">652</i>&nbsp;        return replayTxn;</b>
+<i class="no-highlight">653</i>&nbsp;    }
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;    public void freeze() {
+<b class="nc"><i class="no-highlight">656</i>&nbsp;        freeze = true;</b>
+<i class="no-highlight">657</i>&nbsp;    }
+<i class="no-highlight">658</i>&nbsp;
+<i class="no-highlight">659</i>&nbsp;    private void unfreeze() {
+<b class="nc"><i class="no-highlight">660</i>&nbsp;        freeze = false;</b>
+<i class="no-highlight">661</i>&nbsp;    }
+<i class="no-highlight">662</i>&nbsp;
+<i class="no-highlight">663</i>&nbsp;    /**
+<i class="no-highlight">664</i>&nbsp;     * Used to hold the transaction stable while it is being cloned as a
+<i class="no-highlight">665</i>&nbsp;     * ReplayTxn, during master-&gt;replica transitions. Essentially, there
+<i class="no-highlight">666</i>&nbsp;     * are two parties that now have a reference to this transaction -- the
+<i class="no-highlight">667</i>&nbsp;     * originating application thread, and the RepNode thread that is
+<i class="no-highlight">668</i>&nbsp;     * trying to set up internal state so it can begin to act as a replica.
+<i class="no-highlight">669</i>&nbsp;     *
+<i class="no-highlight">670</i>&nbsp;     * The transaction will throw UnknownMasterException or
+<i class="no-highlight">671</i>&nbsp;     * ReplicaWriteException if the transaction is frozen, so that the
+<i class="no-highlight">672</i>&nbsp;     * application knows that the transaction is no longer viable, but it
+<i class="no-highlight">673</i>&nbsp;     * doesn&#39;t attempt to do most of the follow-on cleanup and release of locks
+<i class="no-highlight">674</i>&nbsp;     * that failed aborts and commits normally attempt. One aspect of
+<i class="no-highlight">675</i>&nbsp;     * transaction cleanup can&#39;t be skipped though. It is necessary to do the
+<i class="no-highlight">676</i>&nbsp;     * post log hooks to free up the block txn latch lock so that the
+<i class="no-highlight">677</i>&nbsp;     * transaction can be closed by the RepNode thread. For example:
+<i class="no-highlight">678</i>&nbsp;     * - application thread starts transaction
+<i class="no-highlight">679</i>&nbsp;     * - application takes the block txn latch lock and attempts commit or
+<i class="no-highlight">680</i>&nbsp;     * abort, but is stopped because the txn is frozen by master transfer.
+<i class="no-highlight">681</i>&nbsp;     * - the application must release the block txn latch lock.
+<i class="no-highlight">682</i>&nbsp;     * @see Replica#replicaTransitionCleanup
+<i class="no-highlight">683</i>&nbsp;     */
+<i class="no-highlight">684</i>&nbsp;    @Override
+<i class="no-highlight">685</i>&nbsp;    protected void checkIfFrozen(boolean isCommit) {
+<b class="nc"><i class="no-highlight">686</i>&nbsp;        if (freeze) {</b>
+<i class="no-highlight">687</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">688</i>&nbsp;                ((RepImpl) envImpl).checkIfMaster(this);</b>
+<b class="nc"><i class="no-highlight">689</i>&nbsp;            } catch (DatabaseException e) {</b>
+<b class="nc"><i class="no-highlight">690</i>&nbsp;                if (isCommit) {</b>
+<b class="nc"><i class="no-highlight">691</i>&nbsp;                    postLogCommitAbortHook();</b>
+<i class="no-highlight">692</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">693</i>&nbsp;                    postLogAbortHook();</b>
+<i class="no-highlight">694</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">695</i>&nbsp;                throw e;</b>
+<b class="nc"><i class="no-highlight">696</i>&nbsp;            }</b>
+<i class="no-highlight">697</i>&nbsp;        }
+<i class="no-highlight">698</i>&nbsp;    }
+<i class="no-highlight">699</i>&nbsp;
+<i class="no-highlight">700</i>&nbsp;    /* For unit testing */
+<i class="no-highlight">701</i>&nbsp;    public void setConvertHook(TestHook&lt;Integer&gt; hook) {
+<b class="nc"><i class="no-highlight">702</i>&nbsp;        convertHook = hook;</b>
+<i class="no-highlight">703</i>&nbsp;    }
+<i class="no-highlight">704</i>&nbsp;
+<i class="no-highlight">705</i>&nbsp;    @Override
+<i class="no-highlight">706</i>&nbsp;    public boolean isMasterTxn() {
+<b class="nc"><i class="no-highlight">707</i>&nbsp;        return true;</b>
+<i class="no-highlight">708</i>&nbsp;    }
+<i class="no-highlight">709</i>&nbsp;
+<i class="no-highlight">710</i>&nbsp;    public void setArbiterAck(boolean val) {
+<b class="nc"><i class="no-highlight">711</i>&nbsp;        needsArbiterAck = val;</b>
+<i class="no-highlight">712</i>&nbsp;    }
+<i class="no-highlight">713</i>&nbsp;
+<i class="no-highlight">714</i>&nbsp;    public boolean getArbiterAck() {
+<b class="nc"><i class="no-highlight">715</i>&nbsp;        return needsArbiterAck;</b>
+<i class="no-highlight">716</i>&nbsp;    }
+<i class="no-highlight">717</i>&nbsp;
+<i class="no-highlight">718</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

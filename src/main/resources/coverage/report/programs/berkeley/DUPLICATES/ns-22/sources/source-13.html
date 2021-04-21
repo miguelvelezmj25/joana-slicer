@@ -1,0 +1,935 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > ReplicaFeederSyncup</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.stream</a>
+</div>
+
+<h1>Coverage Summary for Class: ReplicaFeederSyncup (com.sleepycat.je.rep.stream)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ReplicaFeederSyncup</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/16)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/192)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.rep.stream;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import static com.sleepycat.je.utilint.VLSN.NULL_VLSN;
+<i class="no-highlight">16</i>&nbsp;
+<i class="no-highlight">17</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">18</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">19</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">20</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">21</i>&nbsp;import java.util.logging.Logger;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.cleaner.FileProtector.ProtectedFileSet;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.config.EnvironmentParams;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.DbConfigManager;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.rep.InsufficientLogException;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.rep.RollbackException;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.rep.RollbackProhibitedException;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.rep.SyncupProgress;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.rep.impl.RepImpl;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.je.rep.impl.RepParams;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.impl.node.RepNode;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replay;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replica;
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.je.rep.impl.node.Replica.HardRecoveryElectionException;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.je.rep.impl.node.cbvlsn.LocalCBVLSNTracker;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.AlternateMatchpoint;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.Entry;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.EntryNotFound;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.stream.BaseProtocol.RestoreResponse;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.stream.ReplicaSyncupReader.SkipGapException;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.utilint.BinaryProtocol.Message;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.utilint.NamedChannel;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNIndex;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.vlsn.VLSNRange;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.utilint.DbLsn;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">51</i>&nbsp;import com.sleepycat.je.utilint.TestHookExecute;
+<i class="no-highlight">52</i>&nbsp;import com.sleepycat.je.utilint.VLSN;
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;/**
+<i class="no-highlight">55</i>&nbsp; * Establish where the replication stream should start for a replica and feeder
+<i class="no-highlight">56</i>&nbsp; * pair. The replica compares what is in its log with what the feeder has, to
+<i class="no-highlight">57</i>&nbsp; * determine the latest common log entry matchpoint
+<i class="no-highlight">58</i>&nbsp; *
+<i class="no-highlight">59</i>&nbsp; * - If the replica has applied log entries after that matchpoint, roll them
+<i class="no-highlight">60</i>&nbsp; *   back
+<i class="no-highlight">61</i>&nbsp; * - If a common matchpoint can&#39;t be found, the replica will need to do
+<i class="no-highlight">62</i>&nbsp; *   a network restore.
+<i class="no-highlight">63</i>&nbsp; */
+<b class="nc"><i class="no-highlight">64</i>&nbsp;public class ReplicaFeederSyncup {</b>
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    private final Logger logger;
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    private final NamedChannel namedChannel;
+<i class="no-highlight">69</i>&nbsp;    private final Protocol protocol;
+<i class="no-highlight">70</i>&nbsp;    private final RepNode repNode;
+<i class="no-highlight">71</i>&nbsp;    private final VLSNIndex vlsnIndex;
+<i class="no-highlight">72</i>&nbsp;    private final Replay replay;
+<i class="no-highlight">73</i>&nbsp;    private final RepImpl repImpl;
+<i class="no-highlight">74</i>&nbsp;    private ReplicaSyncupReader backwardsReader;
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    /* The VLSN, lsn and log entry at which a match was made. */
+<b class="nc"><i class="no-highlight">77</i>&nbsp;    private VLSN matchpointVLSN = NULL_VLSN;</b>
+<b class="nc"><i class="no-highlight">78</i>&nbsp;    private Long matchedVLSNTime = 0L;</b>
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    private final boolean hardRecoveryNeedsElection;
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    /*
+<i class="no-highlight">83</i>&nbsp;     * searchResults are the bundled outputs from the backwards scan by the
+<i class="no-highlight">84</i>&nbsp;     * ReplicaSyncReader during its search for a matchpoint.
+<i class="no-highlight">85</i>&nbsp;     */
+<i class="no-highlight">86</i>&nbsp;    private final MatchpointSearchResults searchResults;
+<i class="no-highlight">87</i>&nbsp;
+<i class="no-highlight">88</i>&nbsp;    /**
+<i class="no-highlight">89</i>&nbsp;     * For unit tests only.
+<i class="no-highlight">90</i>&nbsp;     */
+<i class="no-highlight">91</i>&nbsp;    private static TestHook&lt;Object&gt; globalSyncupEndHook;
+<i class="no-highlight">92</i>&nbsp;    private final TestHook&lt;Object&gt; syncupEndHook;
+<i class="no-highlight">93</i>&nbsp;    private static com.sleepycat.je.utilint.TestHook&lt;ReplicaFeederSyncup&gt;
+<i class="no-highlight">94</i>&nbsp;        rollbackHook;
+<i class="no-highlight">95</i>&nbsp;
+<i class="no-highlight">96</i>&nbsp;    public ReplicaFeederSyncup(RepNode repNode,
+<i class="no-highlight">97</i>&nbsp;                               Replay replay,
+<i class="no-highlight">98</i>&nbsp;                               NamedChannel namedChannel,
+<i class="no-highlight">99</i>&nbsp;                               Protocol protocol,
+<b class="nc"><i class="no-highlight">100</i>&nbsp;                               boolean hardRecoveryNeedsElection) {</b>
+<b class="nc"><i class="no-highlight">101</i>&nbsp;        this.replay = replay;</b>
+<b class="nc"><i class="no-highlight">102</i>&nbsp;        logger = LoggerUtils.getLogger(getClass());</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        this.repNode = repNode;</b>
+<b class="nc"><i class="no-highlight">104</i>&nbsp;        this.vlsnIndex = repNode.getVLSNIndex();</b>
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        this.namedChannel = namedChannel;</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;        this.protocol = protocol;</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        this.repImpl = repNode.getRepImpl();</b>
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        this.hardRecoveryNeedsElection = hardRecoveryNeedsElection;</b>
+<b class="nc"><i class="no-highlight">109</i>&nbsp;        searchResults = new MatchpointSearchResults(repNode.getRepImpl());</b>
+<b class="nc"><i class="no-highlight">110</i>&nbsp;        syncupEndHook = repNode.replica().getReplicaFeederSyncupHook();</b>
+<i class="no-highlight">111</i>&nbsp;    }
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    public long getMatchedVLSNTime() {
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        return matchedVLSNTime;</b>
+<i class="no-highlight">115</i>&nbsp;    }
+<i class="no-highlight">116</i>&nbsp;
+<i class="no-highlight">117</i>&nbsp;    public VLSN getMatchedVLSN() {
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        return matchpointVLSN;</b>
+<i class="no-highlight">119</i>&nbsp;    }
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /**
+<i class="no-highlight">122</i>&nbsp;     * The replica&#39;s side of the protocol.
+<i class="no-highlight">123</i>&nbsp;     * @throws InterruptedException
+<i class="no-highlight">124</i>&nbsp;     * @throws InsufficientLogException
+<i class="no-highlight">125</i>&nbsp;     * @throws HardRecoveryElectionException
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    public void execute(LocalCBVLSNTracker cbvlsnTracker)
+<i class="no-highlight">128</i>&nbsp;        throws IOException,
+<i class="no-highlight">129</i>&nbsp;               DatabaseException,
+<i class="no-highlight">130</i>&nbsp;               InterruptedException,
+<i class="no-highlight">131</i>&nbsp;               InsufficientLogException,
+<i class="no-highlight">132</i>&nbsp;               HardRecoveryElectionException {
+<i class="no-highlight">133</i>&nbsp;
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        final long startTime = System.currentTimeMillis();</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        String feederName = namedChannel.getNameIdPair().getName();</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">137</i>&nbsp;                         &quot;Replica-feeder &quot; + feederName +
+<i class="no-highlight">138</i>&nbsp;                         &quot; syncup started. Replica range: &quot; +
+<b class="nc"><i class="no-highlight">139</i>&nbsp;                         repNode.getVLSNIndex().getRange());</b>
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;        /*
+<i class="no-highlight">142</i>&nbsp;         * Prevent the VLSNIndex range from being changed and protect all files
+<i class="no-highlight">143</i>&nbsp;         * in the range. To search the index and read files within this range
+<i class="no-highlight">144</i>&nbsp;         * safely, VLSNIndex.getRange must be called after syncupStarted.
+<i class="no-highlight">145</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        final ProtectedFileSet protectedFileSet =</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;            repNode.syncupStarted(namedChannel.getNameIdPair());</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;        try {
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;            /*
+<i class="no-highlight">152</i>&nbsp;             * Find a replication stream matchpoint and a place to start
+<i class="no-highlight">153</i>&nbsp;             * the replication stream. If the feeder cannot service this
+<i class="no-highlight">154</i>&nbsp;             * protocol because it has run out of replication stream,
+<i class="no-highlight">155</i>&nbsp;             * findMatchpoint will throw a InsufficientLogException. If the
+<i class="no-highlight">156</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            VLSNRange range = vlsnIndex.getRange();</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            findMatchpoint(range);</b>
+<i class="no-highlight">159</i>&nbsp;
+<i class="no-highlight">160</i>&nbsp;            /*
+<i class="no-highlight">161</i>&nbsp;             * If we can&#39;t rollback to the found matchpoint, verifyRollback
+<i class="no-highlight">162</i>&nbsp;             * will throw the appropriate exception.
+<i class="no-highlight">163</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">164</i>&nbsp;            verifyRollback(range);</b>
+<i class="no-highlight">165</i>&nbsp;
+<b class="nc"><i class="no-highlight">166</i>&nbsp;            replay.rollback(matchpointVLSN, searchResults.getMatchpointLSN());</b>
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;            /* Update the vlsnIndex, it will commit synchronously. */
+<b class="nc"><i class="no-highlight">169</i>&nbsp;            VLSN startVLSN = matchpointVLSN.getNext();</b>
+<b class="nc"><i class="no-highlight">170</i>&nbsp;            vlsnIndex.truncateFromTail(startVLSN,</b>
+<b class="nc"><i class="no-highlight">171</i>&nbsp;                                       searchResults.getMatchpointLSN());</b>
+<i class="no-highlight">172</i>&nbsp;
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            protocol.write(protocol.new</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                           StartStream(startVLSN, repImpl.getFeederFilter()),</b>
+<i class="no-highlight">175</i>&nbsp;                           namedChannel);
+<b class="nc"><i class="no-highlight">176</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">177</i>&nbsp;                             &quot;Replica-feeder &quot; + feederName +
+<i class="no-highlight">178</i>&nbsp;                             &quot; start stream at VLSN: &quot; + startVLSN);
+<i class="no-highlight">179</i>&nbsp;
+<i class="no-highlight">180</i>&nbsp;            /*
+<i class="no-highlight">181</i>&nbsp;             * If the GlobalCBVLSN is not defunct, we initialize this node&#39;s
+<i class="no-highlight">182</i>&nbsp;             * local CBVLSN while the entire VLSN range is protected. The
+<i class="no-highlight">183</i>&nbsp;             * idea is to hang onto the vlsn at the matchpoint -- don&#39;t
+<i class="no-highlight">184</i>&nbsp;             * let that be cleaned, because it may be of use for other replicas
+<i class="no-highlight">185</i>&nbsp;             * who need to sync up. Right now, this seems to be the best
+<i class="no-highlight">186</i>&nbsp;             * matchpoint in the group.
+<i class="no-highlight">187</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">188</i>&nbsp;            cbvlsnTracker.registerMatchpoint(matchpointVLSN);</b>
+<i class="no-highlight">189</i>&nbsp;        } finally {
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;            /* For unit test support only. */
+<b class="nc"><i class="no-highlight">192</i>&nbsp;            assert runHook();</b>
+<i class="no-highlight">193</i>&nbsp;
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            repNode.syncupEnded(protectedFileSet);</b>
+<i class="no-highlight">195</i>&nbsp;
+<b class="nc"><i class="no-highlight">196</i>&nbsp;            LoggerUtils.info</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;                (logger, repImpl,</b>
+<i class="no-highlight">198</i>&nbsp;                 String.format
+<b class="nc"><i class="no-highlight">199</i>&nbsp;                 (&quot;Replica-feeder &quot; + feederName +</b>
+<i class="no-highlight">200</i>&nbsp;                  &quot; syncup ended. Elapsed time: %,dms&quot;,
+<b class="nc"><i class="no-highlight">201</i>&nbsp;                  (System.currentTimeMillis() - startTime)));</b>
+<i class="no-highlight">202</i>&nbsp;
+<b class="nc"><i class="no-highlight">203</i>&nbsp;            repImpl.setSyncupProgress(SyncupProgress.END);</b>
+<b class="nc"><i class="no-highlight">204</i>&nbsp;        }</b>
+<i class="no-highlight">205</i>&nbsp;    }
+<i class="no-highlight">206</i>&nbsp;
+<i class="no-highlight">207</i>&nbsp;    /**
+<i class="no-highlight">208</i>&nbsp;     * A matchpoint has been found. What happens next depends on the position
+<i class="no-highlight">209</i>&nbsp;     * of the matchpoint and its relationship to the last transaction end
+<i class="no-highlight">210</i>&nbsp;     * record.
+<i class="no-highlight">211</i>&nbsp;     *
+<i class="no-highlight">212</i>&nbsp;     * In following table,
+<i class="no-highlight">213</i>&nbsp;     *    M = some non-null matchpoint VLSN value,
+<i class="no-highlight">214</i>&nbsp;     *    T = some non-null last txn end value
+<i class="no-highlight">215</i>&nbsp;     *    S = some non-null last sync value
+<i class="no-highlight">216</i>&nbsp;     *
+<i class="no-highlight">217</i>&nbsp;     * Note that currently T == S, since a sync points is always a txn end.
+<i class="no-highlight">218</i>&nbsp;     *
+<i class="no-highlight">219</i>&nbsp;     * txn end                last sync   found        action
+<i class="no-highlight">220</i>&nbsp;     *  VLSN                  VLSN        matchpoint
+<i class="no-highlight">221</i>&nbsp;     * ----------             ---------   ---------    ------------------------
+<i class="no-highlight">222</i>&nbsp;     * NULL_VLSN              NULL_VLSN   NULL_VLSN    rollback everything
+<i class="no-highlight">223</i>&nbsp;     * NULL_VLSN              NULL_VLSN      M         can&#39;t occur
+<i class="no-highlight">224</i>&nbsp;     * NULL_VLSN                 S        NULL_VLSN    rollback everything
+<i class="no-highlight">225</i>&nbsp;     * NULL_VLSN                 S           M         rollback to M
+<i class="no-highlight">226</i>&nbsp;     *   T                    NULL_VLSN   NULL_VLSN    can&#39;t occur
+<i class="no-highlight">227</i>&nbsp;     *   T                    NULL_VLSN      M         can&#39;t occur
+<i class="no-highlight">228</i>&nbsp;     *   T                       S        NULL_VLSN    network restore, though
+<i class="no-highlight">229</i>&nbsp;     *                                                 could also do hard recov
+<i class="no-highlight">230</i>&nbsp;     *   T &lt;= M                  S           M         rollback to matchpoint
+<i class="no-highlight">231</i>&nbsp;     *   T &gt; M, truncate not ok  S           M         network restore
+<i class="no-highlight">232</i>&nbsp;     *   T &gt; M, rollback limit
+<i class="no-highlight">233</i>&nbsp;     *          exceeded or      S           M         throw RollbackProhibited
+<i class="no-highlight">234</i>&nbsp;     *          disabled
+<i class="no-highlight">235</i>&nbsp;     *   T &gt; M, truncate ok      S           M         hard recovery
+<i class="no-highlight">236</i>&nbsp;     *
+<i class="no-highlight">237</i>&nbsp;     * @throws IOException
+<i class="no-highlight">238</i>&nbsp;     * @throws HardRecoveryElectionException
+<i class="no-highlight">239</i>&nbsp;     */
+<i class="no-highlight">240</i>&nbsp;    private void verifyRollback(VLSNRange range)
+<i class="no-highlight">241</i>&nbsp;        throws RollbackException, InsufficientLogException,
+<i class="no-highlight">242</i>&nbsp;        HardRecoveryElectionException, IOException {
+<b class="nc"><i class="no-highlight">243</i>&nbsp;        repImpl.setSyncupProgress(SyncupProgress.CHECK_FOR_ROLLBACK);</b>
+<b class="nc"><i class="no-highlight">244</i>&nbsp;        VLSN lastTxnEnd = range.getLastTxnEnd();</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;        VLSN lastSync = range.getLastSync();</b>
+<i class="no-highlight">246</i>&nbsp;
+<b class="nc"><i class="no-highlight">247</i>&nbsp;        LoggerUtils.finest(logger, repImpl, &quot;verify rollback&quot; +</b>
+<i class="no-highlight">248</i>&nbsp;                           &quot; vlsn range=&quot; + range +
+<i class="no-highlight">249</i>&nbsp;                           &quot; searchResults=&quot; + searchResults);
+<i class="no-highlight">250</i>&nbsp;
+<i class="no-highlight">251</i>&nbsp;        /* Test a rollback exception is thrown when sync up */
+<b class="nc"><i class="no-highlight">252</i>&nbsp;        TestHookExecute.doHookIfSet(rollbackHook, this);</b>
+<i class="no-highlight">253</i>&nbsp;
+<i class="no-highlight">254</i>&nbsp;        /*
+<i class="no-highlight">255</i>&nbsp;         * If the lastTxnEnd VLSN is null, we don&#39;t have to worry about hard
+<i class="no-highlight">256</i>&nbsp;         * recovery. See truth table above.
+<i class="no-highlight">257</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        if (lastTxnEnd.isNull()) {</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;            if (range.getLastSync().isNull() &amp;&amp; !matchpointVLSN.isNull()) {</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;                throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                    (repNode.getRepImpl(), &quot;Shouldn&#39;t be possible to find a &quot;+</b>
+<i class="no-highlight">262</i>&nbsp;                     &quot;matchpoint of &quot; + matchpointVLSN +
+<i class="no-highlight">263</i>&nbsp;                     &quot; when the sync VLSN is null. Range=&quot; + range);
+<i class="no-highlight">264</i>&nbsp;            }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;            /* We&#39;ll be doing a normal rollback. */
+<b class="nc"><i class="no-highlight">267</i>&nbsp;            LoggerUtils.fine(logger, repImpl, &quot;normal rollback, no txn end&quot;);</b>
+<i class="no-highlight">268</i>&nbsp;            return;
+<i class="no-highlight">269</i>&nbsp;        }
+<i class="no-highlight">270</i>&nbsp;
+<b class="nc"><i class="no-highlight">271</i>&nbsp;        if (lastSync.isNull()) {</b>
+<b class="nc"><i class="no-highlight">272</i>&nbsp;            throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">273</i>&nbsp;                (repNode.getRepImpl(),</b>
+<i class="no-highlight">274</i>&nbsp;                 &quot;Shouldn&#39;t be possible to have a null sync VLSN when the &quot;
+<i class="no-highlight">275</i>&nbsp;                 + &quot; lastTxnVLSN &quot; + lastTxnEnd + &quot; is not null. Range=&quot; +
+<i class="no-highlight">276</i>&nbsp;                 range);
+<i class="no-highlight">277</i>&nbsp;        }
+<i class="no-highlight">278</i>&nbsp;
+<i class="no-highlight">279</i>&nbsp;        /*
+<i class="no-highlight">280</i>&nbsp;         * There is a non-null lastTxnEnd VLSN, so check if the found
+<i class="no-highlight">281</i>&nbsp;         * matchpoint precedes it. If it doesn&#39;t, we can&#39;t rollback.
+<i class="no-highlight">282</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">283</i>&nbsp;        if (matchpointVLSN.isNull()) {</b>
+<i class="no-highlight">284</i>&nbsp;
+<i class="no-highlight">285</i>&nbsp;            /*
+<i class="no-highlight">286</i>&nbsp;             * We could actually also try to do a hard recovery and truncate
+<i class="no-highlight">287</i>&nbsp;             * all committed txns, but for now, let&#39;s assume that it will cost
+<i class="no-highlight">288</i>&nbsp;             * less to copy the log files.
+<i class="no-highlight">289</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">290</i>&nbsp;            LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">291</i>&nbsp;                             &quot;This node had a txn end at vlsn = &quot; + lastTxnEnd +
+<i class="no-highlight">292</i>&nbsp;                             &quot;but no matchpoint found.&quot;);
+<b class="nc"><i class="no-highlight">293</i>&nbsp;            throw setupLogRefresh(matchpointVLSN);</b>
+<i class="no-highlight">294</i>&nbsp;        }
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;        /*
+<i class="no-highlight">297</i>&nbsp;         * The matchpoint is after or equal to the last txn end, no problem
+<i class="no-highlight">298</i>&nbsp;         * with doing a normal rollback.
+<i class="no-highlight">299</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        if ((lastTxnEnd.compareTo(matchpointVLSN) &lt;= 0) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">301</i>&nbsp;            (searchResults.getNumPassedCommits() == 0)) {</b>
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            LoggerUtils.fine(logger, repImpl, &quot;txn end vlsn of &quot; + lastTxnEnd +</b>
+<i class="no-highlight">303</i>&nbsp;                             &quot;&lt;= matchpointVLSN of &quot; + matchpointVLSN +
+<i class="no-highlight">304</i>&nbsp;                             &quot;, normal rollback&quot;);
+<i class="no-highlight">305</i>&nbsp;            return;
+<i class="no-highlight">306</i>&nbsp;        }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;        /* Rolling back past a commit or abort. */
+<i class="no-highlight">309</i>&nbsp;
+<b class="nc"><i class="no-highlight">310</i>&nbsp;        if (hardRecoveryNeedsElection) {</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;            throw new HardRecoveryElectionException</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;                    (repNode.getMasterStatus().getNodeMasterNameId(),</b>
+<i class="no-highlight">313</i>&nbsp;                     lastTxnEnd,  matchpointVLSN);
+<i class="no-highlight">314</i>&nbsp;        }
+<i class="no-highlight">315</i>&nbsp;
+<i class="no-highlight">316</i>&nbsp;        /*
+<i class="no-highlight">317</i>&nbsp;         * We&#39;re planning on rolling back past a commit or abort. The more
+<i class="no-highlight">318</i>&nbsp;         * optimal course of action is to truncate the log and run a hard
+<i class="no-highlight">319</i>&nbsp;         * recovery, but if the matchpoint precedes a checkpoint that deleted
+<i class="no-highlight">320</i>&nbsp;         * log files, the truncation is not permissible because the resulting
+<i class="no-highlight">321</i>&nbsp;         * log might be missing needed files. Instead, we have to do a network
+<i class="no-highlight">322</i>&nbsp;         * restore.
+<i class="no-highlight">323</i>&nbsp;         *
+<i class="no-highlight">324</i>&nbsp;         * A checkpoint that resulted in deleted log files will have flushed
+<i class="no-highlight">325</i>&nbsp;         * references to entries migrated from the deleted file, and the
+<i class="no-highlight">326</i>&nbsp;         * original entries might still be referenced if we truncate the log
+<i class="no-highlight">327</i>&nbsp;         * prior to the CkptEnd. For example:
+<i class="no-highlight">328</i>&nbsp;         *
+<i class="no-highlight">329</i>&nbsp;         *    3/100 LN-A
+<i class="no-highlight">330</i>&nbsp;         *    4/100 BIN parent of LN-1 at 3/100
+<i class="no-highlight">331</i>&nbsp;         *    5/100 cleaning of file 3 begins
+<i class="no-highlight">332</i>&nbsp;         *    5/200 LN-A migrated from 3/100, parent BIN is dirtied
+<i class="no-highlight">333</i>&nbsp;         *    5/300 CkptStart
+<i class="no-highlight">334</i>&nbsp;         *    5/400 matchpoint
+<i class="no-highlight">335</i>&nbsp;         *    5/500 BIN parent of LN-A at 5/200
+<i class="no-highlight">336</i>&nbsp;         *    5/600 CkptEnd, after which file 3 is deleted
+<i class="no-highlight">337</i>&nbsp;         *
+<i class="no-highlight">338</i>&nbsp;         * If we truncate the log at the matchpoint, the BIN at 5/500 is
+<i class="no-highlight">339</i>&nbsp;         * truncated. The BIN at 4/100 will be used, which refers to an LN in a
+<i class="no-highlight">340</i>&nbsp;         * now deleted file. Note that the cleaner guarantees that a checkpoint
+<i class="no-highlight">341</i>&nbsp;         * occurs after migration and before file deletion.
+<i class="no-highlight">342</i>&nbsp;         *
+<i class="no-highlight">343</i>&nbsp;         * However, because files become reserved after a checkpoint and are
+<i class="no-highlight">344</i>&nbsp;         * not deleted immediately, we could trucate at a matchpoint that
+<i class="no-highlight">345</i>&nbsp;         * precedes such a checkpoint, when these reserved files have not yet
+<i class="no-highlight">346</i>&nbsp;         * been deleted. In the future we could enable such a feature by
+<i class="no-highlight">347</i>&nbsp;         * keeping track (persistently) of the earliest point at which the log
+<i class="no-highlight">348</i>&nbsp;         * can be truncated, taking into account the deletion of reserved
+<i class="no-highlight">349</i>&nbsp;         * files. Then we could use this information to validate a matchpoint.
+<i class="no-highlight">350</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">351</i>&nbsp;        if (searchResults.getPassedCheckpointEnd()) {</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;            LoggerUtils.info(logger, repImpl, &quot;matchpointVLSN of &quot; +</b>
+<i class="no-highlight">353</i>&nbsp;                             matchpointVLSN + &quot; precedes a checkpoint end, &quot; +
+<i class="no-highlight">354</i>&nbsp;                             &quot;needs network restore.&quot;);
+<b class="nc"><i class="no-highlight">355</i>&nbsp;            throw setupLogRefresh(matchpointVLSN);</b>
+<i class="no-highlight">356</i>&nbsp;        }
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;        /*
+<i class="no-highlight">359</i>&nbsp;         * Likewise, if we skipped over a gap in the log files, we can&#39;t be
+<i class="no-highlight">360</i>&nbsp;         * sure if we passed a ckpt with deleted log files. Do a network
+<i class="no-highlight">361</i>&nbsp;         * restore rather than a hard recovery.
+<i class="no-highlight">362</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">363</i>&nbsp;        if (searchResults.getSkippedGap()) {</b>
+<b class="nc"><i class="no-highlight">364</i>&nbsp;            LoggerUtils.info(logger, repImpl, &quot;matchpointVLSN of &quot; +</b>
+<i class="no-highlight">365</i>&nbsp;                             matchpointVLSN + &quot; was found in a replica log &quot; +
+<i class="no-highlight">366</i>&nbsp;                             &quot;with gaps. Since we can&#39;t be sure if it &quot; +
+<i class="no-highlight">367</i>&nbsp;                             &quot;precedes a checkpoint end, do network restore.&quot;);
+<b class="nc"><i class="no-highlight">368</i>&nbsp;            throw setupLogRefresh(matchpointVLSN);</b>
+<i class="no-highlight">369</i>&nbsp;        }
+<i class="no-highlight">370</i>&nbsp;
+<i class="no-highlight">371</i>&nbsp;        /*
+<i class="no-highlight">372</i>&nbsp;         * We&#39;re planning on rolling back past a commit or abort, and we know
+<i class="no-highlight">373</i>&nbsp;         * that we have not passed a barrier checkpoint. See if we have
+<i class="no-highlight">374</i>&nbsp;         * exceeded the number of rolledback commits limit.
+<i class="no-highlight">375</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">376</i>&nbsp;        EnvironmentImpl envImpl = repNode.getRepImpl();</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;        DbConfigManager configMgr = envImpl.getConfigManager();</b>
+<b class="nc"><i class="no-highlight">378</i>&nbsp;        final int rollbackTxnLimit =</b>
+<b class="nc"><i class="no-highlight">379</i>&nbsp;            configMgr.getInt(RepParams.TXN_ROLLBACK_LIMIT);</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;        final boolean rollbackDisabled =</b>
+<b class="nc"><i class="no-highlight">381</i>&nbsp;            configMgr.getBoolean(RepParams.TXN_ROLLBACK_DISABLED);</b>
+<i class="no-highlight">382</i>&nbsp;
+<b class="nc"><i class="no-highlight">383</i>&nbsp;        final int numPassedDurableCommits =</b>
+<b class="nc"><i class="no-highlight">384</i>&nbsp;            searchResults.getNumPassedDurableCommits();</b>
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        final int numPassedCommits =</b>
+<b class="nc"><i class="no-highlight">386</i>&nbsp;            searchResults.getNumPassedCommits();</b>
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        final long dtvlsn = searchResults.getDTVLSN().getSequence();</b>
+<b class="nc"><i class="no-highlight">388</i>&nbsp;        LoggerUtils.info(logger, repImpl,</b>
+<b class="nc"><i class="no-highlight">389</i>&nbsp;                         String.format(&quot;Rollback info. &quot; +</b>
+<i class="no-highlight">390</i>&nbsp;                                       &quot;Number of passed commits:%,d. &quot; +
+<i class="no-highlight">391</i>&nbsp;                                       &quot;(durable commits:%,d). &quot; +
+<i class="no-highlight">392</i>&nbsp;                                       &quot;Durable commit VLSN:%,d &quot; +
+<i class="no-highlight">393</i>&nbsp;                                       &quot;Rollback transaction limit:%,d&quot;,
+<b class="nc"><i class="no-highlight">394</i>&nbsp;                                       numPassedCommits,</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                                       numPassedDurableCommits,</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                                       dtvlsn,</b>
+<b class="nc"><i class="no-highlight">397</i>&nbsp;                                       rollbackTxnLimit));</b>
+<i class="no-highlight">398</i>&nbsp;
+<b class="nc"><i class="no-highlight">399</i>&nbsp;        if (numPassedDurableCommits &gt; rollbackTxnLimit || rollbackDisabled) {</b>
+<i class="no-highlight">400</i>&nbsp;
+<b class="nc"><i class="no-highlight">401</i>&nbsp;            LoggerUtils.severe(logger, repImpl,</b>
+<i class="no-highlight">402</i>&nbsp;                               &quot;Limited list of transactions that would &quot; +
+<i class="no-highlight">403</i>&nbsp;                               &quot; be truncated for hard recovery:\n&quot; +
+<b class="nc"><i class="no-highlight">404</i>&nbsp;                               searchResults.dumpPassedTxns());</b>
+<i class="no-highlight">405</i>&nbsp;
+<b class="nc"><i class="no-highlight">406</i>&nbsp;            throw new RollbackProhibitedException(repNode.getRepImpl(),</b>
+<i class="no-highlight">407</i>&nbsp;                                                  rollbackTxnLimit,
+<i class="no-highlight">408</i>&nbsp;                                                  rollbackDisabled,
+<i class="no-highlight">409</i>&nbsp;                                                  matchpointVLSN,
+<i class="no-highlight">410</i>&nbsp;                                                  searchResults);
+<i class="no-highlight">411</i>&nbsp;        }
+<i class="no-highlight">412</i>&nbsp;
+<i class="no-highlight">413</i>&nbsp;        /*
+<i class="no-highlight">414</i>&nbsp;         * After passing all the earlier qualifications, do a truncation and
+<i class="no-highlight">415</i>&nbsp;         * hard recovery.
+<i class="no-highlight">416</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">417</i>&nbsp;        throw setupHardRecovery();</b>
+<i class="no-highlight">418</i>&nbsp;    }
+<i class="no-highlight">419</i>&nbsp;
+<i class="no-highlight">420</i>&nbsp;    /**
+<i class="no-highlight">421</i>&nbsp;     * Find a matchpoint, which is a log entry in the replication stream which
+<i class="no-highlight">422</i>&nbsp;     * is the same on feeder and replica. Assign the matchpointVLSN field. The
+<i class="no-highlight">423</i>&nbsp;     * matchpoint log entry must be be tagged with an environment id. If no
+<i class="no-highlight">424</i>&nbsp;     * matching entry is found, the matchpoint is effectively the NULL_VLSN.
+<i class="no-highlight">425</i>&nbsp;     *
+<i class="no-highlight">426</i>&nbsp;     * To determine the matchpoint, exchange messages with the feeder and
+<i class="no-highlight">427</i>&nbsp;     * compare log entries. If the feeder does not have enough log entries,
+<i class="no-highlight">428</i>&nbsp;     * throw InsufficientLogException.
+<i class="no-highlight">429</i>&nbsp;     * @throws InsufficientLogException
+<i class="no-highlight">430</i>&nbsp;     */
+<i class="no-highlight">431</i>&nbsp;    private void findMatchpoint(VLSNRange range)
+<i class="no-highlight">432</i>&nbsp;        throws IOException,
+<i class="no-highlight">433</i>&nbsp;               InsufficientLogException {
+<i class="no-highlight">434</i>&nbsp;
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        int matchCounter = 0;</b>
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        repImpl.setSyncupProgress(SyncupProgress.FIND_MATCHPOINT,</b>
+<i class="no-highlight">437</i>&nbsp;                                  matchCounter++, -1);
+<b class="nc"><i class="no-highlight">438</i>&nbsp;        VLSN candidateMatchpoint = range.getLastSync();</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;        if (candidateMatchpoint.equals(NULL_VLSN)) {</b>
+<i class="no-highlight">440</i>&nbsp;
+<i class="no-highlight">441</i>&nbsp;            /*
+<i class="no-highlight">442</i>&nbsp;             * If the replica has no sync-able log entries at all, the
+<i class="no-highlight">443</i>&nbsp;             * matchpoint is the NULL_VLSN, and we should start the replication
+<i class="no-highlight">444</i>&nbsp;             * stream at VLSN 1. Check if the feeder has the VLSN 1. If it
+<i class="no-highlight">445</i>&nbsp;             * doesn&#39;t, getFeederRecord() will throw a
+<i class="no-highlight">446</i>&nbsp;             * InsufficientLogException. We can assume that a non-cleaned
+<i class="no-highlight">447</i>&nbsp;             * feeder always has VLSN 1, because a ReplicatedEnvironment always
+<i class="no-highlight">448</i>&nbsp;             * creates a few replicated vlsns, such as the name db, at
+<i class="no-highlight">449</i>&nbsp;             * initial startup.
+<i class="no-highlight">450</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">451</i>&nbsp;            getFeederRecord(range, VLSN.FIRST_VLSN,</b>
+<i class="no-highlight">452</i>&nbsp;                            false /*acceptAlternative*/);
+<i class="no-highlight">453</i>&nbsp;            return;
+<i class="no-highlight">454</i>&nbsp;        }
+<i class="no-highlight">455</i>&nbsp;
+<i class="no-highlight">456</i>&nbsp;        /*
+<i class="no-highlight">457</i>&nbsp;         * CandidateMatchpoint is not null, so ask the feeder for the log
+<i class="no-highlight">458</i>&nbsp;         * record at that vlsn.
+<i class="no-highlight">459</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">460</i>&nbsp;        InputWireRecord feederRecord =</b>
+<b class="nc"><i class="no-highlight">461</i>&nbsp;            getFeederRecord(range, candidateMatchpoint,</b>
+<i class="no-highlight">462</i>&nbsp;                            true /*acceptAlternative*/);
+<i class="no-highlight">463</i>&nbsp;
+<i class="no-highlight">464</i>&nbsp;        /*
+<i class="no-highlight">465</i>&nbsp;         * The feeder may have suggested an alternative matchpoint, so reset
+<i class="no-highlight">466</i>&nbsp;         * candidate matchpoint.
+<i class="no-highlight">467</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">468</i>&nbsp;        candidateMatchpoint = feederRecord.getVLSN();</b>
+<b class="nc"><i class="no-highlight">469</i>&nbsp;        if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">470</i>&nbsp;            LoggerUtils.fine(logger, repImpl,</b>
+<i class="no-highlight">471</i>&nbsp;                             &quot;first candidate matchpoint: &quot; +
+<i class="no-highlight">472</i>&nbsp;                             candidateMatchpoint);
+<i class="no-highlight">473</i>&nbsp;        }
+<i class="no-highlight">474</i>&nbsp;        /*
+<i class="no-highlight">475</i>&nbsp;         * Start comparing feeder records to replica records. Instead of using
+<i class="no-highlight">476</i>&nbsp;         * the VLSNIndex to direct our search, we must scan from the end of the
+<i class="no-highlight">477</i>&nbsp;         * log, recording entries that have an impact on our ability to
+<i class="no-highlight">478</i>&nbsp;         * rollback, like checkpoints.
+<i class="no-highlight">479</i>&nbsp;         *
+<i class="no-highlight">480</i>&nbsp;         * Start by finding the candidate matchpoint in the Replica.
+<i class="no-highlight">481</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">482</i>&nbsp;        backwardsReader = setupBackwardsReader</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;            (candidateMatchpoint,</b>
+<b class="nc"><i class="no-highlight">484</i>&nbsp;             repNode.getRepImpl().getFileManager().getLastUsedLsn());</b>
+<b class="nc"><i class="no-highlight">485</i>&nbsp;        OutputWireRecord replicaRecord = getReplicaRecord(candidateMatchpoint);</b>
+<i class="no-highlight">486</i>&nbsp;
+<b class="nc"><i class="no-highlight">487</i>&nbsp;        while (!replicaRecord.match(feederRecord)) {</b>
+<b class="nc"><i class="no-highlight">488</i>&nbsp;            repImpl.setSyncupProgress(SyncupProgress.FIND_MATCHPOINT,</b>
+<i class="no-highlight">489</i>&nbsp;                                      matchCounter++, -1);
+<i class="no-highlight">490</i>&nbsp;
+<i class="no-highlight">491</i>&nbsp;            /*
+<i class="no-highlight">492</i>&nbsp;             * That first bid didn&#39;t match, now just keep looking at all
+<i class="no-highlight">493</i>&nbsp;             * potential matchpoints.
+<i class="no-highlight">494</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">495</i>&nbsp;            replicaRecord = scanMatchpointEntries();</b>
+<i class="no-highlight">496</i>&nbsp;
+<b class="nc"><i class="no-highlight">497</i>&nbsp;            if (replicaRecord == null) {</b>
+<i class="no-highlight">498</i>&nbsp;
+<i class="no-highlight">499</i>&nbsp;                /*
+<i class="no-highlight">500</i>&nbsp;                 * The search for the previous sync log entry went past our
+<i class="no-highlight">501</i>&nbsp;                 * available contiguous VLSN range, so there is no
+<i class="no-highlight">502</i>&nbsp;                 * matchpoint.
+<i class="no-highlight">503</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">504</i>&nbsp;                LoggerUtils.info(logger, repImpl,</b>
+<i class="no-highlight">505</i>&nbsp;                                 &quot;Looking at candidate matchpoint vlsn &quot; +
+<i class="no-highlight">506</i>&nbsp;                                 candidateMatchpoint +
+<i class="no-highlight">507</i>&nbsp;                                 &quot; but this node went past its available&quot; +
+<i class="no-highlight">508</i>&nbsp;                                 &quot; contiguous VLSN range, need network&quot; +
+<i class="no-highlight">509</i>&nbsp;                                 &quot; restore.&quot;);
+<b class="nc"><i class="no-highlight">510</i>&nbsp;                throw setupLogRefresh(candidateMatchpoint);</b>
+<i class="no-highlight">511</i>&nbsp;            }
+<i class="no-highlight">512</i>&nbsp;
+<i class="no-highlight">513</i>&nbsp;            /*
+<i class="no-highlight">514</i>&nbsp;             * Ask the feeder for the record. If the feeder doesn&#39;t have
+<i class="no-highlight">515</i>&nbsp;             * it, we&#39;ll throw out and do a network restore.
+<i class="no-highlight">516</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">517</i>&nbsp;            candidateMatchpoint = replicaRecord.getVLSN();</b>
+<b class="nc"><i class="no-highlight">518</i>&nbsp;            if (logger.isLoggable(Level.FINE)) {</b>
+<b class="nc"><i class="no-highlight">519</i>&nbsp;                LoggerUtils.fine(logger, repImpl,</b>
+<i class="no-highlight">520</i>&nbsp;                                 &quot;Next candidate matchpoint: &quot; +
+<i class="no-highlight">521</i>&nbsp;                                 candidateMatchpoint);
+<i class="no-highlight">522</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">523</i>&nbsp;            feederRecord = getFeederRecord(range, candidateMatchpoint,</b>
+<i class="no-highlight">524</i>&nbsp;                                           false);
+<i class="no-highlight">525</i>&nbsp;        }
+<i class="no-highlight">526</i>&nbsp;
+<i class="no-highlight">527</i>&nbsp;        /* We&#39;ve found the matchpoint. */
+<b class="nc"><i class="no-highlight">528</i>&nbsp;        matchedVLSNTime = replicaRecord.getTimeStamp();</b>
+<b class="nc"><i class="no-highlight">529</i>&nbsp;        matchpointVLSN = candidateMatchpoint;</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;        searchResults.setMatchpoint(backwardsReader.getLastLsn());</b>
+<b class="nc"><i class="no-highlight">531</i>&nbsp;        LoggerUtils.finest(logger, repImpl,</b>
+<i class="no-highlight">532</i>&nbsp;                           &quot;after setting  matchpoint, searchResults=&quot; +
+<i class="no-highlight">533</i>&nbsp;                           searchResults);
+<i class="no-highlight">534</i>&nbsp;    }
+<i class="no-highlight">535</i>&nbsp;
+<i class="no-highlight">536</i>&nbsp;    private ReplicaSyncupReader setupBackwardsReader(VLSN startScanVLSN,
+<i class="no-highlight">537</i>&nbsp;                                                     long startScanLsn) {
+<i class="no-highlight">538</i>&nbsp;
+<b class="nc"><i class="no-highlight">539</i>&nbsp;        EnvironmentImpl envImpl = repNode.getRepImpl();</b>
+<b class="nc"><i class="no-highlight">540</i>&nbsp;        int readBufferSize = envImpl.getConfigManager().</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;            getInt(EnvironmentParams.LOG_ITERATOR_READ_SIZE);</b>
+<i class="no-highlight">542</i>&nbsp;
+<b class="nc"><i class="no-highlight">543</i>&nbsp;        return new ReplicaSyncupReader</b>
+<i class="no-highlight">544</i>&nbsp;            (envImpl,
+<b class="nc"><i class="no-highlight">545</i>&nbsp;             repNode.getVLSNIndex(),</b>
+<i class="no-highlight">546</i>&nbsp;             startScanLsn,
+<i class="no-highlight">547</i>&nbsp;             readBufferSize,
+<i class="no-highlight">548</i>&nbsp;             startScanVLSN,
+<b class="nc"><i class="no-highlight">549</i>&nbsp;             DbLsn.makeLsn(vlsnIndex.getProtectedRangeStartFile(), 0),</b>
+<i class="no-highlight">550</i>&nbsp;             searchResults);
+<i class="no-highlight">551</i>&nbsp;    }
+<i class="no-highlight">552</i>&nbsp;
+<i class="no-highlight">553</i>&nbsp;    /**
+<i class="no-highlight">554</i>&nbsp;     * Search backwards for the replica&#39;s log record at this target VLSN. The
+<i class="no-highlight">555</i>&nbsp;     * target record is either the replica&#39;s first suggestion for a matchpoint,
+<i class="no-highlight">556</i>&nbsp;     * or feeder&#39;s counter offer. We have checked earlier that the counter
+<i class="no-highlight">557</i>&nbsp;     * offer is within the replica&#39;s vlsn range.
+<i class="no-highlight">558</i>&nbsp;     */
+<i class="no-highlight">559</i>&nbsp;    private OutputWireRecord getReplicaRecord(VLSN candidateMatchpoint) {
+<i class="no-highlight">560</i>&nbsp;
+<b class="nc"><i class="no-highlight">561</i>&nbsp;        OutputWireRecord replicaRecord = null;</b>
+<i class="no-highlight">562</i>&nbsp;        do {
+<i class="no-highlight">563</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">564</i>&nbsp;                replicaRecord =</b>
+<b class="nc"><i class="no-highlight">565</i>&nbsp;                    backwardsReader.scanBackwards(candidateMatchpoint);</b>
+<i class="no-highlight">566</i>&nbsp;
+<i class="no-highlight">567</i>&nbsp;                /*
+<i class="no-highlight">568</i>&nbsp;                 * We&#39;re hunting for a VLSN that should be in the VLSN range,
+<i class="no-highlight">569</i>&nbsp;                 * and it should exist.
+<i class="no-highlight">570</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">571</i>&nbsp;                if (replicaRecord == null) {</b>
+<b class="nc"><i class="no-highlight">572</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">573</i>&nbsp;                        (repImpl,</b>
+<i class="no-highlight">574</i>&nbsp;                         &quot;Searching for candidate matchpoint &quot; +
+<i class="no-highlight">575</i>&nbsp;                         candidateMatchpoint +
+<i class="no-highlight">576</i>&nbsp;                         &quot; but got null record back &quot;);
+<i class="no-highlight">577</i>&nbsp;                }
+<i class="no-highlight">578</i>&nbsp;
+<i class="no-highlight">579</i>&nbsp;                /* We&#39;ve found the record at candidateMatchpoint */
+<b class="nc"><i class="no-highlight">580</i>&nbsp;                return replicaRecord;</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;            } catch (SkipGapException e) {</b>
+<i class="no-highlight">582</i>&nbsp;                /*
+<i class="no-highlight">583</i>&nbsp;                 * The ReplicaSyncupReader will throw a SkipGapException if it
+<i class="no-highlight">584</i>&nbsp;                 * encounters a cleaned files gap in the log. There can be
+<i class="no-highlight">585</i>&nbsp;                 * multiple gaps on its way toward finding the candidate
+<i class="no-highlight">586</i>&nbsp;                 * vlsn. The ReplicaSyncupReader is obliged to traverse the
+<i class="no-highlight">587</i>&nbsp;                 * log, in order to note checkpoints, rather than simply using
+<i class="no-highlight">588</i>&nbsp;                 * the vlsn index. When a gap is detected, the vlsn on the left
+<i class="no-highlight">589</i>&nbsp;                 * side of the gap is used to re-init a new reader. For
+<i class="no-highlight">590</i>&nbsp;                 * example, suppose the log looks like this:
+<i class="no-highlight">591</i>&nbsp;                 *
+<i class="no-highlight">592</i>&nbsp;                 * file 100 has vlsns 41-50
+<i class="no-highlight">593</i>&nbsp;                 * file 200 has vlsns 51-60
+<i class="no-highlight">594</i>&nbsp;                 * file 300 has vlsns 61-70
+<i class="no-highlight">595</i>&nbsp;                 *
+<i class="no-highlight">596</i>&nbsp;                 * and the candidate matchpoint is 45, the search will start at
+<i class="no-highlight">597</i>&nbsp;                 * vlsn 70.
+<i class="no-highlight">598</i>&nbsp;                 *  t1: SkipGapException thrown at gap between file 200 &amp; 300,
+<i class="no-highlight">599</i>&nbsp;                 *      create new reader positioned at vlsn 60
+<i class="no-highlight">600</i>&nbsp;                 *  t2: SkipGapException thrown at gap between file 100 &amp; 200,
+<i class="no-highlight">601</i>&nbsp;                 *      create new reader positioned at vlsn 50
+<i class="no-highlight">602</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">603</i>&nbsp;                VLSN gapRepositionVLSN = e.getVLSN();</b>
+<b class="nc"><i class="no-highlight">604</i>&nbsp;                if (gapRepositionVLSN.compareTo(candidateMatchpoint) &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">605</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">606</i>&nbsp;                        (&quot;Gap reposition point of &quot; + gapRepositionVLSN +</b>
+<i class="no-highlight">607</i>&nbsp;                         &quot; should always be &gt;= candidate matchpoint VLSN of &quot; +
+<i class="no-highlight">608</i>&nbsp;                         candidateMatchpoint);
+<i class="no-highlight">609</i>&nbsp;                }
+<i class="no-highlight">610</i>&nbsp;
+<b class="nc"><i class="no-highlight">611</i>&nbsp;                long startScanLsn = vlsnIndex.getGTELsn(gapRepositionVLSN);</b>
+<b class="nc"><i class="no-highlight">612</i>&nbsp;                backwardsReader = setupBackwardsReader(candidateMatchpoint,</b>
+<i class="no-highlight">613</i>&nbsp;                                                       startScanLsn);
+<i class="no-highlight">614</i>&nbsp;                /*
+<i class="no-highlight">615</i>&nbsp;                 * If we skip a gap, there is a chance that we will have passed
+<i class="no-highlight">616</i>&nbsp;                 * a checkpoint which had deleted log files. This has no impact
+<i class="no-highlight">617</i>&nbsp;                 * if we are doing a soft rollback, but if we do a hard
+<i class="no-highlight">618</i>&nbsp;                 * recovery, it would prevent us from truncating the log. It
+<i class="no-highlight">619</i>&nbsp;                 * would require doing a network restore if we need to rollback
+<i class="no-highlight">620</i>&nbsp;                 * committed txns.
+<i class="no-highlight">621</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">622</i>&nbsp;                searchResults.noteSkippedGap();</b>
+<i class="no-highlight">623</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">624</i>&nbsp;        } while (true);</b>
+<i class="no-highlight">625</i>&nbsp;    }
+<i class="no-highlight">626</i>&nbsp;
+<i class="no-highlight">627</i>&nbsp;    /**
+<i class="no-highlight">628</i>&nbsp;     * Search backwards for potential matchpoints in the replica log,
+<i class="no-highlight">629</i>&nbsp;     * accounting for potential gaps.
+<i class="no-highlight">630</i>&nbsp;     */
+<i class="no-highlight">631</i>&nbsp;    private OutputWireRecord scanMatchpointEntries() {
+<b class="nc"><i class="no-highlight">632</i>&nbsp;        OutputWireRecord replicaRecord = null;</b>
+<b class="nc"><i class="no-highlight">633</i>&nbsp;        boolean firstAttempt = true;</b>
+<i class="no-highlight">634</i>&nbsp;        do {
+<i class="no-highlight">635</i>&nbsp;            try {
+<i class="no-highlight">636</i>&nbsp;                /*
+<i class="no-highlight">637</i>&nbsp;                 * The first time around, when firstAttempt is true, ask the
+<i class="no-highlight">638</i>&nbsp;                 * reader to search for the vlsn before the currentVLSN,
+<i class="no-highlight">639</i>&nbsp;                 * because we entered this method having searched to a given
+<i class="no-highlight">640</i>&nbsp;                 * target matchpoint. All subsequent times, we are in search of
+<i class="no-highlight">641</i>&nbsp;                 * the reader&#39;s currentVLSN, but haven&#39;t found it yet, because
+<i class="no-highlight">642</i>&nbsp;                 * we hit a gap, so leave the currentVLSN alone.
+<i class="no-highlight">643</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">644</i>&nbsp;                replicaRecord =</b>
+<b class="nc"><i class="no-highlight">645</i>&nbsp;                    backwardsReader.findPrevSyncEntry(firstAttempt);</b>
+<i class="no-highlight">646</i>&nbsp;
+<i class="no-highlight">647</i>&nbsp;                /*
+<i class="no-highlight">648</i>&nbsp;                 * Either se&#39;ve found a possible matchpoint, or we&#39;ve come to
+<i class="no-highlight">649</i>&nbsp;                 * the end and the replicaRecord is null. One way or another,
+<i class="no-highlight">650</i>&nbsp;                 * return the results of the scan.
+<i class="no-highlight">651</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">652</i>&nbsp;                return replicaRecord;</b>
+<b class="nc"><i class="no-highlight">653</i>&nbsp;            } catch (SkipGapException e) {</b>
+<i class="no-highlight">654</i>&nbsp;                /*
+<i class="no-highlight">655</i>&nbsp;                 * The ReplicaSyncupReader will throw a SkipGapException if it
+<i class="no-highlight">656</i>&nbsp;                 * encounters a cleaned files gap in the log. There can be
+<i class="no-highlight">657</i>&nbsp;                 * multiple gaps on its way toward finding the next potential
+<i class="no-highlight">658</i>&nbsp;                 * matchpoint. The ReplicaSyncupReader is obliged to traverse
+<i class="no-highlight">659</i>&nbsp;                 * the log, in order to note checkpoints, rather than simply
+<i class="no-highlight">660</i>&nbsp;                 * using the vlsn index. When a gap is detected, the vlsn on
+<i class="no-highlight">661</i>&nbsp;                 * the left side of the gap is used to re-init a new
+<i class="no-highlight">662</i>&nbsp;                 * reader. For example, suppose the log looks like this and the
+<i class="no-highlight">663</i>&nbsp;                 * search starts at vlsn 70
+<i class="no-highlight">664</i>&nbsp;                 *
+<i class="no-highlight">665</i>&nbsp;                 * file 100 has vlsns 51-60
+<i class="no-highlight">666</i>&nbsp;                 * file 200 has no vlsns
+<i class="no-highlight">667</i>&nbsp;                 * file 300 has no vlsns
+<i class="no-highlight">668</i>&nbsp;                 * file 400 has vlsns 61-70
+<i class="no-highlight">669</i>&nbsp;                 *
+<i class="no-highlight">670</i>&nbsp;                 *  SkipGapException thrown at gap between file 300 &amp; 400,
+<i class="no-highlight">671</i>&nbsp;                 *  when the reader&#39;s currentVLSN is 60. Create a new reader,
+<i class="no-highlight">672</i>&nbsp;                 *  positioned at vlsn 60, skipping over files 200 and 300.
+<i class="no-highlight">673</i>&nbsp;                 */
+<i class="no-highlight">674</i>&nbsp;
+<b class="nc"><i class="no-highlight">675</i>&nbsp;                VLSN gapRepositionVLSN = e.getVLSN();</b>
+<b class="nc"><i class="no-highlight">676</i>&nbsp;                backwardsReader = setupBackwardsReader</b>
+<b class="nc"><i class="no-highlight">677</i>&nbsp;                    (gapRepositionVLSN,</b>
+<b class="nc"><i class="no-highlight">678</i>&nbsp;                     vlsnIndex.getGTELsn(gapRepositionVLSN));</b>
+<b class="nc"><i class="no-highlight">679</i>&nbsp;                firstAttempt = false;</b>
+<b class="nc"><i class="no-highlight">680</i>&nbsp;                searchResults.noteSkippedGap();</b>
+<i class="no-highlight">681</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">682</i>&nbsp;        } while(true);</b>
+<i class="no-highlight">683</i>&nbsp;    }
+<i class="no-highlight">684</i>&nbsp;
+<i class="no-highlight">685</i>&nbsp;    /**
+<i class="no-highlight">686</i>&nbsp;     * Ask the feeder for information to add to InsufficientLogException,
+<i class="no-highlight">687</i>&nbsp;     * and then throw the exception.
+<i class="no-highlight">688</i>&nbsp;     *
+<i class="no-highlight">689</i>&nbsp;     * The endVLSN marks the last VLSN that this node will want from
+<i class="no-highlight">690</i>&nbsp;     * the network restore. That information helps ensure that the restore
+<i class="no-highlight">691</i>&nbsp;     * source has enough vlsns to satisfy this replica.
+<i class="no-highlight">692</i>&nbsp;     *
+<i class="no-highlight">693</i>&nbsp;     * The replication node list identifies possible log provider members.
+<i class="no-highlight">694</i>&nbsp;     * @throws IOException
+<i class="no-highlight">695</i>&nbsp;     */
+<i class="no-highlight">696</i>&nbsp;    private InsufficientLogException setupLogRefresh(VLSN failedMatchpoint)
+<i class="no-highlight">697</i>&nbsp;        throws IOException {
+<i class="no-highlight">698</i>&nbsp;
+<b class="nc"><i class="no-highlight">699</i>&nbsp;        protocol.write(protocol.new RestoreRequest(failedMatchpoint),</b>
+<i class="no-highlight">700</i>&nbsp;                       namedChannel);
+<b class="nc"><i class="no-highlight">701</i>&nbsp;        RestoreResponse response =</b>
+<b class="nc"><i class="no-highlight">702</i>&nbsp;            (RestoreResponse) protocol.read(namedChannel);</b>
+<i class="no-highlight">703</i>&nbsp;
+<b class="nc"><i class="no-highlight">704</i>&nbsp;        return new InsufficientLogException(</b>
+<i class="no-highlight">705</i>&nbsp;            repNode,
+<b class="nc"><i class="no-highlight">706</i>&nbsp;            new HashSet&lt;&gt;(Arrays.asList(response.getLogProviders())));</b>
+<i class="no-highlight">707</i>&nbsp;    }
+<i class="no-highlight">708</i>&nbsp;
+<i class="no-highlight">709</i>&nbsp;    /**
+<i class="no-highlight">710</i>&nbsp;     * Hard recovery:  truncate the files, repeat recovery.
+<i class="no-highlight">711</i>&nbsp;     * If this hard recovery came about before the ReplicatedEnvironment was
+<i class="no-highlight">712</i>&nbsp;     * fully instantiated, we will recreate the environment under the
+<i class="no-highlight">713</i>&nbsp;     * covers. If this came while the replica was up and supporting existing
+<i class="no-highlight">714</i>&nbsp;     * Environment handles, we must invalidate the environment, and ask the
+<i class="no-highlight">715</i>&nbsp;     * application to reopen.
+<i class="no-highlight">716</i>&nbsp;     */
+<i class="no-highlight">717</i>&nbsp;    public RollbackException setupHardRecovery()
+<i class="no-highlight">718</i>&nbsp;        throws IOException {
+<i class="no-highlight">719</i>&nbsp;
+<i class="no-highlight">720</i>&nbsp;        /* Creating the exception invalidates the environment. */
+<b class="nc"><i class="no-highlight">721</i>&nbsp;        RollbackException r = new RollbackException(repImpl,</b>
+<i class="no-highlight">722</i>&nbsp;                                                    matchpointVLSN,
+<i class="no-highlight">723</i>&nbsp;                                                    searchResults);
+<b class="nc"><i class="no-highlight">724</i>&nbsp;        LoggerUtils.severe(logger, repImpl,</b>
+<i class="no-highlight">725</i>&nbsp;                           &quot;Limited list of transactions truncated for &quot; +
+<i class="no-highlight">726</i>&nbsp;                           &quot;hard recovery:\n&quot; +
+<b class="nc"><i class="no-highlight">727</i>&nbsp;                           searchResults.dumpPassedTxns());</b>
+<i class="no-highlight">728</i>&nbsp;
+<i class="no-highlight">729</i>&nbsp;        /*
+<i class="no-highlight">730</i>&nbsp;         * Truncate after the environment is invalidated, which happens
+<i class="no-highlight">731</i>&nbsp;         * when we instantiate RollbackException.
+<i class="no-highlight">732</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">733</i>&nbsp;        long matchpointLSN = searchResults.getMatchpointLSN();</b>
+<b class="nc"><i class="no-highlight">734</i>&nbsp;        repImpl.getFileManager().truncateLog</b>
+<b class="nc"><i class="no-highlight">735</i>&nbsp;            (DbLsn.getFileNumber(matchpointLSN),</b>
+<b class="nc"><i class="no-highlight">736</i>&nbsp;             DbLsn.getFileOffset(matchpointLSN));</b>
+<i class="no-highlight">737</i>&nbsp;
+<b class="nc"><i class="no-highlight">738</i>&nbsp;        return r;</b>
+<i class="no-highlight">739</i>&nbsp;    }
+<i class="no-highlight">740</i>&nbsp;
+<i class="no-highlight">741</i>&nbsp;    /**
+<i class="no-highlight">742</i>&nbsp;     * Request a log entry from the feeder at this VLSN. The Feeder will only
+<i class="no-highlight">743</i>&nbsp;     * return the log record or say that it isn&#39;t available.
+<i class="no-highlight">744</i>&nbsp;     *
+<i class="no-highlight">745</i>&nbsp;     * @throws InsufficientLogException
+<i class="no-highlight">746</i>&nbsp;     */
+<i class="no-highlight">747</i>&nbsp;    private InputWireRecord getFeederRecord(VLSNRange range,
+<i class="no-highlight">748</i>&nbsp;                                            VLSN requestVLSN,
+<i class="no-highlight">749</i>&nbsp;                                            boolean acceptAlternative)
+<i class="no-highlight">750</i>&nbsp;        throws IOException, InsufficientLogException {
+<i class="no-highlight">751</i>&nbsp;
+<i class="no-highlight">752</i>&nbsp;        /* Ask the feeder for the matchpoint log record. */
+<b class="nc"><i class="no-highlight">753</i>&nbsp;        protocol.write(protocol.new EntryRequest(requestVLSN), namedChannel);</b>
+<i class="no-highlight">754</i>&nbsp;
+<i class="no-highlight">755</i>&nbsp;        /*
+<i class="no-highlight">756</i>&nbsp;         * Expect
+<i class="no-highlight">757</i>&nbsp;         *  a) the requested log record
+<i class="no-highlight">758</i>&nbsp;         *  b) message that says this feeder doesn&#39;t have RequestVLSN
+<i class="no-highlight">759</i>&nbsp;         *  c) if acceptAlternative == true and the feeder didn&#39;t have
+<i class="no-highlight">760</i>&nbsp;         *     requestVLSN, but had an earlier entry, the feeder may send an
+<i class="no-highlight">761</i>&nbsp;         *      earlier, alternative matchpoint
+<i class="no-highlight">762</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">763</i>&nbsp;        Message message = protocol.read(namedChannel);</b>
+<b class="nc"><i class="no-highlight">764</i>&nbsp;        if (message instanceof Entry) {</b>
+<b class="nc"><i class="no-highlight">765</i>&nbsp;            Entry entry = (Entry) message;</b>
+<b class="nc"><i class="no-highlight">766</i>&nbsp;            return entry.getWireRecord();</b>
+<i class="no-highlight">767</i>&nbsp;        }
+<i class="no-highlight">768</i>&nbsp;
+<b class="nc"><i class="no-highlight">769</i>&nbsp;        if (message instanceof EntryNotFound) {</b>
+<b class="nc"><i class="no-highlight">770</i>&nbsp;            LoggerUtils.info(logger, repImpl, &quot;Requested &quot; + requestVLSN +</b>
+<b class="nc"><i class="no-highlight">771</i>&nbsp;                             &quot; from &quot; + namedChannel.getNameIdPair() +</b>
+<i class="no-highlight">772</i>&nbsp;                             &quot; but that node did not have that vlsn.&quot;);
+<b class="nc"><i class="no-highlight">773</i>&nbsp;            throw setupLogRefresh(requestVLSN);</b>
+<i class="no-highlight">774</i>&nbsp;        }
+<i class="no-highlight">775</i>&nbsp;
+<b class="nc"><i class="no-highlight">776</i>&nbsp;        if ((acceptAlternative) &amp;&amp;</b>
+<i class="no-highlight">777</i>&nbsp;            (message instanceof AlternateMatchpoint)) {
+<i class="no-highlight">778</i>&nbsp;
+<b class="nc"><i class="no-highlight">779</i>&nbsp;            AlternateMatchpoint alt = (AlternateMatchpoint) message;</b>
+<b class="nc"><i class="no-highlight">780</i>&nbsp;            InputWireRecord feederRecord = alt.getAlternateWireRecord();</b>
+<b class="nc"><i class="no-highlight">781</i>&nbsp;            VLSN altMatchpoint = feederRecord.getVLSN();</b>
+<b class="nc"><i class="no-highlight">782</i>&nbsp;            if (range.getFirst().compareTo(altMatchpoint) &gt; 0) {</b>
+<i class="no-highlight">783</i>&nbsp;
+<i class="no-highlight">784</i>&nbsp;                /*
+<i class="no-highlight">785</i>&nbsp;                 * The feeder suggest a different matchpoint, but it&#39;s outside
+<i class="no-highlight">786</i>&nbsp;                 * the replica&#39;s range. Give up and do a network restore.
+<i class="no-highlight">787</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">788</i>&nbsp;                throw setupLogRefresh(altMatchpoint);</b>
+<i class="no-highlight">789</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">790</i>&nbsp;            return feederRecord;</b>
+<i class="no-highlight">791</i>&nbsp;        }
+<i class="no-highlight">792</i>&nbsp;
+<b class="nc"><i class="no-highlight">793</i>&nbsp;        throw EnvironmentFailureException.unexpectedState</b>
+<b class="nc"><i class="no-highlight">794</i>&nbsp;            (repNode.getRepImpl(),</b>
+<i class="no-highlight">795</i>&nbsp;             &quot;Sent EntryRequest, got unexpected response of &quot; + message);
+<i class="no-highlight">796</i>&nbsp;    }
+<i class="no-highlight">797</i>&nbsp;
+<i class="no-highlight">798</i>&nbsp;
+<i class="no-highlight">799</i>&nbsp;
+<i class="no-highlight">800</i>&nbsp;    public static void setGlobalSyncupEndHook(TestHook&lt;Object&gt; syncupEndHook) {
+<b class="nc"><i class="no-highlight">801</i>&nbsp;        ReplicaFeederSyncup.globalSyncupEndHook = syncupEndHook;</b>
+<i class="no-highlight">802</i>&nbsp;    }
+<i class="no-highlight">803</i>&nbsp;
+<i class="no-highlight">804</i>&nbsp;    private boolean runHook()
+<i class="no-highlight">805</i>&nbsp;        throws InterruptedException {
+<i class="no-highlight">806</i>&nbsp;
+<b class="nc"><i class="no-highlight">807</i>&nbsp;        if (syncupEndHook != null) {</b>
+<b class="nc"><i class="no-highlight">808</i>&nbsp;            syncupEndHook.doHook();</b>
+<i class="no-highlight">809</i>&nbsp;        }
+<i class="no-highlight">810</i>&nbsp;
+<b class="nc"><i class="no-highlight">811</i>&nbsp;        if (globalSyncupEndHook != null) {</b>
+<b class="nc"><i class="no-highlight">812</i>&nbsp;            globalSyncupEndHook.doHook();</b>
+<i class="no-highlight">813</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">814</i>&nbsp;        return true;</b>
+<i class="no-highlight">815</i>&nbsp;    }
+<i class="no-highlight">816</i>&nbsp;
+<i class="no-highlight">817</i>&nbsp;    /**
+<i class="no-highlight">818</i>&nbsp;     * This interface is used instead of com.sleepycat.je.utilint.TestHook
+<i class="no-highlight">819</i>&nbsp;     * because the doHook method needs to throw InterruptedException.
+<i class="no-highlight">820</i>&nbsp;     */
+<i class="no-highlight">821</i>&nbsp;    public interface TestHook&lt;T&gt; {
+<i class="no-highlight">822</i>&nbsp;        public void doHook() throws InterruptedException;
+<i class="no-highlight">823</i>&nbsp;    }
+<i class="no-highlight">824</i>&nbsp;
+<i class="no-highlight">825</i>&nbsp;    /* Setup the static rollback test hook, test use only */
+<i class="no-highlight">826</i>&nbsp;    public static void setRollbackTestHook(
+<i class="no-highlight">827</i>&nbsp;        com.sleepycat.je.utilint.TestHook&lt;ReplicaFeederSyncup&gt; rollbackHook) {
+<b class="nc"><i class="no-highlight">828</i>&nbsp;        ReplicaFeederSyncup.rollbackHook = rollbackHook;</b>
+<i class="no-highlight">829</i>&nbsp;    }
+<i class="no-highlight">830</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

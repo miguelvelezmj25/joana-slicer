@@ -1,0 +1,898 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > INKeyRep</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.tree</a>
+</div>
+
+<h1>Coverage Summary for Class: INKeyRep (com.sleepycat.je.tree)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">INKeyRep</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">INKeyRep$Default</td>
+<td class="coverageStat">
+  <span class="percent">
+    73.9%
+  </span>
+  <span class="absValue">
+    (17/23)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    60%
+  </span>
+  <span class="absValue">
+    (60/100)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INKeyRep$MaxKeySize</td>
+<td class="coverageStat">
+  <span class="percent">
+    70.8%
+  </span>
+  <span class="absValue">
+    (17/24)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    52%
+  </span>
+  <span class="absValue">
+    (64/123)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INKeyRep$Type</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    73.5%
+  </span>
+  <span class="absValue">
+    (36/49)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    56.2%
+  </span>
+  <span class="absValue">
+    (127/226)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.tree;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">16</i>&nbsp;import java.util.Comparator;
+<i class="no-highlight">17</i>&nbsp;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.dbi.DupKeyData;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.evictor.Evictor;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.utilint.SizeofMarker;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;/**
+<i class="no-highlight">24</i>&nbsp; * The abstract class that defines the various formats used to represent
+<i class="no-highlight">25</i>&nbsp; * the keys associated with the IN node. The class is also used to store
+<i class="no-highlight">26</i>&nbsp; * embedded records, where the actual key and the data portion of a record are
+<i class="no-highlight">27</i>&nbsp; * stored together as a single byte sequence.
+<i class="no-highlight">28</i>&nbsp; * 
+<i class="no-highlight">29</i>&nbsp; * There are currently two supported representations:
+<i class="no-highlight">30</i>&nbsp; * &lt;ol&gt;
+<i class="no-highlight">31</i>&nbsp; * &lt;li&gt;A default representation &lt;code&gt;Default&lt;/code&gt; that&#39;s capable of holding
+<i class="no-highlight">32</i>&nbsp; * any set of keys.&lt;/li&gt;
+<i class="no-highlight">33</i>&nbsp; * &lt;li&gt;
+<i class="no-highlight">34</i>&nbsp; * A compact representation &lt;code&gt;MaxKeySize&lt;/code&gt; that&#39;s more efficient for
+<i class="no-highlight">35</i>&nbsp; * holding small keys (LTE 16 bytes) in length. If key prefixing is in use this
+<i class="no-highlight">36</i>&nbsp; * represents the unprefixed part of the key, since that&#39;s what is stored in
+<i class="no-highlight">37</i>&nbsp; * this array.&lt;/li&gt;
+<i class="no-highlight">38</i>&nbsp; * &lt;/ol&gt;
+<i class="no-highlight">39</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">40</i>&nbsp; * The choice of representation is made when an IN node is first read in from
+<i class="no-highlight">41</i>&nbsp; * the log. The &lt;code&gt;MaxKeySize&lt;/code&gt; representation is only used when it is
+<i class="no-highlight">42</i>&nbsp; * more storage efficient than the default representation for the set of keys
+<i class="no-highlight">43</i>&nbsp; * currently associated with the IN.
+<i class="no-highlight">44</i>&nbsp; * &lt;p&gt;
+<i class="no-highlight">45</i>&nbsp; * Note that no attempt is currently made to optimize the storage
+<i class="no-highlight">46</i>&nbsp; * representation as keys are added to, or removed from, the
+<i class="no-highlight">47</i>&nbsp; * &lt;code&gt;Default&lt;/code&gt; representation to minimize the chances of transitionary
+<i class="no-highlight">48</i>&nbsp; * &quot;back and forth&quot; representation changes that could prove to be expensive.
+<i class="no-highlight">49</i>&nbsp; */
+<i class="no-highlight">50</i>&nbsp;public abstract class INKeyRep
+<i class="no-highlight">51</i>&nbsp;    extends INArrayRep&lt;INKeyRep, INKeyRep.Type, byte[]&gt; {
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;    /* The different representations for keys. */
+<b class="fc"><i class="no-highlight">54</i>&nbsp;    public enum Type { DEFAULT, MAX_KEY_SIZE };</b>
+<i class="no-highlight">55</i>&nbsp;
+<b class="fc"><i class="no-highlight">56</i>&nbsp;    public INKeyRep() {</b>
+<b class="fc"><i class="no-highlight">57</i>&nbsp;    }</b>
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    public abstract int length();
+<i class="no-highlight">60</i>&nbsp;
+<i class="no-highlight">61</i>&nbsp;    /**
+<i class="no-highlight">62</i>&nbsp;     * Returns true if the key bytes mem usage is accounted for internally
+<i class="no-highlight">63</i>&nbsp;     * here, or false if each key has a separate byte array and its mem usage
+<i class="no-highlight">64</i>&nbsp;     * is accounted for by the parent.
+<i class="no-highlight">65</i>&nbsp;     */
+<i class="no-highlight">66</i>&nbsp;    public abstract boolean accountsForKeyByteMemUsage();
+<i class="no-highlight">67</i>&nbsp;
+<i class="no-highlight">68</i>&nbsp;    public abstract int size(int idx);
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    public abstract INKeyRep set(int idx, byte[] key, byte[] data, IN parent);
+<i class="no-highlight">71</i>&nbsp;
+<i class="no-highlight">72</i>&nbsp;    public abstract INKeyRep setData(int idx, byte[] data, IN parent);
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    public abstract byte[] getData(int idx);
+<i class="no-highlight">75</i>&nbsp;
+<i class="no-highlight">76</i>&nbsp;    public abstract byte[] getKey(int idx, boolean embeddedData);
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    public abstract byte[] getFullKey(
+<i class="no-highlight">79</i>&nbsp;        byte[] prefix,
+<i class="no-highlight">80</i>&nbsp;        int idx,
+<i class="no-highlight">81</i>&nbsp;        boolean embeddedData);
+<i class="no-highlight">82</i>&nbsp;
+<i class="no-highlight">83</i>&nbsp;    public abstract int compareKeys(
+<i class="no-highlight">84</i>&nbsp;        byte[] searchKey,
+<i class="no-highlight">85</i>&nbsp;        byte[] prefix,
+<i class="no-highlight">86</i>&nbsp;        int idx,
+<i class="no-highlight">87</i>&nbsp;        boolean embeddedData,
+<i class="no-highlight">88</i>&nbsp;        Comparator&lt;byte[]&gt; comparator);
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;    /**
+<i class="no-highlight">91</i>&nbsp;     * The default representation that&#39;s capable of storing keys of any size.
+<i class="no-highlight">92</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">93</i>&nbsp;    public static class Default extends INKeyRep {</b>
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;        private final byte[][] keys;
+<i class="no-highlight">96</i>&nbsp;
+<b class="fc"><i class="no-highlight">97</i>&nbsp;        Default(int nodeMaxEntries) {</b>
+<b class="fc"><i class="no-highlight">98</i>&nbsp;            this.keys = new byte[nodeMaxEntries][];</b>
+<b class="fc"><i class="no-highlight">99</i>&nbsp;        }</b>
+<i class="no-highlight">100</i>&nbsp;
+<b class="nc"><i class="no-highlight">101</i>&nbsp;        public Default(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {</b>
+<b class="nc"><i class="no-highlight">102</i>&nbsp;            keys = null;</b>
+<b class="nc"><i class="no-highlight">103</i>&nbsp;        }</b>
+<i class="no-highlight">104</i>&nbsp;
+<b class="nc"><i class="no-highlight">105</i>&nbsp;        private Default(byte[][] keys) {</b>
+<b class="nc"><i class="no-highlight">106</i>&nbsp;            this.keys = keys;</b>
+<b class="nc"><i class="no-highlight">107</i>&nbsp;        }</b>
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;        @Override
+<i class="no-highlight">110</i>&nbsp;        public INKeyRep resize(int capacity) {
+<b class="nc"><i class="no-highlight">111</i>&nbsp;            return new Default(Arrays.copyOfRange(keys, 0, capacity));</b>
+<i class="no-highlight">112</i>&nbsp;        }
+<i class="no-highlight">113</i>&nbsp;
+<i class="no-highlight">114</i>&nbsp;        @Override
+<i class="no-highlight">115</i>&nbsp;        public Type getType() {
+<b class="fc"><i class="no-highlight">116</i>&nbsp;            return Type.DEFAULT;</b>
+<i class="no-highlight">117</i>&nbsp;        }
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;        @Override
+<i class="no-highlight">120</i>&nbsp;        public int length() {
+<b class="nc"><i class="no-highlight">121</i>&nbsp;            return keys.length;</b>
+<i class="no-highlight">122</i>&nbsp;        }
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;        @Override
+<i class="no-highlight">125</i>&nbsp;        public INKeyRep set(int idx, byte[] key, IN parent) {
+<b class="fc"><i class="no-highlight">126</i>&nbsp;            keys[idx] = key;</b>
+<b class="fc"><i class="no-highlight">127</i>&nbsp;            return this;</b>
+<i class="no-highlight">128</i>&nbsp;        }
+<i class="no-highlight">129</i>&nbsp;
+<i class="no-highlight">130</i>&nbsp;        @Override
+<i class="no-highlight">131</i>&nbsp;        public INKeyRep set(int idx, byte[] key, byte[] data, IN parent) {
+<i class="no-highlight">132</i>&nbsp;
+<b class="fc"><i class="no-highlight">133</i>&nbsp;            if (data == null || data.length == 0) {</b>
+<b class="fc"><i class="no-highlight">134</i>&nbsp;                keys[idx] = key;</b>
+<i class="no-highlight">135</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">136</i>&nbsp;                keys[idx] = DupKeyData.combine(key, data);</b>
+<i class="no-highlight">137</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">138</i>&nbsp;            return this;</b>
+<i class="no-highlight">139</i>&nbsp;        }
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;        @Override
+<i class="no-highlight">142</i>&nbsp;        public INKeyRep setData(int idx, byte[] data, IN parent) {
+<i class="no-highlight">143</i>&nbsp;
+<i class="no-highlight">144</i>&nbsp;            /*
+<i class="no-highlight">145</i>&nbsp;             * TODO #21488: optimize this to avoid creation of new combined
+<i class="no-highlight">146</i>&nbsp;             * key, when possible.
+<i class="no-highlight">147</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">148</i>&nbsp;            return set(idx, getKey(idx, true), data, parent);</b>
+<i class="no-highlight">149</i>&nbsp;        }
+<i class="no-highlight">150</i>&nbsp;
+<i class="no-highlight">151</i>&nbsp;        @Override
+<i class="no-highlight">152</i>&nbsp;        public int size(int idx) {
+<b class="fc"><i class="no-highlight">153</i>&nbsp;            return keys[idx].length;</b>
+<i class="no-highlight">154</i>&nbsp;        }
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;        @Override
+<i class="no-highlight">157</i>&nbsp;        public byte[] get(int idx) {
+<b class="fc"><i class="no-highlight">158</i>&nbsp;            return keys[idx];</b>
+<i class="no-highlight">159</i>&nbsp;        }
+<i class="no-highlight">160</i>&nbsp;
+<i class="no-highlight">161</i>&nbsp;        @Override
+<i class="no-highlight">162</i>&nbsp;        public byte[] getData(int idx) {
+<i class="no-highlight">163</i>&nbsp;
+<b class="nc"><i class="no-highlight">164</i>&nbsp;            assert(keys[idx] != null);</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;            return DupKeyData.getData(keys[idx], 0, keys[idx].length);</b>
+<i class="no-highlight">166</i>&nbsp;        }
+<i class="no-highlight">167</i>&nbsp;
+<i class="no-highlight">168</i>&nbsp;        @Override
+<i class="no-highlight">169</i>&nbsp;        public byte[] getKey(int idx, boolean embeddedData) {
+<i class="no-highlight">170</i>&nbsp;
+<b class="fc"><i class="no-highlight">171</i>&nbsp;            byte[] suffix = keys[idx];</b>
+<i class="no-highlight">172</i>&nbsp;
+<b class="fc"><i class="no-highlight">173</i>&nbsp;            if (suffix == null) {</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;                return Key.EMPTY_KEY;</b>
+<b class="fc"><i class="no-highlight">175</i>&nbsp;            } else if (embeddedData) {</b>
+<b class="nc"><i class="no-highlight">176</i>&nbsp;                return DupKeyData.getKey(suffix, 0, suffix.length);</b>
+<i class="no-highlight">177</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">178</i>&nbsp;                return suffix;</b>
+<i class="no-highlight">179</i>&nbsp;            }
+<i class="no-highlight">180</i>&nbsp;        }
+<i class="no-highlight">181</i>&nbsp;
+<i class="no-highlight">182</i>&nbsp;        @Override
+<i class="no-highlight">183</i>&nbsp;        public byte[] getFullKey(
+<i class="no-highlight">184</i>&nbsp;            byte[] prefix,
+<i class="no-highlight">185</i>&nbsp;            int idx, 
+<i class="no-highlight">186</i>&nbsp;            boolean embeddedData) {
+<i class="no-highlight">187</i>&nbsp;
+<b class="fc"><i class="no-highlight">188</i>&nbsp;            if (prefix == null || prefix.length == 0) {</b>
+<b class="fc"><i class="no-highlight">189</i>&nbsp;                return getKey(idx, embeddedData);</b>
+<i class="no-highlight">190</i>&nbsp;            }
+<i class="no-highlight">191</i>&nbsp;
+<b class="nc"><i class="no-highlight">192</i>&nbsp;            byte[] suffix = keys[idx];</b>
+<i class="no-highlight">193</i>&nbsp;
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            if (suffix == null) {</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;                assert(!embeddedData);</b>
+<b class="nc"><i class="no-highlight">196</i>&nbsp;                suffix = Key.EMPTY_KEY;</b>
+<i class="no-highlight">197</i>&nbsp;            }
+<i class="no-highlight">198</i>&nbsp;
+<b class="nc"><i class="no-highlight">199</i>&nbsp;            int prefixLen = prefix.length;</b>
+<i class="no-highlight">200</i>&nbsp;            int suffixLen;
+<i class="no-highlight">201</i>&nbsp;
+<b class="nc"><i class="no-highlight">202</i>&nbsp;            if (embeddedData) {</b>
+<b class="nc"><i class="no-highlight">203</i>&nbsp;                suffixLen = DupKeyData.getKeyLength(suffix, 0, suffix.length);</b>
+<i class="no-highlight">204</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;                suffixLen = suffix.length;</b>
+<i class="no-highlight">206</i>&nbsp;            }
+<i class="no-highlight">207</i>&nbsp;
+<b class="nc"><i class="no-highlight">208</i>&nbsp;            final byte[] key = new byte[prefixLen + suffixLen];</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;            System.arraycopy(prefix, 0, key, 0, prefixLen);</b>
+<b class="nc"><i class="no-highlight">210</i>&nbsp;            System.arraycopy(suffix, 0, key, prefixLen, suffixLen);</b>
+<i class="no-highlight">211</i>&nbsp;
+<b class="nc"><i class="no-highlight">212</i>&nbsp;            return key;</b>
+<i class="no-highlight">213</i>&nbsp;        }
+<i class="no-highlight">214</i>&nbsp;
+<i class="no-highlight">215</i>&nbsp;        @Override
+<i class="no-highlight">216</i>&nbsp;        public int compareKeys(
+<i class="no-highlight">217</i>&nbsp;            byte[] searchKey,
+<i class="no-highlight">218</i>&nbsp;            byte[] prefix,
+<i class="no-highlight">219</i>&nbsp;            int idx,
+<i class="no-highlight">220</i>&nbsp;            boolean embeddedData,
+<i class="no-highlight">221</i>&nbsp;            Comparator&lt;byte[]&gt; comparator)
+<i class="no-highlight">222</i>&nbsp;        {
+<b class="fc"><i class="no-highlight">223</i>&nbsp;            if (comparator != null) {</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;                byte[] myKey = getFullKey(prefix, idx, embeddedData);</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                return  Key.compareKeys(searchKey, myKey, comparator);</b>
+<i class="no-highlight">226</i>&nbsp;            }
+<i class="no-highlight">227</i>&nbsp;
+<b class="fc"><i class="no-highlight">228</i>&nbsp;            int cmp = 0;</b>
+<i class="no-highlight">229</i>&nbsp;
+<b class="fc"><i class="no-highlight">230</i>&nbsp;            if (prefix == null || prefix.length == 0) {</b>
+<i class="no-highlight">231</i>&nbsp;
+<b class="fc"><i class="no-highlight">232</i>&nbsp;                return compareSuffixes(</b>
+<i class="no-highlight">233</i>&nbsp;                    searchKey, 0, searchKey.length, idx, embeddedData);
+<i class="no-highlight">234</i>&nbsp;            }
+<i class="no-highlight">235</i>&nbsp;
+<b class="nc"><i class="no-highlight">236</i>&nbsp;            cmp = Key.compareUnsignedBytes(</b>
+<b class="nc"><i class="no-highlight">237</i>&nbsp;                searchKey, 0, Math.min(searchKey.length, prefix.length),</b>
+<i class="no-highlight">238</i>&nbsp;                prefix, 0, prefix.length);
+<i class="no-highlight">239</i>&nbsp;
+<b class="nc"><i class="no-highlight">240</i>&nbsp;            if (cmp == 0) {</b>
+<i class="no-highlight">241</i>&nbsp;
+<b class="nc"><i class="no-highlight">242</i>&nbsp;                int searchKeyOffset = prefix.length;</b>
+<b class="nc"><i class="no-highlight">243</i>&nbsp;                int searchKeyLen = searchKey.length - prefix.length;</b>
+<i class="no-highlight">244</i>&nbsp;
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                return compareSuffixes(</b>
+<i class="no-highlight">246</i>&nbsp;                    searchKey, searchKeyOffset, searchKeyLen,
+<i class="no-highlight">247</i>&nbsp;                    idx, embeddedData);
+<i class="no-highlight">248</i>&nbsp;            }
+<i class="no-highlight">249</i>&nbsp;
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            return cmp;</b>
+<i class="no-highlight">251</i>&nbsp;        }
+<i class="no-highlight">252</i>&nbsp;
+<i class="no-highlight">253</i>&nbsp;        private int compareSuffixes(
+<i class="no-highlight">254</i>&nbsp;            byte[] searchKey,
+<i class="no-highlight">255</i>&nbsp;            int searchKeyOff,
+<i class="no-highlight">256</i>&nbsp;            int searchKeyLen,
+<i class="no-highlight">257</i>&nbsp;            int idx,
+<i class="no-highlight">258</i>&nbsp;            boolean embeddedData) {
+<i class="no-highlight">259</i>&nbsp;
+<b class="fc"><i class="no-highlight">260</i>&nbsp;            byte[] myKey = keys[idx];</b>
+<i class="no-highlight">261</i>&nbsp;            int myKeyLen;
+<i class="no-highlight">262</i>&nbsp;
+<b class="fc"><i class="no-highlight">263</i>&nbsp;            if (myKey == null) {</b>
+<b class="nc"><i class="no-highlight">264</i>&nbsp;                myKey = Key.EMPTY_KEY;</b>
+<b class="nc"><i class="no-highlight">265</i>&nbsp;                myKeyLen = 0;</b>
+<b class="fc"><i class="no-highlight">266</i>&nbsp;            } else if (embeddedData) {</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;                myKeyLen = DupKeyData.getKeyLength(myKey, 0, myKey.length);</b>
+<i class="no-highlight">268</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">269</i>&nbsp;                myKeyLen = myKey.length;</b>
+<i class="no-highlight">270</i>&nbsp;            }
+<i class="no-highlight">271</i>&nbsp;
+<b class="fc"><i class="no-highlight">272</i>&nbsp;            return Key.compareUnsignedBytes(</b>
+<i class="no-highlight">273</i>&nbsp;                searchKey, searchKeyOff, searchKeyLen, myKey, 0, myKeyLen);
+<i class="no-highlight">274</i>&nbsp;        }
+<i class="no-highlight">275</i>&nbsp;
+<i class="no-highlight">276</i>&nbsp;
+<i class="no-highlight">277</i>&nbsp;        @Override
+<i class="no-highlight">278</i>&nbsp;        public INKeyRep copy(int from, int to, int n, IN parent) {
+<b class="fc"><i class="no-highlight">279</i>&nbsp;            System.arraycopy(keys, from, keys, to, n);</b>
+<b class="fc"><i class="no-highlight">280</i>&nbsp;            return this;</b>
+<i class="no-highlight">281</i>&nbsp;        }
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;        /**
+<i class="no-highlight">284</i>&nbsp;         * Evolves to the MaxKeySize representation if that is more efficient
+<i class="no-highlight">285</i>&nbsp;         * for the current set of keys. Note that since all the keys must be
+<i class="no-highlight">286</i>&nbsp;         * examined to make the decision, there is a reasonable cost to the
+<i class="no-highlight">287</i>&nbsp;         * method and it should not be invoked indiscriminately.
+<i class="no-highlight">288</i>&nbsp;         */
+<i class="no-highlight">289</i>&nbsp;        @Override
+<i class="no-highlight">290</i>&nbsp;        public INKeyRep compact(IN parent) {
+<i class="no-highlight">291</i>&nbsp;
+<b class="fc"><i class="no-highlight">292</i>&nbsp;            if (keys.length &gt; MaxKeySize.MAX_KEYS) {</b>
+<b class="nc"><i class="no-highlight">293</i>&nbsp;                return this;</b>
+<i class="no-highlight">294</i>&nbsp;            }
+<i class="no-highlight">295</i>&nbsp;
+<b class="fc"><i class="no-highlight">296</i>&nbsp;            final int compactMaxKeyLength = parent.getCompactMaxKeyLength();</b>
+<b class="fc"><i class="no-highlight">297</i>&nbsp;            if (compactMaxKeyLength &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">298</i>&nbsp;                return this;</b>
+<i class="no-highlight">299</i>&nbsp;            }
+<i class="no-highlight">300</i>&nbsp;
+<b class="fc"><i class="no-highlight">301</i>&nbsp;            int keyCount = 0;</b>
+<b class="fc"><i class="no-highlight">302</i>&nbsp;            int maxKeyLength = 0;</b>
+<b class="fc"><i class="no-highlight">303</i>&nbsp;            int defaultKeyBytes = 0;</b>
+<i class="no-highlight">304</i>&nbsp;
+<b class="fc"><i class="no-highlight">305</i>&nbsp;            for (byte[] key : keys) {</b>
+<b class="fc"><i class="no-highlight">306</i>&nbsp;                if (key != null) {</b>
+<b class="fc"><i class="no-highlight">307</i>&nbsp;                    keyCount++;</b>
+<b class="fc"><i class="no-highlight">308</i>&nbsp;                    if (key.length &gt; maxKeyLength) {</b>
+<b class="fc"><i class="no-highlight">309</i>&nbsp;                        maxKeyLength = key.length;</b>
+<b class="fc"><i class="no-highlight">310</i>&nbsp;                        if (maxKeyLength &gt; compactMaxKeyLength) {</b>
+<b class="fc"><i class="no-highlight">311</i>&nbsp;                            return this;</b>
+<i class="no-highlight">312</i>&nbsp;                        }
+<i class="no-highlight">313</i>&nbsp;                    }
+<b class="fc"><i class="no-highlight">314</i>&nbsp;                    defaultKeyBytes += MemoryBudget.byteArraySize(key.length);</b>
+<i class="no-highlight">315</i>&nbsp;                }
+<i class="no-highlight">316</i>&nbsp;            }
+<i class="no-highlight">317</i>&nbsp;
+<b class="fc"><i class="no-highlight">318</i>&nbsp;            if (keyCount == 0) {</b>
+<b class="fc"><i class="no-highlight">319</i>&nbsp;                return this;</b>
+<i class="no-highlight">320</i>&nbsp;            }
+<i class="no-highlight">321</i>&nbsp;
+<b class="fc"><i class="no-highlight">322</i>&nbsp;            long defaultSizeWithKeys = calculateMemorySize() + defaultKeyBytes;</b>
+<i class="no-highlight">323</i>&nbsp;
+<b class="fc"><i class="no-highlight">324</i>&nbsp;            if (defaultSizeWithKeys &gt;</b>
+<b class="fc"><i class="no-highlight">325</i>&nbsp;                MaxKeySize.calculateMemorySize(keys.length, maxKeyLength)) {</b>
+<b class="fc"><i class="no-highlight">326</i>&nbsp;                return compactToMaxKeySizeRep(maxKeyLength, parent);</b>
+<i class="no-highlight">327</i>&nbsp;            }
+<i class="no-highlight">328</i>&nbsp;
+<b class="fc"><i class="no-highlight">329</i>&nbsp;            return this;</b>
+<i class="no-highlight">330</i>&nbsp;        }
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;        private MaxKeySize compactToMaxKeySizeRep(
+<i class="no-highlight">333</i>&nbsp;            int maxKeyLength,
+<i class="no-highlight">334</i>&nbsp;            IN parent) {
+<i class="no-highlight">335</i>&nbsp;            
+<b class="fc"><i class="no-highlight">336</i>&nbsp;            MaxKeySize newRep =</b>
+<i class="no-highlight">337</i>&nbsp;                new MaxKeySize(keys.length, (short) maxKeyLength);
+<i class="no-highlight">338</i>&nbsp;
+<b class="fc"><i class="no-highlight">339</i>&nbsp;            for (int i = 0; i &lt; keys.length; i++) {</b>
+<b class="fc"><i class="no-highlight">340</i>&nbsp;                INKeyRep rep = newRep.set(i, keys[i], parent);</b>
+<b class="fc"><i class="no-highlight">341</i>&nbsp;                assert rep == newRep; /* Rep remains unchanged. */</b>
+<i class="no-highlight">342</i>&nbsp;            }
+<i class="no-highlight">343</i>&nbsp;
+<b class="fc"><i class="no-highlight">344</i>&nbsp;            noteRepChange(newRep, parent);</b>
+<i class="no-highlight">345</i>&nbsp;
+<b class="fc"><i class="no-highlight">346</i>&nbsp;            return newRep;</b>
+<i class="no-highlight">347</i>&nbsp;        }
+<i class="no-highlight">348</i>&nbsp;
+<i class="no-highlight">349</i>&nbsp;        @Override
+<i class="no-highlight">350</i>&nbsp;        public long calculateMemorySize() {
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;            /*
+<i class="no-highlight">353</i>&nbsp;             * Assume empty keys array. The memory consumed by the actual keys
+<i class="no-highlight">354</i>&nbsp;             * is accounted for by the IN.getEntryInMemorySize() method.
+<i class="no-highlight">355</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">356</i>&nbsp;            return MemoryBudget.DEFAULT_KEYVALS_OVERHEAD +</b>
+<b class="fc"><i class="no-highlight">357</i>&nbsp;                MemoryBudget.objectArraySize(keys.length);</b>
+<i class="no-highlight">358</i>&nbsp;        }
+<i class="no-highlight">359</i>&nbsp;
+<i class="no-highlight">360</i>&nbsp;        @Override
+<i class="no-highlight">361</i>&nbsp;        public boolean accountsForKeyByteMemUsage() {
+<b class="fc"><i class="no-highlight">362</i>&nbsp;            return false;</b>
+<i class="no-highlight">363</i>&nbsp;        }
+<i class="no-highlight">364</i>&nbsp;
+<i class="no-highlight">365</i>&nbsp;        @Override
+<i class="no-highlight">366</i>&nbsp;        void updateCacheStats(@SuppressWarnings(&quot;unused&quot;) boolean increment,
+<i class="no-highlight">367</i>&nbsp;                              @SuppressWarnings(&quot;unused&quot;) Evictor evictor) {
+<i class="no-highlight">368</i>&nbsp;            /* No stats for the default representation. */
+<b class="fc"><i class="no-highlight">369</i>&nbsp;        }</b>
+<i class="no-highlight">370</i>&nbsp;    }
+<i class="no-highlight">371</i>&nbsp;
+<i class="no-highlight">372</i>&nbsp;    /**
+<i class="no-highlight">373</i>&nbsp;     * The compact representation that can be used to represent keys LTE 16
+<i class="no-highlight">374</i>&nbsp;     * bytes in length. The keys are all represented inside a single byte array
+<i class="no-highlight">375</i>&nbsp;     * instead of having one byte array per key. Within the array, all keys are
+<i class="no-highlight">376</i>&nbsp;     * assigned a storage size equal to that taken up by the longest key, plus
+<i class="no-highlight">377</i>&nbsp;     * one byte to hold the actual key length. This makes key retreival fast.
+<i class="no-highlight">378</i>&nbsp;     * However, insertion and deletion for larger keys moves bytes proportional
+<i class="no-highlight">379</i>&nbsp;     * to the storage length of the keys. This is why the representation is
+<i class="no-highlight">380</i>&nbsp;     * restricted to keys LTE 16 bytes in size.
+<i class="no-highlight">381</i>&nbsp;     *
+<i class="no-highlight">382</i>&nbsp;     * On a 32 bit VM the per key overhead for the Default representation is 4
+<i class="no-highlight">383</i>&nbsp;     * bytes for the pointer + 16 bytes for each byte array key object, for a
+<i class="no-highlight">384</i>&nbsp;     * total of 20 bytes/key. On a 64 bit machine the overheads are much
+<i class="no-highlight">385</i>&nbsp;     * larger: 8 bytes for the pointer plus 24 bytes per key.
+<i class="no-highlight">386</i>&nbsp;     *
+<i class="no-highlight">387</i>&nbsp;     * The more fully populated the IN the more the savings with this
+<i class="no-highlight">388</i>&nbsp;     * representation since the single byte array is sized to hold all the keys
+<i class="no-highlight">389</i>&nbsp;     * regardless of the actual number of keys that are present.
+<i class="no-highlight">390</i>&nbsp;     *
+<i class="no-highlight">391</i>&nbsp;     * It&#39;s worth noting that the storage savings here are realized in addition
+<i class="no-highlight">392</i>&nbsp;     * to the storage benefits of key prefixing, since the keys stored in the
+<i class="no-highlight">393</i>&nbsp;     * key array are the smaller key values after the prefix has been stripped,
+<i class="no-highlight">394</i>&nbsp;     * reducing the length of the key and making it more likely that it&#39;s small
+<i class="no-highlight">395</i>&nbsp;     * enough for this specialized representation.
+<i class="no-highlight">396</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">397</i>&nbsp;    public static class MaxKeySize extends INKeyRep {</b>
+<i class="no-highlight">398</i>&nbsp;
+<i class="no-highlight">399</i>&nbsp;        private static final int LENGTH_BYTES = 1;
+<i class="no-highlight">400</i>&nbsp;        public static final byte DEFAULT_MAX_KEY_LENGTH = 16;
+<i class="no-highlight">401</i>&nbsp;        public static final int MAX_KEYS = 256;
+<i class="no-highlight">402</i>&nbsp;        private static final byte NULL_KEY = Byte.MAX_VALUE;
+<i class="no-highlight">403</i>&nbsp;
+<i class="no-highlight">404</i>&nbsp;        /*
+<i class="no-highlight">405</i>&nbsp;         * The array is sized to hold all the keys associated with the IN node.
+<i class="no-highlight">406</i>&nbsp;         * Each key is allocated a fixed amount of storage equal to the maximum
+<i class="no-highlight">407</i>&nbsp;         * length of all the keys in the IN node + 1 byte to hold the size of
+<i class="no-highlight">408</i>&nbsp;         * each key. The length is biased, by -128. That is, a zero length
+<i class="no-highlight">409</i>&nbsp;         * key is represented by -128, a 1 byte key by -127, etc.
+<i class="no-highlight">410</i>&nbsp;         */
+<i class="no-highlight">411</i>&nbsp;        private final byte[] keys;
+<i class="no-highlight">412</i>&nbsp;
+<i class="no-highlight">413</i>&nbsp;        /* 
+<i class="no-highlight">414</i>&nbsp;         * The number of butes used to store each key ==
+<i class="no-highlight">415</i>&nbsp;         * DEFAULT_MAX_KEY_LENGTH (16) + LENGTH_BYTES (1) 
+<i class="no-highlight">416</i>&nbsp;         */
+<i class="no-highlight">417</i>&nbsp;        private final short fixedKeyLen;
+<i class="no-highlight">418</i>&nbsp;
+<b class="fc"><i class="no-highlight">419</i>&nbsp;        public MaxKeySize(int nodeMaxEntries, short maxKeyLen) {</b>
+<i class="no-highlight">420</i>&nbsp;
+<b class="fc"><i class="no-highlight">421</i>&nbsp;            assert maxKeyLen &lt; 255;</b>
+<b class="fc"><i class="no-highlight">422</i>&nbsp;            this.fixedKeyLen = (short) (maxKeyLen + LENGTH_BYTES);</b>
+<b class="fc"><i class="no-highlight">423</i>&nbsp;            this.keys = new byte[fixedKeyLen * nodeMaxEntries];</b>
+<i class="no-highlight">424</i>&nbsp;
+<b class="fc"><i class="no-highlight">425</i>&nbsp;            for (int i = 0; i &lt; nodeMaxEntries; i++) {</b>
+<b class="fc"><i class="no-highlight">426</i>&nbsp;                INKeyRep rep = set(i, null, null);</b>
+<b class="fc"><i class="no-highlight">427</i>&nbsp;                assert rep == this; /* Rep remains unchanged. */</b>
+<i class="no-highlight">428</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">429</i>&nbsp;        }</b>
+<i class="no-highlight">430</i>&nbsp;
+<i class="no-highlight">431</i>&nbsp;        /* Only for use by Sizeof */
+<b class="nc"><i class="no-highlight">432</i>&nbsp;        public MaxKeySize(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {</b>
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            keys = null;</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;            fixedKeyLen = 0;</b>
+<b class="nc"><i class="no-highlight">435</i>&nbsp;        }</b>
+<i class="no-highlight">436</i>&nbsp;
+<b class="nc"><i class="no-highlight">437</i>&nbsp;        private MaxKeySize(byte[] keys, short fixedKeyLen) {</b>
+<b class="nc"><i class="no-highlight">438</i>&nbsp;            this.keys = keys;</b>
+<b class="nc"><i class="no-highlight">439</i>&nbsp;            this.fixedKeyLen = fixedKeyLen;</b>
+<b class="nc"><i class="no-highlight">440</i>&nbsp;        }</b>
+<i class="no-highlight">441</i>&nbsp;
+<i class="no-highlight">442</i>&nbsp;        @Override
+<i class="no-highlight">443</i>&nbsp;        public INKeyRep resize(int capacity) {
+<b class="nc"><i class="no-highlight">444</i>&nbsp;            return new MaxKeySize(</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;                Arrays.copyOfRange(keys, 0, capacity * fixedKeyLen),</b>
+<i class="no-highlight">446</i>&nbsp;                fixedKeyLen);
+<i class="no-highlight">447</i>&nbsp;        }
+<i class="no-highlight">448</i>&nbsp;
+<i class="no-highlight">449</i>&nbsp;        @Override
+<i class="no-highlight">450</i>&nbsp;        public Type getType() {
+<b class="fc"><i class="no-highlight">451</i>&nbsp;            return Type.MAX_KEY_SIZE;</b>
+<i class="no-highlight">452</i>&nbsp;        }
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;        @Override
+<i class="no-highlight">455</i>&nbsp;        public int length() {
+<b class="nc"><i class="no-highlight">456</i>&nbsp;            return keys.length / fixedKeyLen;</b>
+<i class="no-highlight">457</i>&nbsp;        }
+<i class="no-highlight">458</i>&nbsp;
+<i class="no-highlight">459</i>&nbsp;        @Override
+<i class="no-highlight">460</i>&nbsp;        public INKeyRep set(int idx, byte[] key, IN parent) {
+<i class="no-highlight">461</i>&nbsp;
+<b class="fc"><i class="no-highlight">462</i>&nbsp;            int slotOff = idx * fixedKeyLen;</b>
+<i class="no-highlight">463</i>&nbsp;
+<b class="fc"><i class="no-highlight">464</i>&nbsp;            if (key == null) {</b>
+<b class="fc"><i class="no-highlight">465</i>&nbsp;                keys[slotOff] = NULL_KEY;</b>
+<b class="fc"><i class="no-highlight">466</i>&nbsp;                return this;</b>
+<i class="no-highlight">467</i>&nbsp;            }
+<i class="no-highlight">468</i>&nbsp;
+<b class="fc"><i class="no-highlight">469</i>&nbsp;            if (key.length &gt;= fixedKeyLen) {</b>
+<b class="nc"><i class="no-highlight">470</i>&nbsp;                Default newRep = expandToDefaultRep(parent);</b>
+<b class="nc"><i class="no-highlight">471</i>&nbsp;                return newRep.set(idx, key, parent);</b>
+<i class="no-highlight">472</i>&nbsp;            }
+<i class="no-highlight">473</i>&nbsp;
+<b class="fc"><i class="no-highlight">474</i>&nbsp;            keys[slotOff] = (byte) (key.length + Byte.MIN_VALUE);</b>
+<i class="no-highlight">475</i>&nbsp;
+<b class="fc"><i class="no-highlight">476</i>&nbsp;            slotOff += LENGTH_BYTES;</b>
+<i class="no-highlight">477</i>&nbsp;
+<b class="fc"><i class="no-highlight">478</i>&nbsp;            System.arraycopy(key, 0, keys, slotOff, key.length);</b>
+<i class="no-highlight">479</i>&nbsp;
+<b class="fc"><i class="no-highlight">480</i>&nbsp;            return this;</b>
+<i class="no-highlight">481</i>&nbsp;        }
+<i class="no-highlight">482</i>&nbsp;
+<i class="no-highlight">483</i>&nbsp;        @Override
+<i class="no-highlight">484</i>&nbsp;        public INKeyRep set(int idx, byte[] key, byte[] data, IN parent) {
+<i class="no-highlight">485</i>&nbsp;
+<b class="fc"><i class="no-highlight">486</i>&nbsp;            if (data == null || data.length == 0) {</b>
+<b class="fc"><i class="no-highlight">487</i>&nbsp;                return set(idx, key, parent);</b>
+<i class="no-highlight">488</i>&nbsp;            }
+<i class="no-highlight">489</i>&nbsp;
+<b class="nc"><i class="no-highlight">490</i>&nbsp;            byte[] twoPartKey = DupKeyData.combine(key, data);</b>
+<i class="no-highlight">491</i>&nbsp;
+<b class="nc"><i class="no-highlight">492</i>&nbsp;            return set(idx, twoPartKey, parent);</b>
+<i class="no-highlight">493</i>&nbsp;        }
+<i class="no-highlight">494</i>&nbsp;
+<i class="no-highlight">495</i>&nbsp;        @Override
+<i class="no-highlight">496</i>&nbsp;        public INKeyRep setData(int idx, byte[] data, IN parent) {
+<i class="no-highlight">497</i>&nbsp;
+<i class="no-highlight">498</i>&nbsp;            /*
+<i class="no-highlight">499</i>&nbsp;             * TODO #21488: optimize this to avoid creation of new combined
+<i class="no-highlight">500</i>&nbsp;             * key, when possible.
+<i class="no-highlight">501</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">502</i>&nbsp;            return set(idx, getKey(idx, true), data, parent);</b>
+<i class="no-highlight">503</i>&nbsp;        }
+<i class="no-highlight">504</i>&nbsp;
+<i class="no-highlight">505</i>&nbsp;        private Default expandToDefaultRep(IN parent) {
+<i class="no-highlight">506</i>&nbsp;
+<b class="nc"><i class="no-highlight">507</i>&nbsp;            final int capacity = length();</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;            final Default newRep = new Default(capacity);</b>
+<i class="no-highlight">509</i>&nbsp;
+<b class="nc"><i class="no-highlight">510</i>&nbsp;            for (int i = 0; i &lt; capacity; i++) {</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                final byte[] k = get(i);</b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;                INKeyRep rep = newRep.set(i, k, parent);</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;                assert rep == newRep; /* Rep remains unchanged. */</b>
+<i class="no-highlight">514</i>&nbsp;            }
+<i class="no-highlight">515</i>&nbsp;
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            noteRepChange(newRep, parent);</b>
+<b class="nc"><i class="no-highlight">517</i>&nbsp;            return newRep;</b>
+<i class="no-highlight">518</i>&nbsp;        }
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;        @Override
+<i class="no-highlight">521</i>&nbsp;        public int size(int idx) {
+<i class="no-highlight">522</i>&nbsp;
+<b class="fc"><i class="no-highlight">523</i>&nbsp;            int slotOff = idx * fixedKeyLen;</b>
+<i class="no-highlight">524</i>&nbsp;
+<b class="fc"><i class="no-highlight">525</i>&nbsp;            assert keys[slotOff] != NULL_KEY;</b>
+<i class="no-highlight">526</i>&nbsp;
+<b class="fc"><i class="no-highlight">527</i>&nbsp;            return keys[slotOff] - Byte.MIN_VALUE;</b>
+<i class="no-highlight">528</i>&nbsp;        }
+<i class="no-highlight">529</i>&nbsp;
+<i class="no-highlight">530</i>&nbsp;        @Override
+<i class="no-highlight">531</i>&nbsp;        public byte[] get(int idx) {
+<i class="no-highlight">532</i>&nbsp;
+<b class="fc"><i class="no-highlight">533</i>&nbsp;            int slotOff = idx * fixedKeyLen;</b>
+<i class="no-highlight">534</i>&nbsp;
+<b class="fc"><i class="no-highlight">535</i>&nbsp;            if (keys[slotOff] == NULL_KEY) {</b>
+<b class="nc"><i class="no-highlight">536</i>&nbsp;                return null;</b>
+<i class="no-highlight">537</i>&nbsp;            }
+<i class="no-highlight">538</i>&nbsp;
+<b class="fc"><i class="no-highlight">539</i>&nbsp;            int slotLen = keys[slotOff] - Byte.MIN_VALUE;</b>
+<i class="no-highlight">540</i>&nbsp;
+<b class="fc"><i class="no-highlight">541</i>&nbsp;            slotOff += LENGTH_BYTES;</b>
+<i class="no-highlight">542</i>&nbsp;
+<b class="fc"><i class="no-highlight">543</i>&nbsp;            byte[] info = new byte[slotLen];</b>
+<b class="fc"><i class="no-highlight">544</i>&nbsp;            System.arraycopy(keys, slotOff, info, 0, slotLen);</b>
+<b class="fc"><i class="no-highlight">545</i>&nbsp;            return info;</b>
+<i class="no-highlight">546</i>&nbsp;        }
+<i class="no-highlight">547</i>&nbsp;
+<i class="no-highlight">548</i>&nbsp;        @Override
+<i class="no-highlight">549</i>&nbsp;        public byte[] getData(int idx) {
+<i class="no-highlight">550</i>&nbsp;
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            int slotOff = idx * fixedKeyLen;</b>
+<i class="no-highlight">552</i>&nbsp;
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            assert(keys[slotOff] != NULL_KEY);</b>
+<i class="no-highlight">554</i>&nbsp;
+<b class="nc"><i class="no-highlight">555</i>&nbsp;            int slotLen = keys[slotOff] - Byte.MIN_VALUE;</b>
+<i class="no-highlight">556</i>&nbsp;
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            slotOff += LENGTH_BYTES;</b>
+<i class="no-highlight">558</i>&nbsp;
+<b class="nc"><i class="no-highlight">559</i>&nbsp;            return DupKeyData.getData(keys, slotOff, slotLen);</b>
+<i class="no-highlight">560</i>&nbsp;        }
+<i class="no-highlight">561</i>&nbsp;
+<i class="no-highlight">562</i>&nbsp;        @Override
+<i class="no-highlight">563</i>&nbsp;        public byte[] getKey(int idx, boolean embeddedData) {
+<i class="no-highlight">564</i>&nbsp;
+<b class="fc"><i class="no-highlight">565</i>&nbsp;            int slotOff = idx * fixedKeyLen;</b>
+<i class="no-highlight">566</i>&nbsp;
+<b class="fc"><i class="no-highlight">567</i>&nbsp;            if (keys[slotOff] == NULL_KEY) {</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;                assert(!embeddedData);</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                return Key.EMPTY_KEY;</b>
+<i class="no-highlight">570</i>&nbsp;            }
+<i class="no-highlight">571</i>&nbsp;
+<b class="fc"><i class="no-highlight">572</i>&nbsp;            int slotLen = keys[slotOff] - Byte.MIN_VALUE;</b>
+<i class="no-highlight">573</i>&nbsp;
+<b class="fc"><i class="no-highlight">574</i>&nbsp;            slotOff += LENGTH_BYTES;</b>
+<i class="no-highlight">575</i>&nbsp;
+<b class="fc"><i class="no-highlight">576</i>&nbsp;            if (embeddedData) {</b>
+<b class="nc"><i class="no-highlight">577</i>&nbsp;                return DupKeyData.getKey(keys, slotOff, slotLen);</b>
+<i class="no-highlight">578</i>&nbsp;            }
+<i class="no-highlight">579</i>&nbsp;
+<b class="fc"><i class="no-highlight">580</i>&nbsp;            byte[] key = new byte[slotLen];</b>
+<b class="fc"><i class="no-highlight">581</i>&nbsp;            System.arraycopy(keys, slotOff, key, 0, slotLen);</b>
+<b class="fc"><i class="no-highlight">582</i>&nbsp;            return key;</b>
+<i class="no-highlight">583</i>&nbsp;        }
+<i class="no-highlight">584</i>&nbsp;
+<i class="no-highlight">585</i>&nbsp;        @Override
+<i class="no-highlight">586</i>&nbsp;        public byte[] getFullKey(
+<i class="no-highlight">587</i>&nbsp;            byte[] prefix,
+<i class="no-highlight">588</i>&nbsp;            int idx,
+<i class="no-highlight">589</i>&nbsp;            boolean embeddedData) {
+<i class="no-highlight">590</i>&nbsp;
+<b class="fc"><i class="no-highlight">591</i>&nbsp;            if (prefix == null || prefix.length == 0) {</b>
+<b class="fc"><i class="no-highlight">592</i>&nbsp;                return getKey(idx, embeddedData);</b>
+<i class="no-highlight">593</i>&nbsp;            }
+<i class="no-highlight">594</i>&nbsp;
+<b class="nc"><i class="no-highlight">595</i>&nbsp;            int slotOff = idx * fixedKeyLen;</b>
+<i class="no-highlight">596</i>&nbsp;
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            if (keys[slotOff] == NULL_KEY) {</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;                assert(!embeddedData);</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;                return prefix;</b>
+<i class="no-highlight">600</i>&nbsp;            }
+<i class="no-highlight">601</i>&nbsp;
+<b class="nc"><i class="no-highlight">602</i>&nbsp;            int slotLen = keys[slotOff] - Byte.MIN_VALUE;</b>
+<i class="no-highlight">603</i>&nbsp;
+<b class="nc"><i class="no-highlight">604</i>&nbsp;            slotOff += LENGTH_BYTES;</b>
+<i class="no-highlight">605</i>&nbsp;
+<b class="nc"><i class="no-highlight">606</i>&nbsp;            int prefixLen = prefix.length;</b>
+<i class="no-highlight">607</i>&nbsp;            int suffixLen;
+<i class="no-highlight">608</i>&nbsp;
+<b class="nc"><i class="no-highlight">609</i>&nbsp;            if (embeddedData) {</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;                suffixLen = DupKeyData.getKeyLength(keys, slotOff, slotLen);</b>
+<i class="no-highlight">611</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">612</i>&nbsp;                suffixLen = slotLen;</b>
+<i class="no-highlight">613</i>&nbsp;            }
+<i class="no-highlight">614</i>&nbsp;
+<b class="nc"><i class="no-highlight">615</i>&nbsp;            byte[] key = new byte[suffixLen + prefixLen];</b>
+<b class="nc"><i class="no-highlight">616</i>&nbsp;            System.arraycopy(prefix, 0, key, 0, prefixLen);</b>
+<b class="nc"><i class="no-highlight">617</i>&nbsp;            System.arraycopy(keys, slotOff, key, prefixLen, suffixLen);</b>
+<b class="nc"><i class="no-highlight">618</i>&nbsp;            return key;</b>
+<i class="no-highlight">619</i>&nbsp;        }
+<i class="no-highlight">620</i>&nbsp;
+<i class="no-highlight">621</i>&nbsp;        @Override
+<i class="no-highlight">622</i>&nbsp;        public int compareKeys(
+<i class="no-highlight">623</i>&nbsp;            byte[] searchKey,
+<i class="no-highlight">624</i>&nbsp;            byte[] prefix,
+<i class="no-highlight">625</i>&nbsp;            int idx,
+<i class="no-highlight">626</i>&nbsp;            boolean embeddedData,
+<i class="no-highlight">627</i>&nbsp;            Comparator&lt;byte[]&gt; comparator) {
+<i class="no-highlight">628</i>&nbsp;
+<b class="fc"><i class="no-highlight">629</i>&nbsp;            if (comparator != null) {</b>
+<b class="nc"><i class="no-highlight">630</i>&nbsp;                byte[] myKey = getFullKey(prefix, idx, embeddedData);</b>
+<b class="nc"><i class="no-highlight">631</i>&nbsp;                return  Key.compareKeys(searchKey, myKey, comparator);</b>
+<i class="no-highlight">632</i>&nbsp;            }
+<i class="no-highlight">633</i>&nbsp;
+<b class="fc"><i class="no-highlight">634</i>&nbsp;            int cmp = 0;</b>
+<i class="no-highlight">635</i>&nbsp;
+<b class="fc"><i class="no-highlight">636</i>&nbsp;            if (prefix == null || prefix.length == 0) {</b>
+<i class="no-highlight">637</i>&nbsp;
+<b class="fc"><i class="no-highlight">638</i>&nbsp;                return compareSuffixes(</b>
+<i class="no-highlight">639</i>&nbsp;                    searchKey, 0, searchKey.length, idx, embeddedData);
+<i class="no-highlight">640</i>&nbsp;            }
+<i class="no-highlight">641</i>&nbsp;
+<b class="nc"><i class="no-highlight">642</i>&nbsp;            cmp = Key.compareUnsignedBytes(</b>
+<b class="nc"><i class="no-highlight">643</i>&nbsp;                searchKey, 0, Math.min(searchKey.length, prefix.length),</b>
+<i class="no-highlight">644</i>&nbsp;                prefix, 0, prefix.length);
+<i class="no-highlight">645</i>&nbsp;
+<b class="nc"><i class="no-highlight">646</i>&nbsp;            if (cmp == 0) {</b>
+<i class="no-highlight">647</i>&nbsp;
+<b class="nc"><i class="no-highlight">648</i>&nbsp;                int searchKeyOff = prefix.length;</b>
+<b class="nc"><i class="no-highlight">649</i>&nbsp;                int searchKeyLen = searchKey.length - prefix.length;</b>
+<i class="no-highlight">650</i>&nbsp;
+<b class="nc"><i class="no-highlight">651</i>&nbsp;                return compareSuffixes(</b>
+<i class="no-highlight">652</i>&nbsp;                    searchKey, searchKeyOff, searchKeyLen,
+<i class="no-highlight">653</i>&nbsp;                    idx, embeddedData);
+<i class="no-highlight">654</i>&nbsp;            }
+<i class="no-highlight">655</i>&nbsp;
+<b class="nc"><i class="no-highlight">656</i>&nbsp;            return cmp;</b>
+<i class="no-highlight">657</i>&nbsp;        }
+<i class="no-highlight">658</i>&nbsp;
+<i class="no-highlight">659</i>&nbsp;        private int compareSuffixes(
+<i class="no-highlight">660</i>&nbsp;            byte[] searchKey,
+<i class="no-highlight">661</i>&nbsp;            int searchKeyOff,
+<i class="no-highlight">662</i>&nbsp;            int searchKeyLen,
+<i class="no-highlight">663</i>&nbsp;            int idx,
+<i class="no-highlight">664</i>&nbsp;            boolean embeddedData) {
+<i class="no-highlight">665</i>&nbsp;
+<b class="fc"><i class="no-highlight">666</i>&nbsp;            int myKeyOff = idx * fixedKeyLen;</b>
+<b class="fc"><i class="no-highlight">667</i>&nbsp;            int myKeyLen = 0;</b>
+<i class="no-highlight">668</i>&nbsp;
+<b class="fc"><i class="no-highlight">669</i>&nbsp;            if (keys[myKeyOff] != NULL_KEY) {</b>
+<i class="no-highlight">670</i>&nbsp;
+<b class="fc"><i class="no-highlight">671</i>&nbsp;                myKeyLen = keys[myKeyOff] - Byte.MIN_VALUE;</b>
+<i class="no-highlight">672</i>&nbsp;
+<b class="fc"><i class="no-highlight">673</i>&nbsp;                myKeyOff += LENGTH_BYTES;</b>
+<i class="no-highlight">674</i>&nbsp;
+<b class="fc"><i class="no-highlight">675</i>&nbsp;                if (embeddedData) {</b>
+<b class="nc"><i class="no-highlight">676</i>&nbsp;                    myKeyLen = DupKeyData.getKeyLength(</b>
+<i class="no-highlight">677</i>&nbsp;                        keys, myKeyOff, myKeyLen);
+<i class="no-highlight">678</i>&nbsp;                }
+<i class="no-highlight">679</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">680</i>&nbsp;                assert(!embeddedData);</b>
+<b class="nc"><i class="no-highlight">681</i>&nbsp;                myKeyOff += LENGTH_BYTES;</b>
+<i class="no-highlight">682</i>&nbsp;            }
+<i class="no-highlight">683</i>&nbsp;
+<b class="fc"><i class="no-highlight">684</i>&nbsp;            return Key.compareUnsignedBytes(</b>
+<i class="no-highlight">685</i>&nbsp;                searchKey, searchKeyOff, searchKeyLen,
+<i class="no-highlight">686</i>&nbsp;                keys, myKeyOff, myKeyLen);
+<i class="no-highlight">687</i>&nbsp;        }
+<i class="no-highlight">688</i>&nbsp;
+<i class="no-highlight">689</i>&nbsp;        @Override
+<i class="no-highlight">690</i>&nbsp;        public INKeyRep copy(int from, int to, int n, IN parent) {
+<b class="fc"><i class="no-highlight">691</i>&nbsp;            System.arraycopy(keys, (from * fixedKeyLen),</b>
+<i class="no-highlight">692</i>&nbsp;                             keys, (to * fixedKeyLen),
+<i class="no-highlight">693</i>&nbsp;                             n * fixedKeyLen);
+<b class="fc"><i class="no-highlight">694</i>&nbsp;            return this;</b>
+<i class="no-highlight">695</i>&nbsp;        }
+<i class="no-highlight">696</i>&nbsp;
+<i class="no-highlight">697</i>&nbsp;        @Override
+<i class="no-highlight">698</i>&nbsp;        public INKeyRep compact(@SuppressWarnings(&quot;unused&quot;) IN parent) {
+<i class="no-highlight">699</i>&nbsp;            /* It&#39;s as compact as it gets. */
+<b class="fc"><i class="no-highlight">700</i>&nbsp;            return this;</b>
+<i class="no-highlight">701</i>&nbsp;        }
+<i class="no-highlight">702</i>&nbsp;
+<i class="no-highlight">703</i>&nbsp;        @Override
+<i class="no-highlight">704</i>&nbsp;        public long calculateMemorySize() {
+<b class="fc"><i class="no-highlight">705</i>&nbsp;            return MemoryBudget.MAX_KEY_SIZE_KEYVALS_OVERHEAD +</b>
+<b class="fc"><i class="no-highlight">706</i>&nbsp;                   MemoryBudget.byteArraySize(keys.length);</b>
+<i class="no-highlight">707</i>&nbsp;        }
+<i class="no-highlight">708</i>&nbsp;
+<i class="no-highlight">709</i>&nbsp;        private static long calculateMemorySize(int maxKeys, int maxKeySize) {
+<b class="fc"><i class="no-highlight">710</i>&nbsp;            return MemoryBudget.MAX_KEY_SIZE_KEYVALS_OVERHEAD +</b>
+<b class="fc"><i class="no-highlight">711</i>&nbsp;                   MemoryBudget.byteArraySize(maxKeys *</b>
+<i class="no-highlight">712</i>&nbsp;                                              (maxKeySize + LENGTH_BYTES));
+<i class="no-highlight">713</i>&nbsp;        }
+<i class="no-highlight">714</i>&nbsp;
+<i class="no-highlight">715</i>&nbsp;        @Override
+<i class="no-highlight">716</i>&nbsp;        public boolean accountsForKeyByteMemUsage() {
+<b class="fc"><i class="no-highlight">717</i>&nbsp;            return true;</b>
+<i class="no-highlight">718</i>&nbsp;        }
+<i class="no-highlight">719</i>&nbsp;
+<i class="no-highlight">720</i>&nbsp;        @Override
+<i class="no-highlight">721</i>&nbsp;        void updateCacheStats(boolean increment, Evictor evictor) {
+<b class="fc"><i class="no-highlight">722</i>&nbsp;            if (increment) {</b>
+<b class="fc"><i class="no-highlight">723</i>&nbsp;                evictor.getNINCompactKey().incrementAndGet();</b>
+<i class="no-highlight">724</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">725</i>&nbsp;                evictor.getNINCompactKey().decrementAndGet();</b>
+<i class="no-highlight">726</i>&nbsp;            }
+<b class="fc"><i class="no-highlight">727</i>&nbsp;        }</b>
+<i class="no-highlight">728</i>&nbsp;    }
+<i class="no-highlight">729</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

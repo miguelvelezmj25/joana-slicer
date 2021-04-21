@@ -1,0 +1,462 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > CacheMode</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: CacheMode (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">CacheMode</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (2/2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (8/8)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;/**
+<i class="no-highlight">16</i>&nbsp; * Modes that can be specified for control over caching of records in the JE
+<i class="no-highlight">17</i>&nbsp; * in-memory cache.  When a record is stored or retrieved, the cache mode
+<i class="no-highlight">18</i>&nbsp; * determines how long the record is subsequently retained in the JE in-memory
+<i class="no-highlight">19</i>&nbsp; * cache, relative to other records in the cache.
+<i class="no-highlight">20</i>&nbsp; *
+<i class="no-highlight">21</i>&nbsp; * &lt;p&gt;When the cache overflows, JE must evict some records from the cache.  By
+<i class="no-highlight">22</i>&nbsp; * default, JE uses a Least Recently Used (LRU) algorithm for determining which
+<i class="no-highlight">23</i>&nbsp; * records to evict.  With the LRU algorithm, JE makes a best effort to evict
+<i class="no-highlight">24</i>&nbsp; * the &quot;coldest&quot; (least recently used or accessed) records and to retain the
+<i class="no-highlight">25</i>&nbsp; * &quot;hottest&quot; records in the cache for as long as possible.&lt;/p&gt;
+<i class="no-highlight">26</i>&nbsp; *
+<i class="no-highlight">27</i>&nbsp; * &lt;p&gt;When an {@link EnvironmentMutableConfig#setOffHeapCacheSize off-heap
+<i class="no-highlight">28</i>&nbsp; * cache} is configured, records evicted from the main cache are placed in
+<i class="no-highlight">29</i>&nbsp; * the off-heap cache, and a separate LRU is used to determine when to evict
+<i class="no-highlight">30</i>&nbsp; * a record from the off-heap cache.&lt;/p&gt;
+<i class="no-highlight">31</i>&nbsp; *
+<i class="no-highlight">32</i>&nbsp; * &lt;p&gt;JE uses an approximate LRU approach with some exceptions and special
+<i class="no-highlight">33</i>&nbsp; * cases.&lt;/p&gt;
+<i class="no-highlight">34</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">35</i>&nbsp; *     &lt;li&gt;
+<i class="no-highlight">36</i>&nbsp; *         Individual records (LNs or Leaf Nodes) do not appear on the LRU
+<i class="no-highlight">37</i>&nbsp; *         list, i.e., their &quot;hotness&quot; is not explicitly tracked. Instead,
+<i class="no-highlight">38</i>&nbsp; *         their containing Btree node (BIN or bottom internal node) appears on
+<i class="no-highlight">39</i>&nbsp; *         the LRU list. Each BIN contains roughly 100 LNs
+<i class="no-highlight">40</i>&nbsp; *         (see {@link com.sleepycat.je.EnvironmentConfig#NODE_MAX_ENTRIES}).
+<i class="no-highlight">41</i>&nbsp; *         When an LN is accessed, its BIN is moved to the hot end of the LRU
+<i class="no-highlight">42</i>&nbsp; *         list, implying that all other LNs in the same BIN also are treated
+<i class="no-highlight">43</i>&nbsp; *         as if they are hot. The same applies if the BIN is moved to the cold
+<i class="no-highlight">44</i>&nbsp; *         end of the LRU list. The above statement applies to the off-heap
+<i class="no-highlight">45</i>&nbsp; *         cache also, when one is configured.
+<i class="no-highlight">46</i>&nbsp; *     &lt;/li&gt;
+<i class="no-highlight">47</i>&nbsp; *     &lt;li&gt;
+<i class="no-highlight">48</i>&nbsp; *         When a BIN contains LNs and the BIN reaches the cold end of the LRU
+<i class="no-highlight">49</i>&nbsp; *         list, memory can be reclaimed by evicting the LNs, and eviction of
+<i class="no-highlight">50</i>&nbsp; *         the BIN is deferred. The empty BIN is moved to the hot end of the
+<i class="no-highlight">51</i>&nbsp; *         LRU list. When an off-heap cache is configured, the eviction of LNs
+<i class="no-highlight">52</i>&nbsp; *         in this manner occurs independently in both caches.
+<i class="no-highlight">53</i>&nbsp; *     &lt;/li&gt;
+<i class="no-highlight">54</i>&nbsp; *     &lt;li&gt;
+<i class="no-highlight">55</i>&nbsp; *         When a BIN contains no LNs, it may be evicted entirely. When the
+<i class="no-highlight">56</i>&nbsp; *         BINs parent node becomes empty, it may also be evicted, and so on.
+<i class="no-highlight">57</i>&nbsp; *         The BINs and INs are evicted on the basis of an LRU, but with two
+<i class="no-highlight">58</i>&nbsp; *         exceptions:
+<i class="no-highlight">59</i>&nbsp; *         &lt;p&gt;
+<i class="no-highlight">60</i>&nbsp; *         1) Dirty BINs and INs are evicted only after eviction of all
+<i class="no-highlight">61</i>&nbsp; *         non-dirty BINs and INs. This is important to reduce logging and
+<i class="no-highlight">62</i>&nbsp; *         associated cleaning costs. When an off-heap cache is configured,
+<i class="no-highlight">63</i>&nbsp; *         BINs and INs are evicted from the main cache without regard to
+<i class="no-highlight">64</i>&nbsp; *         whether they are dirty. Dirty BINs and INs are evicted last, as
+<i class="no-highlight">65</i>&nbsp; *         just described, only from the off-heap cache.
+<i class="no-highlight">66</i>&nbsp; *         &lt;p&gt;
+<i class="no-highlight">67</i>&nbsp; *         2) A BIN may be mutated to a BIN-delta to reclaim memory, rather
+<i class="no-highlight">68</i>&nbsp; *         then being evicted entirely. A BIN-delta contains only the dirty
+<i class="no-highlight">69</i>&nbsp; *         entries (for LNs recently logged). A BIN-delta is used when its
+<i class="no-highlight">70</i>&nbsp; *         size relative to the full BIN will be small enough so that it will
+<i class="no-highlight">71</i>&nbsp; *         be more efficient, both on disk and in memory, to store the delta
+<i class="no-highlight">72</i>&nbsp; *         rather than the full BIN.
+<i class="no-highlight">73</i>&nbsp; *         (see {@link com.sleepycat.je.EnvironmentConfig#TREE_BIN_DELTA}).
+<i class="no-highlight">74</i>&nbsp; *         The advantage of keeping a BIN-delta in cache is that some
+<i class="no-highlight">75</i>&nbsp; *         operations, particularly record insertions, can be performed using
+<i class="no-highlight">76</i>&nbsp; *         the delta without having the complete BIN in cache. When a BIN is
+<i class="no-highlight">77</i>&nbsp; *         mutated to a BIN-delta to reclaim memory, it is placed at the hot
+<i class="no-highlight">78</i>&nbsp; *         end of the LRU list. When an off-heap cache is configured, BINs are
+<i class="no-highlight">79</i>&nbsp; *         not mutated to BIN-deltas in the main cache, but rather this is done
+<i class="no-highlight">80</i>&nbsp; *         only in the off-heap cache.
+<i class="no-highlight">81</i>&nbsp; *     &lt;/li&gt;
+<i class="no-highlight">82</i>&nbsp; *     &lt;li&gt;
+<i class="no-highlight">83</i>&nbsp; *         To reduce contention among threads on the LRU list, multiple LRU
+<i class="no-highlight">84</i>&nbsp; *         lists may be configured. See
+<i class="no-highlight">85</i>&nbsp; *         {@link com.sleepycat.je.EnvironmentConfig#EVICTOR_N_LRU_LISTS}.
+<i class="no-highlight">86</i>&nbsp; *         As described in the javadoc for this parameter, there is a trade-off
+<i class="no-highlight">87</i>&nbsp; *         between thread contention and the accuracy of the LRU. This
+<i class="no-highlight">88</i>&nbsp; *         parameter determines the number of main cache LRU lists as well as
+<i class="no-highlight">89</i>&nbsp; *         the number of off-heap cache LRU lists, when an off-heap cache is
+<i class="no-highlight">90</i>&nbsp; *         configured.
+<i class="no-highlight">91</i>&nbsp; *     &lt;/li&gt;
+<i class="no-highlight">92</i>&nbsp; *     &lt;li&gt;
+<i class="no-highlight">93</i>&nbsp; *          A non-default cache mode may be explicitly specified to override
+<i class="no-highlight">94</i>&nbsp; *          the LRU behavior. See the CacheMode enumeration values for details.
+<i class="no-highlight">95</i>&nbsp; *          the normal LRU behavior described above. See the CacheMode
+<i class="no-highlight">96</i>&nbsp; *          enumeration values for details. The behavior of each CacheMode
+<i class="no-highlight">97</i>&nbsp; *          when an off-heap cache is configured is also described.
+<i class="no-highlight">98</i>&nbsp; *     &lt;/li&gt;
+<i class="no-highlight">99</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">100</i>&nbsp; *
+<i class="no-highlight">101</i>&nbsp; * &lt;p&gt;When no cache mode is explicitly specified, the default cache mode is
+<i class="no-highlight">102</i>&nbsp; * {@link #DEFAULT}. The default mode causes the normal LRU algorithm to be
+<i class="no-highlight">103</i>&nbsp; * used.&lt;/p&gt;
+<i class="no-highlight">104</i>&nbsp; *
+<i class="no-highlight">105</i>&nbsp; * &lt;p&gt;An explicit cache mode may be specified as an {@link
+<i class="no-highlight">106</i>&nbsp; * EnvironmentConfig#setCacheMode Environment property}, a {@link
+<i class="no-highlight">107</i>&nbsp; * DatabaseConfig#setCacheMode Database property}, a {@link
+<i class="no-highlight">108</i>&nbsp; * Cursor#setCacheMode Cursor property}, or on a per-operation basis using
+<i class="no-highlight">109</i>&nbsp; * {@link ReadOptions#setCacheMode(CacheMode)} or {@link
+<i class="no-highlight">110</i>&nbsp; * WriteOptions#setCacheMode(CacheMode)}.  If none are specified, {@link
+<i class="no-highlight">111</i>&nbsp; * #DEFAULT} is used.  If more than one non-null property is specified, the
+<i class="no-highlight">112</i>&nbsp; * Cursor property overrides the Database and Environment properties, and the
+<i class="no-highlight">113</i>&nbsp; * Database property overrides the Environment property.&lt;/p&gt;
+<i class="no-highlight">114</i>&nbsp; *
+<i class="no-highlight">115</i>&nbsp; * &lt;p&gt;When all records in a given Database, or all Databases, should be treated
+<i class="no-highlight">116</i>&nbsp; * the same with respect to caching, using the Database and/or Environment
+<i class="no-highlight">117</i>&nbsp; * cache mode properties is sufficient. For applications that need finer
+<i class="no-highlight">118</i>&nbsp; * grained control, the Cursor cache mode property can be used to provide a
+<i class="no-highlight">119</i>&nbsp; * specific cache mode for individual records or operations.  The Cursor cache
+<i class="no-highlight">120</i>&nbsp; * mode property can be changed at any time, and the cache mode specified will
+<i class="no-highlight">121</i>&nbsp; * apply to subsequent operations performed with that Cursor.&lt;/p&gt;
+<i class="no-highlight">122</i>&nbsp; *
+<i class="no-highlight">123</i>&nbsp; * &lt;p&gt;In a Replicated Environment where a non-default cache mode is desired,
+<i class="no-highlight">124</i>&nbsp; * the cache mode can be configured on the Master node as described above.
+<i class="no-highlight">125</i>&nbsp; * However, it is important to configure the cache mode on the Replica nodes
+<i class="no-highlight">126</i>&nbsp; * using an Environment property.  That way, the cache mode will apply to
+<i class="no-highlight">127</i>&nbsp; * &lt;em&gt;write&lt;/em&gt; operations that are replayed on the Replica for all
+<i class="no-highlight">128</i>&nbsp; * Databases, even if the Databases are not open by the application on the
+<i class="no-highlight">129</i>&nbsp; * Replica.  Since all nodes may be Replicas at some point in their life cycle,
+<i class="no-highlight">130</i>&nbsp; * it is recommended to configure the desired cache mode as an Environment
+<i class="no-highlight">131</i>&nbsp; * property on all nodes in a Replicated Environment.&lt;/p&gt;
+<i class="no-highlight">132</i>&nbsp; *
+<i class="no-highlight">133</i>&nbsp; * &lt;p&gt;On a Replica, per-Database control over the cache mode for &lt;em&gt;write&lt;/em&gt;
+<i class="no-highlight">134</i>&nbsp; * operations is possible by opening the Database on the Replica and
+<i class="no-highlight">135</i>&nbsp; * configuring the cache mode.  Per-Cursor control (meaning per-record or
+<i class="no-highlight">136</i>&nbsp; * per-operation) control of the cache mode is not possible on a Replica for
+<i class="no-highlight">137</i>&nbsp; * &lt;em&gt;write&lt;/em&gt; operations.  For &lt;em&gt;read&lt;/em&gt; operations, both per-Database
+<i class="no-highlight">138</i>&nbsp; * and per-Cursor control is possible on the Replica, as described above.&lt;/p&gt;
+<i class="no-highlight">139</i>&nbsp; * &lt;p&gt; 
+<i class="no-highlight">140</i>&nbsp; * The cache related stats in {@link EnvironmentStats} can provide some measure
+<i class="no-highlight">141</i>&nbsp; * of the effectiveness of the cache mode choice.
+<i class="no-highlight">142</i>&nbsp; *
+<i class="no-highlight">143</i>&nbsp; * @see &lt;a href=&quot;EnvironmentStats.html#cacheSizing&quot;&gt;Cache Statistics:
+<i class="no-highlight">144</i>&nbsp; * Sizing&lt;/a&gt;
+<i class="no-highlight">145</i>&nbsp; */
+<b class="fc"><i class="no-highlight">146</i>&nbsp;public enum CacheMode {</b>
+<i class="no-highlight">147</i>&nbsp;
+<i class="no-highlight">148</i>&nbsp;    /**
+<i class="no-highlight">149</i>&nbsp;     * The record&#39;s hotness is changed to &quot;most recently used&quot; by the
+<i class="no-highlight">150</i>&nbsp;     * operation.
+<i class="no-highlight">151</i>&nbsp;     *
+<i class="no-highlight">152</i>&nbsp;     * &lt;p&gt;This cache mode is used when the application does not need explicit
+<i class="no-highlight">153</i>&nbsp;     * control over the cache and a standard LRU approach is sufficient.&lt;/p&gt;
+<i class="no-highlight">154</i>&nbsp;     *
+<i class="no-highlight">155</i>&nbsp;     * &lt;p&gt;Note that {@code null} may be specified to use the {@code DEFAULT}
+<i class="no-highlight">156</i>&nbsp;     * mode.&lt;/p&gt;
+<i class="no-highlight">157</i>&nbsp;     *
+<i class="no-highlight">158</i>&nbsp;     * &lt;p&gt;Specifically:
+<i class="no-highlight">159</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">160</i>&nbsp;     *     &lt;li&gt;The BIN containing the record&#39;s LN will remain in the main
+<i class="no-highlight">161</i>&nbsp;     *     cache, and it is moved to the hot end of its LRU list.&lt;/li&gt;
+<i class="no-highlight">162</i>&nbsp;     *
+<i class="no-highlight">163</i>&nbsp;     *     &lt;li&gt;When an off-heap cache is configured, the record&#39;s LN and BIN
+<i class="no-highlight">164</i>&nbsp;     *     will be loaded into the main cache only. They will be removed from
+<i class="no-highlight">165</i>&nbsp;     *     the off-heap cache, if they were present there. However, if other
+<i class="no-highlight">166</i>&nbsp;     *     LNs belonging to this BIN were present in the off-heap cache, they
+<i class="no-highlight">167</i>&nbsp;     *     will remain there.&lt;/li&gt;
+<i class="no-highlight">168</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">169</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">170</i>&nbsp;    DEFAULT,</b>
+<i class="no-highlight">171</i>&nbsp;
+<i class="no-highlight">172</i>&nbsp;    /**
+<i class="no-highlight">173</i>&nbsp;     * @deprecated please use {@link #DEFAULT} instead. As of JE 4.0, this mode
+<i class="no-highlight">174</i>&nbsp;     * functions exactly as if {@link #DEFAULT} were specified.
+<i class="no-highlight">175</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">176</i>&nbsp;    KEEP_HOT,</b>
+<i class="no-highlight">177</i>&nbsp;
+<i class="no-highlight">178</i>&nbsp;    /**
+<i class="no-highlight">179</i>&nbsp;     * The record&#39;s hotness or coldness is unchanged by the operation where
+<i class="no-highlight">180</i>&nbsp;     * this cache mode is specified.
+<i class="no-highlight">181</i>&nbsp;     *
+<i class="no-highlight">182</i>&nbsp;     * &lt;p&gt;This cache mode is normally used when the application prefers that
+<i class="no-highlight">183</i>&nbsp;     * the operation should not perturb the cache, for example, when scanning
+<i class="no-highlight">184</i>&nbsp;     * over all records in a database.&lt;/p&gt;
+<i class="no-highlight">185</i>&nbsp;     *
+<i class="no-highlight">186</i>&nbsp;     * &lt;p&gt;Specifically:
+<i class="no-highlight">187</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">188</i>&nbsp;     *     &lt;li&gt;A record&#39;s LN and BIN must be loaded into the main cache in
+<i class="no-highlight">189</i>&nbsp;     *     order to perform the operation. However, they may be removed from
+<i class="no-highlight">190</i>&nbsp;     *     the main cache after the operation, to avoid a net change to the
+<i class="no-highlight">191</i>&nbsp;     *     cache, according to the rules below.&lt;/li&gt;
+<i class="no-highlight">192</i>&nbsp;     *
+<i class="no-highlight">193</i>&nbsp;     *     &lt;li&gt;If the record&#39;s LN was not present in the main cache prior to
+<i class="no-highlight">194</i>&nbsp;     *     the operation, then the LN will be evicted from the main cache
+<i class="no-highlight">195</i>&nbsp;     *     after the operation. The LN will not be added to, or removed from,
+<i class="no-highlight">196</i>&nbsp;     *     the off-heap cache.&lt;/li&gt;
+<i class="no-highlight">197</i>&nbsp;     *
+<i class="no-highlight">198</i>&nbsp;     *     &lt;li&gt;When the LN is to be evicted from the main cache (according to
+<i class="no-highlight">199</i>&nbsp;     *     the above rules) and the operation is not performed via a cursor,
+<i class="no-highlight">200</i>&nbsp;     *     the LN is evicted when the operation is complete. When a cursor is
+<i class="no-highlight">201</i>&nbsp;     *     used, the LN is evicted when the cursor is moved to a different
+<i class="no-highlight">202</i>&nbsp;     *     record or closed.&lt;/li&gt;
+<i class="no-highlight">203</i>&nbsp;     *
+<i class="no-highlight">204</i>&nbsp;     *     &lt;li&gt;If the record&#39;s BIN was not present in the main cache prior to
+<i class="no-highlight">205</i>&nbsp;     *     the operation, the action taken depends on whether the BIN is dirty
+<i class="no-highlight">206</i>&nbsp;     *     and whether an off-heap cache is configured.
+<i class="no-highlight">207</i>&nbsp;     *     &lt;ul&gt;
+<i class="no-highlight">208</i>&nbsp;     *         &lt;li&gt;When the BIN is not dirty, the BIN (and LN) will be evicted
+<i class="no-highlight">209</i>&nbsp;     *         from the main cache after the operation. The BIN (and LN) will
+<i class="no-highlight">210</i>&nbsp;     *         not be added to, or removed from, the off-heap cache.&lt;/li&gt;
+<i class="no-highlight">211</i>&nbsp;     *
+<i class="no-highlight">212</i>&nbsp;     *         &lt;li&gt;When the BIN is dirty and an off-heap cache is
+<i class="no-highlight">213</i>&nbsp;     *         &lt;em&gt;not&lt;/em&gt; configured, the BIN will not be evicted from the
+<i class="no-highlight">214</i>&nbsp;     *         main cache and will be moved to the hot end of its main cache
+<i class="no-highlight">215</i>&nbsp;     *         LRU list. This is done to reduce logging.&lt;/li&gt;
+<i class="no-highlight">216</i>&nbsp;     *
+<i class="no-highlight">217</i>&nbsp;     *         &lt;li&gt;When the BIN is dirty and an off-heap cache &lt;em&gt;is&lt;/em&gt;
+<i class="no-highlight">218</i>&nbsp;     *         configured, we evict the BIN from the main cache even when it
+<i class="no-highlight">219</i>&nbsp;     *         is dirty because the BIN (and LN) will be stored in the off-heap
+<i class="no-highlight">220</i>&nbsp;     *         cache and the BIN will not be logged. The BIN will be placed at
+<i class="no-highlight">221</i>&nbsp;     *         the hot end of its off-heap LRU list.&lt;/li&gt;
+<i class="no-highlight">222</i>&nbsp;     *
+<i class="no-highlight">223</i>&nbsp;     *         &lt;li&gt;Note that when this operation loaded the BIN and the BIN
+<i class="no-highlight">224</i>&nbsp;     *         becomes dirty, it is normally because this operation is a write
+<i class="no-highlight">225</i>&nbsp;     *         operation. However, other concurrent threads can also dirty the
+<i class="no-highlight">226</i>&nbsp;     *         BIN.&lt;/li&gt;
+<i class="no-highlight">227</i>&nbsp;     *     &lt;/ul&gt;
+<i class="no-highlight">228</i>&nbsp;     *
+<i class="no-highlight">229</i>&nbsp;     *     &lt;li&gt;When the BIN is to be evicted from the main cache (according
+<i class="no-highlight">230</i>&nbsp;     *     to the above rules) and the operation is not performed via a
+<i class="no-highlight">231</i>&nbsp;     *     cursor, the BIN is evicted when the operation is complete. When a
+<i class="no-highlight">232</i>&nbsp;     *     cursor is used, the BIN is evicted only when the cursor moves to a
+<i class="no-highlight">233</i>&nbsp;     *     different BIN or is closed. Because of the way BINs are evicted,
+<i class="no-highlight">234</i>&nbsp;     *     when multiple operations are performed using a single cursor and
+<i class="no-highlight">235</i>&nbsp;     *     not perturbing the cache is desired, it is important to use this
+<i class="no-highlight">236</i>&nbsp;     *     cache mode for all of the operations.&lt;/li&gt;
+<i class="no-highlight">237</i>&nbsp;     *
+<i class="no-highlight">238</i>&nbsp;     *     &lt;li&gt;When the BIN was present in the main cache prior to the
+<i class="no-highlight">239</i>&nbsp;     *     operation, its position in the LRU list will not be changed. Its
+<i class="no-highlight">240</i>&nbsp;     *     position in the off-heap LRU list, if it is present in the off-heap
+<i class="no-highlight">241</i>&nbsp;     *     cache, will also not be changed.&lt;/li&gt;
+<i class="no-highlight">242</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">243</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">244</i>&nbsp;    UNCHANGED,</b>
+<i class="no-highlight">245</i>&nbsp;
+<i class="no-highlight">246</i>&nbsp;    /**
+<i class="no-highlight">247</i>&nbsp;     * @deprecated please use {@link #UNCHANGED} instead. As of JE 4.0, this
+<i class="no-highlight">248</i>&nbsp;     * mode functions exactly as if {@link #UNCHANGED} were specified.
+<i class="no-highlight">249</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">250</i>&nbsp;    MAKE_COLD,</b>
+<i class="no-highlight">251</i>&nbsp;
+<i class="no-highlight">252</i>&nbsp;    /**
+<i class="no-highlight">253</i>&nbsp;     * The record&#39;s LN is evicted after the operation, and the containing
+<i class="no-highlight">254</i>&nbsp;     * BIN is moved to the hot end of the LRU list.
+<i class="no-highlight">255</i>&nbsp;     *
+<i class="no-highlight">256</i>&nbsp;     * &lt;p&gt;This cache mode is normally used when not all LNs will fit into the
+<i class="no-highlight">257</i>&nbsp;     * main cache, and the application prefers to read the LN from the log file
+<i class="no-highlight">258</i>&nbsp;     * or load it from the off-heap cache when the record is accessed again,
+<i class="no-highlight">259</i>&nbsp;     * rather than have it take up space in the main cache and potentially
+<i class="no-highlight">260</i>&nbsp;     * cause expensive Java GC. By using this mode, the file system cache or
+<i class="no-highlight">261</i>&nbsp;     * off-heap cache can be relied on for holding LNs, which complements the
+<i class="no-highlight">262</i>&nbsp;     * use of the JE cache to hold BINs and INs.&lt;/p&gt;
+<i class="no-highlight">263</i>&nbsp;     *
+<i class="no-highlight">264</i>&nbsp;     * &lt;p&gt;Note that using this mode for all operations will prevent the cache
+<i class="no-highlight">265</i>&nbsp;     * from filling, if all internal nodes fit in cache.&lt;/p&gt;
+<i class="no-highlight">266</i>&nbsp;     *
+<i class="no-highlight">267</i>&nbsp;     * &lt;p&gt;Specifically:
+<i class="no-highlight">268</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">269</i>&nbsp;     *     &lt;li&gt;The record&#39;s LN will be evicted from the main cache after the
+<i class="no-highlight">270</i>&nbsp;     *     operation. The LN will be added to the off-heap cache, if it is not
+<i class="no-highlight">271</i>&nbsp;     *     already present and an off-heap cache is configured.&lt;/li&gt;
+<i class="no-highlight">272</i>&nbsp;     *
+<i class="no-highlight">273</i>&nbsp;     *     &lt;li&gt;When the operation is not performed via a cursor, the LN is
+<i class="no-highlight">274</i>&nbsp;     *     evicted when the operation is complete. When a cursor is used, the
+<i class="no-highlight">275</i>&nbsp;     *     LN is evicted when the cursor is moved to a different record or
+<i class="no-highlight">276</i>&nbsp;     *     closed.&lt;/li&gt;
+<i class="no-highlight">277</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">278</i>&nbsp;     *
+<i class="no-highlight">279</i>&nbsp;     * @since 3.3.98
+<i class="no-highlight">280</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">281</i>&nbsp;    EVICT_LN,</b>
+<i class="no-highlight">282</i>&nbsp;
+<i class="no-highlight">283</i>&nbsp;    /**
+<i class="no-highlight">284</i>&nbsp;     * The record&#39;s BIN (and its LNs) are evicted after the operation.
+<i class="no-highlight">285</i>&nbsp;     *
+<i class="no-highlight">286</i>&nbsp;     * &lt;p&gt;This cache mode is normally used when not all BINs will fit into the
+<i class="no-highlight">287</i>&nbsp;     * main cache, and the application prefers to read the LN and BIN from the
+<i class="no-highlight">288</i>&nbsp;     * log file or load it from the off-heap cache when the record is accessed
+<i class="no-highlight">289</i>&nbsp;     * again, rather than have them take up space in the JE cache and
+<i class="no-highlight">290</i>&nbsp;     * potentially cause expensive Java GC.&lt;/p&gt;
+<i class="no-highlight">291</i>&nbsp;     *
+<i class="no-highlight">292</i>&nbsp;     * &lt;p&gt;Because this mode evicts all LNs in the BIN, even if they are &quot;hot&quot;
+<i class="no-highlight">293</i>&nbsp;     * from the perspective of a different accessor, this mode should be used
+<i class="no-highlight">294</i>&nbsp;     * with caution. One valid use case is where all accessors use this mode;
+<i class="no-highlight">295</i>&nbsp;     * in this case the cache mode might be set on a per-Database or
+<i class="no-highlight">296</i>&nbsp;     * per-Environment basis.&lt;/p&gt;
+<i class="no-highlight">297</i>&nbsp;     *
+<i class="no-highlight">298</i>&nbsp;     * &lt;p&gt;Note that using this mode for all operations will prevent the cache
+<i class="no-highlight">299</i>&nbsp;     * from filling, if all upper internal nodes fit in cache.&lt;/p&gt;
+<i class="no-highlight">300</i>&nbsp;     *
+<i class="no-highlight">301</i>&nbsp;     * &lt;p&gt;Specifically:
+<i class="no-highlight">302</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">303</i>&nbsp;     *     &lt;li&gt;The record&#39;s LN will be evicted from the main cache after the
+<i class="no-highlight">304</i>&nbsp;     *     operation. The LN will be added to the off-heap cache, if it is not
+<i class="no-highlight">305</i>&nbsp;     *     already present and an off-heap cache is configured.&lt;/li&gt;
+<i class="no-highlight">306</i>&nbsp;     *
+<i class="no-highlight">307</i>&nbsp;     *     &lt;li&gt;When the operation is not performed via a cursor, the LN is
+<i class="no-highlight">308</i>&nbsp;     *     evicted when the operation is complete. When a cursor is used, the
+<i class="no-highlight">309</i>&nbsp;     *     LN is evicted when the cursor is moved to a different record or
+<i class="no-highlight">310</i>&nbsp;     *     closed.&lt;/li&gt;
+<i class="no-highlight">311</i>&nbsp;     *
+<i class="no-highlight">312</i>&nbsp;     *     &lt;li&gt;Whether the BIN is evicted depends on whether the BIN is dirty
+<i class="no-highlight">313</i>&nbsp;     *     and whether an off-heap cache is configured.
+<i class="no-highlight">314</i>&nbsp;     *     &lt;ul&gt;
+<i class="no-highlight">315</i>&nbsp;     *         &lt;li&gt;When the BIN is not dirty, the BIN (and LN) will be evicted
+<i class="no-highlight">316</i>&nbsp;     *         from the main cache after the operation. The BIN (and LN) will
+<i class="no-highlight">317</i>&nbsp;     *         be added to the off-heap cache, if they are not already present
+<i class="no-highlight">318</i>&nbsp;     *         and an off-heap cache is configured. The BIN will be placed at
+<i class="no-highlight">319</i>&nbsp;     *         the hot end of its off-heap LRU list.&lt;/li&gt;
+<i class="no-highlight">320</i>&nbsp;     *
+<i class="no-highlight">321</i>&nbsp;     *         &lt;li&gt;When the BIN is dirty and an off-heap cache is
+<i class="no-highlight">322</i>&nbsp;     *         &lt;em&gt;not&lt;/em&gt; configured, the BIN will not be evicted from the
+<i class="no-highlight">323</i>&nbsp;     *         main cache and will be moved to the hot end of its main cache
+<i class="no-highlight">324</i>&nbsp;     *         LRU list. This is done to reduce logging.&lt;/li&gt;
+<i class="no-highlight">325</i>&nbsp;     *
+<i class="no-highlight">326</i>&nbsp;     *         &lt;li&gt;When the BIN is dirty and an off-heap cache &lt;em&gt;is&lt;/em&gt;
+<i class="no-highlight">327</i>&nbsp;     *         configured, we evict the BIN from the main cache even when it
+<i class="no-highlight">328</i>&nbsp;     *         is dirty because the BIN (and LN) will be stored in the off-heap
+<i class="no-highlight">329</i>&nbsp;     *         cache and the BIN will not be logged. The BIN will be placed at
+<i class="no-highlight">330</i>&nbsp;     *         the hot end of its off-heap LRU list.&lt;/li&gt;
+<i class="no-highlight">331</i>&nbsp;     *
+<i class="no-highlight">332</i>&nbsp;     *         &lt;li&gt;Note that BIN may have been dirtied by this operation, if
+<i class="no-highlight">333</i>&nbsp;     *         it is a write operation, or by earlier write operations.&lt;/li&gt;
+<i class="no-highlight">334</i>&nbsp;     *     &lt;/ul&gt;
+<i class="no-highlight">335</i>&nbsp;     *
+<i class="no-highlight">336</i>&nbsp;     *     &lt;li&gt;When the BIN is to be evicted from the main cache (according
+<i class="no-highlight">337</i>&nbsp;     *     to the above rules) and the operation is not performed via a
+<i class="no-highlight">338</i>&nbsp;     *     cursor, the BIN is evicted when the operation is complete. When a
+<i class="no-highlight">339</i>&nbsp;     *     cursor is used, the BIN is evicted only when the cursor moves to a
+<i class="no-highlight">340</i>&nbsp;     *     different BIN or is closed. Because of the way BINs are evicted,
+<i class="no-highlight">341</i>&nbsp;     *     when multiple operations are performed using a single cursor and
+<i class="no-highlight">342</i>&nbsp;     *     not perturbing the cache is desired, it is important to use this
+<i class="no-highlight">343</i>&nbsp;     *     cache mode for all of the operations.&lt;/li&gt;
+<i class="no-highlight">344</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">345</i>&nbsp;     *
+<i class="no-highlight">346</i>&nbsp;     * @since 4.0.97
+<i class="no-highlight">347</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">348</i>&nbsp;    EVICT_BIN,</b>
+<i class="no-highlight">349</i>&nbsp;
+<i class="no-highlight">350</i>&nbsp;    /**
+<i class="no-highlight">351</i>&nbsp;     * @hidden
+<i class="no-highlight">352</i>&nbsp;     * For internal use only.
+<i class="no-highlight">353</i>&nbsp;     * Placeholder to avoid DPL class evolution errors. Never actually used.
+<i class="no-highlight">354</i>&nbsp;     * @since 4.0.97
+<i class="no-highlight">355</i>&nbsp;     */
+<b class="fc"><i class="no-highlight">356</i>&nbsp;    DYNAMIC</b>
+<i class="no-highlight">357</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

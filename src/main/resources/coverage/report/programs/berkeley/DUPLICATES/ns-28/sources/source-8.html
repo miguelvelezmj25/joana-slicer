@@ -1,0 +1,971 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SSLDataChannel</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.utilint.net</a>
+</div>
+
+<h1>Coverage Summary for Class: SSLDataChannel (com.sleepycat.je.rep.utilint.net)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">SSLDataChannel</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/19)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/246)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">SSLDataChannel$1</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/2)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/20)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/248)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.utilint.net;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import static java.util.logging.Level.FINE;
+<i class="no-highlight">17</i>&nbsp;import static java.util.logging.Level.INFO;
+<i class="no-highlight">18</i>&nbsp;import static javax.net.ssl.SSLEngineResult.HandshakeStatus;
+<i class="no-highlight">19</i>&nbsp;import static javax.net.ssl.SSLEngineResult.Status;
+<i class="no-highlight">20</i>&nbsp;
+<i class="no-highlight">21</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">22</i>&nbsp;import java.net.SocketException;
+<i class="no-highlight">23</i>&nbsp;import java.nio.BufferOverflowException;
+<i class="no-highlight">24</i>&nbsp;import java.nio.BufferUnderflowException;
+<i class="no-highlight">25</i>&nbsp;import java.nio.ByteBuffer;
+<i class="no-highlight">26</i>&nbsp;import java.nio.channels.SocketChannel;
+<i class="no-highlight">27</i>&nbsp;import java.util.concurrent.locks.ReentrantLock;
+<i class="no-highlight">28</i>&nbsp;
+<i class="no-highlight">29</i>&nbsp;import javax.net.ssl.HostnameVerifier;
+<i class="no-highlight">30</i>&nbsp;import javax.net.ssl.SSLEngine;
+<i class="no-highlight">31</i>&nbsp;import javax.net.ssl.SSLEngineResult;
+<i class="no-highlight">32</i>&nbsp;import javax.net.ssl.SSLException;
+<i class="no-highlight">33</i>&nbsp;import javax.net.ssl.SSLSession;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.je.rep.net.InstanceLogger;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.je.rep.net.SSLAuthenticator;
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;/**
+<i class="no-highlight">39</i>&nbsp; * SSLDataChannel provides SSL-based communications on top of a SocketChannel.
+<i class="no-highlight">40</i>&nbsp; * We attempt to maintain a degree of compatibility with SocketChannel
+<i class="no-highlight">41</i>&nbsp; * in terms of request completion semantics.  In particular,
+<i class="no-highlight">42</i>&nbsp; *    If in blocking mode:
+<i class="no-highlight">43</i>&nbsp; *       read() will return at least one byte if the buffer has room
+<i class="no-highlight">44</i>&nbsp; *       write() will write the entire buffer
+<i class="no-highlight">45</i>&nbsp; *    If in non-blocking mode:
+<i class="no-highlight">46</i>&nbsp; *       read() and write are not guaranteed to consume or produce anything.
+<i class="no-highlight">47</i>&nbsp; */
+<b class="nc"><i class="no-highlight">48</i>&nbsp;public class SSLDataChannel extends AbstractDataChannel {</b>
+<i class="no-highlight">49</i>&nbsp;    /**
+<i class="no-highlight">50</i>&nbsp;     * The SSLEngine that will manage the secure operations.
+<i class="no-highlight">51</i>&nbsp;     */
+<i class="no-highlight">52</i>&nbsp;    private final SSLEngine sslEngine;
+<i class="no-highlight">53</i>&nbsp;
+<i class="no-highlight">54</i>&nbsp;    /**
+<i class="no-highlight">55</i>&nbsp;     * raw bytes received from the SocketChannel - not yet unwrapped.
+<i class="no-highlight">56</i>&nbsp;     */
+<i class="no-highlight">57</i>&nbsp;    private final ByteBuffer netRecvBuffer;
+<i class="no-highlight">58</i>&nbsp;
+<i class="no-highlight">59</i>&nbsp;    /**
+<i class="no-highlight">60</i>&nbsp;     * raw bytes to be sent to the wire - already wrapped
+<i class="no-highlight">61</i>&nbsp;     */
+<i class="no-highlight">62</i>&nbsp;    private final ByteBuffer netXmitBuffer;
+<i class="no-highlight">63</i>&nbsp;
+<i class="no-highlight">64</i>&nbsp;    /**
+<i class="no-highlight">65</i>&nbsp;     * Bytes unwrapped and ready for application consumption.
+<i class="no-highlight">66</i>&nbsp;     */
+<i class="no-highlight">67</i>&nbsp;    private final ByteBuffer appRecvBuffer;
+<i class="no-highlight">68</i>&nbsp;
+<i class="no-highlight">69</i>&nbsp;    /**
+<i class="no-highlight">70</i>&nbsp;     * A dummy buffer used during handshake operations.
+<i class="no-highlight">71</i>&nbsp;     */
+<i class="no-highlight">72</i>&nbsp;    private final ByteBuffer emptyXmitBuffer;
+<i class="no-highlight">73</i>&nbsp;
+<i class="no-highlight">74</i>&nbsp;    /**
+<i class="no-highlight">75</i>&nbsp;     * Lock object for protection of appRecvBuffer, netRecvBuffer and SSLEngine
+<i class="no-highlight">76</i>&nbsp;     * unwrap() operations
+<i class="no-highlight">77</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">78</i>&nbsp;    private final ReentrantLock readLock = new ReentrantLock();</b>
+<i class="no-highlight">79</i>&nbsp;
+<i class="no-highlight">80</i>&nbsp;    /**
+<i class="no-highlight">81</i>&nbsp;     * Lock object for protection of netXmitBuffer and SSLEngine wrap()
+<i class="no-highlight">82</i>&nbsp;     * operations
+<i class="no-highlight">83</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">84</i>&nbsp;    private final ReentrantLock writeLock = new ReentrantLock();</b>
+<i class="no-highlight">85</i>&nbsp;
+<i class="no-highlight">86</i>&nbsp;    /* Set to true if we have closed the underlying socketChannel */
+<b class="nc"><i class="no-highlight">87</i>&nbsp;    private boolean channelClosed = false;</b>
+<i class="no-highlight">88</i>&nbsp;
+<i class="no-highlight">89</i>&nbsp;    /*
+<i class="no-highlight">90</i>&nbsp;     * Remember whether we did a closeInbound already.
+<i class="no-highlight">91</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">92</i>&nbsp;    private volatile boolean sslInboundClosed = false;</b>
+<i class="no-highlight">93</i>&nbsp;
+<i class="no-highlight">94</i>&nbsp;    /**
+<i class="no-highlight">95</i>&nbsp;     * The String identifying the target host that we are connecting to, if
+<i class="no-highlight">96</i>&nbsp;     * this channel was created in client context.
+<i class="no-highlight">97</i>&nbsp;     */
+<i class="no-highlight">98</i>&nbsp;    private final String targetHost;
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;    /**
+<i class="no-highlight">101</i>&nbsp;     * Possibly null authenticator object used for checking whether the
+<i class="no-highlight">102</i>&nbsp;     * peer for the negotiated session should be trusted.
+<i class="no-highlight">103</i>&nbsp;     */
+<i class="no-highlight">104</i>&nbsp;    private final SSLAuthenticator authenticator;
+<i class="no-highlight">105</i>&nbsp;
+<i class="no-highlight">106</i>&nbsp;    /**
+<i class="no-highlight">107</i>&nbsp;     * Possibly null host verifier object used for checking whether the
+<i class="no-highlight">108</i>&nbsp;     * peer for the negotiated session is correct based on the connection
+<i class="no-highlight">109</i>&nbsp;     * target.
+<i class="no-highlight">110</i>&nbsp;     */
+<i class="no-highlight">111</i>&nbsp;    private final HostnameVerifier hostVerifier;
+<i class="no-highlight">112</i>&nbsp;
+<i class="no-highlight">113</i>&nbsp;    /**
+<i class="no-highlight">114</i>&nbsp;     * Set to true when a handshake completes and a non-null authenticator
+<i class="no-highlight">115</i>&nbsp;     * acknowledges the session as trusted.
+<i class="no-highlight">116</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">117</i>&nbsp;    private volatile boolean peerTrusted = false;</b>
+<i class="no-highlight">118</i>&nbsp;
+<i class="no-highlight">119</i>&nbsp;    private final InstanceLogger logger;
+<i class="no-highlight">120</i>&nbsp;
+<i class="no-highlight">121</i>&nbsp;    /**
+<i class="no-highlight">122</i>&nbsp;     * Construct an SSLDataChannel given a SocketChannel and an SSLEngine
+<i class="no-highlight">123</i>&nbsp;     *
+<i class="no-highlight">124</i>&nbsp;     * @param socketChannel a SocketChannel over which SSL communcation will
+<i class="no-highlight">125</i>&nbsp;     *     occur.  This should generally be connected, but that is not
+<i class="no-highlight">126</i>&nbsp;     *     absolutely required until the first read/write operation.
+<i class="no-highlight">127</i>&nbsp;     * @param sslEngine an SSLEngine instance that will control the SSL
+<i class="no-highlight">128</i>&nbsp;     *     interaction with the peer.
+<i class="no-highlight">129</i>&nbsp;     */
+<i class="no-highlight">130</i>&nbsp;    public SSLDataChannel(SocketChannel socketChannel,
+<i class="no-highlight">131</i>&nbsp;                          SSLEngine sslEngine,
+<i class="no-highlight">132</i>&nbsp;                          String targetHost,
+<i class="no-highlight">133</i>&nbsp;                          HostnameVerifier hostVerifier,
+<i class="no-highlight">134</i>&nbsp;                          SSLAuthenticator authenticator,
+<i class="no-highlight">135</i>&nbsp;                          InstanceLogger logger) {
+<i class="no-highlight">136</i>&nbsp;
+<b class="nc"><i class="no-highlight">137</i>&nbsp;        super(socketChannel);</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        this.sslEngine = sslEngine;</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        this.targetHost = targetHost;</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        this.authenticator = authenticator;</b>
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        this.hostVerifier = hostVerifier;</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;        this.logger = logger;</b>
+<b class="nc"><i class="no-highlight">143</i>&nbsp;        SSLSession sslSession = sslEngine.getSession();</b>
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;        /* Determine the required buffer sizes */
+<b class="nc"><i class="no-highlight">146</i>&nbsp;        int netBufferSize = sslSession.getPacketBufferSize();</b>
+<b class="nc"><i class="no-highlight">147</i>&nbsp;        int appBufferSize = sslSession.getApplicationBufferSize();</b>
+<i class="no-highlight">148</i>&nbsp;
+<i class="no-highlight">149</i>&nbsp;        /* allocate the buffers */
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        this.emptyXmitBuffer = ByteBuffer.allocate(1);</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        this.netXmitBuffer = ByteBuffer.allocate(3*netBufferSize);</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        this.appRecvBuffer = ByteBuffer.allocate(2*appBufferSize);</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        this.netRecvBuffer = ByteBuffer.allocate(2*netBufferSize);</b>
+<i class="no-highlight">154</i>&nbsp;    }
+<i class="no-highlight">155</i>&nbsp;
+<i class="no-highlight">156</i>&nbsp;    /**
+<i class="no-highlight">157</i>&nbsp;     * Is the channel encrypted?
+<i class="no-highlight">158</i>&nbsp;     * @return true if the channel is encrypted
+<i class="no-highlight">159</i>&nbsp;     */
+<i class="no-highlight">160</i>&nbsp;    @Override
+<i class="no-highlight">161</i>&nbsp;    public boolean isSecure() {
+<b class="nc"><i class="no-highlight">162</i>&nbsp;        return true;</b>
+<i class="no-highlight">163</i>&nbsp;    }
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    /**
+<i class="no-highlight">166</i>&nbsp;     * Is the channel capable of determining peer trust?
+<i class="no-highlight">167</i>&nbsp;     * In this case, we are capable only if the application has configured an
+<i class="no-highlight">168</i>&nbsp;     * SSL authenticator
+<i class="no-highlight">169</i>&nbsp;     *
+<i class="no-highlight">170</i>&nbsp;     * @return true if this data channel is capable of determining trust
+<i class="no-highlight">171</i>&nbsp;     */
+<i class="no-highlight">172</i>&nbsp;    @Override
+<i class="no-highlight">173</i>&nbsp;    public boolean isTrustCapable() {
+<b class="nc"><i class="no-highlight">174</i>&nbsp;        return authenticator != null;</b>
+<i class="no-highlight">175</i>&nbsp;    }
+<i class="no-highlight">176</i>&nbsp;
+<i class="no-highlight">177</i>&nbsp;    /**
+<i class="no-highlight">178</i>&nbsp;     * Is the channel peer trusted?
+<i class="no-highlight">179</i>&nbsp;     * A channel is trusted if the peer should be treated as authenticated.
+<i class="no-highlight">180</i>&nbsp;     * The meaning of this is context dependent.  The channel will only be
+<i class="no-highlight">181</i>&nbsp;     * trusted if the configured peer authenticator says it should be trusted,
+<i class="no-highlight">182</i>&nbsp;     * so the creator of this SSLDataChannel knows what &quot;trusted&quot; means.
+<i class="no-highlight">183</i>&nbsp;     *
+<i class="no-highlight">184</i>&nbsp;     * @return true if the SSL peer should be trusted
+<i class="no-highlight">185</i>&nbsp;     */
+<i class="no-highlight">186</i>&nbsp;    @Override
+<i class="no-highlight">187</i>&nbsp;    public boolean isTrusted() {
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        return peerTrusted;</b>
+<i class="no-highlight">189</i>&nbsp;    }
+<i class="no-highlight">190</i>&nbsp;
+<i class="no-highlight">191</i>&nbsp;    /**
+<i class="no-highlight">192</i>&nbsp;     * Read data into the toFill data buffer.
+<i class="no-highlight">193</i>&nbsp;     *
+<i class="no-highlight">194</i>&nbsp;     * @param toFill the data buffer into which data will be read.  This buffer
+<i class="no-highlight">195</i>&nbsp;     *        is expected to be ready for a put.  It need not be empty.
+<i class="no-highlight">196</i>&nbsp;     * @return the count of bytes read into toFill.
+<i class="no-highlight">197</i>&nbsp;     */
+<i class="no-highlight">198</i>&nbsp;    @Override
+<i class="no-highlight">199</i>&nbsp;    public int read(ByteBuffer toFill) throws IOException, SSLException {
+<b class="nc"><i class="no-highlight">200</i>&nbsp;        return (int) read(new ByteBuffer[] { toFill }, 0, 1);</b>
+<i class="no-highlight">201</i>&nbsp;    }
+<i class="no-highlight">202</i>&nbsp;
+<i class="no-highlight">203</i>&nbsp;    @Override
+<i class="no-highlight">204</i>&nbsp;    public long read(ByteBuffer[] toFill) throws IOException, SSLException {
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        return read(toFill, 0, toFill.length);</b>
+<i class="no-highlight">206</i>&nbsp;    }
+<i class="no-highlight">207</i>&nbsp;
+<i class="no-highlight">208</i>&nbsp;    @Override
+<i class="no-highlight">209</i>&nbsp;    public long read(ByteBuffer toFill[], int offset, int length)
+<i class="no-highlight">210</i>&nbsp;        throws IOException, SSLException {
+<i class="no-highlight">211</i>&nbsp;
+<b class="nc"><i class="no-highlight">212</i>&nbsp;        if ((offset &lt; 0) ||</b>
+<i class="no-highlight">213</i>&nbsp;            (length &lt; 0) ||
+<i class="no-highlight">214</i>&nbsp;            (offset &gt; toFill.length - length)) {
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            throw new IndexOutOfBoundsException();</b>
+<i class="no-highlight">216</i>&nbsp;        }
+<i class="no-highlight">217</i>&nbsp;
+<i class="no-highlight">218</i>&nbsp;        /*
+<i class="no-highlight">219</i>&nbsp;         * Short-circuit if there&#39;s no work to be done at this time.  This
+<i class="no-highlight">220</i>&nbsp;         * avoids an unnecessary read() operation from blocking.
+<i class="no-highlight">221</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        int toFillRemaining = 0;</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;        for (int i = offset; i &lt; offset + length; ++i) {</b>
+<b class="nc"><i class="no-highlight">224</i>&nbsp;            toFillRemaining += toFill[i].remaining();</b>
+<i class="no-highlight">225</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">226</i>&nbsp;        if (toFillRemaining &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            return 0;</b>
+<i class="no-highlight">228</i>&nbsp;        }
+<i class="no-highlight">229</i>&nbsp;
+<i class="no-highlight">230</i>&nbsp;        /*
+<i class="no-highlight">231</i>&nbsp;         * In non-blocking mode, a preceding write operation might not have
+<i class="no-highlight">232</i>&nbsp;         * completed.
+<i class="no-highlight">233</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        if (!socketChannel.isBlocking()) {</b>
+<b class="nc"><i class="no-highlight">235</i>&nbsp;            flush_internal();</b>
+<i class="no-highlight">236</i>&nbsp;        }
+<i class="no-highlight">237</i>&nbsp;
+<i class="no-highlight">238</i>&nbsp;        /*
+<i class="no-highlight">239</i>&nbsp;         * If we have data that is already unwrapped and ready to transfer, do
+<i class="no-highlight">240</i>&nbsp;         * it now
+<i class="no-highlight">241</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        readLock.lock();</b>
+<i class="no-highlight">243</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">244</i>&nbsp;            if (appRecvBuffer.position() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">245</i>&nbsp;                appRecvBuffer.flip();</b>
+<b class="nc"><i class="no-highlight">246</i>&nbsp;                final int count = transfer(appRecvBuffer,</b>
+<i class="no-highlight">247</i>&nbsp;                        toFill, offset, length);
+<b class="nc"><i class="no-highlight">248</i>&nbsp;                appRecvBuffer.compact();</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;                return count;</b>
+<i class="no-highlight">250</i>&nbsp;            }
+<i class="no-highlight">251</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">252</i>&nbsp;            readLock.unlock();</b>
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        }</b>
+<i class="no-highlight">254</i>&nbsp;
+<b class="nc"><i class="no-highlight">255</i>&nbsp;        int readCount = 0;</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;        while (readCount == 0) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;            if (sslEngine.isInboundDone()) {</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;                return -1;</b>
+<i class="no-highlight">259</i>&nbsp;            }
+<i class="no-highlight">260</i>&nbsp;
+<b class="nc"><i class="no-highlight">261</i>&nbsp;            processAnyHandshakes();</b>
+<i class="no-highlight">262</i>&nbsp;
+<i class="no-highlight">263</i>&nbsp;            /* See if we have unwrapped data available */
+<b class="nc"><i class="no-highlight">264</i>&nbsp;            readLock.lock();</b>
+<i class="no-highlight">265</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">266</i>&nbsp;                if (appRecvBuffer.position() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">267</i>&nbsp;                    appRecvBuffer.flip();</b>
+<b class="nc"><i class="no-highlight">268</i>&nbsp;                    readCount = transfer(appRecvBuffer,</b>
+<i class="no-highlight">269</i>&nbsp;                            toFill, offset, length);
+<b class="nc"><i class="no-highlight">270</i>&nbsp;                    appRecvBuffer.compact();</b>
+<i class="no-highlight">271</i>&nbsp;                    break;
+<i class="no-highlight">272</i>&nbsp;                }
+<i class="no-highlight">273</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">274</i>&nbsp;                readLock.unlock();</b>
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            }</b>
+<i class="no-highlight">276</i>&nbsp;
+<b class="nc"><i class="no-highlight">277</i>&nbsp;            if (sslEngine.getHandshakeStatus() ==</b>
+<i class="no-highlight">278</i>&nbsp;                HandshakeStatus.NOT_HANDSHAKING) {
+<i class="no-highlight">279</i>&nbsp;
+<b class="nc"><i class="no-highlight">280</i>&nbsp;                boolean progress = false;</b>
+<b class="nc"><i class="no-highlight">281</i>&nbsp;                readLock.lock();</b>
+<i class="no-highlight">282</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">283</i>&nbsp;                    if (netRecvBuffer.position() &gt; 0) {</b>
+<i class="no-highlight">284</i>&nbsp;                        /* There is some data in the network buffer that may be
+<i class="no-highlight">285</i>&nbsp;                         * able to be unwrapped.  If so, we&#39;ll try to unwrap it.
+<i class="no-highlight">286</i>&nbsp;                         * If that fails, then we may need more network data.
+<i class="no-highlight">287</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                        final int initialPos = netRecvBuffer.position();</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                        netRecvBuffer.flip();</b>
+<b class="nc"><i class="no-highlight">290</i>&nbsp;                        final SSLEngineResult engineResult =</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;                            sslEngine.unwrap(netRecvBuffer, appRecvBuffer);</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                        netRecvBuffer.compact();</b>
+<i class="no-highlight">293</i>&nbsp;
+<b class="nc"><i class="no-highlight">294</i>&nbsp;                        final int updatedPos = netRecvBuffer.position();</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;                        if (updatedPos != initialPos) {</b>
+<i class="no-highlight">296</i>&nbsp;                            /* We did something */
+<b class="nc"><i class="no-highlight">297</i>&nbsp;                            progress = true;</b>
+<i class="no-highlight">298</i>&nbsp;                        }
+<i class="no-highlight">299</i>&nbsp;
+<b class="nc"><i class="no-highlight">300</i>&nbsp;                        switch (engineResult.getStatus()) {</b>
+<i class="no-highlight">301</i>&nbsp;                        case BUFFER_UNDERFLOW:
+<i class="no-highlight">302</i>&nbsp;                            /* Not enough data to do anything useful. */
+<b class="nc"><i class="no-highlight">303</i>&nbsp;                            break;</b>
+<i class="no-highlight">304</i>&nbsp;
+<i class="no-highlight">305</i>&nbsp;                        case BUFFER_OVERFLOW:
+<i class="no-highlight">306</i>&nbsp;                            /* Shouldn&#39;t happen, but apparently there&#39;s not
+<i class="no-highlight">307</i>&nbsp;                             * enough space in the application receive buffer */
+<b class="nc"><i class="no-highlight">308</i>&nbsp;                            throw new BufferOverflowException();</b>
+<i class="no-highlight">309</i>&nbsp;
+<i class="no-highlight">310</i>&nbsp;                        case CLOSED:
+<i class="no-highlight">311</i>&nbsp;                            /* We apparently got a CLOSE_NOTIFY */
+<b class="nc"><i class="no-highlight">312</i>&nbsp;                            socketChannel.socket().shutdownInput();</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;                            break;</b>
+<i class="no-highlight">314</i>&nbsp;
+<i class="no-highlight">315</i>&nbsp;                        case OK:
+<i class="no-highlight">316</i>&nbsp;                            break;
+<i class="no-highlight">317</i>&nbsp;                        }
+<i class="no-highlight">318</i>&nbsp;                    }
+<i class="no-highlight">319</i>&nbsp;
+<b class="nc"><i class="no-highlight">320</i>&nbsp;                    if (!progress) {</b>
+<b class="nc"><i class="no-highlight">321</i>&nbsp;                        final int count = socketChannel.read(netRecvBuffer);</b>
+<i class="no-highlight">322</i>&nbsp;
+<b class="nc"><i class="no-highlight">323</i>&nbsp;                        if (count &lt; 0) {</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;                            readCount = count;</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;                        } else if (count == 0) {</b>
+<i class="no-highlight">326</i>&nbsp;                            /* Presumably we are in non-blocking mode */
+<i class="no-highlight">327</i>&nbsp;                            break;
+<i class="no-highlight">328</i>&nbsp;                        }
+<i class="no-highlight">329</i>&nbsp;                    }
+<i class="no-highlight">330</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">331</i>&nbsp;                    readLock.unlock();</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">333</i>&nbsp;            }</b>
+<i class="no-highlight">334</i>&nbsp;        }
+<i class="no-highlight">335</i>&nbsp;
+<b class="nc"><i class="no-highlight">336</i>&nbsp;        if (readCount &lt; 0) {</b>
+<i class="no-highlight">337</i>&nbsp;            /*
+<i class="no-highlight">338</i>&nbsp;             * This will throw an SSLException if we haven&#39;t yet received a
+<i class="no-highlight">339</i>&nbsp;             * close_notify.
+<i class="no-highlight">340</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">341</i>&nbsp;            sslEngine.closeInbound();</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            sslInboundClosed = true;</b>
+<i class="no-highlight">343</i>&nbsp;        }
+<i class="no-highlight">344</i>&nbsp;
+<b class="nc"><i class="no-highlight">345</i>&nbsp;        if (sslEngine.isInboundDone()) {</b>
+<b class="nc"><i class="no-highlight">346</i>&nbsp;            return -1;</b>
+<i class="no-highlight">347</i>&nbsp;        }
+<i class="no-highlight">348</i>&nbsp;
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        return readCount;</b>
+<i class="no-highlight">350</i>&nbsp;    }
+<i class="no-highlight">351</i>&nbsp;
+<i class="no-highlight">352</i>&nbsp;    @Override
+<i class="no-highlight">353</i>&nbsp;    public int write(ByteBuffer toSend) throws IOException, SSLException {
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        return (int) write(new ByteBuffer[] { toSend }, 0, 1);</b>
+<i class="no-highlight">355</i>&nbsp;    }
+<i class="no-highlight">356</i>&nbsp;
+<i class="no-highlight">357</i>&nbsp;    @Override
+<i class="no-highlight">358</i>&nbsp;    public long write(ByteBuffer[] toSend) throws IOException, SSLException {
+<b class="nc"><i class="no-highlight">359</i>&nbsp;        return write(toSend, 0, toSend.length);</b>
+<i class="no-highlight">360</i>&nbsp;    }
+<i class="no-highlight">361</i>&nbsp;
+<i class="no-highlight">362</i>&nbsp;    @Override
+<i class="no-highlight">363</i>&nbsp;    public long write(ByteBuffer[] toSend, int offset, int length)
+<i class="no-highlight">364</i>&nbsp;        throws IOException, SSLException {
+<i class="no-highlight">365</i>&nbsp;
+<b class="nc"><i class="no-highlight">366</i>&nbsp;        if ((offset &lt; 0) ||</b>
+<i class="no-highlight">367</i>&nbsp;            (length &lt; 0) ||
+<i class="no-highlight">368</i>&nbsp;            (offset &gt; toSend.length - length)) {
+<b class="nc"><i class="no-highlight">369</i>&nbsp;            throw new IndexOutOfBoundsException();</b>
+<i class="no-highlight">370</i>&nbsp;        }
+<i class="no-highlight">371</i>&nbsp;
+<b class="nc"><i class="no-highlight">372</i>&nbsp;        int toSendRemaining = 0;</b>
+<b class="nc"><i class="no-highlight">373</i>&nbsp;        for (int i = offset; i &lt; offset + length; ++i) {</b>
+<b class="nc"><i class="no-highlight">374</i>&nbsp;            toSendRemaining += toSend[i].remaining();</b>
+<i class="no-highlight">375</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">376</i>&nbsp;        if (toSendRemaining == 0) {</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;            return 0;</b>
+<i class="no-highlight">378</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">379</i>&nbsp;        final int toSendTotal = toSendRemaining;</b>
+<i class="no-highlight">380</i>&nbsp;
+<i class="no-highlight">381</i>&nbsp;        /*
+<i class="no-highlight">382</i>&nbsp;         * Probably not needed, but just in case there&#39;s a backlog, start with
+<i class="no-highlight">383</i>&nbsp;         * a flush to clear out the network transmit buffer.
+<i class="no-highlight">384</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">385</i>&nbsp;        flush_internal();</b>
+<i class="no-highlight">386</i>&nbsp;
+<i class="no-highlight">387</i>&nbsp;        while (true) {
+<b class="nc"><i class="no-highlight">388</i>&nbsp;            writeLock.lock();</b>
+<i class="no-highlight">389</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">390</i>&nbsp;                final SSLEngineResult engineResult =</b>
+<b class="nc"><i class="no-highlight">391</i>&nbsp;                    sslEngine.wrap(toSend, offset, length, netXmitBuffer);</b>
+<i class="no-highlight">392</i>&nbsp;
+<b class="nc"><i class="no-highlight">393</i>&nbsp;                toSendRemaining -= engineResult.bytesConsumed();</b>
+<i class="no-highlight">394</i>&nbsp;
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                switch (engineResult.getStatus()) {</b>
+<i class="no-highlight">396</i>&nbsp;                case BUFFER_OVERFLOW:
+<i class="no-highlight">397</i>&nbsp;                    /*
+<i class="no-highlight">398</i>&nbsp;                     * Although we are flushing as part of the loop, we can
+<i class="no-highlight">399</i>&nbsp;                     * still receive this because flush_internal isn&#39;t
+<i class="no-highlight">400</i>&nbsp;                     * guaranteed to flush everything.
+<i class="no-highlight">401</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">402</i>&nbsp;                    break;</b>
+<i class="no-highlight">403</i>&nbsp;
+<i class="no-highlight">404</i>&nbsp;                case BUFFER_UNDERFLOW:
+<i class="no-highlight">405</i>&nbsp;                    /* Should not be possible here */
+<b class="nc"><i class="no-highlight">406</i>&nbsp;                    throw new BufferUnderflowException();</b>
+<i class="no-highlight">407</i>&nbsp;
+<i class="no-highlight">408</i>&nbsp;                case CLOSED:
+<b class="nc"><i class="no-highlight">409</i>&nbsp;                    throw new SSLException(</b>
+<i class="no-highlight">410</i>&nbsp;                        &quot;Attempt to write to a closed SSL Channel&quot;);
+<i class="no-highlight">411</i>&nbsp;
+<i class="no-highlight">412</i>&nbsp;                case OK:
+<i class="no-highlight">413</i>&nbsp;                    break;
+<i class="no-highlight">414</i>&nbsp;                }
+<i class="no-highlight">415</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">416</i>&nbsp;                writeLock.unlock();</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            }</b>
+<i class="no-highlight">418</i>&nbsp;
+<b class="nc"><i class="no-highlight">419</i>&nbsp;            processAnyHandshakes();</b>
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            flush_internal();</b>
+<i class="no-highlight">421</i>&nbsp;
+<b class="nc"><i class="no-highlight">422</i>&nbsp;            if (toSendRemaining == 0 || !socketChannel.isBlocking()) {</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;                break;</b>
+<i class="no-highlight">424</i>&nbsp;            }
+<i class="no-highlight">425</i>&nbsp;        }
+<i class="no-highlight">426</i>&nbsp;
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        return toSendTotal - toSendRemaining;</b>
+<i class="no-highlight">428</i>&nbsp;    }
+<i class="no-highlight">429</i>&nbsp;
+<i class="no-highlight">430</i>&nbsp;    /**
+<i class="no-highlight">431</i>&nbsp;     * Attempt to flush any pending writes to the underlying socket buffer.
+<i class="no-highlight">432</i>&nbsp;     * The caller should ensure that it is the only thread accessing the
+<i class="no-highlight">433</i>&nbsp;     * DataChannel in order that the return value be meaningful.
+<i class="no-highlight">434</i>&nbsp;     *
+<i class="no-highlight">435</i>&nbsp;     * @return flush status
+<i class="no-highlight">436</i>&nbsp;     */
+<i class="no-highlight">437</i>&nbsp;    @Override
+<i class="no-highlight">438</i>&nbsp;    public FlushStatus flush()
+<i class="no-highlight">439</i>&nbsp;        throws IOException {
+<i class="no-highlight">440</i>&nbsp;
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        int n = flush_internal();</b>
+<b class="nc"><i class="no-highlight">442</i>&nbsp;        if (writeLock.tryLock()) {</b>
+<i class="no-highlight">443</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                HandshakeStatus hstatus =</b>
+<b class="nc"><i class="no-highlight">445</i>&nbsp;                    sslEngine.getHandshakeStatus();</b>
+<b class="nc"><i class="no-highlight">446</i>&nbsp;                switch (hstatus) {</b>
+<i class="no-highlight">447</i>&nbsp;                case NEED_TASK:
+<b class="nc"><i class="no-highlight">448</i>&nbsp;                    return FlushStatus.NEED_TASK;</b>
+<i class="no-highlight">449</i>&nbsp;                case NEED_UNWRAP:
+<b class="nc"><i class="no-highlight">450</i>&nbsp;                    return FlushStatus.NEED_READ;</b>
+<i class="no-highlight">451</i>&nbsp;                case NEED_WRAP:
+<i class="no-highlight">452</i>&nbsp;                    /*
+<i class="no-highlight">453</i>&nbsp;                     * We should not be here if we are the only thread doing
+<i class="no-highlight">454</i>&nbsp;                     * handshake, so there must be another thread, they will
+<i class="no-highlight">455</i>&nbsp;                     * flush after they wrap, our job is done here.
+<i class="no-highlight">456</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">457</i>&nbsp;                    return FlushStatus.DONE;</b>
+<i class="no-highlight">458</i>&nbsp;                case FINISHED:
+<i class="no-highlight">459</i>&nbsp;                case NOT_HANDSHAKING:
+<b class="nc"><i class="no-highlight">460</i>&nbsp;                    break;</b>
+<i class="no-highlight">461</i>&nbsp;                default:
+<b class="nc"><i class="no-highlight">462</i>&nbsp;                    assert false : &quot;Unexpected handshake status.&quot;;</b>
+<i class="no-highlight">463</i>&nbsp;                }
+<i class="no-highlight">464</i>&nbsp;
+<b class="nc"><i class="no-highlight">465</i>&nbsp;                if (n == 0) {</b>
+<i class="no-highlight">466</i>&nbsp;                    /*
+<i class="no-highlight">467</i>&nbsp;                     * It is possible that there was nothing to flush last time
+<i class="no-highlight">468</i>&nbsp;                     * we flushed but someone wrote something before we
+<i class="no-highlight">469</i>&nbsp;                     * acquired the lock, so we flush again here
+<i class="no-highlight">470</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">471</i>&nbsp;                    n = flush_internal();</b>
+<i class="no-highlight">472</i>&nbsp;                }
+<i class="no-highlight">473</i>&nbsp;
+<b class="nc"><i class="no-highlight">474</i>&nbsp;                final int pos = netXmitBuffer.position();</b>
+<i class="no-highlight">475</i>&nbsp;
+<b class="nc"><i class="no-highlight">476</i>&nbsp;                if (pos == 0) {</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;                    return FlushStatus.DONE;</b>
+<i class="no-highlight">478</i>&nbsp;                }
+<i class="no-highlight">479</i>&nbsp;
+<b class="nc"><i class="no-highlight">480</i>&nbsp;                if (n != 0) {</b>
+<b class="nc"><i class="no-highlight">481</i>&nbsp;                    return FlushStatus.AGAIN;</b>
+<i class="no-highlight">482</i>&nbsp;                }
+<i class="no-highlight">483</i>&nbsp;
+<i class="no-highlight">484</i>&nbsp;                /* Here n == 0 and pos != 0, i.e., socket write busy. */
+<b class="nc"><i class="no-highlight">485</i>&nbsp;                return FlushStatus.WRITE_BUSY;</b>
+<i class="no-highlight">486</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">487</i>&nbsp;                writeLock.unlock();</b>
+<b class="nc"><i class="no-highlight">488</i>&nbsp;            }</b>
+<i class="no-highlight">489</i>&nbsp;        }
+<i class="no-highlight">490</i>&nbsp;
+<i class="no-highlight">491</i>&nbsp;        /*
+<i class="no-highlight">492</i>&nbsp;         * If we weren&#39;t able to acquire the write lock, we can&#39;t be sure that
+<i class="no-highlight">493</i>&nbsp;         * everything has been flushed, and there&#39;s a good chance that someone
+<i class="no-highlight">494</i>&nbsp;         * else is writing (which the caller should have protected against in
+<i class="no-highlight">495</i>&nbsp;         * order to get a reliable answer). Just ask the caller to flush again.
+<i class="no-highlight">496</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">497</i>&nbsp;        return FlushStatus.AGAIN;</b>
+<i class="no-highlight">498</i>&nbsp;    }
+<i class="no-highlight">499</i>&nbsp;
+<i class="no-highlight">500</i>&nbsp;    /**
+<i class="no-highlight">501</i>&nbsp;     * If any data is queued up to be sent in the network transmit buffer, try
+<i class="no-highlight">502</i>&nbsp;     * to push it out.
+<i class="no-highlight">503</i>&nbsp;     */
+<i class="no-highlight">504</i>&nbsp;    private int flush_internal() throws IOException {
+<i class="no-highlight">505</i>&nbsp;
+<b class="nc"><i class="no-highlight">506</i>&nbsp;        int count = 0;</b>
+<i class="no-highlight">507</i>&nbsp;
+<i class="no-highlight">508</i>&nbsp;        /*
+<i class="no-highlight">509</i>&nbsp;         * Don&#39;t insist on getting a lock.  If someone else has it, they will
+<i class="no-highlight">510</i>&nbsp;         * probably flush it for us.
+<i class="no-highlight">511</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">512</i>&nbsp;        if (writeLock.tryLock()) {</b>
+<i class="no-highlight">513</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">514</i>&nbsp;                if (netXmitBuffer.position() == 0) {</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;                    return 0;</b>
+<i class="no-highlight">516</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">517</i>&nbsp;                netXmitBuffer.flip();</b>
+<i class="no-highlight">518</i>&nbsp;
+<i class="no-highlight">519</i>&nbsp;                /*
+<i class="no-highlight">520</i>&nbsp;                 * try/finally to keep things clean, in case the socket channel
+<i class="no-highlight">521</i>&nbsp;                 * gets closed
+<i class="no-highlight">522</i>&nbsp;                 */
+<i class="no-highlight">523</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">524</i>&nbsp;                    count = socketChannel.write(netXmitBuffer);</b>
+<i class="no-highlight">525</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">526</i>&nbsp;                    netXmitBuffer.compact();</b>
+<b class="nc"><i class="no-highlight">527</i>&nbsp;                }</b>
+<i class="no-highlight">528</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">529</i>&nbsp;                writeLock.unlock();</b>
+<b class="nc"><i class="no-highlight">530</i>&nbsp;            }</b>
+<i class="no-highlight">531</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">532</i>&nbsp;        return count;</b>
+<i class="no-highlight">533</i>&nbsp;    }
+<i class="no-highlight">534</i>&nbsp;
+<i class="no-highlight">535</i>&nbsp;    @Override
+<i class="no-highlight">536</i>&nbsp;    public void close() throws IOException, SSLException {
+<i class="no-highlight">537</i>&nbsp;
+<i class="no-highlight">538</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">539</i>&nbsp;            flush_internal();</b>
+<i class="no-highlight">540</i>&nbsp;
+<b class="nc"><i class="no-highlight">541</i>&nbsp;            if (!sslEngine.isOutboundDone()) {</b>
+<b class="nc"><i class="no-highlight">542</i>&nbsp;                sslEngine.closeOutbound();</b>
+<b class="nc"><i class="no-highlight">543</i>&nbsp;                processAnyHandshakes();</b>
+<b class="nc"><i class="no-highlight">544</i>&nbsp;            } else if (!sslEngine.isInboundDone()) {</b>
+<b class="nc"><i class="no-highlight">545</i>&nbsp;                if (sslInboundClosed) {</b>
+<i class="no-highlight">546</i>&nbsp;                    /*
+<i class="no-highlight">547</i>&nbsp;                     * We only expect one handshake operation (the close) to
+<i class="no-highlight">548</i>&nbsp;                     * happen at this point
+<i class="no-highlight">549</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">550</i>&nbsp;                    processOneHandshake();</b>
+<i class="no-highlight">551</i>&nbsp;                }
+<i class="no-highlight">552</i>&nbsp;            }
+<i class="no-highlight">553</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">554</i>&nbsp;            synchronized(this) {</b>
+<b class="nc"><i class="no-highlight">555</i>&nbsp;                if (!channelClosed) {</b>
+<b class="nc"><i class="no-highlight">556</i>&nbsp;                    channelClosed = true;</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;                    socketChannel.close();</b>
+<i class="no-highlight">558</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">559</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;        }</b>
+<i class="no-highlight">561</i>&nbsp;    }
+<i class="no-highlight">562</i>&nbsp;
+<i class="no-highlight">563</i>&nbsp;    @Override
+<i class="no-highlight">564</i>&nbsp;    public boolean isOpen() {
+<b class="nc"><i class="no-highlight">565</i>&nbsp;        return socketChannel.isOpen();</b>
+<i class="no-highlight">566</i>&nbsp;    }
+<i class="no-highlight">567</i>&nbsp;
+<i class="no-highlight">568</i>&nbsp;    /**
+<i class="no-highlight">569</i>&nbsp;     * Transfer as much data as possible from the src buffer to the dst
+<i class="no-highlight">570</i>&nbsp;     * buffers.
+<i class="no-highlight">571</i>&nbsp;     *
+<i class="no-highlight">572</i>&nbsp;     * @param src the source ByteBuffer - it is expected to be ready for a get.
+<i class="no-highlight">573</i>&nbsp;     * @param dsts the destination array of ByteBuffers, each of which is
+<i class="no-highlight">574</i>&nbsp;     * expected to be ready for a put.
+<i class="no-highlight">575</i>&nbsp;     * @param offset the offset within the buffer array of the first buffer
+<i class="no-highlight">576</i>&nbsp;     * into which bytes are to be transferred.
+<i class="no-highlight">577</i>&nbsp;     * @param length the maximum number of buffers to be accessed
+<i class="no-highlight">578</i>&nbsp;     * @return The number of bytes transfered from src to dst
+<i class="no-highlight">579</i>&nbsp;     */
+<i class="no-highlight">580</i>&nbsp;    private int transfer(ByteBuffer src,
+<i class="no-highlight">581</i>&nbsp;                         ByteBuffer[] dsts,
+<i class="no-highlight">582</i>&nbsp;                         int offset,
+<i class="no-highlight">583</i>&nbsp;                         int length) {
+<i class="no-highlight">584</i>&nbsp;
+<b class="nc"><i class="no-highlight">585</i>&nbsp;        int transferred = 0;</b>
+<b class="nc"><i class="no-highlight">586</i>&nbsp;        for (int i = offset; i &lt; offset + length; ++i) {</b>
+<b class="nc"><i class="no-highlight">587</i>&nbsp;            final ByteBuffer dst = dsts[i];</b>
+<b class="nc"><i class="no-highlight">588</i>&nbsp;            final int space = dst.remaining();</b>
+<i class="no-highlight">589</i>&nbsp;
+<b class="nc"><i class="no-highlight">590</i>&nbsp;            if (src.remaining() &gt; space) {</b>
+<i class="no-highlight">591</i>&nbsp;                /* not enough room for it all */
+<b class="nc"><i class="no-highlight">592</i>&nbsp;                final ByteBuffer slice = src.slice();</b>
+<b class="nc"><i class="no-highlight">593</i>&nbsp;                slice.limit(space);</b>
+<b class="nc"><i class="no-highlight">594</i>&nbsp;                dst.put(slice);</b>
+<b class="nc"><i class="no-highlight">595</i>&nbsp;                src.position(src.position() + space);</b>
+<b class="nc"><i class="no-highlight">596</i>&nbsp;                transferred += space;</b>
+<b class="nc"><i class="no-highlight">597</i>&nbsp;            } else {</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;                transferred += src.remaining();</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;                dst.put(src);</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;                break;</b>
+<i class="no-highlight">601</i>&nbsp;            }
+<i class="no-highlight">602</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">603</i>&nbsp;        return transferred;</b>
+<i class="no-highlight">604</i>&nbsp;    }
+<i class="no-highlight">605</i>&nbsp;
+<i class="no-highlight">606</i>&nbsp;    /**
+<i class="no-highlight">607</i>&nbsp;     * Repeatedly perform handshake operations while there is still
+<i class="no-highlight">608</i>&nbsp;     * more work to do.
+<i class="no-highlight">609</i>&nbsp;     */
+<i class="no-highlight">610</i>&nbsp;    private void processAnyHandshakes() throws IOException {
+<i class="no-highlight">611</i>&nbsp;
+<b class="nc"><i class="no-highlight">612</i>&nbsp;        while (processOneHandshake()) {</b>
+<i class="no-highlight">613</i>&nbsp;            /* do nothing */
+<i class="no-highlight">614</i>&nbsp;        }
+<i class="no-highlight">615</i>&nbsp;    }
+<i class="no-highlight">616</i>&nbsp;
+<i class="no-highlight">617</i>&nbsp;    /*
+<i class="no-highlight">618</i>&nbsp;     * Attempt a handshake step.
+<i class="no-highlight">619</i>&nbsp;     *
+<i class="no-highlight">620</i>&nbsp;     * @return true if it is appropriate to call this again immediately.
+<i class="no-highlight">621</i>&nbsp;     */
+<i class="no-highlight">622</i>&nbsp;    private boolean processOneHandshake() throws IOException {
+<i class="no-highlight">623</i>&nbsp;
+<b class="nc"><i class="no-highlight">624</i>&nbsp;        int readCount = 0;</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;        int flushCount = 0;</b>
+<b class="nc"><i class="no-highlight">626</i>&nbsp;        SSLEngineResult engineResult = null;</b>
+<i class="no-highlight">627</i>&nbsp;
+<b class="nc"><i class="no-highlight">628</i>&nbsp;        switch (sslEngine.getHandshakeStatus()) {</b>
+<i class="no-highlight">629</i>&nbsp;        case FINISHED:
+<i class="no-highlight">630</i>&nbsp;            /*
+<i class="no-highlight">631</i>&nbsp;             * Just finished handshaking. We shouldn&#39;t actually see this here
+<i class="no-highlight">632</i>&nbsp;             * as it is only supposed to be produced by a wrap or unwrap.
+<i class="no-highlight">633</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">634</i>&nbsp;            return false;</b>
+<i class="no-highlight">635</i>&nbsp;
+<i class="no-highlight">636</i>&nbsp;        case NEED_TASK:
+<i class="no-highlight">637</i>&nbsp;            /*
+<i class="no-highlight">638</i>&nbsp;             * Need results from delegated tasks before handshaking can
+<i class="no-highlight">639</i>&nbsp;             * continue, so do them now.  We assume that the tasks are done
+<i class="no-highlight">640</i>&nbsp;             * inline, and so we can return true here.
+<i class="no-highlight">641</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">642</i>&nbsp;            runDelegatedTasks();</b>
+<b class="nc"><i class="no-highlight">643</i>&nbsp;            return true;</b>
+<i class="no-highlight">644</i>&nbsp;
+<i class="no-highlight">645</i>&nbsp;        case NEED_UNWRAP:
+<i class="no-highlight">646</i>&nbsp;            {
+<b class="nc"><i class="no-highlight">647</i>&nbsp;                boolean unwrapped = false;</b>
+<i class="no-highlight">648</i>&nbsp;
+<i class="no-highlight">649</i>&nbsp;                /* Attempt to flush anything that is pending */
+<i class="no-highlight">650</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">651</i>&nbsp;                    flush_internal();</b>
+<b class="nc"><i class="no-highlight">652</i>&nbsp;                } catch (SocketException se) {</b>
+<b class="nc"><i class="no-highlight">653</i>&nbsp;                }</b>
+<i class="no-highlight">654</i>&nbsp;
+<i class="no-highlight">655</i>&nbsp;                /*
+<i class="no-highlight">656</i>&nbsp;                 * Attempt to process anything that is pending in the
+<i class="no-highlight">657</i>&nbsp;                 * netRecvBuffer.
+<i class="no-highlight">658</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">659</i>&nbsp;                readLock.lock();</b>
+<i class="no-highlight">660</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">661</i>&nbsp;                    if (netRecvBuffer.position() &gt; 0) {</b>
+<b class="nc"><i class="no-highlight">662</i>&nbsp;                        netRecvBuffer.flip();</b>
+<b class="nc"><i class="no-highlight">663</i>&nbsp;                        engineResult =</b>
+<b class="nc"><i class="no-highlight">664</i>&nbsp;                            sslEngine.unwrap(netRecvBuffer, appRecvBuffer);</b>
+<b class="nc"><i class="no-highlight">665</i>&nbsp;                        netRecvBuffer.compact();</b>
+<b class="nc"><i class="no-highlight">666</i>&nbsp;                        if (engineResult.getStatus() == Status.OK) {</b>
+<b class="nc"><i class="no-highlight">667</i>&nbsp;                            unwrapped = true;</b>
+<i class="no-highlight">668</i>&nbsp;                        }
+<i class="no-highlight">669</i>&nbsp;                    }
+<i class="no-highlight">670</i>&nbsp;
+<b class="nc"><i class="no-highlight">671</i>&nbsp;                    if (!unwrapped &amp;&amp; !sslEngine.isInboundDone()) {</b>
+<i class="no-highlight">672</i>&nbsp;                        /*
+<i class="no-highlight">673</i>&nbsp;                         * Either we had nothing in the netRecvBuffer or there
+<i class="no-highlight">674</i>&nbsp;                         * was not enough data to unwrap, so let&#39;s try getting
+<i class="no-highlight">675</i>&nbsp;                         * some more.
+<i class="no-highlight">676</i>&nbsp;                         *
+<i class="no-highlight">677</i>&nbsp;                         * If a re-negotiation is happening and the
+<i class="no-highlight">678</i>&nbsp;                         * appRecvBuffer was full, we could have received a
+<i class="no-highlight">679</i>&nbsp;                         * BUFFER_OVERFLOW engineResult, in which case a read()
+<i class="no-highlight">680</i>&nbsp;                         * is not really helpful here, but it&#39;s harmless and is
+<i class="no-highlight">681</i>&nbsp;                         * a rare occurrence, so we won&#39;t worry about it.
+<i class="no-highlight">682</i>&nbsp;                         */
+<b class="nc"><i class="no-highlight">683</i>&nbsp;                        readCount = socketChannel.read(netRecvBuffer);</b>
+<b class="nc"><i class="no-highlight">684</i>&nbsp;                        if (readCount &lt; 0) {</b>
+<i class="no-highlight">685</i>&nbsp;                            try {
+<b class="nc"><i class="no-highlight">686</i>&nbsp;                                sslEngine.closeInbound();</b>
+<b class="nc"><i class="no-highlight">687</i>&nbsp;                                sslInboundClosed = true;</b>
+<b class="nc"><i class="no-highlight">688</i>&nbsp;                            } catch (SSLException ssle) {</b>
+<i class="no-highlight">689</i>&nbsp;                                // ignore
+<b class="nc"><i class="no-highlight">690</i>&nbsp;                            }</b>
+<i class="no-highlight">691</i>&nbsp;                        }
+<i class="no-highlight">692</i>&nbsp;
+<b class="nc"><i class="no-highlight">693</i>&nbsp;                        netRecvBuffer.flip();</b>
+<b class="nc"><i class="no-highlight">694</i>&nbsp;                        engineResult =</b>
+<b class="nc"><i class="no-highlight">695</i>&nbsp;                            sslEngine.unwrap(netRecvBuffer, appRecvBuffer);</b>
+<b class="nc"><i class="no-highlight">696</i>&nbsp;                        netRecvBuffer.compact();</b>
+<i class="no-highlight">697</i>&nbsp;                    }
+<i class="no-highlight">698</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">699</i>&nbsp;                    readLock.unlock();</b>
+<b class="nc"><i class="no-highlight">700</i>&nbsp;                }</b>
+<i class="no-highlight">701</i>&nbsp;            }
+<i class="no-highlight">702</i>&nbsp;
+<b class="nc"><i class="no-highlight">703</i>&nbsp;            break;</b>
+<i class="no-highlight">704</i>&nbsp;
+<i class="no-highlight">705</i>&nbsp;        case NEED_WRAP:
+<i class="no-highlight">706</i>&nbsp;            /*
+<i class="no-highlight">707</i>&nbsp;             * Must send data to the remote side before handshaking can
+<i class="no-highlight">708</i>&nbsp;             * continue, so wrap() must be called.
+<i class="no-highlight">709</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">710</i>&nbsp;            writeLock.lock();</b>
+<i class="no-highlight">711</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">712</i>&nbsp;                engineResult = sslEngine.wrap(emptyXmitBuffer, netXmitBuffer);</b>
+<i class="no-highlight">713</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">714</i>&nbsp;                writeLock.unlock();</b>
+<b class="nc"><i class="no-highlight">715</i>&nbsp;            }</b>
+<i class="no-highlight">716</i>&nbsp;
+<b class="nc"><i class="no-highlight">717</i>&nbsp;            if (engineResult.getStatus() == Status.CLOSED) {</b>
+<i class="no-highlight">718</i>&nbsp;                /*
+<i class="no-highlight">719</i>&nbsp;                 * If the engine is already closed, flush may fail, and that&#39;s
+<i class="no-highlight">720</i>&nbsp;                 * ok, so squash any exceptions that happen
+<i class="no-highlight">721</i>&nbsp;                 */
+<i class="no-highlight">722</i>&nbsp;                try {
+<i class="no-highlight">723</i>&nbsp;                    /* ignore the flush count */
+<b class="nc"><i class="no-highlight">724</i>&nbsp;                    flush_internal();</b>
+<b class="nc"><i class="no-highlight">725</i>&nbsp;                } catch (SocketException se) {</b>
+<b class="nc"><i class="no-highlight">726</i>&nbsp;                }</b>
+<i class="no-highlight">727</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">728</i>&nbsp;                flushCount = flush_internal();</b>
+<i class="no-highlight">729</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">730</i>&nbsp;            break;</b>
+<i class="no-highlight">731</i>&nbsp;
+<i class="no-highlight">732</i>&nbsp;        case NOT_HANDSHAKING:
+<i class="no-highlight">733</i>&nbsp;            /* Not currently handshaking */
+<b class="nc"><i class="no-highlight">734</i>&nbsp;            return false;</b>
+<i class="no-highlight">735</i>&nbsp;        }
+<i class="no-highlight">736</i>&nbsp;
+<i class="no-highlight">737</i>&nbsp;        /*
+<i class="no-highlight">738</i>&nbsp;         * We may have done a wrap or unwrap above.  Check the engineResult
+<i class="no-highlight">739</i>&nbsp;         */
+<i class="no-highlight">740</i>&nbsp;
+<b class="nc"><i class="no-highlight">741</i>&nbsp;        if (engineResult != null) {</b>
+<b class="nc"><i class="no-highlight">742</i>&nbsp;            if (engineResult.getHandshakeStatus() == HandshakeStatus.FINISHED) {</b>
+<i class="no-highlight">743</i>&nbsp;                /*
+<i class="no-highlight">744</i>&nbsp;                 * Handshaking just completed.   Here is our chance to do any
+<i class="no-highlight">745</i>&nbsp;                 * session validation that might be required.
+<i class="no-highlight">746</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">747</i>&nbsp;                if (sslEngine.getUseClientMode()) {</b>
+<b class="nc"><i class="no-highlight">748</i>&nbsp;                    if (hostVerifier != null) {</b>
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                        peerTrusted =</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;                            hostVerifier.verify(targetHost,</b>
+<b class="nc"><i class="no-highlight">751</i>&nbsp;                                                sslEngine.getSession());</b>
+<b class="nc"><i class="no-highlight">752</i>&nbsp;                        if (peerTrusted) {</b>
+<b class="nc"><i class="no-highlight">753</i>&nbsp;                            logger.log(FINE,</b>
+<i class="no-highlight">754</i>&nbsp;                                          &quot;SSL host verifier reports that &quot; +
+<i class="no-highlight">755</i>&nbsp;                                          &quot;connection target is valid&quot;);
+<i class="no-highlight">756</i>&nbsp;                        } else {
+<b class="nc"><i class="no-highlight">757</i>&nbsp;                            logger.log(INFO,</b>
+<i class="no-highlight">758</i>&nbsp;                                       &quot;SSL host verifier reports that &quot; +
+<i class="no-highlight">759</i>&nbsp;                                       &quot;connection target is NOT valid&quot;);
+<b class="nc"><i class="no-highlight">760</i>&nbsp;                            throw new IOException(</b>
+<i class="no-highlight">761</i>&nbsp;                                &quot;Server identity could not be verified&quot;);
+<i class="no-highlight">762</i>&nbsp;                        }
+<i class="no-highlight">763</i>&nbsp;                    }
+<i class="no-highlight">764</i>&nbsp;                } else {
+<b class="nc"><i class="no-highlight">765</i>&nbsp;                    if (authenticator != null) {</b>
+<b class="nc"><i class="no-highlight">766</i>&nbsp;                        peerTrusted =</b>
+<b class="nc"><i class="no-highlight">767</i>&nbsp;                            authenticator.isTrusted(sslEngine.getSession());</b>
+<b class="nc"><i class="no-highlight">768</i>&nbsp;                        if (peerTrusted) {</b>
+<b class="nc"><i class="no-highlight">769</i>&nbsp;                            logger.log(FINE,</b>
+<i class="no-highlight">770</i>&nbsp;                                       &quot;SSL authenticator reports that &quot; +
+<i class="no-highlight">771</i>&nbsp;                                       &quot;channel is trusted&quot;);
+<i class="no-highlight">772</i>&nbsp;                        } else {
+<b class="nc"><i class="no-highlight">773</i>&nbsp;                            logger.log(INFO,</b>
+<i class="no-highlight">774</i>&nbsp;                                       &quot;SSL authenticator reports that &quot; +
+<i class="no-highlight">775</i>&nbsp;                                       &quot;channel is NOT trusted&quot;);
+<i class="no-highlight">776</i>&nbsp;                        }
+<i class="no-highlight">777</i>&nbsp;                    }
+<i class="no-highlight">778</i>&nbsp;                }
+<i class="no-highlight">779</i>&nbsp;            }
+<i class="no-highlight">780</i>&nbsp;
+<b class="nc"><i class="no-highlight">781</i>&nbsp;            switch (engineResult.getStatus()) {</b>
+<i class="no-highlight">782</i>&nbsp;            case BUFFER_UNDERFLOW:
+<i class="no-highlight">783</i>&nbsp;                /*
+<i class="no-highlight">784</i>&nbsp;                 * This must have resulted from an unwrap, meaning we need to
+<i class="no-highlight">785</i>&nbsp;                 * do another read.  If the last read did something useful,
+<i class="no-highlight">786</i>&nbsp;                 * tell the caller to call us again.
+<i class="no-highlight">787</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">788</i>&nbsp;                return readCount &gt; 0;</b>
+<i class="no-highlight">789</i>&nbsp;
+<i class="no-highlight">790</i>&nbsp;            case BUFFER_OVERFLOW:
+<i class="no-highlight">791</i>&nbsp;                /*
+<i class="no-highlight">792</i>&nbsp;                 * Either we were processing an unwrap and the appRecvBuffer is
+<i class="no-highlight">793</i>&nbsp;                 * full or we were processing a wrap and the netXmitBuffer is
+<i class="no-highlight">794</i>&nbsp;                 * full.  For the unwrap case, the only way we can make progress
+<i class="no-highlight">795</i>&nbsp;                 * is for the application to receive control.  For the wrap
+<i class="no-highlight">796</i>&nbsp;                 * case, we may be able to make progress if the flush
+<i class="no-highlight">797</i>&nbsp;                 * did something useful.
+<i class="no-highlight">798</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">799</i>&nbsp;                if ((sslEngine.getHandshakeStatus() ==</b>
+<i class="no-highlight">800</i>&nbsp;                     HandshakeStatus.NEED_WRAP) &amp;&amp;
+<i class="no-highlight">801</i>&nbsp;                    flushCount &gt; 0) {
+<b class="nc"><i class="no-highlight">802</i>&nbsp;                    return true;</b>
+<i class="no-highlight">803</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">804</i>&nbsp;                return false;</b>
+<i class="no-highlight">805</i>&nbsp;
+<i class="no-highlight">806</i>&nbsp;            case CLOSED:
+<b class="nc"><i class="no-highlight">807</i>&nbsp;                if (sslEngine.isOutboundDone()) {</b>
+<i class="no-highlight">808</i>&nbsp;                    try {
+<b class="nc"><i class="no-highlight">809</i>&nbsp;                        socketChannel.socket().shutdownOutput();</b>
+<b class="nc"><i class="no-highlight">810</i>&nbsp;                    } catch (Exception e) {</b>
+<b class="nc"><i class="no-highlight">811</i>&nbsp;                    }</b>
+<i class="no-highlight">812</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">813</i>&nbsp;                return false;</b>
+<i class="no-highlight">814</i>&nbsp;
+<i class="no-highlight">815</i>&nbsp;            case OK:
+<i class="no-highlight">816</i>&nbsp;                break;
+<i class="no-highlight">817</i>&nbsp;            }
+<i class="no-highlight">818</i>&nbsp;        }
+<i class="no-highlight">819</i>&nbsp;
+<i class="no-highlight">820</i>&nbsp;        /*
+<i class="no-highlight">821</i>&nbsp;         * Tell the caller to try again.  Cases where no handshake progress
+<i class="no-highlight">822</i>&nbsp;         * can be made should return false above.
+<i class="no-highlight">823</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">824</i>&nbsp;        return true;</b>
+<i class="no-highlight">825</i>&nbsp;    }
+<i class="no-highlight">826</i>&nbsp;
+<i class="no-highlight">827</i>&nbsp;    private void runDelegatedTasks() {
+<i class="no-highlight">828</i>&nbsp;        Runnable task;
+<i class="no-highlight">829</i>&nbsp;        /*
+<i class="no-highlight">830</i>&nbsp;         * In theory, we could run these as a background job, but no need for
+<i class="no-highlight">831</i>&nbsp;         * that level of complication.  Our server doesn&#39;t serve a large number
+<i class="no-highlight">832</i>&nbsp;         * of clients.
+<i class="no-highlight">833</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">834</i>&nbsp;        while ((task = sslEngine.getDelegatedTask()) != null) {</b>
+<b class="nc"><i class="no-highlight">835</i>&nbsp;            task.run();</b>
+<i class="no-highlight">836</i>&nbsp;        }
+<i class="no-highlight">837</i>&nbsp;    }
+<i class="no-highlight">838</i>&nbsp;}
+<i class="no-highlight">839</i>&nbsp;
+<i class="no-highlight">840</i>&nbsp;
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

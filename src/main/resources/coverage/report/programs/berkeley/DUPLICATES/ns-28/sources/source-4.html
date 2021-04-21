@@ -1,0 +1,1107 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SSLChannelFactory</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.rep.utilint.net</a>
+</div>
+
+<h1>Coverage Summary for Class: SSLChannelFactory (com.sleepycat.je.rep.utilint.net)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">SSLChannelFactory</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/26)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/310)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">SSLChannelFactory$KeyStoreInfo</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/3)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/8)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/29)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/318)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.rep.utilint.net;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.FileInputStream;
+<i class="no-highlight">17</i>&nbsp;import java.io.FileNotFoundException;
+<i class="no-highlight">18</i>&nbsp;import java.io.IOException;
+<i class="no-highlight">19</i>&nbsp;import java.net.InetSocketAddress;
+<i class="no-highlight">20</i>&nbsp;import java.net.SocketAddress;
+<i class="no-highlight">21</i>&nbsp;import java.nio.channels.SocketChannel;
+<i class="no-highlight">22</i>&nbsp;import java.security.KeyManagementException;
+<i class="no-highlight">23</i>&nbsp;import java.security.KeyStore;
+<i class="no-highlight">24</i>&nbsp;import java.security.KeyStoreException;
+<i class="no-highlight">25</i>&nbsp;import java.security.NoSuchAlgorithmException;
+<i class="no-highlight">26</i>&nbsp;import java.security.UnrecoverableKeyException;
+<i class="no-highlight">27</i>&nbsp;import java.security.cert.CertificateException;
+<i class="no-highlight">28</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">29</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">30</i>&nbsp;
+<i class="no-highlight">31</i>&nbsp;import javax.net.ssl.HostnameVerifier;
+<i class="no-highlight">32</i>&nbsp;import javax.net.ssl.KeyManager;
+<i class="no-highlight">33</i>&nbsp;import javax.net.ssl.KeyManagerFactory;
+<i class="no-highlight">34</i>&nbsp;import javax.net.ssl.SSLContext;
+<i class="no-highlight">35</i>&nbsp;import javax.net.ssl.SSLEngine;
+<i class="no-highlight">36</i>&nbsp;import javax.net.ssl.SSLParameters;
+<i class="no-highlight">37</i>&nbsp;import javax.net.ssl.TrustManager;
+<i class="no-highlight">38</i>&nbsp;import javax.net.ssl.TrustManagerFactory;
+<i class="no-highlight">39</i>&nbsp;import javax.net.ssl.X509ExtendedKeyManager;
+<i class="no-highlight">40</i>&nbsp;
+<i class="no-highlight">41</i>&nbsp;import com.sleepycat.je.rep.ReplicationSSLConfig;
+<i class="no-highlight">42</i>&nbsp;import com.sleepycat.je.rep.net.DataChannel;
+<i class="no-highlight">43</i>&nbsp;import com.sleepycat.je.rep.net.DataChannelFactory;
+<i class="no-highlight">44</i>&nbsp;import com.sleepycat.je.rep.net.InstanceContext;
+<i class="no-highlight">45</i>&nbsp;import com.sleepycat.je.rep.net.InstanceLogger;
+<i class="no-highlight">46</i>&nbsp;import com.sleepycat.je.rep.net.InstanceParams;
+<i class="no-highlight">47</i>&nbsp;import com.sleepycat.je.rep.net.PasswordSource;
+<i class="no-highlight">48</i>&nbsp;import com.sleepycat.je.rep.net.SSLAuthenticator;
+<i class="no-highlight">49</i>&nbsp;import com.sleepycat.je.rep.utilint.RepUtils;
+<i class="no-highlight">50</i>&nbsp;import com.sleepycat.je.rep.utilint.net.DataChannelFactoryBuilder.CtorArgSpec;
+<i class="no-highlight">51</i>&nbsp;
+<i class="no-highlight">52</i>&nbsp;/**
+<i class="no-highlight">53</i>&nbsp; * A factory class for generating SSLDataChannel instances based on
+<i class="no-highlight">54</i>&nbsp; * SocketChannel instances.
+<i class="no-highlight">55</i>&nbsp; */
+<i class="no-highlight">56</i>&nbsp;public class SSLChannelFactory implements DataChannelFactory {
+<i class="no-highlight">57</i>&nbsp;
+<i class="no-highlight">58</i>&nbsp;    /*
+<i class="no-highlight">59</i>&nbsp;     * Protocol to use in call to SSLContext.getInstance.  This isn&#39;t a
+<i class="no-highlight">60</i>&nbsp;     * protocol per-se.  Actual protocol selection is chosen at the time
+<i class="no-highlight">61</i>&nbsp;     * a connection is established based on enabled protocol settings for
+<i class="no-highlight">62</i>&nbsp;     * both client and server.
+<i class="no-highlight">63</i>&nbsp;     */
+<i class="no-highlight">64</i>&nbsp;    private static final String SSL_CONTEXT_PROTOCOL = &quot;TLS&quot;;
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;    /**
+<i class="no-highlight">67</i>&nbsp;     * A system property to allow users to specify the correct X509 certificate
+<i class="no-highlight">68</i>&nbsp;     * algorithm name based on the JVMs they are using.
+<i class="no-highlight">69</i>&nbsp;     */
+<i class="no-highlight">70</i>&nbsp;    private static final String X509_ALGO_NAME_PROPERTY =
+<i class="no-highlight">71</i>&nbsp;        &quot;je.ssl.x509AlgoName&quot;;
+<i class="no-highlight">72</i>&nbsp;
+<i class="no-highlight">73</i>&nbsp;    /**
+<i class="no-highlight">74</i>&nbsp;     * The algorithm name of X509 certificate. It depends on the vendor of JVM.
+<i class="no-highlight">75</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">76</i>&nbsp;    private static final String X509_ALGO_NAME = getX509AlgoName();</b>
+<i class="no-highlight">77</i>&nbsp;
+<i class="no-highlight">78</i>&nbsp;    /**
+<i class="no-highlight">79</i>&nbsp;     * An SSLContext that will hold all the interesting connection parameter
+<i class="no-highlight">80</i>&nbsp;     * information for session creation in server mode.
+<i class="no-highlight">81</i>&nbsp;     */
+<i class="no-highlight">82</i>&nbsp;    private final SSLContext serverSSLContext;
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;    /**
+<i class="no-highlight">85</i>&nbsp;     * An SSLContext that will hold all the interesting connection parameter
+<i class="no-highlight">86</i>&nbsp;     * information for session creation in client mode.
+<i class="no-highlight">87</i>&nbsp;     */
+<i class="no-highlight">88</i>&nbsp;    private final SSLContext clientSSLContext;
+<i class="no-highlight">89</i>&nbsp;
+<i class="no-highlight">90</i>&nbsp;    /**
+<i class="no-highlight">91</i>&nbsp;     * The base SSLParameters for use in channel creation.
+<i class="no-highlight">92</i>&nbsp;     */
+<i class="no-highlight">93</i>&nbsp;    private final SSLParameters baseSSLParameters;
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;    /**
+<i class="no-highlight">96</i>&nbsp;     * An authenticator object for validating SSL session peers when acting
+<i class="no-highlight">97</i>&nbsp;     * in server mode
+<i class="no-highlight">98</i>&nbsp;     */
+<i class="no-highlight">99</i>&nbsp;    private final SSLAuthenticator sslAuthenticator;
+<i class="no-highlight">100</i>&nbsp;
+<i class="no-highlight">101</i>&nbsp;    /**
+<i class="no-highlight">102</i>&nbsp;     * A host verifier object for validating SSL session peers when acting
+<i class="no-highlight">103</i>&nbsp;     * in client mode
+<i class="no-highlight">104</i>&nbsp;     */
+<i class="no-highlight">105</i>&nbsp;    private final HostnameVerifier sslHostVerifier;
+<i class="no-highlight">106</i>&nbsp;
+<i class="no-highlight">107</i>&nbsp;    private final InstanceLogger logger;
+<i class="no-highlight">108</i>&nbsp;
+<i class="no-highlight">109</i>&nbsp;    /**
+<i class="no-highlight">110</i>&nbsp;     * Constructor for use during creating based on access configuration
+<i class="no-highlight">111</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">112</i>&nbsp;    public SSLChannelFactory(InstanceParams params) {</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;        serverSSLContext = constructSSLContext(params, false);</b>
+<b class="nc"><i class="no-highlight">114</i>&nbsp;        clientSSLContext = constructSSLContext(params, true);</b>
+<b class="nc"><i class="no-highlight">115</i>&nbsp;        baseSSLParameters =</b>
+<b class="nc"><i class="no-highlight">116</i>&nbsp;            filterSSLParameters(constructSSLParameters(params),</b>
+<i class="no-highlight">117</i>&nbsp;                                serverSSLContext);
+<b class="nc"><i class="no-highlight">118</i>&nbsp;        sslAuthenticator = constructSSLAuthenticator(params);</b>
+<b class="nc"><i class="no-highlight">119</i>&nbsp;        sslHostVerifier = constructSSLHostVerifier(params);</b>
+<b class="nc"><i class="no-highlight">120</i>&nbsp;        logger = params.getContext().getLoggerFactory().getLogger(getClass());</b>
+<i class="no-highlight">121</i>&nbsp;    }
+<i class="no-highlight">122</i>&nbsp;
+<i class="no-highlight">123</i>&nbsp;    /**
+<i class="no-highlight">124</i>&nbsp;     * Constructor for use when SSL configuration objects have already
+<i class="no-highlight">125</i>&nbsp;     * been constructed.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    public SSLChannelFactory(SSLContext serverSSLContext,
+<i class="no-highlight">128</i>&nbsp;                             SSLContext clientSSLContext,
+<i class="no-highlight">129</i>&nbsp;                             SSLParameters baseSSLParameters,
+<i class="no-highlight">130</i>&nbsp;                             SSLAuthenticator sslAuthenticator,
+<i class="no-highlight">131</i>&nbsp;                             HostnameVerifier sslHostVerifier,
+<b class="nc"><i class="no-highlight">132</i>&nbsp;                             InstanceLogger logger) {</b>
+<i class="no-highlight">133</i>&nbsp;
+<b class="nc"><i class="no-highlight">134</i>&nbsp;        this.serverSSLContext = serverSSLContext;</b>
+<b class="nc"><i class="no-highlight">135</i>&nbsp;        this.clientSSLContext = clientSSLContext;</b>
+<b class="nc"><i class="no-highlight">136</i>&nbsp;        this.baseSSLParameters =</b>
+<b class="nc"><i class="no-highlight">137</i>&nbsp;            filterSSLParameters(baseSSLParameters, serverSSLContext);</b>
+<b class="nc"><i class="no-highlight">138</i>&nbsp;        this.sslAuthenticator = sslAuthenticator;</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        this.sslHostVerifier = sslHostVerifier;</b>
+<b class="nc"><i class="no-highlight">140</i>&nbsp;        this.logger = logger;</b>
+<i class="no-highlight">141</i>&nbsp;    }
+<i class="no-highlight">142</i>&nbsp;
+<i class="no-highlight">143</i>&nbsp;    /**
+<i class="no-highlight">144</i>&nbsp;     * Construct a DataChannel wrapping the newly accepted SocketChannel
+<i class="no-highlight">145</i>&nbsp;     */
+<i class="no-highlight">146</i>&nbsp;    @Override
+<i class="no-highlight">147</i>&nbsp;    public DataChannel acceptChannel(SocketChannel socketChannel) {
+<i class="no-highlight">148</i>&nbsp;
+<b class="nc"><i class="no-highlight">149</i>&nbsp;        final SocketAddress socketAddress =</b>
+<b class="nc"><i class="no-highlight">150</i>&nbsp;            socketChannel.socket().getRemoteSocketAddress();</b>
+<b class="nc"><i class="no-highlight">151</i>&nbsp;        String host = null;</b>
+<b class="nc"><i class="no-highlight">152</i>&nbsp;        if (socketAddress == null) {</b>
+<b class="nc"><i class="no-highlight">153</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">154</i>&nbsp;                &quot;socketChannel is not connected&quot;);
+<i class="no-highlight">155</i>&nbsp;        }
+<i class="no-highlight">156</i>&nbsp;
+<b class="nc"><i class="no-highlight">157</i>&nbsp;        if (socketAddress instanceof InetSocketAddress) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;            host = ((InetSocketAddress)socketAddress).getAddress().toString();</b>
+<i class="no-highlight">159</i>&nbsp;        }
+<i class="no-highlight">160</i>&nbsp;
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        final SSLEngine engine =</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            serverSSLContext.createSSLEngine(host,</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                                             socketChannel.socket().getPort());</b>
+<b class="nc"><i class="no-highlight">164</i>&nbsp;        engine.setSSLParameters(baseSSLParameters);</b>
+<b class="nc"><i class="no-highlight">165</i>&nbsp;        engine.setUseClientMode(false);</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;        if (sslAuthenticator != null) {</b>
+<b class="nc"><i class="no-highlight">167</i>&nbsp;            engine.setWantClientAuth(true);</b>
+<i class="no-highlight">168</i>&nbsp;        }
+<i class="no-highlight">169</i>&nbsp;
+<b class="nc"><i class="no-highlight">170</i>&nbsp;        return new SSLDataChannel(socketChannel, engine, null, null,</b>
+<i class="no-highlight">171</i>&nbsp;                                  sslAuthenticator, logger);
+<i class="no-highlight">172</i>&nbsp;    }
+<i class="no-highlight">173</i>&nbsp;
+<i class="no-highlight">174</i>&nbsp;    /**
+<i class="no-highlight">175</i>&nbsp;     * Construct a DataChannel wrapping a new connection to the specified
+<i class="no-highlight">176</i>&nbsp;     * address using the associated connection options.
+<i class="no-highlight">177</i>&nbsp;     */
+<i class="no-highlight">178</i>&nbsp;    @Override
+<i class="no-highlight">179</i>&nbsp;    public DataChannel connect(InetSocketAddress addr,
+<i class="no-highlight">180</i>&nbsp;                               ConnectOptions connectOptions)
+<i class="no-highlight">181</i>&nbsp;        throws IOException {
+<i class="no-highlight">182</i>&nbsp;
+<b class="nc"><i class="no-highlight">183</i>&nbsp;        final SocketChannel socketChannel =</b>
+<b class="nc"><i class="no-highlight">184</i>&nbsp;            RepUtils.openSocketChannel(addr, connectOptions);</b>
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;        /*
+<i class="no-highlight">187</i>&nbsp;         * Figure out a good host to specify.  This is used for session caching
+<i class="no-highlight">188</i>&nbsp;         * so it&#39;s not critical what answer we come up with, so long as it
+<i class="no-highlight">189</i>&nbsp;         * is relatively repeatable.
+<i class="no-highlight">190</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">191</i>&nbsp;        String host = addr.getHostName();</b>
+<b class="nc"><i class="no-highlight">192</i>&nbsp;        if (host == null) {</b>
+<b class="nc"><i class="no-highlight">193</i>&nbsp;            host = addr.getAddress().toString();</b>
+<i class="no-highlight">194</i>&nbsp;        }
+<i class="no-highlight">195</i>&nbsp;
+<b class="nc"><i class="no-highlight">196</i>&nbsp;        final SSLEngine engine =</b>
+<b class="nc"><i class="no-highlight">197</i>&nbsp;            clientSSLContext.createSSLEngine(host, addr.getPort());</b>
+<b class="nc"><i class="no-highlight">198</i>&nbsp;        engine.setSSLParameters(baseSSLParameters);</b>
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        engine.setUseClientMode(true);</b>
+<i class="no-highlight">200</i>&nbsp;
+<b class="nc"><i class="no-highlight">201</i>&nbsp;        return new SSLDataChannel(</b>
+<i class="no-highlight">202</i>&nbsp;            socketChannel, engine, host, sslHostVerifier, null, logger);
+<i class="no-highlight">203</i>&nbsp;    }
+<i class="no-highlight">204</i>&nbsp;
+<i class="no-highlight">205</i>&nbsp;    /**
+<i class="no-highlight">206</i>&nbsp;     * Reads the KeyStore configured in the ReplicationNetworkConfig into
+<i class="no-highlight">207</i>&nbsp;     * memory.
+<i class="no-highlight">208</i>&nbsp;     */
+<i class="no-highlight">209</i>&nbsp;    public static KeyStore readKeyStore(InstanceContext context) {
+<i class="no-highlight">210</i>&nbsp;
+<b class="nc"><i class="no-highlight">211</i>&nbsp;        KeyStoreInfo ksInfo = readKeyStoreInfo(context);</b>
+<i class="no-highlight">212</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">213</i>&nbsp;            return ksInfo.ks;</b>
+<i class="no-highlight">214</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            ksInfo.clearPassword();</b>
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        }</b>
+<i class="no-highlight">217</i>&nbsp;    }
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;    /**
+<i class="no-highlight">220</i>&nbsp;     * Checks whether the auth string is a valid authenticator specification
+<i class="no-highlight">221</i>&nbsp;     */
+<i class="no-highlight">222</i>&nbsp;    public static boolean isValidAuthenticator(String authSpec) {
+<b class="nc"><i class="no-highlight">223</i>&nbsp;        authSpec = authSpec.trim();</b>
+<i class="no-highlight">224</i>&nbsp;
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        if (authSpec.equals(&quot;&quot;) || authSpec.equals(&quot;mirror&quot;)) {</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;            return true;</b>
+<i class="no-highlight">227</i>&nbsp;        }
+<i class="no-highlight">228</i>&nbsp;
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        if (authSpec.startsWith(&quot;dnmatch(&quot;) &amp;&amp; authSpec.endsWith(&quot;)&quot;)) {</b>
+<i class="no-highlight">230</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">231</i>&nbsp;                SSLDNAuthenticator.validate(authSpec);</b>
+<b class="nc"><i class="no-highlight">232</i>&nbsp;                return true;</b>
+<b class="nc"><i class="no-highlight">233</i>&nbsp;            } catch(IllegalArgumentException iae) {</b>
+<b class="nc"><i class="no-highlight">234</i>&nbsp;                return false;</b>
+<i class="no-highlight">235</i>&nbsp;            }
+<i class="no-highlight">236</i>&nbsp;        }
+<i class="no-highlight">237</i>&nbsp;
+<b class="nc"><i class="no-highlight">238</i>&nbsp;        return false;</b>
+<i class="no-highlight">239</i>&nbsp;    }
+<i class="no-highlight">240</i>&nbsp;
+<i class="no-highlight">241</i>&nbsp;    /**
+<i class="no-highlight">242</i>&nbsp;     * Checks whether input string is a valid host verifier specification
+<i class="no-highlight">243</i>&nbsp;     */
+<i class="no-highlight">244</i>&nbsp;    public static boolean isValidHostVerifier(String hvSpec) {
+<i class="no-highlight">245</i>&nbsp;
+<b class="nc"><i class="no-highlight">246</i>&nbsp;        hvSpec = hvSpec.trim();</b>
+<i class="no-highlight">247</i>&nbsp;
+<b class="nc"><i class="no-highlight">248</i>&nbsp;        if (hvSpec.equals(&quot;&quot;) || hvSpec.equals(&quot;mirror&quot;) ||</b>
+<b class="nc"><i class="no-highlight">249</i>&nbsp;            hvSpec.equals(&quot;hostname&quot;)) {</b>
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            return true;</b>
+<i class="no-highlight">251</i>&nbsp;        }
+<i class="no-highlight">252</i>&nbsp;
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        if (hvSpec.startsWith(&quot;dnmatch(&quot;) &amp;&amp; hvSpec.endsWith(&quot;)&quot;)) {</b>
+<i class="no-highlight">254</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">255</i>&nbsp;                SSLDNHostVerifier.validate(hvSpec);</b>
+<b class="nc"><i class="no-highlight">256</i>&nbsp;            } catch (IllegalArgumentException iae) {</b>
+<b class="nc"><i class="no-highlight">257</i>&nbsp;                return false;</b>
+<b class="nc"><i class="no-highlight">258</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;            return true;</b>
+<i class="no-highlight">260</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">261</i>&nbsp;        return false;</b>
+<i class="no-highlight">262</i>&nbsp;    }
+<i class="no-highlight">263</i>&nbsp;
+<i class="no-highlight">264</i>&nbsp;    /**
+<i class="no-highlight">265</i>&nbsp;     * Builds an SSLContext object for the specified access mode.
+<i class="no-highlight">266</i>&nbsp;     * @param params general instantiation information
+<i class="no-highlight">267</i>&nbsp;     * @param clientMode set to true if the SSLContext is being created for
+<i class="no-highlight">268</i>&nbsp;     * the client side of an SSL connection and false otherwise
+<i class="no-highlight">269</i>&nbsp;     */
+<i class="no-highlight">270</i>&nbsp;    private static SSLContext constructSSLContext(
+<i class="no-highlight">271</i>&nbsp;        InstanceParams params, boolean clientMode) {
+<i class="no-highlight">272</i>&nbsp;
+<b class="nc"><i class="no-highlight">273</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">274</i>&nbsp;            (ReplicationSSLConfig) params.getContext().getRepNetConfig();</b>
+<i class="no-highlight">275</i>&nbsp;
+<b class="nc"><i class="no-highlight">276</i>&nbsp;        KeyManager[] kmList = null;</b>
+<b class="nc"><i class="no-highlight">277</i>&nbsp;        final KeyStoreInfo ksInfo = readKeyStoreInfo(params.getContext());</b>
+<i class="no-highlight">278</i>&nbsp;
+<b class="nc"><i class="no-highlight">279</i>&nbsp;        if (ksInfo != null) {</b>
+<i class="no-highlight">280</i>&nbsp;            try {
+<i class="no-highlight">281</i>&nbsp;
+<i class="no-highlight">282</i>&nbsp;                /*
+<i class="no-highlight">283</i>&nbsp;                 * Determine whether a specific key is supposed to be used
+<i class="no-highlight">284</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">285</i>&nbsp;                String ksAliasProp = clientMode ?</b>
+<b class="nc"><i class="no-highlight">286</i>&nbsp;                    config.getSSLClientKeyAlias() :</b>
+<b class="nc"><i class="no-highlight">287</i>&nbsp;                    config.getSSLServerKeyAlias();</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;                if (ksAliasProp != null &amp;&amp; ksAliasProp.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">289</i>&nbsp;                    ksAliasProp = null;</b>
+<i class="no-highlight">290</i>&nbsp;                }
+<i class="no-highlight">291</i>&nbsp;
+<b class="nc"><i class="no-highlight">292</i>&nbsp;                kmList = buildKeyManagerList(ksInfo, ksAliasProp, clientMode);</b>
+<i class="no-highlight">293</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">294</i>&nbsp;                ksInfo.clearPassword();</b>
+<b class="nc"><i class="no-highlight">295</i>&nbsp;            }</b>
+<i class="no-highlight">296</i>&nbsp;        }
+<i class="no-highlight">297</i>&nbsp;
+<b class="nc"><i class="no-highlight">298</i>&nbsp;        TrustManager[] tmList = null;</b>
+<b class="nc"><i class="no-highlight">299</i>&nbsp;        final KeyStoreInfo tsInfo = readTrustStoreInfo(params.getContext());</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        if (tsInfo != null) {</b>
+<i class="no-highlight">301</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">302</i>&nbsp;                tmList = buildTrustManagerList(tsInfo);</b>
+<i class="no-highlight">303</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">304</i>&nbsp;                tsInfo.clearPassword();</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            }</b>
+<i class="no-highlight">306</i>&nbsp;        }
+<i class="no-highlight">307</i>&nbsp;
+<i class="no-highlight">308</i>&nbsp;        /*
+<i class="no-highlight">309</i>&nbsp;         * Get an SSLContext object
+<i class="no-highlight">310</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">311</i>&nbsp;        SSLContext newContext = null;</b>
+<i class="no-highlight">312</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">313</i>&nbsp;            newContext = SSLContext.getInstance(SSL_CONTEXT_PROTOCOL);</b>
+<b class="nc"><i class="no-highlight">314</i>&nbsp;        } catch (NoSuchAlgorithmException nsae) {</b>
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">316</i>&nbsp;                &quot;Unable to find a suitable SSLContext&quot;, nsae);
+<b class="nc"><i class="no-highlight">317</i>&nbsp;        }</b>
+<i class="no-highlight">318</i>&nbsp;
+<i class="no-highlight">319</i>&nbsp;        /*
+<i class="no-highlight">320</i>&nbsp;         * Put it all together into the SSLContext object
+<i class="no-highlight">321</i>&nbsp;         */
+<i class="no-highlight">322</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">323</i>&nbsp;            newContext.init(kmList, tmList, null);</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;        } catch (KeyManagementException kme) {</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">326</i>&nbsp;                &quot;Error establishing SSLContext&quot;, kme);
+<b class="nc"><i class="no-highlight">327</i>&nbsp;        }</b>
+<i class="no-highlight">328</i>&nbsp;
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        return newContext;</b>
+<i class="no-highlight">330</i>&nbsp;    }
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;    /**
+<i class="no-highlight">333</i>&nbsp;     * Builds a list of KeyManagers for incorporation into an SSLContext.
+<i class="no-highlight">334</i>&nbsp;     *
+<i class="no-highlight">335</i>&nbsp;     * @param ksInfo a KeyStoreInfo referencing the Keystore for which the
+<i class="no-highlight">336</i>&nbsp;     * the key manager list is to be built.
+<i class="no-highlight">337</i>&nbsp;     * @param ksAlias an optional KeyStore alias.  If set, the key manager
+<i class="no-highlight">338</i>&nbsp;     * for X509 certs will always select the certificate with the specified
+<i class="no-highlight">339</i>&nbsp;     * alias.
+<i class="no-highlight">340</i>&nbsp;     * @param clientMode set to true if this is for the client side of
+<i class="no-highlight">341</i>&nbsp;     * an SSL connection and fals otherwise.
+<i class="no-highlight">342</i>&nbsp;     */
+<i class="no-highlight">343</i>&nbsp;    private static KeyManager[] buildKeyManagerList(KeyStoreInfo ksInfo,
+<i class="no-highlight">344</i>&nbsp;                                                    String ksAlias,
+<i class="no-highlight">345</i>&nbsp;                                                    boolean clientMode) {
+<i class="no-highlight">346</i>&nbsp;
+<i class="no-highlight">347</i>&nbsp;        /*
+<i class="no-highlight">348</i>&nbsp;         * Get a KeyManagerFactory
+<i class="no-highlight">349</i>&nbsp;         */
+<i class="no-highlight">350</i>&nbsp;        final KeyManagerFactory kmf;
+<i class="no-highlight">351</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">352</i>&nbsp;            kmf = KeyManagerFactory.getInstance(X509_ALGO_NAME);</b>
+<b class="nc"><i class="no-highlight">353</i>&nbsp;        } catch (NoSuchAlgorithmException nsae) {</b>
+<b class="nc"><i class="no-highlight">354</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">355</i>&nbsp;                &quot;Unable to find a suitable KeyManagerFactory&quot;, nsae);
+<b class="nc"><i class="no-highlight">356</i>&nbsp;        }</b>
+<i class="no-highlight">357</i>&nbsp;
+<i class="no-highlight">358</i>&nbsp;        /*
+<i class="no-highlight">359</i>&nbsp;         * Initialize the key manager factory
+<i class="no-highlight">360</i>&nbsp;         */
+<i class="no-highlight">361</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">362</i>&nbsp;            kmf.init(ksInfo.ks, ksInfo.ksPwd);</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;        } catch (KeyStoreException kse) {</b>
+<b class="nc"><i class="no-highlight">364</i>&nbsp;            throw new IllegalStateException(</b>
+<b class="nc"><i class="no-highlight">365</i>&nbsp;                &quot;Error processing keystore file &quot; + ksInfo.ksFile,</b>
+<i class="no-highlight">366</i>&nbsp;                kse);
+<b class="nc"><i class="no-highlight">367</i>&nbsp;        } catch (NoSuchAlgorithmException nsae) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">369</i>&nbsp;                &quot;Unable to find appropriate algorithm for &quot; +
+<b class="nc"><i class="no-highlight">370</i>&nbsp;                &quot;keystore file &quot; + ksInfo.ksFile, nsae);</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;        } catch (UnrecoverableKeyException uke) {</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">373</i>&nbsp;                &quot;Unable to recover key from keystore file &quot; +
+<b class="nc"><i class="no-highlight">374</i>&nbsp;                ksInfo.ksFile, uke);</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;        }</b>
+<i class="no-highlight">376</i>&nbsp;
+<i class="no-highlight">377</i>&nbsp;        /*
+<i class="no-highlight">378</i>&nbsp;         * Get the list of key managers used
+<i class="no-highlight">379</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">380</i>&nbsp;        KeyManager[] kmList = kmf.getKeyManagers();</b>
+<i class="no-highlight">381</i>&nbsp;
+<i class="no-highlight">382</i>&nbsp;        /*
+<i class="no-highlight">383</i>&nbsp;         * If an alias was specified, we need to construct an
+<i class="no-highlight">384</i>&nbsp;         * AliasKeyManager, which will delegate to the correct
+<i class="no-highlight">385</i>&nbsp;         * underlying KeyManager, which we need to locate.
+<i class="no-highlight">386</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">387</i>&nbsp;        if (ksAlias != null) {</b>
+<i class="no-highlight">388</i>&nbsp;
+<i class="no-highlight">389</i>&nbsp;            /*
+<i class="no-highlight">390</i>&nbsp;             * Locate the first appropriate keymanager in the list
+<i class="no-highlight">391</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">392</i>&nbsp;            X509ExtendedKeyManager x509KeyManager = null;</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            for (KeyManager km : kmList) {</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;                if (km instanceof X509ExtendedKeyManager) {</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;                    x509KeyManager = (X509ExtendedKeyManager) km;</b>
+<b class="nc"><i class="no-highlight">396</i>&nbsp;                    break;</b>
+<i class="no-highlight">397</i>&nbsp;                }
+<i class="no-highlight">398</i>&nbsp;            }
+<i class="no-highlight">399</i>&nbsp;
+<b class="nc"><i class="no-highlight">400</i>&nbsp;            if (x509KeyManager == null) {</b>
+<b class="nc"><i class="no-highlight">401</i>&nbsp;                throw new IllegalStateException(</b>
+<i class="no-highlight">402</i>&nbsp;                    &quot;Unable to locate an X509ExtendedKeyManager &quot; +
+<b class="nc"><i class="no-highlight">403</i>&nbsp;                    &quot;corresponding to keyStore &quot; + ksInfo.ksFile);</b>
+<i class="no-highlight">404</i>&nbsp;            }
+<i class="no-highlight">405</i>&nbsp;
+<b class="nc"><i class="no-highlight">406</i>&nbsp;            kmList = new KeyManager[] {</b>
+<i class="no-highlight">407</i>&nbsp;                (clientMode ?
+<i class="no-highlight">408</i>&nbsp;                 new AliasKeyManager(x509KeyManager, null, ksAlias) :
+<i class="no-highlight">409</i>&nbsp;                 new AliasKeyManager(x509KeyManager, ksAlias, null)) };
+<i class="no-highlight">410</i>&nbsp;        }
+<i class="no-highlight">411</i>&nbsp;
+<b class="nc"><i class="no-highlight">412</i>&nbsp;        return kmList;</b>
+<i class="no-highlight">413</i>&nbsp;    }
+<i class="no-highlight">414</i>&nbsp;
+<i class="no-highlight">415</i>&nbsp;    /**
+<i class="no-highlight">416</i>&nbsp;     * Reads a KeyStore into memory based on the config.
+<i class="no-highlight">417</i>&nbsp;     */
+<i class="no-highlight">418</i>&nbsp;    private static KeyStoreInfo readKeyStoreInfo(InstanceContext context) {
+<i class="no-highlight">419</i>&nbsp;        
+<b class="nc"><i class="no-highlight">420</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;            (ReplicationSSLConfig) context.getRepNetConfig();</b>
+<i class="no-highlight">422</i>&nbsp;
+<i class="no-highlight">423</i>&nbsp;        /*
+<i class="no-highlight">424</i>&nbsp;         * Determine what KeyStore file to access
+<i class="no-highlight">425</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">426</i>&nbsp;        String ksProp = config.getSSLKeyStore();</b>
+<b class="nc"><i class="no-highlight">427</i>&nbsp;        if (ksProp == null || ksProp.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">428</i>&nbsp;            ksProp = System.getProperty(&quot;javax.net.ssl.keyStore&quot;);</b>
+<i class="no-highlight">429</i>&nbsp;        }
+<i class="no-highlight">430</i>&nbsp;
+<b class="nc"><i class="no-highlight">431</i>&nbsp;        if (ksProp == null) {</b>
+<b class="nc"><i class="no-highlight">432</i>&nbsp;            return null;</b>
+<i class="no-highlight">433</i>&nbsp;        }
+<i class="no-highlight">434</i>&nbsp;
+<i class="no-highlight">435</i>&nbsp;        /*
+<i class="no-highlight">436</i>&nbsp;         * Determine what type of keystore to assume.  If not specified
+<i class="no-highlight">437</i>&nbsp;         * loadStore determines the default
+<i class="no-highlight">438</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">439</i>&nbsp;        final String ksTypeProp = config.getSSLKeyStoreType();</b>
+<i class="no-highlight">440</i>&nbsp;
+<b class="nc"><i class="no-highlight">441</i>&nbsp;        final char[] ksPw = getKeyStorePassword(context);</b>
+<i class="no-highlight">442</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">443</i>&nbsp;            if (ksPw == null) {</b>
+<b class="nc"><i class="no-highlight">444</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">445</i>&nbsp;                    &quot;Unable to open keystore without a password&quot;);
+<i class="no-highlight">446</i>&nbsp;            }
+<i class="no-highlight">447</i>&nbsp;
+<i class="no-highlight">448</i>&nbsp;            /*
+<i class="no-highlight">449</i>&nbsp;             * Get a KeyStore instance
+<i class="no-highlight">450</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">451</i>&nbsp;            final KeyStore ks = loadStore(ksProp, ksPw, &quot;keystore&quot;, ksTypeProp);</b>
+<i class="no-highlight">452</i>&nbsp;
+<b class="nc"><i class="no-highlight">453</i>&nbsp;            return new KeyStoreInfo(ksProp, ks, ksPw);</b>
+<i class="no-highlight">454</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">455</i>&nbsp;            if (ksPw != null) {</b>
+<b class="nc"><i class="no-highlight">456</i>&nbsp;                Arrays.fill(ksPw, &#39; &#39;);</b>
+<i class="no-highlight">457</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">458</i>&nbsp;        }</b>
+<i class="no-highlight">459</i>&nbsp;    }
+<i class="no-highlight">460</i>&nbsp;
+<i class="no-highlight">461</i>&nbsp;    /**
+<i class="no-highlight">462</i>&nbsp;     * Finds the keystore password based on the input config.
+<i class="no-highlight">463</i>&nbsp;     */
+<i class="no-highlight">464</i>&nbsp;    private static char[] getKeyStorePassword(InstanceContext context) {
+<i class="no-highlight">465</i>&nbsp;
+<b class="nc"><i class="no-highlight">466</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">467</i>&nbsp;            (ReplicationSSLConfig) context.getRepNetConfig();</b>
+<i class="no-highlight">468</i>&nbsp;
+<b class="nc"><i class="no-highlight">469</i>&nbsp;        char[] ksPw = null;</b>
+<i class="no-highlight">470</i>&nbsp;
+<i class="no-highlight">471</i>&nbsp;        /*
+<i class="no-highlight">472</i>&nbsp;         * Determine the password for the keystore file
+<i class="no-highlight">473</i>&nbsp;         * Try first using a password source, either explicit or
+<i class="no-highlight">474</i>&nbsp;         * constructed.
+<i class="no-highlight">475</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">476</i>&nbsp;        PasswordSource ksPwSource = config.getSSLKeyStorePasswordSource();</b>
+<b class="nc"><i class="no-highlight">477</i>&nbsp;        if (ksPwSource == null) {</b>
+<b class="nc"><i class="no-highlight">478</i>&nbsp;            ksPwSource = </b>
+<b class="nc"><i class="no-highlight">479</i>&nbsp;                constructKSPasswordSource(new InstanceParams(context, null));</b>
+<i class="no-highlight">480</i>&nbsp;        }
+<i class="no-highlight">481</i>&nbsp;
+<b class="nc"><i class="no-highlight">482</i>&nbsp;        if (ksPwSource != null) {</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;            ksPw = ksPwSource.getPassword();</b>
+<i class="no-highlight">484</i>&nbsp;        } else {
+<i class="no-highlight">485</i>&nbsp;            /* Next look for an explicit password setting */
+<b class="nc"><i class="no-highlight">486</i>&nbsp;            String ksPwProp = config.getSSLKeyStorePassword();</b>
+<b class="nc"><i class="no-highlight">487</i>&nbsp;            if (ksPwProp == null || ksPwProp.isEmpty()) {</b>
+<i class="no-highlight">488</i>&nbsp;
+<i class="no-highlight">489</i>&nbsp;                /*
+<i class="no-highlight">490</i>&nbsp;                 * Finally, consider the standard Java Keystore
+<i class="no-highlight">491</i>&nbsp;                 * password system property
+<i class="no-highlight">492</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">493</i>&nbsp;                ksPwProp =</b>
+<b class="nc"><i class="no-highlight">494</i>&nbsp;                    System.getProperty(&quot;javax.net.ssl.keyStorePassword&quot;);</b>
+<i class="no-highlight">495</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">496</i>&nbsp;            if (ksPwProp != null) {</b>
+<b class="nc"><i class="no-highlight">497</i>&nbsp;                ksPw = ksPwProp.toCharArray();</b>
+<i class="no-highlight">498</i>&nbsp;            }
+<i class="no-highlight">499</i>&nbsp;        }
+<i class="no-highlight">500</i>&nbsp;
+<b class="nc"><i class="no-highlight">501</i>&nbsp;        return ksPw;</b>
+<i class="no-highlight">502</i>&nbsp;    }
+<i class="no-highlight">503</i>&nbsp;
+<i class="no-highlight">504</i>&nbsp;    /**
+<i class="no-highlight">505</i>&nbsp;     * Builds a TrustManager list for the input Truststore for use in creating
+<i class="no-highlight">506</i>&nbsp;     * an SSLContext.
+<i class="no-highlight">507</i>&nbsp;     */
+<i class="no-highlight">508</i>&nbsp;    private static TrustManager[] buildTrustManagerList(KeyStoreInfo tsInfo) {
+<i class="no-highlight">509</i>&nbsp;
+<i class="no-highlight">510</i>&nbsp;        final TrustManagerFactory tmf;
+<i class="no-highlight">511</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">512</i>&nbsp;            tmf = TrustManagerFactory.getInstance(X509_ALGO_NAME);</b>
+<b class="nc"><i class="no-highlight">513</i>&nbsp;        } catch (NoSuchAlgorithmException nsae) {</b>
+<b class="nc"><i class="no-highlight">514</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">515</i>&nbsp;                &quot;Unable to find a suitable TrustManagerFactory&quot;, nsae);
+<b class="nc"><i class="no-highlight">516</i>&nbsp;        }</b>
+<i class="no-highlight">517</i>&nbsp;
+<i class="no-highlight">518</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">519</i>&nbsp;            tmf.init(tsInfo.ks);</b>
+<b class="nc"><i class="no-highlight">520</i>&nbsp;        } catch (KeyStoreException kse) {</b>
+<b class="nc"><i class="no-highlight">521</i>&nbsp;            throw new IllegalStateException(</b>
+<b class="nc"><i class="no-highlight">522</i>&nbsp;                &quot;Error initializing truststore &quot; + tsInfo.ksFile, kse);</b>
+<b class="nc"><i class="no-highlight">523</i>&nbsp;        }</b>
+<i class="no-highlight">524</i>&nbsp;
+<b class="nc"><i class="no-highlight">525</i>&nbsp;        return tmf.getTrustManagers();</b>
+<i class="no-highlight">526</i>&nbsp;    }
+<i class="no-highlight">527</i>&nbsp;
+<i class="no-highlight">528</i>&nbsp;    /**
+<i class="no-highlight">529</i>&nbsp;     * Based on the input config, read the configured TrustStore into memory.
+<i class="no-highlight">530</i>&nbsp;     */
+<i class="no-highlight">531</i>&nbsp;    private static KeyStoreInfo readTrustStoreInfo(InstanceContext context) {
+<i class="no-highlight">532</i>&nbsp;
+<b class="nc"><i class="no-highlight">533</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">534</i>&nbsp;            (ReplicationSSLConfig) context.getRepNetConfig();</b>
+<i class="no-highlight">535</i>&nbsp;
+<i class="no-highlight">536</i>&nbsp;        /*
+<i class="no-highlight">537</i>&nbsp;         * Determine what truststore file, if any, to use
+<i class="no-highlight">538</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">539</i>&nbsp;        String tsProp = config.getSSLTrustStore();</b>
+<b class="nc"><i class="no-highlight">540</i>&nbsp;        if (tsProp == null || tsProp.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;            tsProp = System.getProperty(&quot;javax.net.ssl.trustStore&quot;);</b>
+<i class="no-highlight">542</i>&nbsp;        }
+<i class="no-highlight">543</i>&nbsp;
+<i class="no-highlight">544</i>&nbsp;        /*
+<i class="no-highlight">545</i>&nbsp;         * Determine what type of truststore to assume
+<i class="no-highlight">546</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">547</i>&nbsp;        String tsTypeProp = config.getSSLTrustStoreType();</b>
+<b class="nc"><i class="no-highlight">548</i>&nbsp;        if (tsTypeProp == null || tsTypeProp.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">549</i>&nbsp;            tsTypeProp = KeyStore.getDefaultType();</b>
+<i class="no-highlight">550</i>&nbsp;        }
+<i class="no-highlight">551</i>&nbsp;
+<i class="no-highlight">552</i>&nbsp;        /*
+<i class="no-highlight">553</i>&nbsp;         * Build a TrustStore, if specified
+<i class="no-highlight">554</i>&nbsp;         */
+<i class="no-highlight">555</i>&nbsp;
+<b class="nc"><i class="no-highlight">556</i>&nbsp;        if (tsProp != null) {</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;            final KeyStore ts =</b>
+<b class="nc"><i class="no-highlight">558</i>&nbsp;                loadStore(tsProp, null, &quot;truststore&quot;, tsTypeProp);</b>
+<i class="no-highlight">559</i>&nbsp;
+<b class="nc"><i class="no-highlight">560</i>&nbsp;            return new KeyStoreInfo(tsProp, ts, null);</b>
+<i class="no-highlight">561</i>&nbsp;        }
+<i class="no-highlight">562</i>&nbsp;
+<b class="nc"><i class="no-highlight">563</i>&nbsp;        return null;</b>
+<i class="no-highlight">564</i>&nbsp;    }
+<i class="no-highlight">565</i>&nbsp;
+<i class="no-highlight">566</i>&nbsp;    /**
+<i class="no-highlight">567</i>&nbsp;     * Create an SSLParameters base on the input configuration.
+<i class="no-highlight">568</i>&nbsp;     */
+<i class="no-highlight">569</i>&nbsp;    private static SSLParameters constructSSLParameters(
+<i class="no-highlight">570</i>&nbsp;        InstanceParams params) {
+<i class="no-highlight">571</i>&nbsp;
+<b class="nc"><i class="no-highlight">572</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">573</i>&nbsp;            (ReplicationSSLConfig) params.getContext().getRepNetConfig();</b>
+<i class="no-highlight">574</i>&nbsp;
+<i class="no-highlight">575</i>&nbsp;        /*
+<i class="no-highlight">576</i>&nbsp;         * Determine cipher suites configuration
+<i class="no-highlight">577</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">578</i>&nbsp;        String cipherSuitesProp = config.getSSLCipherSuites();</b>
+<b class="nc"><i class="no-highlight">579</i>&nbsp;        String[] cipherSuites = null;</b>
+<b class="nc"><i class="no-highlight">580</i>&nbsp;        if (cipherSuitesProp != null &amp;&amp; !cipherSuitesProp.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">581</i>&nbsp;            cipherSuites = cipherSuitesProp.split(&quot;,&quot;);</b>
+<i class="no-highlight">582</i>&nbsp;        }
+<i class="no-highlight">583</i>&nbsp;
+<i class="no-highlight">584</i>&nbsp;        /*
+<i class="no-highlight">585</i>&nbsp;         * Determine protocols configuration
+<i class="no-highlight">586</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">587</i>&nbsp;        String protocolsProp = config.getSSLProtocols();</b>
+<b class="nc"><i class="no-highlight">588</i>&nbsp;        String[] protocols = null;</b>
+<b class="nc"><i class="no-highlight">589</i>&nbsp;        if (protocolsProp != null &amp;&amp; !protocolsProp.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">590</i>&nbsp;            protocols = protocolsProp.split(&quot;,&quot;);</b>
+<i class="no-highlight">591</i>&nbsp;        }
+<i class="no-highlight">592</i>&nbsp;
+<b class="nc"><i class="no-highlight">593</i>&nbsp;        return new SSLParameters(cipherSuites, protocols);</b>
+<i class="no-highlight">594</i>&nbsp;    }
+<i class="no-highlight">595</i>&nbsp;
+<i class="no-highlight">596</i>&nbsp;    /**
+<i class="no-highlight">597</i>&nbsp;     * Filter SSLParameter configuration to respect the supported
+<i class="no-highlight">598</i>&nbsp;     * configuration capabilities of the context.
+<i class="no-highlight">599</i>&nbsp;     */
+<i class="no-highlight">600</i>&nbsp;    private static SSLParameters filterSSLParameters(
+<i class="no-highlight">601</i>&nbsp;        SSLParameters configParams, SSLContext filterContext)
+<i class="no-highlight">602</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">603</i>&nbsp;
+<b class="nc"><i class="no-highlight">604</i>&nbsp;        SSLParameters suppParams = filterContext.getSupportedSSLParameters();</b>
+<i class="no-highlight">605</i>&nbsp;
+<i class="no-highlight">606</i>&nbsp;        /* Filter the cipher suite selection */
+<b class="nc"><i class="no-highlight">607</i>&nbsp;        String[] configCipherSuites = configParams.getCipherSuites();</b>
+<b class="nc"><i class="no-highlight">608</i>&nbsp;        if (configCipherSuites != null) {</b>
+<b class="nc"><i class="no-highlight">609</i>&nbsp;            final String[] suppCipherSuites = suppParams.getCipherSuites();</b>
+<b class="nc"><i class="no-highlight">610</i>&nbsp;            configCipherSuites =</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;                filterConfig(configCipherSuites, suppCipherSuites);</b>
+<b class="nc"><i class="no-highlight">612</i>&nbsp;            if (configCipherSuites.length == 0) {</b>
+<b class="nc"><i class="no-highlight">613</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">614</i>&nbsp;                    &quot;None of the configured SSL cipher suites are supported &quot; +
+<i class="no-highlight">615</i>&nbsp;                    &quot;by the environment.&quot;);
+<i class="no-highlight">616</i>&nbsp;            }
+<i class="no-highlight">617</i>&nbsp;        }
+<i class="no-highlight">618</i>&nbsp;
+<i class="no-highlight">619</i>&nbsp;        /* Filter the protocol selection */
+<b class="nc"><i class="no-highlight">620</i>&nbsp;        String[] configProtocols =</b>
+<b class="nc"><i class="no-highlight">621</i>&nbsp;            configParams.getProtocols();</b>
+<b class="nc"><i class="no-highlight">622</i>&nbsp;        if (configProtocols != null) {</b>
+<b class="nc"><i class="no-highlight">623</i>&nbsp;            final String[] suppProtocols = suppParams.getProtocols();</b>
+<b class="nc"><i class="no-highlight">624</i>&nbsp;            configProtocols = filterConfig(configProtocols, suppProtocols);</b>
+<b class="nc"><i class="no-highlight">625</i>&nbsp;            if (configProtocols.length == 0) {</b>
+<b class="nc"><i class="no-highlight">626</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">627</i>&nbsp;                    &quot;None of the configured SSL protocols are supported &quot; +
+<i class="no-highlight">628</i>&nbsp;                    &quot;by the environment.&quot;);
+<i class="no-highlight">629</i>&nbsp;            }
+<i class="no-highlight">630</i>&nbsp;        }
+<i class="no-highlight">631</i>&nbsp;
+<b class="nc"><i class="no-highlight">632</i>&nbsp;        final SSLParameters newParams =</b>
+<i class="no-highlight">633</i>&nbsp;            new SSLParameters(configCipherSuites, configProtocols);
+<b class="nc"><i class="no-highlight">634</i>&nbsp;        newParams.setWantClientAuth(configParams.getWantClientAuth());</b>
+<b class="nc"><i class="no-highlight">635</i>&nbsp;        newParams.setNeedClientAuth(configParams.getNeedClientAuth());</b>
+<b class="nc"><i class="no-highlight">636</i>&nbsp;        return newParams;</b>
+<i class="no-highlight">637</i>&nbsp;    }
+<i class="no-highlight">638</i>&nbsp;
+<i class="no-highlight">639</i>&nbsp;    /**
+<i class="no-highlight">640</i>&nbsp;     * Return the intersection of configChoices and supported
+<i class="no-highlight">641</i>&nbsp;     */
+<i class="no-highlight">642</i>&nbsp;    private static String[] filterConfig(String[] configChoices,
+<i class="no-highlight">643</i>&nbsp;                                         String[] supported) {
+<i class="no-highlight">644</i>&nbsp;
+<b class="nc"><i class="no-highlight">645</i>&nbsp;        ArrayList&lt;String&gt; keep = new ArrayList&lt;String&gt;();</b>
+<b class="nc"><i class="no-highlight">646</i>&nbsp;        for (String choice : configChoices) {</b>
+<b class="nc"><i class="no-highlight">647</i>&nbsp;            for (String supp : supported) {</b>
+<b class="nc"><i class="no-highlight">648</i>&nbsp;                if (choice.equals(supp)) {</b>
+<b class="nc"><i class="no-highlight">649</i>&nbsp;                    keep.add(choice);</b>
+<b class="nc"><i class="no-highlight">650</i>&nbsp;                    break;</b>
+<i class="no-highlight">651</i>&nbsp;                }
+<i class="no-highlight">652</i>&nbsp;            }
+<i class="no-highlight">653</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">654</i>&nbsp;        return keep.toArray(new String[keep.size()]);</b>
+<i class="no-highlight">655</i>&nbsp;    }
+<i class="no-highlight">656</i>&nbsp;
+<i class="no-highlight">657</i>&nbsp;    /**
+<i class="no-highlight">658</i>&nbsp;     * Build an SSLAuthenticator or HostnameVerifier based on property
+<i class="no-highlight">659</i>&nbsp;     * configuration. This method looks up a class of the specified name,
+<i class="no-highlight">660</i>&nbsp;     * then finds a constructor that has a single argument of type
+<i class="no-highlight">661</i>&nbsp;     * InstanceParams and constructs an instance with that constructor, then
+<i class="no-highlight">662</i>&nbsp;     * validates that the instance extends or implements the mustImplement
+<i class="no-highlight">663</i>&nbsp;     * class specified.
+<i class="no-highlight">664</i>&nbsp;     *
+<i class="no-highlight">665</i>&nbsp;     * @param params the parameters for constructing this factory.
+<i class="no-highlight">666</i>&nbsp;     * @param checkerClassName the name of the class to instantiate
+<i class="no-highlight">667</i>&nbsp;     * @param checkerClassParams the value of the configured String params
+<i class="no-highlight">668</i>&nbsp;     *                           argument
+<i class="no-highlight">669</i>&nbsp;     * @param mustImplement a class denoting a required base class or
+<i class="no-highlight">670</i>&nbsp;     *   required implemented interface of the class whose name is
+<i class="no-highlight">671</i>&nbsp;     *   specified by checkerClassName.
+<i class="no-highlight">672</i>&nbsp;     * @param miDesc a descriptive term for the class to be instantiated
+<i class="no-highlight">673</i>&nbsp;     * @return an instance of the specified class
+<i class="no-highlight">674</i>&nbsp;     */
+<i class="no-highlight">675</i>&nbsp;    private static Object constructSSLChecker(
+<i class="no-highlight">676</i>&nbsp;        InstanceParams params,
+<i class="no-highlight">677</i>&nbsp;        String checkerClassName,
+<i class="no-highlight">678</i>&nbsp;        String checkerClassParams,
+<i class="no-highlight">679</i>&nbsp;        Class&lt;?&gt; mustImplement,
+<i class="no-highlight">680</i>&nbsp;        String miDesc) {
+<i class="no-highlight">681</i>&nbsp;
+<b class="nc"><i class="no-highlight">682</i>&nbsp;        InstanceParams objParams =</b>
+<b class="nc"><i class="no-highlight">683</i>&nbsp;            new InstanceParams(params.getContext(), checkerClassParams);</b>
+<i class="no-highlight">684</i>&nbsp;
+<b class="nc"><i class="no-highlight">685</i>&nbsp;        return DataChannelFactoryBuilder.constructObject(</b>
+<i class="no-highlight">686</i>&nbsp;            checkerClassName, mustImplement, miDesc,
+<i class="no-highlight">687</i>&nbsp;            /* class(InstanceParams) */
+<i class="no-highlight">688</i>&nbsp;            new CtorArgSpec(
+<i class="no-highlight">689</i>&nbsp;                new Class&lt;?&gt;[] { InstanceParams.class },
+<i class="no-highlight">690</i>&nbsp;                new Object[]   { objParams }));
+<i class="no-highlight">691</i>&nbsp;    }
+<i class="no-highlight">692</i>&nbsp;
+<i class="no-highlight">693</i>&nbsp;    /**
+<i class="no-highlight">694</i>&nbsp;     * Builds an SSLAuthenticator based on the input configuration referenced
+<i class="no-highlight">695</i>&nbsp;     * by params.
+<i class="no-highlight">696</i>&nbsp;     */
+<i class="no-highlight">697</i>&nbsp;    private static SSLAuthenticator constructSSLAuthenticator(
+<i class="no-highlight">698</i>&nbsp;        InstanceParams params)
+<i class="no-highlight">699</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">700</i>&nbsp;
+<b class="nc"><i class="no-highlight">701</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">702</i>&nbsp;            (ReplicationSSLConfig) params.getContext().getRepNetConfig();</b>
+<i class="no-highlight">703</i>&nbsp;
+<b class="nc"><i class="no-highlight">704</i>&nbsp;        final String authSpec = config.getSSLAuthenticator();</b>
+<b class="nc"><i class="no-highlight">705</i>&nbsp;        final String authClassName = config.getSSLAuthenticatorClass();</b>
+<i class="no-highlight">706</i>&nbsp;
+<i class="no-highlight">707</i>&nbsp;        /* check for conflicts */
+<b class="nc"><i class="no-highlight">708</i>&nbsp;        if (authSpec != null &amp;&amp; !authSpec.equals(&quot;&quot;) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">709</i>&nbsp;            authClassName != null &amp;&amp; !authClassName.equals(&quot;&quot;)) {</b>
+<i class="no-highlight">710</i>&nbsp;
+<b class="nc"><i class="no-highlight">711</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">712</i>&nbsp;                &quot;Cannot specify both authenticator and authenticatorClass&quot;);
+<i class="no-highlight">713</i>&nbsp;        }
+<i class="no-highlight">714</i>&nbsp;
+<b class="nc"><i class="no-highlight">715</i>&nbsp;        if (authSpec != null &amp;&amp; !authSpec.equals(&quot;&quot;)) {</b>
+<i class="no-highlight">716</i>&nbsp;            /* construct an authenticator of a known type */
+<b class="nc"><i class="no-highlight">717</i>&nbsp;            return constructStdAuthenticator(params, authSpec);</b>
+<i class="no-highlight">718</i>&nbsp;        }
+<i class="no-highlight">719</i>&nbsp;
+<b class="nc"><i class="no-highlight">720</i>&nbsp;        if (authClassName == null || authClassName.equals(&quot;&quot;)) {</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;            return null;</b>
+<i class="no-highlight">722</i>&nbsp;        }
+<i class="no-highlight">723</i>&nbsp;
+<i class="no-highlight">724</i>&nbsp;        /* construct an authenticator using the specified class */
+<b class="nc"><i class="no-highlight">725</i>&nbsp;        final String authParams = config.getSSLAuthenticatorParams();</b>
+<i class="no-highlight">726</i>&nbsp;
+<b class="nc"><i class="no-highlight">727</i>&nbsp;        return (SSLAuthenticator) constructSSLChecker(</b>
+<i class="no-highlight">728</i>&nbsp;            params, authClassName, authParams, SSLAuthenticator.class,
+<i class="no-highlight">729</i>&nbsp;            &quot;authenticator&quot;);
+<i class="no-highlight">730</i>&nbsp;    }
+<i class="no-highlight">731</i>&nbsp;
+<i class="no-highlight">732</i>&nbsp;    /**
+<i class="no-highlight">733</i>&nbsp;     * Builds an SSLAuthenticator of a known type.
+<i class="no-highlight">734</i>&nbsp;     */
+<i class="no-highlight">735</i>&nbsp;    private static SSLAuthenticator constructStdAuthenticator(
+<i class="no-highlight">736</i>&nbsp;        InstanceParams params, String authSpec)
+<i class="no-highlight">737</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">738</i>&nbsp;
+<b class="nc"><i class="no-highlight">739</i>&nbsp;        authSpec = authSpec.trim();</b>
+<b class="nc"><i class="no-highlight">740</i>&nbsp;        if (authSpec.startsWith(&quot;dnmatch(&quot;) &amp;&amp; authSpec.endsWith(&quot;)&quot;)) {</b>
+<i class="no-highlight">741</i>&nbsp;            /* a DN matching authenticator */
+<b class="nc"><i class="no-highlight">742</i>&nbsp;            final String match =</b>
+<b class="nc"><i class="no-highlight">743</i>&nbsp;                authSpec.substring(&quot;dnmatch(&quot;.length(),</b>
+<b class="nc"><i class="no-highlight">744</i>&nbsp;                                        authSpec.length()-1);</b>
+<b class="nc"><i class="no-highlight">745</i>&nbsp;            return new SSLDNAuthenticator(</b>
+<b class="nc"><i class="no-highlight">746</i>&nbsp;                new InstanceParams(params.getContext(), match));</b>
+<b class="nc"><i class="no-highlight">747</i>&nbsp;        } else if (authSpec.equals(&quot;mirror&quot;)) {</b>
+<i class="no-highlight">748</i>&nbsp;            /* a mirroring  authenticator */
+<b class="nc"><i class="no-highlight">749</i>&nbsp;            return new SSLMirrorAuthenticator(</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;                new InstanceParams(params.getContext(), null));</b>
+<i class="no-highlight">751</i>&nbsp;        }
+<i class="no-highlight">752</i>&nbsp;
+<b class="nc"><i class="no-highlight">753</i>&nbsp;        throw new IllegalArgumentException(</b>
+<i class="no-highlight">754</i>&nbsp;            authSpec  + &quot; is not a valid authenticator specification.&quot;);
+<i class="no-highlight">755</i>&nbsp;    }
+<i class="no-highlight">756</i>&nbsp;
+<i class="no-highlight">757</i>&nbsp;    /**
+<i class="no-highlight">758</i>&nbsp;     * Builds an HostnameVerifier based on the configuration referenced in
+<i class="no-highlight">759</i>&nbsp;     * params.
+<i class="no-highlight">760</i>&nbsp;     */
+<i class="no-highlight">761</i>&nbsp;    private static HostnameVerifier constructSSLHostVerifier(
+<i class="no-highlight">762</i>&nbsp;        InstanceParams params)
+<i class="no-highlight">763</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">764</i>&nbsp;
+<b class="nc"><i class="no-highlight">765</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">766</i>&nbsp;            (ReplicationSSLConfig) params.getContext().getRepNetConfig();</b>
+<b class="nc"><i class="no-highlight">767</i>&nbsp;        final String hvSpec = config.getSSLHostVerifier();</b>
+<b class="nc"><i class="no-highlight">768</i>&nbsp;        final String hvClassName = config.getSSLHostVerifierClass();</b>
+<i class="no-highlight">769</i>&nbsp;
+<i class="no-highlight">770</i>&nbsp;        /* Check for conflicts */
+<b class="nc"><i class="no-highlight">771</i>&nbsp;        if (hvSpec != null &amp;&amp; !hvSpec.equals(&quot;&quot;) &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">772</i>&nbsp;            hvClassName != null &amp;&amp; !hvClassName.equals(&quot;&quot;)) {</b>
+<i class="no-highlight">773</i>&nbsp;
+<b class="nc"><i class="no-highlight">774</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">775</i>&nbsp;                &quot;Cannot specify both hostVerifier and hostVerifierClass&quot;);
+<i class="no-highlight">776</i>&nbsp;        }
+<i class="no-highlight">777</i>&nbsp;
+<b class="nc"><i class="no-highlight">778</i>&nbsp;        if (hvSpec != null &amp;&amp; !hvSpec.equals(&quot;&quot;)) {</b>
+<i class="no-highlight">779</i>&nbsp;            /* construct a host verifier of a known type */
+<b class="nc"><i class="no-highlight">780</i>&nbsp;            return constructStdHostVerifier(params, hvSpec);</b>
+<i class="no-highlight">781</i>&nbsp;        }
+<i class="no-highlight">782</i>&nbsp;
+<b class="nc"><i class="no-highlight">783</i>&nbsp;        if (hvClassName == null || hvClassName.equals(&quot;&quot;)) {</b>
+<b class="nc"><i class="no-highlight">784</i>&nbsp;            return null;</b>
+<i class="no-highlight">785</i>&nbsp;        }
+<i class="no-highlight">786</i>&nbsp;
+<i class="no-highlight">787</i>&nbsp;        /* construct a host verifier using the specified class */
+<b class="nc"><i class="no-highlight">788</i>&nbsp;        final String hvParams = config.getSSLHostVerifierParams();</b>
+<i class="no-highlight">789</i>&nbsp;
+<b class="nc"><i class="no-highlight">790</i>&nbsp;        return (HostnameVerifier) constructSSLChecker(</b>
+<i class="no-highlight">791</i>&nbsp;            params, hvClassName, hvParams, HostnameVerifier.class,
+<i class="no-highlight">792</i>&nbsp;            &quot;hostname verifier&quot;);
+<i class="no-highlight">793</i>&nbsp;    }
+<i class="no-highlight">794</i>&nbsp;
+<i class="no-highlight">795</i>&nbsp;    /**
+<i class="no-highlight">796</i>&nbsp;     * Builds a HostnameVerifier of a known type.
+<i class="no-highlight">797</i>&nbsp;     */
+<i class="no-highlight">798</i>&nbsp;    private static HostnameVerifier constructStdHostVerifier(
+<i class="no-highlight">799</i>&nbsp;        InstanceParams params, String hvSpec)
+<i class="no-highlight">800</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">801</i>&nbsp;
+<b class="nc"><i class="no-highlight">802</i>&nbsp;        hvSpec = hvSpec.trim();</b>
+<b class="nc"><i class="no-highlight">803</i>&nbsp;        if (hvSpec.startsWith(&quot;dnmatch(&quot;) &amp;&amp; hvSpec.endsWith(&quot;)&quot;)) {</b>
+<i class="no-highlight">804</i>&nbsp;            /* a DN matching host verifier */
+<b class="nc"><i class="no-highlight">805</i>&nbsp;            final String match = hvSpec.substring(&quot;dnmatch(&quot;.length(),</b>
+<b class="nc"><i class="no-highlight">806</i>&nbsp;                                                       hvSpec.length()-1);</b>
+<b class="nc"><i class="no-highlight">807</i>&nbsp;            return new SSLDNHostVerifier(</b>
+<b class="nc"><i class="no-highlight">808</i>&nbsp;                new InstanceParams(params.getContext(), match));</b>
+<i class="no-highlight">809</i>&nbsp;
+<b class="nc"><i class="no-highlight">810</i>&nbsp;        } else if (hvSpec.equals(&quot;mirror&quot;)) {</b>
+<i class="no-highlight">811</i>&nbsp;            /* a mirroring  host verifier */
+<b class="nc"><i class="no-highlight">812</i>&nbsp;            return new SSLMirrorHostVerifier(</b>
+<b class="nc"><i class="no-highlight">813</i>&nbsp;                new InstanceParams(params.getContext(), null));</b>
+<i class="no-highlight">814</i>&nbsp;
+<b class="nc"><i class="no-highlight">815</i>&nbsp;        } else if (hvSpec.equals(&quot;hostname&quot;)) {</b>
+<i class="no-highlight">816</i>&nbsp;            /* a standard  hostname verifier */
+<b class="nc"><i class="no-highlight">817</i>&nbsp;            return new SSLStdHostVerifier(</b>
+<b class="nc"><i class="no-highlight">818</i>&nbsp;                new InstanceParams(params.getContext(), null));</b>
+<i class="no-highlight">819</i>&nbsp;        }
+<i class="no-highlight">820</i>&nbsp;
+<b class="nc"><i class="no-highlight">821</i>&nbsp;        throw new IllegalArgumentException(</b>
+<i class="no-highlight">822</i>&nbsp;            hvSpec  + &quot; is not a valid hostVerifier specification.&quot;);
+<i class="no-highlight">823</i>&nbsp;    }
+<i class="no-highlight">824</i>&nbsp;
+<i class="no-highlight">825</i>&nbsp;    /**
+<i class="no-highlight">826</i>&nbsp;     * Builds a PasswordSource instance via generic instantiation.
+<i class="no-highlight">827</i>&nbsp;     *
+<i class="no-highlight">828</i>&nbsp;     * @param params the parameters driving the instantiation
+<i class="no-highlight">829</i>&nbsp;     * @param pwdSrcClassName the name of the class to instantiate
+<i class="no-highlight">830</i>&nbsp;     * @param pwSrcParams a possibly null String that has been configured as
+<i class="no-highlight">831</i>&nbsp;     * an argument to the class&#39;s constructor.
+<i class="no-highlight">832</i>&nbsp;     * @return the new instance
+<i class="no-highlight">833</i>&nbsp;     */
+<i class="no-highlight">834</i>&nbsp;    private static PasswordSource constructPasswordSource(
+<i class="no-highlight">835</i>&nbsp;        InstanceParams params, String pwdSrcClassName, String pwSrcParams) {
+<i class="no-highlight">836</i>&nbsp;
+<b class="nc"><i class="no-highlight">837</i>&nbsp;        final InstanceParams objParams =</b>
+<b class="nc"><i class="no-highlight">838</i>&nbsp;            new InstanceParams(params.getContext(), pwSrcParams);</b>
+<i class="no-highlight">839</i>&nbsp;
+<b class="nc"><i class="no-highlight">840</i>&nbsp;        return (PasswordSource)</b>
+<b class="nc"><i class="no-highlight">841</i>&nbsp;            DataChannelFactoryBuilder.constructObject(</b>
+<i class="no-highlight">842</i>&nbsp;                pwdSrcClassName, PasswordSource.class, &quot;password source&quot;,
+<i class="no-highlight">843</i>&nbsp;                /* class(InstanceParams) */
+<i class="no-highlight">844</i>&nbsp;                new CtorArgSpec(
+<i class="no-highlight">845</i>&nbsp;                    new Class&lt;?&gt;[] { InstanceParams.class },
+<i class="no-highlight">846</i>&nbsp;                    new Object[]   { objParams }));
+<i class="no-highlight">847</i>&nbsp;    }
+<i class="no-highlight">848</i>&nbsp;
+<i class="no-highlight">849</i>&nbsp;    /**
+<i class="no-highlight">850</i>&nbsp;     * Build a PasswordSource for the keystore based on the configuration
+<i class="no-highlight">851</i>&nbsp;     * referenced by params.
+<i class="no-highlight">852</i>&nbsp;     */
+<i class="no-highlight">853</i>&nbsp;    private static PasswordSource constructKSPasswordSource(
+<i class="no-highlight">854</i>&nbsp;        InstanceParams params) {
+<i class="no-highlight">855</i>&nbsp;
+<b class="nc"><i class="no-highlight">856</i>&nbsp;        final ReplicationSSLConfig config =</b>
+<b class="nc"><i class="no-highlight">857</i>&nbsp;            (ReplicationSSLConfig) params.getContext().getRepNetConfig();</b>
+<i class="no-highlight">858</i>&nbsp;
+<b class="nc"><i class="no-highlight">859</i>&nbsp;        final String pwSrcClassName =</b>
+<b class="nc"><i class="no-highlight">860</i>&nbsp;            config.getSSLKeyStorePasswordClass();</b>
+<i class="no-highlight">861</i>&nbsp;
+<b class="nc"><i class="no-highlight">862</i>&nbsp;        if (pwSrcClassName == null || pwSrcClassName.equals(&quot;&quot;)) {</b>
+<b class="nc"><i class="no-highlight">863</i>&nbsp;            return null;</b>
+<i class="no-highlight">864</i>&nbsp;        }
+<i class="no-highlight">865</i>&nbsp;
+<b class="nc"><i class="no-highlight">866</i>&nbsp;        final String pwSrcParams =</b>
+<b class="nc"><i class="no-highlight">867</i>&nbsp;            config.getSSLKeyStorePasswordParams();</b>
+<i class="no-highlight">868</i>&nbsp;
+<b class="nc"><i class="no-highlight">869</i>&nbsp;        return constructPasswordSource(params, pwSrcClassName, pwSrcParams);</b>
+<i class="no-highlight">870</i>&nbsp;    }
+<i class="no-highlight">871</i>&nbsp;
+<i class="no-highlight">872</i>&nbsp;    /**
+<i class="no-highlight">873</i>&nbsp;     * Load a keystore/truststore file into memory
+<i class="no-highlight">874</i>&nbsp;     * @param storeName the name of the store file
+<i class="no-highlight">875</i>&nbsp;     * @param storeFlavor a descriptive name of store type
+<i class="no-highlight">876</i>&nbsp;     * @param storeType JKS, etc
+<i class="no-highlight">877</i>&nbsp;     * @throws IllegalArgumentException if the specified parameters
+<i class="no-highlight">878</i>&nbsp;     * do now allow a store to be successfully loaded
+<i class="no-highlight">879</i>&nbsp;     */
+<i class="no-highlight">880</i>&nbsp;    private static KeyStore loadStore(String storeName,
+<i class="no-highlight">881</i>&nbsp;                                      char[] storePassword,
+<i class="no-highlight">882</i>&nbsp;                                      String storeFlavor,
+<i class="no-highlight">883</i>&nbsp;                                      String storeType)
+<i class="no-highlight">884</i>&nbsp;        throws IllegalArgumentException {
+<i class="no-highlight">885</i>&nbsp;
+<b class="nc"><i class="no-highlight">886</i>&nbsp;        if (storeType == null || storeType.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">887</i>&nbsp;            storeType = KeyStore.getDefaultType();</b>
+<i class="no-highlight">888</i>&nbsp;        }
+<i class="no-highlight">889</i>&nbsp;
+<i class="no-highlight">890</i>&nbsp;        final KeyStore ks;
+<i class="no-highlight">891</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">892</i>&nbsp;            ks = KeyStore.getInstance(storeType);</b>
+<b class="nc"><i class="no-highlight">893</i>&nbsp;        } catch (KeyStoreException kse) {</b>
+<b class="nc"><i class="no-highlight">894</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">895</i>&nbsp;                &quot;Unable to find a &quot; + storeFlavor + &quot; instance of type &quot; +
+<i class="no-highlight">896</i>&nbsp;                storeType,
+<i class="no-highlight">897</i>&nbsp;                kse);
+<b class="nc"><i class="no-highlight">898</i>&nbsp;        }</b>
+<i class="no-highlight">899</i>&nbsp;
+<i class="no-highlight">900</i>&nbsp;        final FileInputStream fis;
+<i class="no-highlight">901</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">902</i>&nbsp;            fis = new FileInputStream(storeName);</b>
+<b class="nc"><i class="no-highlight">903</i>&nbsp;        } catch (FileNotFoundException fnfe) {</b>
+<b class="nc"><i class="no-highlight">904</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">905</i>&nbsp;                &quot;Unable to locate specified &quot; + storeFlavor +
+<i class="no-highlight">906</i>&nbsp;                &quot; &quot; + storeName, fnfe);
+<b class="nc"><i class="no-highlight">907</i>&nbsp;        }</b>
+<i class="no-highlight">908</i>&nbsp;
+<i class="no-highlight">909</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">910</i>&nbsp;            ks.load(fis, storePassword);</b>
+<b class="nc"><i class="no-highlight">911</i>&nbsp;        } catch (IOException ioe) {</b>
+<b class="nc"><i class="no-highlight">912</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">913</i>&nbsp;                &quot;Error reading from &quot; + storeFlavor + &quot; file &quot; + storeName,
+<i class="no-highlight">914</i>&nbsp;                ioe);
+<b class="nc"><i class="no-highlight">915</i>&nbsp;        } catch (NoSuchAlgorithmException nsae) {</b>
+<b class="nc"><i class="no-highlight">916</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">917</i>&nbsp;                &quot;Unable to check &quot; + storeFlavor + &quot; integrity: &quot; + storeName,
+<i class="no-highlight">918</i>&nbsp;                nsae);
+<b class="nc"><i class="no-highlight">919</i>&nbsp;        } catch (CertificateException ce) {</b>
+<b class="nc"><i class="no-highlight">920</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">921</i>&nbsp;                &quot;Not all certificates could be loaded: &quot; + storeName,
+<i class="no-highlight">922</i>&nbsp;                ce);
+<i class="no-highlight">923</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">924</i>&nbsp;            try {</b>
+<b class="nc"><i class="no-highlight">925</i>&nbsp;                fis.close();</b>
+<b class="nc"><i class="no-highlight">926</i>&nbsp;            } catch (IOException ioe) {</b>
+<i class="no-highlight">927</i>&nbsp;                /* ignored */
+<b class="nc"><i class="no-highlight">928</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">929</i>&nbsp;        }</b>
+<i class="no-highlight">930</i>&nbsp;
+<b class="nc"><i class="no-highlight">931</i>&nbsp;        return ks;</b>
+<i class="no-highlight">932</i>&nbsp;    }
+<i class="no-highlight">933</i>&nbsp;
+<i class="no-highlight">934</i>&nbsp;    /**
+<i class="no-highlight">935</i>&nbsp;     * Gets a proper algorithm name for the X.509 certificate key manager. If
+<i class="no-highlight">936</i>&nbsp;     * users already specify it via setting the system property of
+<i class="no-highlight">937</i>&nbsp;     * &quot;je.ssl.x509AlgoName&quot;, use it directly. Otherwise, for IBM J9 VM, the
+<i class="no-highlight">938</i>&nbsp;     * name is &quot;IbmX509&quot;. For Hotspot and other JVMs, the name of &quot;SunX509&quot;
+<i class="no-highlight">939</i>&nbsp;     * will be used.
+<i class="no-highlight">940</i>&nbsp;     *
+<i class="no-highlight">941</i>&nbsp;     * @return algorithm name for X509 certificate manager
+<i class="no-highlight">942</i>&nbsp;     */
+<i class="no-highlight">943</i>&nbsp;    private static String getX509AlgoName() {
+<b class="nc"><i class="no-highlight">944</i>&nbsp;        final String x509Name = System.getProperty(X509_ALGO_NAME_PROPERTY);</b>
+<b class="nc"><i class="no-highlight">945</i>&nbsp;        if (x509Name != null &amp;&amp; !x509Name.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">946</i>&nbsp;            return x509Name;</b>
+<i class="no-highlight">947</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">948</i>&nbsp;        final String jvmVendor = System.getProperty(&quot;java.vendor&quot;);</b>
+<b class="nc"><i class="no-highlight">949</i>&nbsp;        if (jvmVendor.startsWith(&quot;IBM&quot;)) {</b>
+<b class="nc"><i class="no-highlight">950</i>&nbsp;            return &quot;IbmX509&quot;;</b>
+<i class="no-highlight">951</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">952</i>&nbsp;        return &quot;SunX509&quot;;</b>
+<i class="no-highlight">953</i>&nbsp;    }
+<i class="no-highlight">954</i>&nbsp;
+<i class="no-highlight">955</i>&nbsp;    /**
+<i class="no-highlight">956</i>&nbsp;     * Internal class for communicating a pair of KeyStore and password
+<i class="no-highlight">957</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">958</i>&nbsp;    private static class KeyStoreInfo {</b>
+<i class="no-highlight">959</i>&nbsp;        private final String ksFile;
+<i class="no-highlight">960</i>&nbsp;        private final KeyStore ks;
+<i class="no-highlight">961</i>&nbsp;        private final char[] ksPwd;
+<i class="no-highlight">962</i>&nbsp;
+<b class="nc"><i class="no-highlight">963</i>&nbsp;        private KeyStoreInfo(String ksFile, KeyStore ks, char[] ksPwd) {</b>
+<b class="nc"><i class="no-highlight">964</i>&nbsp;            this.ksFile = ksFile;</b>
+<b class="nc"><i class="no-highlight">965</i>&nbsp;            this.ks = ks;</b>
+<b class="nc"><i class="no-highlight">966</i>&nbsp;            this.ksPwd =</b>
+<b class="nc"><i class="no-highlight">967</i>&nbsp;                (ksPwd == null) ? null : Arrays.copyOf(ksPwd, ksPwd.length);</b>
+<i class="no-highlight">968</i>&nbsp;        }
+<i class="no-highlight">969</i>&nbsp;
+<i class="no-highlight">970</i>&nbsp;        private void clearPassword() {
+<b class="nc"><i class="no-highlight">971</i>&nbsp;            if (ksPwd != null) {</b>
+<b class="nc"><i class="no-highlight">972</i>&nbsp;                Arrays.fill(ksPwd, &#39; &#39;);</b>
+<i class="no-highlight">973</i>&nbsp;            }
+<i class="no-highlight">974</i>&nbsp;        }
+<i class="no-highlight">975</i>&nbsp;    }
+<i class="no-highlight">976</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

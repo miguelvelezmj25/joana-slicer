@@ -1,0 +1,1904 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > SecondaryDatabase</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je</a>
+</div>
+
+<h1>Coverage Summary for Class: SecondaryDatabase (com.sleepycat.je)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">SecondaryDatabase</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/49)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/447)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.util.Collection;
+<i class="no-highlight">17</i>&nbsp;import java.util.Collections;
+<i class="no-highlight">18</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">19</i>&nbsp;import java.util.List;
+<i class="no-highlight">20</i>&nbsp;import java.util.Set;
+<i class="no-highlight">21</i>&nbsp;import java.util.logging.Level;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.je.dbi.DatabaseImpl;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.dbi.ExpirationInfo;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.je.dbi.GetMode;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.dbi.PutMode;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.dbi.SearchMode;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.dbi.TTL;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.txn.Locker;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.txn.LockerFactory;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.utilint.DatabaseUtil;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.je.utilint.LoggerUtils;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;/**
+<i class="no-highlight">36</i>&nbsp; * A secondary database handle.
+<i class="no-highlight">37</i>&nbsp; *
+<i class="no-highlight">38</i>&nbsp; * &lt;p&gt;Secondary databases are opened with {@link
+<i class="no-highlight">39</i>&nbsp; * Environment#openSecondaryDatabase Environment.openSecondaryDatabase} and are
+<i class="no-highlight">40</i>&nbsp; * always associated with a single primary database.  The distinguishing
+<i class="no-highlight">41</i>&nbsp; * characteristics of a secondary database are:&lt;/p&gt;
+<i class="no-highlight">42</i>&nbsp; *
+<i class="no-highlight">43</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">44</i>&nbsp; * &lt;li&gt;Records are automatically added to a secondary database when records are
+<i class="no-highlight">45</i>&nbsp; * added, modified and deleted in the primary database.  Direct calls to
+<i class="no-highlight">46</i>&nbsp; * &lt;code&gt;put()&lt;/code&gt; methods on a secondary database are prohibited.&lt;/li&gt;
+<i class="no-highlight">47</i>&nbsp; * &lt;li&gt;The {@link #delete delete} method of a secondary database will delete
+<i class="no-highlight">48</i>&nbsp; * the primary record and as well as all its associated secondary records.&lt;/li&gt;
+<i class="no-highlight">49</i>&nbsp; * &lt;li&gt;Calls to all &lt;code&gt;get()&lt;/code&gt; methods will return the data from the
+<i class="no-highlight">50</i>&nbsp; * associated primary database.&lt;/li&gt;
+<i class="no-highlight">51</i>&nbsp; * &lt;li&gt;Additional &lt;code&gt;get()&lt;/code&gt; method signatures are provided to return
+<i class="no-highlight">52</i>&nbsp; * the primary key in an additional &lt;code&gt;pKey&lt;/code&gt; parameter.&lt;/li&gt;
+<i class="no-highlight">53</i>&nbsp; * &lt;li&gt;Calls to {@link #openCursor openCursor} will return a {@link
+<i class="no-highlight">54</i>&nbsp; * SecondaryCursor}, which itself has &lt;code&gt;get()&lt;/code&gt; methods that return
+<i class="no-highlight">55</i>&nbsp; * the data of the primary database and additional &lt;code&gt;get()&lt;/code&gt; method
+<i class="no-highlight">56</i>&nbsp; * signatures for returning the primary key.&lt;/li&gt;
+<i class="no-highlight">57</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">58</i>&nbsp; * &lt;p&gt;Before opening or creating a secondary database you must implement
+<i class="no-highlight">59</i>&nbsp; * the {@link SecondaryKeyCreator} or {@link SecondaryMultiKeyCreator}
+<i class="no-highlight">60</i>&nbsp; * interface.&lt;/p&gt;
+<i class="no-highlight">61</i>&nbsp; *
+<i class="no-highlight">62</i>&nbsp; * &lt;p&gt;For example, to create a secondary database that supports duplicates:&lt;/p&gt;
+<i class="no-highlight">63</i>&nbsp; *
+<i class="no-highlight">64</i>&nbsp; * &lt;pre&gt;
+<i class="no-highlight">65</i>&nbsp; *     Database primaryDb; // The primary database must already be open.
+<i class="no-highlight">66</i>&nbsp; *     SecondaryKeyCreator keyCreator; // Your key creator implementation.
+<i class="no-highlight">67</i>&nbsp; *     SecondaryConfig secConfig = new SecondaryConfig();
+<i class="no-highlight">68</i>&nbsp; *     secConfig.setAllowCreate(true);
+<i class="no-highlight">69</i>&nbsp; *     secConfig.setSortedDuplicates(true);
+<i class="no-highlight">70</i>&nbsp; *     secConfig.setKeyCreator(keyCreator);
+<i class="no-highlight">71</i>&nbsp; *     SecondaryDatabase newDb = env.openSecondaryDatabase(transaction,
+<i class="no-highlight">72</i>&nbsp; *                                                         &quot;myDatabaseName&quot;,
+<i class="no-highlight">73</i>&nbsp; *                                                         primaryDb,
+<i class="no-highlight">74</i>&nbsp; *                                                         secConfig)
+<i class="no-highlight">75</i>&nbsp; * &lt;/pre&gt;
+<i class="no-highlight">76</i>&nbsp; *
+<i class="no-highlight">77</i>&nbsp; * &lt;p&gt;If a primary database is to be associated with one or more secondary
+<i class="no-highlight">78</i>&nbsp; * databases, it may not be configured for duplicates.&lt;/p&gt;
+<i class="no-highlight">79</i>&nbsp; *
+<i class="no-highlight">80</i>&nbsp; * &lt;p&gt;&lt;b&gt;WARNING:&lt;/b&gt; The associations between primary and secondary databases
+<i class="no-highlight">81</i>&nbsp; * are not stored persistently.  Whenever a primary database is opened for
+<i class="no-highlight">82</i>&nbsp; * write access by the application, the appropriate associated secondary
+<i class="no-highlight">83</i>&nbsp; * databases should also be opened by the application.  This is necessary to
+<i class="no-highlight">84</i>&nbsp; * ensure data integrity when changes are made to the primary database.  If the
+<i class="no-highlight">85</i>&nbsp; * secondary database is not opened, it will not be updated when the primary is
+<i class="no-highlight">86</i>&nbsp; * updated, and the references between the databases will become invalid.
+<i class="no-highlight">87</i>&nbsp; * (Note that this warning does not apply when using the {@link
+<i class="no-highlight">88</i>&nbsp; * com.sleepycat.persist DPL}, which does store secondary relationships
+<i class="no-highlight">89</i>&nbsp; * persistently.)&lt;/p&gt;
+<i class="no-highlight">90</i>&nbsp; *
+<i class="no-highlight">91</i>&nbsp; * &lt;h3&gt;&lt;a name=&quot;transactions&quot;&gt;Special considerations for using Secondary
+<i class="no-highlight">92</i>&nbsp; * Databases with and without Transactions&lt;/a&gt;&lt;/h3&gt;
+<i class="no-highlight">93</i>&nbsp; *
+<i class="no-highlight">94</i>&nbsp; * &lt;p&gt;Normally, during a primary database write operation (insert, update or
+<i class="no-highlight">95</i>&nbsp; * delete), all associated secondary databases are also updated.  However, when
+<i class="no-highlight">96</i>&nbsp; * an exception occurs during the write operation, the updates may be
+<i class="no-highlight">97</i>&nbsp; * incomplete.  If the databases are transactional, this is handled by aborting
+<i class="no-highlight">98</i>&nbsp; * the transaction to undo the incomplete operation.  If an auto-commit
+<i class="no-highlight">99</i>&nbsp; * transaction is used (null is passed for the transaction), the transaction
+<i class="no-highlight">100</i>&nbsp; * will be aborted automatically.  If an explicit transaction is used, it
+<i class="no-highlight">101</i>&nbsp; * must be aborted by the application caller after the exception is caught.&lt;/p&gt;
+<i class="no-highlight">102</i>&nbsp; *
+<i class="no-highlight">103</i>&nbsp; * &lt;p&gt;However, if the databases are non-transactional, integrity problems can
+<i class="no-highlight">104</i>&nbsp; * result when an exception occurs during the write operation.  Because the
+<i class="no-highlight">105</i>&nbsp; * write operation is not made atomic by a transaction, references between the
+<i class="no-highlight">106</i>&nbsp; * databases will become invalid if the operation is incomplete.  This results
+<i class="no-highlight">107</i>&nbsp; * in a {@link SecondaryIntegrityException} when attempting to access the
+<i class="no-highlight">108</i>&nbsp; * databases later.&lt;/p&gt;
+<i class="no-highlight">109</i>&nbsp; *
+<i class="no-highlight">110</i>&nbsp; * &lt;p&gt;A secondary integrity problem is persistent; it cannot be resolved by
+<i class="no-highlight">111</i>&nbsp; * reopening the databases or the environment.  The only way to resolve the
+<i class="no-highlight">112</i>&nbsp; * problem is to restore the environment from a valid backup, or, if the
+<i class="no-highlight">113</i>&nbsp; * integrity of the primary database is assumed, to remove and recreate all
+<i class="no-highlight">114</i>&nbsp; * secondary databases.&lt;/p&gt;
+<i class="no-highlight">115</i>&nbsp; *
+<i class="no-highlight">116</i>&nbsp; * &lt;p&gt;Therefore, secondary databases and indexes should always be used in
+<i class="no-highlight">117</i>&nbsp; * conjunction with transactional databases and stores. Without transactions,
+<i class="no-highlight">118</i>&nbsp; * it is the responsibility of the application to handle the results of the
+<i class="no-highlight">119</i>&nbsp; * incomplete write operation or to take steps to prevent this situation from
+<i class="no-highlight">120</i>&nbsp; * happening in the first place.&lt;/p&gt;
+<i class="no-highlight">121</i>&nbsp; *
+<i class="no-highlight">122</i>&nbsp; * &lt;p&gt;The following exceptions may be thrown during a write operation, and may
+<i class="no-highlight">123</i>&nbsp; * cause an integrity problem in the absence of transactions.&lt;/p&gt;
+<i class="no-highlight">124</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">125</i>&nbsp; * &lt;li&gt;{@link SecondaryConstraintException}, see its subclasses for more
+<i class="no-highlight">126</i>&nbsp; * information.&lt;/li&gt;
+<i class="no-highlight">127</i>&nbsp; * &lt;li&gt;{@link LockConflictException}, when more than one thread is accessing
+<i class="no-highlight">128</i>&nbsp; * the databases.&lt;/li&gt;
+<i class="no-highlight">129</i>&nbsp; * &lt;li&gt;{@link EnvironmentFailureException}, if an unexpected or system failure
+<i class="no-highlight">130</i>&nbsp; * occurs.&lt;/li&gt;
+<i class="no-highlight">131</i>&nbsp; * &lt;li&gt;There is always the possibility of an {@link Error} or an unintended
+<i class="no-highlight">132</i>&nbsp; * {@link RuntimeException}.&lt;/li&gt;
+<i class="no-highlight">133</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">134</i>&nbsp; */
+<b class="nc"><i class="no-highlight">135</i>&nbsp;public class SecondaryDatabase extends Database {</b>
+<i class="no-highlight">136</i>&nbsp;
+<i class="no-highlight">137</i>&nbsp;    /* For type-safe check against EMPTY_SET */
+<b class="nc"><i class="no-highlight">138</i>&nbsp;    private static final Set&lt;DatabaseEntry&gt; EMPTY_SET =</b>
+<b class="nc"><i class="no-highlight">139</i>&nbsp;        Collections.emptySet();</b>
+<i class="no-highlight">140</i>&nbsp;
+<i class="no-highlight">141</i>&nbsp;    private final Database primaryDatabase; // May be null.
+<i class="no-highlight">142</i>&nbsp;    private SecondaryConfig secondaryConfig;
+<b class="nc"><i class="no-highlight">143</i>&nbsp;    private volatile boolean isFullyPopulated = true;</b>
+<i class="no-highlight">144</i>&nbsp;
+<i class="no-highlight">145</i>&nbsp;    /**
+<i class="no-highlight">146</i>&nbsp;     * Creates a secondary database but does not open or fully initialize it.
+<i class="no-highlight">147</i>&nbsp;     *
+<i class="no-highlight">148</i>&nbsp;     * @throws IllegalArgumentException via Environment.openSecondaryDatabase.
+<i class="no-highlight">149</i>&nbsp;     */
+<i class="no-highlight">150</i>&nbsp;    SecondaryDatabase(final Environment env,
+<i class="no-highlight">151</i>&nbsp;                      final SecondaryConfig secConfig,
+<i class="no-highlight">152</i>&nbsp;                      final Database primaryDatabase) {
+<i class="no-highlight">153</i>&nbsp;
+<b class="nc"><i class="no-highlight">154</i>&nbsp;        super(env);</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;        this.primaryDatabase = primaryDatabase;</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        if (primaryDatabase == null) {</b>
+<b class="nc"><i class="no-highlight">157</i>&nbsp;            if (secConfig.getSecondaryAssociation() == null) {</b>
+<b class="nc"><i class="no-highlight">158</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">159</i>&nbsp;                    &quot;Exactly one must be non-null: &quot; +
+<i class="no-highlight">160</i>&nbsp;                    &quot;PrimaryDatabase or SecondaryAssociation&quot;);
+<i class="no-highlight">161</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            if (secConfig.getAllowPopulate()) {</b>
+<b class="nc"><i class="no-highlight">163</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">164</i>&nbsp;                    &quot;AllowPopulate must be false when a SecondaryAssociation&quot; +
+<i class="no-highlight">165</i>&nbsp;                    &quot; is configured&quot;);
+<i class="no-highlight">166</i>&nbsp;            }
+<i class="no-highlight">167</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">168</i>&nbsp;            if (secConfig.getSecondaryAssociation() != null) {</b>
+<b class="nc"><i class="no-highlight">169</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">170</i>&nbsp;                    &quot;Exactly one must be non-null: &quot; +
+<i class="no-highlight">171</i>&nbsp;                    &quot;PrimaryDatabase or SecondaryAssociation&quot;);
+<i class="no-highlight">172</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">173</i>&nbsp;            primaryDatabase.checkOpen();</b>
+<b class="nc"><i class="no-highlight">174</i>&nbsp;            if (primaryDatabase.configuration.getSortedDuplicates()) {</b>
+<b class="nc"><i class="no-highlight">175</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">176</i>&nbsp;                    &quot;Duplicates not allowed for a primary database: &quot; +
+<b class="nc"><i class="no-highlight">177</i>&nbsp;                    primaryDatabase.getDebugName());</b>
+<i class="no-highlight">178</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">179</i>&nbsp;            if (env.getNonNullEnvImpl() !=</b>
+<b class="nc"><i class="no-highlight">180</i>&nbsp;                    primaryDatabase.getEnvironment().getNonNullEnvImpl()) {</b>
+<b class="nc"><i class="no-highlight">181</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">182</i>&nbsp;                    &quot;Primary and secondary databases must be in the same&quot; +
+<i class="no-highlight">183</i>&nbsp;                    &quot; environment&quot;);
+<i class="no-highlight">184</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">185</i>&nbsp;            if (!primaryDatabase.configuration.getReadOnly() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;                secConfig.getKeyCreator() == null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;                secConfig.getMultiKeyCreator() == null) {</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">189</i>&nbsp;                    &quot;SecondaryConfig.getKeyCreator()/getMultiKeyCreator()&quot; +
+<i class="no-highlight">190</i>&nbsp;                    &quot; may be null only if the primary database is read-only&quot;);
+<i class="no-highlight">191</i>&nbsp;            }
+<i class="no-highlight">192</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">193</i>&nbsp;        if (secConfig.getKeyCreator() != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">194</i>&nbsp;            secConfig.getMultiKeyCreator() != null) {</b>
+<b class="nc"><i class="no-highlight">195</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">196</i>&nbsp;                &quot;secConfig.getKeyCreator() and getMultiKeyCreator() may not&quot; +
+<i class="no-highlight">197</i>&nbsp;                &quot; both be non-null&quot;);
+<i class="no-highlight">198</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">199</i>&nbsp;        if (secConfig.getForeignKeyNullifier() != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">200</i>&nbsp;            secConfig.getForeignMultiKeyNullifier() != null) {</b>
+<b class="nc"><i class="no-highlight">201</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">202</i>&nbsp;                &quot;secConfig.getForeignKeyNullifier() and&quot; +
+<i class="no-highlight">203</i>&nbsp;                &quot; getForeignMultiKeyNullifier() may not both be non-null&quot;);
+<i class="no-highlight">204</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        if (secConfig.getForeignKeyDeleteAction() ==</b>
+<i class="no-highlight">206</i>&nbsp;                         ForeignKeyDeleteAction.NULLIFY &amp;&amp;
+<b class="nc"><i class="no-highlight">207</i>&nbsp;            secConfig.getForeignKeyNullifier() == null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;            secConfig.getForeignMultiKeyNullifier() == null) {</b>
+<b class="nc"><i class="no-highlight">209</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">210</i>&nbsp;                &quot;ForeignKeyNullifier or ForeignMultiKeyNullifier must be&quot; +
+<i class="no-highlight">211</i>&nbsp;                &quot; non-null when ForeignKeyDeleteAction is NULLIFY&quot;);
+<i class="no-highlight">212</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        if (secConfig.getForeignKeyNullifier() != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">214</i>&nbsp;            secConfig.getMultiKeyCreator() != null) {</b>
+<b class="nc"><i class="no-highlight">215</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">216</i>&nbsp;                &quot;ForeignKeyNullifier may not be used with&quot; +
+<i class="no-highlight">217</i>&nbsp;                &quot; SecondaryMultiKeyCreator -- use&quot; +
+<i class="no-highlight">218</i>&nbsp;                &quot; ForeignMultiKeyNullifier instead&quot;);
+<i class="no-highlight">219</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">220</i>&nbsp;        if (secConfig.getForeignKeyDatabase() != null) {</b>
+<b class="nc"><i class="no-highlight">221</i>&nbsp;            Database foreignDb = secConfig.getForeignKeyDatabase();</b>
+<b class="nc"><i class="no-highlight">222</i>&nbsp;            if (foreignDb.getDbImpl().getSortedDuplicates()) {</b>
+<b class="nc"><i class="no-highlight">223</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">224</i>&nbsp;                    &quot;Duplicates must not be allowed for a foreign key &quot; +
+<b class="nc"><i class="no-highlight">225</i>&nbsp;                    &quot; database: &quot; + foreignDb.getDebugName());</b>
+<i class="no-highlight">226</i>&nbsp;            }
+<i class="no-highlight">227</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">228</i>&nbsp;    }</b>
+<i class="no-highlight">229</i>&nbsp;
+<i class="no-highlight">230</i>&nbsp;    /**
+<i class="no-highlight">231</i>&nbsp;     * Create a database, called by Environment
+<i class="no-highlight">232</i>&nbsp;     */
+<i class="no-highlight">233</i>&nbsp;    @Override
+<i class="no-highlight">234</i>&nbsp;    DatabaseImpl initNew(final Environment env,
+<i class="no-highlight">235</i>&nbsp;                         final Locker locker,
+<i class="no-highlight">236</i>&nbsp;                         final String databaseName,
+<i class="no-highlight">237</i>&nbsp;                         final DatabaseConfig dbConfig) {
+<i class="no-highlight">238</i>&nbsp;
+<b class="nc"><i class="no-highlight">239</i>&nbsp;        final DatabaseImpl dbImpl =</b>
+<b class="nc"><i class="no-highlight">240</i>&nbsp;            super.initNew(env, locker, databaseName, dbConfig);</b>
+<b class="nc"><i class="no-highlight">241</i>&nbsp;        init(locker);</b>
+<b class="nc"><i class="no-highlight">242</i>&nbsp;        return dbImpl;</b>
+<i class="no-highlight">243</i>&nbsp;    }
+<i class="no-highlight">244</i>&nbsp;
+<i class="no-highlight">245</i>&nbsp;    /**
+<i class="no-highlight">246</i>&nbsp;     * Open a database, called by Environment
+<i class="no-highlight">247</i>&nbsp;     *
+<i class="no-highlight">248</i>&nbsp;     * @throws IllegalArgumentException via Environment.openSecondaryDatabase.
+<i class="no-highlight">249</i>&nbsp;     */
+<i class="no-highlight">250</i>&nbsp;    @Override
+<i class="no-highlight">251</i>&nbsp;    void initExisting(final Environment env,
+<i class="no-highlight">252</i>&nbsp;                      final Locker locker,
+<i class="no-highlight">253</i>&nbsp;                      final DatabaseImpl database,
+<i class="no-highlight">254</i>&nbsp;                      final String databaseName,
+<i class="no-highlight">255</i>&nbsp;                      final DatabaseConfig dbConfig) {
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;        /* Disallow one secondary associated with two different primaries. */
+<b class="nc"><i class="no-highlight">258</i>&nbsp;        if (primaryDatabase != null) {</b>
+<b class="nc"><i class="no-highlight">259</i>&nbsp;            Database otherPriDb = database.findPrimaryDatabase();</b>
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            if (otherPriDb != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                otherPriDb.getDbImpl() !=</b>
+<b class="nc"><i class="no-highlight">262</i>&nbsp;                primaryDatabase.getDbImpl()) {</b>
+<b class="nc"><i class="no-highlight">263</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">264</i>&nbsp;                    &quot;Secondary already associated with different primary: &quot; +
+<b class="nc"><i class="no-highlight">265</i>&nbsp;                    otherPriDb.getDebugName());</b>
+<i class="no-highlight">266</i>&nbsp;            }
+<i class="no-highlight">267</i>&nbsp;        }
+<i class="no-highlight">268</i>&nbsp;
+<b class="nc"><i class="no-highlight">269</i>&nbsp;        super.initExisting(env, locker, database, databaseName, dbConfig);</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;        init(locker);</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;    }</b>
+<i class="no-highlight">272</i>&nbsp;
+<i class="no-highlight">273</i>&nbsp;    /**
+<i class="no-highlight">274</i>&nbsp;     * Adds secondary to primary&#39;s list, and populates the secondary if needed.
+<i class="no-highlight">275</i>&nbsp;     *
+<i class="no-highlight">276</i>&nbsp;     * @param locker should be the locker used to open the database.  If a
+<i class="no-highlight">277</i>&nbsp;     * transactional locker, the population operations will occur in the same
+<i class="no-highlight">278</i>&nbsp;     * transaction; this may result in a large number of retained locks.  If a
+<i class="no-highlight">279</i>&nbsp;     * non-transactional locker, the Cursor will create a ThreadLocker (even if
+<i class="no-highlight">280</i>&nbsp;     * a BasicLocker used for handle locking is passed), and locks will not be
+<i class="no-highlight">281</i>&nbsp;     * retained.
+<i class="no-highlight">282</i>&nbsp;     */
+<i class="no-highlight">283</i>&nbsp;    private void init(final Locker locker) {
+<i class="no-highlight">284</i>&nbsp;
+<b class="nc"><i class="no-highlight">285</i>&nbsp;        trace(Level.FINEST, &quot;SecondaryDatabase open&quot;);</b>
+<i class="no-highlight">286</i>&nbsp;
+<b class="nc"><i class="no-highlight">287</i>&nbsp;        getDbImpl().setKnownSecondary();</b>
+<b class="nc"><i class="no-highlight">288</i>&nbsp;        secondaryConfig = (SecondaryConfig) configuration;</b>
+<i class="no-highlight">289</i>&nbsp;
+<b class="nc"><i class="no-highlight">290</i>&nbsp;        Database foreignDb = secondaryConfig.getForeignKeyDatabase();</b>
+<b class="nc"><i class="no-highlight">291</i>&nbsp;        if (foreignDb != null) {</b>
+<b class="nc"><i class="no-highlight">292</i>&nbsp;            foreignDb.foreignKeySecondaries.add(this);</b>
+<i class="no-highlight">293</i>&nbsp;        }
+<i class="no-highlight">294</i>&nbsp;
+<i class="no-highlight">295</i>&nbsp;        /* Populate secondary if requested and secondary is empty. */
+<b class="nc"><i class="no-highlight">296</i>&nbsp;        if (!secondaryConfig.getAllowPopulate()) {</b>
+<b class="nc"><i class="no-highlight">297</i>&nbsp;            return;</b>
+<i class="no-highlight">298</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">299</i>&nbsp;        Cursor secCursor = null;</b>
+<b class="nc"><i class="no-highlight">300</i>&nbsp;        Cursor priCursor = null;</b>
+<i class="no-highlight">301</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">302</i>&nbsp;            secCursor = new Cursor(this, locker, null);</b>
+<i class="no-highlight">303</i>&nbsp;
+<b class="nc"><i class="no-highlight">304</i>&nbsp;            DatabaseEntry key = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            DatabaseEntry data = new DatabaseEntry();</b>
+<i class="no-highlight">306</i>&nbsp;
+<b class="nc"><i class="no-highlight">307</i>&nbsp;            OperationResult result = secCursor.position(</b>
+<i class="no-highlight">308</i>&nbsp;                key, data, LockMode.DEFAULT, null, true);
+<i class="no-highlight">309</i>&nbsp;
+<b class="nc"><i class="no-highlight">310</i>&nbsp;            if (result != null) {</b>
+<b class="nc"><i class="no-highlight">311</i>&nbsp;                return;</b>
+<i class="no-highlight">312</i>&nbsp;            }
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;            /* Is empty, so populate */
+<b class="nc"><i class="no-highlight">315</i>&nbsp;            priCursor = new Cursor(primaryDatabase, locker, null);</b>
+<i class="no-highlight">316</i>&nbsp;
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            result = priCursor.position(</b>
+<i class="no-highlight">318</i>&nbsp;                key, data, LockMode.DEFAULT, null, true);
+<i class="no-highlight">319</i>&nbsp;
+<b class="nc"><i class="no-highlight">320</i>&nbsp;            while (result != null) {</b>
+<i class="no-highlight">321</i>&nbsp;
+<b class="nc"><i class="no-highlight">322</i>&nbsp;                updateSecondary(</b>
+<i class="no-highlight">323</i>&nbsp;                    locker, secCursor, key /*priKey*/,
+<i class="no-highlight">324</i>&nbsp;                    null /*oldData*/, data /*newData*/,
+<i class="no-highlight">325</i>&nbsp;                    null /*cacheMode*/,
+<b class="nc"><i class="no-highlight">326</i>&nbsp;                    result.getExpirationTime(),</b>
+<i class="no-highlight">327</i>&nbsp;                    false /*expirationUpdated*/,
+<b class="nc"><i class="no-highlight">328</i>&nbsp;                    result.getExpirationTime());</b>
+<i class="no-highlight">329</i>&nbsp;
+<b class="nc"><i class="no-highlight">330</i>&nbsp;                result = priCursor.retrieveNext(</b>
+<i class="no-highlight">331</i>&nbsp;                    key, data, LockMode.DEFAULT, null, GetMode.NEXT);
+<i class="no-highlight">332</i>&nbsp;            }
+<i class="no-highlight">333</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">334</i>&nbsp;            if (secCursor != null) {</b>
+<b class="nc"><i class="no-highlight">335</i>&nbsp;                secCursor.close();</b>
+<i class="no-highlight">336</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            if (priCursor != null) {</b>
+<b class="nc"><i class="no-highlight">338</i>&nbsp;                priCursor.close();</b>
+<i class="no-highlight">339</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">340</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;    }</b>
+<i class="no-highlight">342</i>&nbsp;
+<i class="no-highlight">343</i>&nbsp;    @Override
+<i class="no-highlight">344</i>&nbsp;    SecondaryAssociation makeSecondaryAssociation() {
+<i class="no-highlight">345</i>&nbsp;        /* Only one is non-null: primaryDatabase, SecondaryAssociation. */
+<b class="nc"><i class="no-highlight">346</i>&nbsp;        if (primaryDatabase != null) {</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;            primaryDatabase.simpleAssocSecondaries.add(this);</b>
+<b class="nc"><i class="no-highlight">348</i>&nbsp;            return primaryDatabase.secAssoc;</b>
+<i class="no-highlight">349</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">350</i>&nbsp;        return configuration.getSecondaryAssociation();</b>
+<i class="no-highlight">351</i>&nbsp;    }
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;    /**
+<i class="no-highlight">354</i>&nbsp;     * Closes a secondary database and dis-associates it from its primary
+<i class="no-highlight">355</i>&nbsp;     * database. A secondary database should be closed before closing its
+<i class="no-highlight">356</i>&nbsp;     * associated primary database.
+<i class="no-highlight">357</i>&nbsp;     *
+<i class="no-highlight">358</i>&nbsp;     * {@inheritDoc}
+<i class="no-highlight">359</i>&nbsp;     *
+<i class="no-highlight">360</i>&nbsp;     * &lt;!-- inherit other javadoc from overridden method --&gt;
+<i class="no-highlight">361</i>&nbsp;     */
+<i class="no-highlight">362</i>&nbsp;    @Override
+<i class="no-highlight">363</i>&nbsp;    public synchronized void close() {
+<i class="no-highlight">364</i>&nbsp;        /* removeReferringAssociations will be called during close. */
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        super.close();</b>
+<b class="nc"><i class="no-highlight">366</i>&nbsp;    }</b>
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    @Override
+<i class="no-highlight">369</i>&nbsp;    void removeReferringAssociations() {
+<b class="nc"><i class="no-highlight">370</i>&nbsp;        super.removeReferringAssociations();</b>
+<b class="nc"><i class="no-highlight">371</i>&nbsp;        if (primaryDatabase != null) {</b>
+<b class="nc"><i class="no-highlight">372</i>&nbsp;            primaryDatabase.simpleAssocSecondaries.remove(this);</b>
+<i class="no-highlight">373</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">374</i>&nbsp;        if (secondaryConfig != null) {</b>
+<b class="nc"><i class="no-highlight">375</i>&nbsp;            final Database foreignDb = secondaryConfig.getForeignKeyDatabase();</b>
+<b class="nc"><i class="no-highlight">376</i>&nbsp;            if (foreignDb != null) {</b>
+<b class="nc"><i class="no-highlight">377</i>&nbsp;                foreignDb.foreignKeySecondaries.remove(this);</b>
+<i class="no-highlight">378</i>&nbsp;            }
+<i class="no-highlight">379</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">380</i>&nbsp;    }</b>
+<i class="no-highlight">381</i>&nbsp;
+<i class="no-highlight">382</i>&nbsp;    /**
+<i class="no-highlight">383</i>&nbsp;     * @hidden
+<i class="no-highlight">384</i>&nbsp;     * For internal use only.
+<i class="no-highlight">385</i>&nbsp;     *
+<i class="no-highlight">386</i>&nbsp;     * Enables incremental population of this secondary database, so that index
+<i class="no-highlight">387</i>&nbsp;     * population can occur incrementally, and concurrently with primary
+<i class="no-highlight">388</i>&nbsp;     * database writes.
+<i class="no-highlight">389</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">390</i>&nbsp;     * After calling this method (and before calling {@link
+<i class="no-highlight">391</i>&nbsp;     * #endIncrementalPopulation}), it is expected that the application will
+<i class="no-highlight">392</i>&nbsp;     * populate the secondary explicitly by calling {@link
+<i class="no-highlight">393</i>&nbsp;     * Database#populateSecondaries} to process all records for the primary
+<i class="no-highlight">394</i>&nbsp;     * database(s) associated with this secondary.
+<i class="no-highlight">395</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">396</i>&nbsp;     * The concurrent population mode supports concurrent indexing by ordinary
+<i class="no-highlight">397</i>&nbsp;     * writes to the primary database(s) and calls to {@link
+<i class="no-highlight">398</i>&nbsp;     * Database#populateSecondaries}.  To provide this capability, some
+<i class="no-highlight">399</i>&nbsp;     * primary-secondary integrity checking is disabled.  The integrity
+<i class="no-highlight">400</i>&nbsp;     * checking (that is disabled) is meant only to detect application bugs,
+<i class="no-highlight">401</i>&nbsp;     * and is not necessary for normal operations.  Specifically, the checks
+<i class="no-highlight">402</i>&nbsp;     * that are disabled are:
+<i class="no-highlight">403</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">404</i>&nbsp;     *   &lt;li&gt;When a new secondary key is inserted, because a primary record is
+<i class="no-highlight">405</i>&nbsp;     *   inserted or updated, we normally check that a key mapped to the
+<i class="no-highlight">406</i>&nbsp;     *   primary record does not already exist in the secondary database.&lt;/li&gt;
+<i class="no-highlight">407</i>&nbsp;     *   &lt;li&gt;When an existing secondary key is deleted, because a primary
+<i class="no-highlight">408</i>&nbsp;     *   record is updated or deleted, we normally check that a key mapped to
+<i class="no-highlight">409</i>&nbsp;     *   the primary record already does exist in the secondary database.&lt;/li&gt;
+<i class="no-highlight">410</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">411</i>&nbsp;     * Without these checks, one can think of the secondary indexing operations
+<i class="no-highlight">412</i>&nbsp;     * as being idempotent.  Via the idempotent indexing operations, explicit
+<i class="no-highlight">413</i>&nbsp;     * population (via {@link Database#populateSecondaries}) and normal
+<i class="no-highlight">414</i>&nbsp;     * secondary population (via primary writes) collaborate to add and delete
+<i class="no-highlight">415</i>&nbsp;     * index records as needed.
+<i class="no-highlight">416</i>&nbsp;     */
+<i class="no-highlight">417</i>&nbsp;    public void startIncrementalPopulation() {
+<b class="nc"><i class="no-highlight">418</i>&nbsp;        isFullyPopulated = false;</b>
+<b class="nc"><i class="no-highlight">419</i>&nbsp;    }</b>
+<i class="no-highlight">420</i>&nbsp;
+<i class="no-highlight">421</i>&nbsp;    /**
+<i class="no-highlight">422</i>&nbsp;     * @hidden
+<i class="no-highlight">423</i>&nbsp;     * For internal use only.
+<i class="no-highlight">424</i>&nbsp;     *
+<i class="no-highlight">425</i>&nbsp;     * Disables incremental population of this secondary database, after this
+<i class="no-highlight">426</i>&nbsp;     * index has been fully populated.
+<i class="no-highlight">427</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">428</i>&nbsp;     * After calling this method, this database may not be populated by calling
+<i class="no-highlight">429</i>&nbsp;     * {@link Database#populateSecondaries}, and all primary-secondary
+<i class="no-highlight">430</i>&nbsp;     * integrity checking for this secondary is enabled.
+<i class="no-highlight">431</i>&nbsp;     */
+<i class="no-highlight">432</i>&nbsp;    public void endIncrementalPopulation() {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;        isFullyPopulated = true;</b>
+<b class="nc"><i class="no-highlight">434</i>&nbsp;    }</b>
+<i class="no-highlight">435</i>&nbsp;
+<i class="no-highlight">436</i>&nbsp;    /**
+<i class="no-highlight">437</i>&nbsp;     * @hidden
+<i class="no-highlight">438</i>&nbsp;     * For internal use only.
+<i class="no-highlight">439</i>&nbsp;     *
+<i class="no-highlight">440</i>&nbsp;     * @return true if {@link #startIncrementalPopulation} was called, and
+<i class="no-highlight">441</i>&nbsp;     * {@link #endIncrementalPopulation} was not subsequently called.
+<i class="no-highlight">442</i>&nbsp;     */
+<i class="no-highlight">443</i>&nbsp;    public boolean isIncrementalPopulationEnabled() {
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        return !isFullyPopulated;</b>
+<i class="no-highlight">445</i>&nbsp;    }
+<i class="no-highlight">446</i>&nbsp;
+<i class="no-highlight">447</i>&nbsp;    /**
+<i class="no-highlight">448</i>&nbsp;     * @hidden
+<i class="no-highlight">449</i>&nbsp;     * For internal use only.
+<i class="no-highlight">450</i>&nbsp;     *
+<i class="no-highlight">451</i>&nbsp;     * Reads {@code batchSize} records starting at the given {@code key} and
+<i class="no-highlight">452</i>&nbsp;     * {@code data}, and deletes any secondary records having a primary key
+<i class="no-highlight">453</i>&nbsp;     * (the data of the secondary record) for which {@link
+<i class="no-highlight">454</i>&nbsp;     * SecondaryAssociation#getPrimary} returns null.  The next key/data pair
+<i class="no-highlight">455</i>&nbsp;     * to be processed is returned in the {@code key} and {@code data}
+<i class="no-highlight">456</i>&nbsp;     * parameters so these can be passed in to process the next batch.
+<i class="no-highlight">457</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">458</i>&nbsp;     * It is the application&#39;s responsibility to save the key/data pair
+<i class="no-highlight">459</i>&nbsp;     * returned by this method, and then pass the saved key/data when the
+<i class="no-highlight">460</i>&nbsp;     * method is called again to process the next batch of records.  The
+<i class="no-highlight">461</i>&nbsp;     * application may wish to save the key/data persistently in order to avoid
+<i class="no-highlight">462</i>&nbsp;     * restarting the processing from the beginning of the database after a
+<i class="no-highlight">463</i>&nbsp;     * crash.
+<i class="no-highlight">464</i>&nbsp;     *
+<i class="no-highlight">465</i>&nbsp;     * @param key contains the starting key for the batch of records to be
+<i class="no-highlight">466</i>&nbsp;     * processed when this method is called, and contains the next key to be
+<i class="no-highlight">467</i>&nbsp;     * processed when this method returns.  If {@code key.getData() == null}
+<i class="no-highlight">468</i>&nbsp;     * when this method is called, the batch will begin with the first record
+<i class="no-highlight">469</i>&nbsp;     * in the database.
+<i class="no-highlight">470</i>&nbsp;     *
+<i class="no-highlight">471</i>&nbsp;     * @param data contains the starting data element (primary key) for the
+<i class="no-highlight">472</i>&nbsp;     * batch of records to be processed when this method is called, and
+<i class="no-highlight">473</i>&nbsp;     * contains the next data element to be processed when this method returns.
+<i class="no-highlight">474</i>&nbsp;     * If {@code key.getData() == null} when this method is called, the batch
+<i class="no-highlight">475</i>&nbsp;     * will begin with the first record in the database.
+<i class="no-highlight">476</i>&nbsp;     *
+<i class="no-highlight">477</i>&nbsp;     * @param batchSize is the maximum number of records to be read, and also
+<i class="no-highlight">478</i>&nbsp;     * the maximum number of deletions that will be included in a single
+<i class="no-highlight">479</i>&nbsp;     * transaction.
+<i class="no-highlight">480</i>&nbsp;     *
+<i class="no-highlight">481</i>&nbsp;     * @return true if more records may need to be processed, or false if
+<i class="no-highlight">482</i>&nbsp;     * processing is complete.
+<i class="no-highlight">483</i>&nbsp;     */
+<i class="no-highlight">484</i>&nbsp;    public boolean deleteObsoletePrimaryKeys(final DatabaseEntry key,
+<i class="no-highlight">485</i>&nbsp;                                             final DatabaseEntry data,
+<i class="no-highlight">486</i>&nbsp;                                             final int batchSize) {
+<i class="no-highlight">487</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">488</i>&nbsp;            checkEnv();</b>
+<b class="nc"><i class="no-highlight">489</i>&nbsp;            DatabaseUtil.checkForNullDbt(key, &quot;key&quot;, false);</b>
+<b class="nc"><i class="no-highlight">490</i>&nbsp;            if (batchSize &lt;= 0) {</b>
+<b class="nc"><i class="no-highlight">491</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">492</i>&nbsp;                    &quot;batchSize must be positive&quot;);
+<i class="no-highlight">493</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">494</i>&nbsp;            final DatabaseImpl dbImpl = checkOpen();</b>
+<b class="nc"><i class="no-highlight">495</i>&nbsp;            trace(Level.FINEST, &quot;deleteObsoletePrimaryKeys&quot;, null, key,</b>
+<i class="no-highlight">496</i>&nbsp;                  null, null);
+<i class="no-highlight">497</i>&nbsp;
+<b class="nc"><i class="no-highlight">498</i>&nbsp;            final Locker locker = LockerFactory.getWritableLocker(</b>
+<b class="nc"><i class="no-highlight">499</i>&nbsp;                envHandle, null, dbImpl.isInternalDb(),</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;                isTransactional(),</b>
+<b class="nc"><i class="no-highlight">501</i>&nbsp;                dbImpl.isReplicated() /*autoTxnIsReplicated*/);</b>
+<i class="no-highlight">502</i>&nbsp;            try {
+<i class="no-highlight">503</i>&nbsp;                final boolean result;
+<b class="nc"><i class="no-highlight">504</i>&nbsp;                try (final Cursor cursor = new Cursor(this, locker, null)) {</b>
+<b class="nc"><i class="no-highlight">505</i>&nbsp;                    result = deleteObsoletePrimaryKeysInternal(</b>
+<i class="no-highlight">506</i>&nbsp;                        cursor, locker, key, data, batchSize);
+<b class="nc"><i class="no-highlight">507</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">508</i>&nbsp;                locker.operationEnd(true);</b>
+<b class="nc"><i class="no-highlight">509</i>&nbsp;                return result;</b>
+<b class="nc"><i class="no-highlight">510</i>&nbsp;            } catch (final Throwable e) {</b>
+<b class="nc"><i class="no-highlight">511</i>&nbsp;                locker.operationEnd(false);</b>
+<b class="nc"><i class="no-highlight">512</i>&nbsp;                throw e;</b>
+<i class="no-highlight">513</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">514</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">515</i>&nbsp;            envHandle.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">516</i>&nbsp;            throw E;</b>
+<i class="no-highlight">517</i>&nbsp;        }
+<i class="no-highlight">518</i>&nbsp;    }
+<i class="no-highlight">519</i>&nbsp;
+<i class="no-highlight">520</i>&nbsp;    /**
+<i class="no-highlight">521</i>&nbsp;     * Use a scan to walk through the primary keys.  If the primary key is
+<i class="no-highlight">522</i>&nbsp;     * obsolete (SecondaryAssociation.getPrimary returns null), delete the
+<i class="no-highlight">523</i>&nbsp;     * record.
+<i class="no-highlight">524</i>&nbsp;     */
+<i class="no-highlight">525</i>&nbsp;    private boolean deleteObsoletePrimaryKeysInternal(final Cursor cursor,
+<i class="no-highlight">526</i>&nbsp;                                                      final Locker locker,
+<i class="no-highlight">527</i>&nbsp;                                                      final DatabaseEntry key,
+<i class="no-highlight">528</i>&nbsp;                                                      final DatabaseEntry data,
+<i class="no-highlight">529</i>&nbsp;                                                      final int batchSize) {
+<i class="no-highlight">530</i>&nbsp;        /* TODO: use dirty-read scan with mode to return deleted records. */
+<b class="nc"><i class="no-highlight">531</i>&nbsp;        final LockMode scanMode = LockMode.RMW;</b>
+<i class="no-highlight">532</i>&nbsp;        OperationResult searchResult;
+<b class="nc"><i class="no-highlight">533</i>&nbsp;        if (key.getData() == null) {</b>
+<i class="no-highlight">534</i>&nbsp;            /* Start at first key. */
+<b class="nc"><i class="no-highlight">535</i>&nbsp;            searchResult = cursor.position(key, data, scanMode, null, true);</b>
+<i class="no-highlight">536</i>&nbsp;        } else {
+<i class="no-highlight">537</i>&nbsp;            /* Resume at key/data pair last processed. */
+<b class="nc"><i class="no-highlight">538</i>&nbsp;            searchResult = cursor.search(</b>
+<i class="no-highlight">539</i>&nbsp;                key, data, scanMode, null, SearchMode.BOTH_RANGE, false);
+<b class="nc"><i class="no-highlight">540</i>&nbsp;            if (searchResult == null) {</b>
+<b class="nc"><i class="no-highlight">541</i>&nbsp;                searchResult = cursor.search(</b>
+<i class="no-highlight">542</i>&nbsp;                    key, data, scanMode, null, SearchMode.SET_RANGE, false);
+<i class="no-highlight">543</i>&nbsp;            }
+<i class="no-highlight">544</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">545</i>&nbsp;        int nProcessed = 0;</b>
+<b class="nc"><i class="no-highlight">546</i>&nbsp;        while (searchResult != null) {</b>
+<b class="nc"><i class="no-highlight">547</i>&nbsp;            if (nProcessed &gt;= batchSize) {</b>
+<b class="nc"><i class="no-highlight">548</i>&nbsp;                return true;</b>
+<i class="no-highlight">549</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">550</i>&nbsp;            nProcessed += 1;</b>
+<b class="nc"><i class="no-highlight">551</i>&nbsp;            if (secAssoc.getPrimary(data) == null) {</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;                cursor.deleteNoNotify(null, getDbImpl().getRepContext());</b>
+<i class="no-highlight">553</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">554</i>&nbsp;            searchResult = cursor.retrieveNext(</b>
+<i class="no-highlight">555</i>&nbsp;                key, data, scanMode, null, GetMode.NEXT);
+<i class="no-highlight">556</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">557</i>&nbsp;        return false;</b>
+<i class="no-highlight">558</i>&nbsp;    }
+<i class="no-highlight">559</i>&nbsp;
+<i class="no-highlight">560</i>&nbsp;    /**
+<i class="no-highlight">561</i>&nbsp;     * @hidden
+<i class="no-highlight">562</i>&nbsp;     * For internal use only.
+<i class="no-highlight">563</i>&nbsp;     */
+<i class="no-highlight">564</i>&nbsp;    @Override
+<i class="no-highlight">565</i>&nbsp;    public void populateSecondaries(final Transaction txn,
+<i class="no-highlight">566</i>&nbsp;                                    final DatabaseEntry key,
+<i class="no-highlight">567</i>&nbsp;                                    final DatabaseEntry data) {
+<b class="nc"><i class="no-highlight">568</i>&nbsp;        throw new UnsupportedOperationException(&quot;Not allowed on a secondary&quot;);</b>
+<i class="no-highlight">569</i>&nbsp;    }
+<i class="no-highlight">570</i>&nbsp;
+<i class="no-highlight">571</i>&nbsp;    /**
+<i class="no-highlight">572</i>&nbsp;     * @hidden
+<i class="no-highlight">573</i>&nbsp;     * For internal use only.
+<i class="no-highlight">574</i>&nbsp;     */
+<i class="no-highlight">575</i>&nbsp;    @Override
+<i class="no-highlight">576</i>&nbsp;    public void populateSecondaries(final Transaction txn,
+<i class="no-highlight">577</i>&nbsp;                                    final DatabaseEntry key,
+<i class="no-highlight">578</i>&nbsp;                                    final DatabaseEntry data,
+<i class="no-highlight">579</i>&nbsp;                                    final long expirationTime,
+<i class="no-highlight">580</i>&nbsp;                                    CacheMode cacheMode) {
+<b class="nc"><i class="no-highlight">581</i>&nbsp;        throw new UnsupportedOperationException(&quot;Not allowed on a secondary&quot;);</b>
+<i class="no-highlight">582</i>&nbsp;    }
+<i class="no-highlight">583</i>&nbsp;
+<i class="no-highlight">584</i>&nbsp;    /**
+<i class="no-highlight">585</i>&nbsp;     * Returns the primary database associated with this secondary database.
+<i class="no-highlight">586</i>&nbsp;     *
+<i class="no-highlight">587</i>&nbsp;     * @return the primary database associated with this secondary database.
+<i class="no-highlight">588</i>&nbsp;     */
+<i class="no-highlight">589</i>&nbsp;    /*
+<i class="no-highlight">590</i>&nbsp;     * To be added when SecondaryAssociation is published:
+<i class="no-highlight">591</i>&nbsp;     * If a {@link SecondaryAssociation} is {@link
+<i class="no-highlight">592</i>&nbsp;     * SecondaryCursor#setSecondaryAssociation configured}, this method returns
+<i class="no-highlight">593</i>&nbsp;     * null.
+<i class="no-highlight">594</i>&nbsp;     */
+<i class="no-highlight">595</i>&nbsp;    public Database getPrimaryDatabase() {
+<b class="nc"><i class="no-highlight">596</i>&nbsp;        return primaryDatabase;</b>
+<i class="no-highlight">597</i>&nbsp;    }
+<i class="no-highlight">598</i>&nbsp;
+<i class="no-highlight">599</i>&nbsp;    /**
+<i class="no-highlight">600</i>&nbsp;     * Returns an empty list, since this database is itself a secondary
+<i class="no-highlight">601</i>&nbsp;     * database.
+<i class="no-highlight">602</i>&nbsp;     */
+<i class="no-highlight">603</i>&nbsp;    @Override
+<i class="no-highlight">604</i>&nbsp;    public List&lt;SecondaryDatabase&gt; getSecondaryDatabases() {
+<b class="nc"><i class="no-highlight">605</i>&nbsp;        return Collections.emptyList();</b>
+<i class="no-highlight">606</i>&nbsp;    }
+<i class="no-highlight">607</i>&nbsp;
+<i class="no-highlight">608</i>&nbsp;    /**
+<i class="no-highlight">609</i>&nbsp;     * Returns a copy of the secondary configuration of this database.
+<i class="no-highlight">610</i>&nbsp;     *
+<i class="no-highlight">611</i>&nbsp;     * @return a copy of the secondary configuration of this database.
+<i class="no-highlight">612</i>&nbsp;     *
+<i class="no-highlight">613</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">614</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">615</i>&nbsp;     *
+<i class="no-highlight">616</i>&nbsp;     * @deprecated As of JE 4.0.13, replaced by {@link
+<i class="no-highlight">617</i>&nbsp;     * SecondaryDatabase#getConfig()}.
+<i class="no-highlight">618</i>&nbsp;     */
+<i class="no-highlight">619</i>&nbsp;    public SecondaryConfig getSecondaryConfig() {
+<b class="nc"><i class="no-highlight">620</i>&nbsp;        return getConfig();</b>
+<i class="no-highlight">621</i>&nbsp;    }
+<i class="no-highlight">622</i>&nbsp;
+<i class="no-highlight">623</i>&nbsp;    /**
+<i class="no-highlight">624</i>&nbsp;     * Returns a copy of the secondary configuration of this database.
+<i class="no-highlight">625</i>&nbsp;     *
+<i class="no-highlight">626</i>&nbsp;     * @return a copy of the secondary configuration of this database.
+<i class="no-highlight">627</i>&nbsp;     *
+<i class="no-highlight">628</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">629</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">630</i>&nbsp;     */
+<i class="no-highlight">631</i>&nbsp;    @Override
+<i class="no-highlight">632</i>&nbsp;    public SecondaryConfig getConfig() {
+<b class="nc"><i class="no-highlight">633</i>&nbsp;        return (SecondaryConfig) super.getConfig();</b>
+<i class="no-highlight">634</i>&nbsp;    }
+<i class="no-highlight">635</i>&nbsp;
+<i class="no-highlight">636</i>&nbsp;    /**
+<i class="no-highlight">637</i>&nbsp;     * Returns the secondary config without cloning, for internal use.
+<i class="no-highlight">638</i>&nbsp;     */
+<i class="no-highlight">639</i>&nbsp;    SecondaryConfig getPrivateSecondaryConfig() {
+<b class="nc"><i class="no-highlight">640</i>&nbsp;        return secondaryConfig;</b>
+<i class="no-highlight">641</i>&nbsp;    }
+<i class="no-highlight">642</i>&nbsp;
+<i class="no-highlight">643</i>&nbsp;    /**
+<i class="no-highlight">644</i>&nbsp;     * Obtain a cursor on a database, returning a
+<i class="no-highlight">645</i>&nbsp;     * &lt;code&gt;SecondaryCursor&lt;/code&gt;. Calling this method is the equivalent of
+<i class="no-highlight">646</i>&nbsp;     * calling {@link #openCursor} and casting the result to {@link
+<i class="no-highlight">647</i>&nbsp;     * SecondaryCursor}.
+<i class="no-highlight">648</i>&nbsp;     *
+<i class="no-highlight">649</i>&nbsp;     * @param txn the transaction used to protect all operations performed with
+<i class="no-highlight">650</i>&nbsp;     * the cursor, or null if the operations should not be transaction
+<i class="no-highlight">651</i>&nbsp;     * protected.  If the database is non-transactional, null must be
+<i class="no-highlight">652</i>&nbsp;     * specified.  For a transactional database, the transaction is optional
+<i class="no-highlight">653</i>&nbsp;     * for read-only access and required for read-write access.
+<i class="no-highlight">654</i>&nbsp;     *
+<i class="no-highlight">655</i>&nbsp;     * @param cursorConfig The cursor attributes.  If null, default attributes
+<i class="no-highlight">656</i>&nbsp;     * are used.
+<i class="no-highlight">657</i>&nbsp;     *
+<i class="no-highlight">658</i>&nbsp;     * @return A secondary database cursor.
+<i class="no-highlight">659</i>&nbsp;     *
+<i class="no-highlight">660</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">661</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">662</i>&nbsp;     *
+<i class="no-highlight">663</i>&nbsp;     * @deprecated As of JE 4.0.13, replaced by {@link
+<i class="no-highlight">664</i>&nbsp;     * SecondaryDatabase#openCursor}.&lt;/p&gt;
+<i class="no-highlight">665</i>&nbsp;     */
+<i class="no-highlight">666</i>&nbsp;    public SecondaryCursor openSecondaryCursor(
+<i class="no-highlight">667</i>&nbsp;        final Transaction txn,
+<i class="no-highlight">668</i>&nbsp;        final CursorConfig cursorConfig) {
+<i class="no-highlight">669</i>&nbsp;
+<b class="nc"><i class="no-highlight">670</i>&nbsp;        return openCursor(txn, cursorConfig);</b>
+<i class="no-highlight">671</i>&nbsp;    }
+<i class="no-highlight">672</i>&nbsp;
+<i class="no-highlight">673</i>&nbsp;    /**
+<i class="no-highlight">674</i>&nbsp;     * Obtain a cursor on a database, returning a &lt;code&gt;SecondaryCursor&lt;/code&gt;.
+<i class="no-highlight">675</i>&nbsp;     */
+<i class="no-highlight">676</i>&nbsp;    @Override
+<i class="no-highlight">677</i>&nbsp;    public SecondaryCursor openCursor(final Transaction txn,
+<i class="no-highlight">678</i>&nbsp;                                      final CursorConfig cursorConfig) {
+<b class="nc"><i class="no-highlight">679</i>&nbsp;        checkReadable();</b>
+<b class="nc"><i class="no-highlight">680</i>&nbsp;        return (SecondaryCursor) super.openCursor(txn, cursorConfig);</b>
+<i class="no-highlight">681</i>&nbsp;    }
+<i class="no-highlight">682</i>&nbsp;
+<i class="no-highlight">683</i>&nbsp;    /**
+<i class="no-highlight">684</i>&nbsp;     * Overrides Database method.
+<i class="no-highlight">685</i>&nbsp;     */
+<i class="no-highlight">686</i>&nbsp;    @Override
+<i class="no-highlight">687</i>&nbsp;    Cursor newDbcInstance(final Transaction txn,
+<i class="no-highlight">688</i>&nbsp;                          final CursorConfig cursorConfig) {
+<b class="nc"><i class="no-highlight">689</i>&nbsp;        return new SecondaryCursor(this, txn, cursorConfig);</b>
+<i class="no-highlight">690</i>&nbsp;    }
+<i class="no-highlight">691</i>&nbsp;
+<i class="no-highlight">692</i>&nbsp;    /**
+<i class="no-highlight">693</i>&nbsp;     * Deletes the record associated with the given secondary key. In the
+<i class="no-highlight">694</i>&nbsp;     * presence of duplicate keys, all primary records associated with the
+<i class="no-highlight">695</i>&nbsp;     * given secondary key will be deleted.
+<i class="no-highlight">696</i>&nbsp;     *
+<i class="no-highlight">697</i>&nbsp;     * &lt;p&gt;When multiple primary records are deleted, the expiration time in the
+<i class="no-highlight">698</i>&nbsp;     * returned result is that of the last record deleted.&lt;/p&gt;
+<i class="no-highlight">699</i>&nbsp;     *
+<i class="no-highlight">700</i>&nbsp;     * &lt;p&gt;When the primary records are deleted, their associated secondary
+<i class="no-highlight">701</i>&nbsp;     * records are deleted as if {@link Database#delete} were called. This
+<i class="no-highlight">702</i>&nbsp;     * includes, but is not limited to, the secondary record referenced by the
+<i class="no-highlight">703</i>&nbsp;     * given key.&lt;/p&gt;
+<i class="no-highlight">704</i>&nbsp;     *
+<i class="no-highlight">705</i>&nbsp;     * @param key the key used as
+<i class="no-highlight">706</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;.
+<i class="no-highlight">707</i>&nbsp;     *
+<i class="no-highlight">708</i>&nbsp;     * &lt;!-- inherit other javadoc from overridden method --&gt;
+<i class="no-highlight">709</i>&nbsp;     */
+<i class="no-highlight">710</i>&nbsp;    @Override
+<i class="no-highlight">711</i>&nbsp;    public OperationResult delete(final Transaction txn,
+<i class="no-highlight">712</i>&nbsp;                                  final DatabaseEntry key,
+<i class="no-highlight">713</i>&nbsp;                                  final WriteOptions options) {
+<i class="no-highlight">714</i>&nbsp;
+<b class="nc"><i class="no-highlight">715</i>&nbsp;        checkEnv();</b>
+<b class="nc"><i class="no-highlight">716</i>&nbsp;        final DatabaseImpl dbImpl = checkReadable();</b>
+<i class="no-highlight">717</i>&nbsp;
+<b class="nc"><i class="no-highlight">718</i>&nbsp;        trace(Level.FINEST, &quot;SecondaryDatabase.delete&quot;, txn, key, null, null);</b>
+<i class="no-highlight">719</i>&nbsp;
+<b class="nc"><i class="no-highlight">720</i>&nbsp;        final CacheMode cacheMode =</b>
+<b class="nc"><i class="no-highlight">721</i>&nbsp;            options != null ? options.getCacheMode() : null;</b>
+<i class="no-highlight">722</i>&nbsp;
+<b class="nc"><i class="no-highlight">723</i>&nbsp;        final Locker locker = LockerFactory.getWritableLocker(</b>
+<i class="no-highlight">724</i>&nbsp;            envHandle,
+<i class="no-highlight">725</i>&nbsp;            txn,
+<b class="nc"><i class="no-highlight">726</i>&nbsp;            dbImpl.isInternalDb(),</b>
+<b class="nc"><i class="no-highlight">727</i>&nbsp;            isTransactional(),</b>
+<b class="nc"><i class="no-highlight">728</i>&nbsp;            dbImpl.isReplicated()); // autoTxnIsReplicated</b>
+<i class="no-highlight">729</i>&nbsp;
+<b class="nc"><i class="no-highlight">730</i>&nbsp;        OperationResult commitResult = null;</b>
+<i class="no-highlight">731</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">732</i>&nbsp;            final LockMode lockMode = locker.isSerializableIsolation() ?</b>
+<i class="no-highlight">733</i>&nbsp;                LockMode.RMW :
+<i class="no-highlight">734</i>&nbsp;                LockMode.READ_UNCOMMITTED_ALL;
+<i class="no-highlight">735</i>&nbsp;
+<b class="nc"><i class="no-highlight">736</i>&nbsp;            try (Cursor cursor = new Cursor(this, locker, null)) {</b>
+<i class="no-highlight">737</i>&nbsp;                /* Read the primary key (the data of a secondary). */
+<i class="no-highlight">738</i>&nbsp;
+<b class="nc"><i class="no-highlight">739</i>&nbsp;                final DatabaseEntry pKey = new DatabaseEntry();</b>
+<i class="no-highlight">740</i>&nbsp;
+<b class="nc"><i class="no-highlight">741</i>&nbsp;                OperationResult searchResult = cursor.search(</b>
+<i class="no-highlight">742</i>&nbsp;                    key, pKey, lockMode, cacheMode, SearchMode.SET, false);
+<i class="no-highlight">743</i>&nbsp;
+<i class="no-highlight">744</i>&nbsp;                /*
+<i class="no-highlight">745</i>&nbsp;                 * For each duplicate secondary key, delete the primary record
+<i class="no-highlight">746</i>&nbsp;                 * and all its associated secondary records, including the one
+<i class="no-highlight">747</i>&nbsp;                 * referenced by this secondary cursor.
+<i class="no-highlight">748</i>&nbsp;                 */
+<b class="nc"><i class="no-highlight">749</i>&nbsp;                while (searchResult != null) {</b>
+<b class="nc"><i class="no-highlight">750</i>&nbsp;                    final Database primaryDb = getPrimary(pKey);</b>
+<i class="no-highlight">751</i>&nbsp;
+<b class="nc"><i class="no-highlight">752</i>&nbsp;                    if (primaryDb == null) {</b>
+<i class="no-highlight">753</i>&nbsp;
+<i class="no-highlight">754</i>&nbsp;                        /* Primary was removed from the association. */
+<b class="nc"><i class="no-highlight">755</i>&nbsp;                        cursor.deleteNoNotify(</b>
+<b class="nc"><i class="no-highlight">756</i>&nbsp;                            null, dbImpl.getRepContext());</b>
+<i class="no-highlight">757</i>&nbsp;                    } else {
+<i class="no-highlight">758</i>&nbsp;
+<b class="nc"><i class="no-highlight">759</i>&nbsp;                        commitResult = primaryDb.deleteInternal(</b>
+<i class="no-highlight">760</i>&nbsp;                            locker, pKey, cacheMode);
+<i class="no-highlight">761</i>&nbsp;
+<b class="nc"><i class="no-highlight">762</i>&nbsp;                        if (commitResult == null) {</b>
+<b class="nc"><i class="no-highlight">763</i>&nbsp;                            if (lockMode != LockMode.RMW) {</b>
+<i class="no-highlight">764</i>&nbsp;
+<i class="no-highlight">765</i>&nbsp;                                /*
+<i class="no-highlight">766</i>&nbsp;                                 * The primary record was not found. The index
+<i class="no-highlight">767</i>&nbsp;                                 * may be either corrupt or the record was
+<i class="no-highlight">768</i>&nbsp;                                 * deleted between finding it in the secondary
+<i class="no-highlight">769</i>&nbsp;                                 * without locking and trying to delete it. If
+<i class="no-highlight">770</i>&nbsp;                                 * it was deleted or expired then just skip it.
+<i class="no-highlight">771</i>&nbsp;                                 */
+<b class="nc"><i class="no-highlight">772</i>&nbsp;                                if (cursor.checkCurrent(LockMode.RMW, null) !=</b>
+<i class="no-highlight">773</i>&nbsp;                                    null) {
+<i class="no-highlight">774</i>&nbsp;
+<i class="no-highlight">775</i>&nbsp;                                    /* There is a secondary index entry */
+<b class="nc"><i class="no-highlight">776</i>&nbsp;                                    throw secondaryRefersToMissingPrimaryKey(</b>
+<i class="no-highlight">777</i>&nbsp;                                        locker, key, pKey,
+<b class="nc"><i class="no-highlight">778</i>&nbsp;                                        searchResult.getExpirationTime());</b>
+<i class="no-highlight">779</i>&nbsp;                                }
+<i class="no-highlight">780</i>&nbsp;                            } else {
+<b class="nc"><i class="no-highlight">781</i>&nbsp;                                if (!cursor.cursorImpl.isProbablyExpired()) {</b>
+<i class="no-highlight">782</i>&nbsp;
+<i class="no-highlight">783</i>&nbsp;                                    /* There is a secondary index entry. */
+<b class="nc"><i class="no-highlight">784</i>&nbsp;                                    throw secondaryRefersToMissingPrimaryKey(</b>
+<i class="no-highlight">785</i>&nbsp;                                        locker, key, pKey,
+<b class="nc"><i class="no-highlight">786</i>&nbsp;                                        searchResult.getExpirationTime());</b>
+<i class="no-highlight">787</i>&nbsp;                                }
+<i class="no-highlight">788</i>&nbsp;                            }
+<i class="no-highlight">789</i>&nbsp;                        }
+<i class="no-highlight">790</i>&nbsp;                    }
+<i class="no-highlight">791</i>&nbsp;
+<b class="nc"><i class="no-highlight">792</i>&nbsp;                    checkOpen();</b>
+<i class="no-highlight">793</i>&nbsp;
+<b class="nc"><i class="no-highlight">794</i>&nbsp;                    searchResult = cursor.retrieveNext(</b>
+<i class="no-highlight">795</i>&nbsp;                        key, pKey, lockMode, null, GetMode.NEXT_DUP);
+<b class="nc"><i class="no-highlight">796</i>&nbsp;                }</b>
+<i class="no-highlight">797</i>&nbsp;
+<b class="nc"><i class="no-highlight">798</i>&nbsp;                if (commitResult == null) {</b>
+<b class="nc"><i class="no-highlight">799</i>&nbsp;                    dbImpl.getEnv().incDeleteFailOps(dbImpl);</b>
+<i class="no-highlight">800</i>&nbsp;                }
+<i class="no-highlight">801</i>&nbsp;
+<b class="nc"><i class="no-highlight">802</i>&nbsp;                return commitResult;</b>
+<b class="nc"><i class="no-highlight">803</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">804</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">805</i>&nbsp;            envHandle.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">806</i>&nbsp;            throw E;</b>
+<i class="no-highlight">807</i>&nbsp;        } finally {
+<b class="nc"><i class="no-highlight">808</i>&nbsp;            locker.operationEnd(commitResult != null);</b>
+<b class="nc"><i class="no-highlight">809</i>&nbsp;        }</b>
+<i class="no-highlight">810</i>&nbsp;    }
+<i class="no-highlight">811</i>&nbsp;
+<i class="no-highlight">812</i>&nbsp;    /**
+<i class="no-highlight">813</i>&nbsp;     * Deletes the record associated with the given secondary key. In the
+<i class="no-highlight">814</i>&nbsp;     * presence of duplicate keys, all primary records associated with the
+<i class="no-highlight">815</i>&nbsp;     * given secondary key will be deleted.
+<i class="no-highlight">816</i>&nbsp;     *
+<i class="no-highlight">817</i>&nbsp;     * &lt;p&gt;When the primary records are deleted, their associated secondary
+<i class="no-highlight">818</i>&nbsp;     * records are deleted as if {@link Database#delete} were called. This
+<i class="no-highlight">819</i>&nbsp;     * includes, but is not limited to, the secondary record referenced by the
+<i class="no-highlight">820</i>&nbsp;     * given key.&lt;/p&gt;
+<i class="no-highlight">821</i>&nbsp;     *
+<i class="no-highlight">822</i>&nbsp;     * &lt;p&gt;Calling this method is equivalent to calling {@link
+<i class="no-highlight">823</i>&nbsp;     * #delete(Transaction, DatabaseEntry, WriteOptions)}.&lt;/p&gt;
+<i class="no-highlight">824</i>&nbsp;     *
+<i class="no-highlight">825</i>&nbsp;     * @param key the key used as
+<i class="no-highlight">826</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;.
+<i class="no-highlight">827</i>&nbsp;     *
+<i class="no-highlight">828</i>&nbsp;     * &lt;!-- inherit other javadoc from overridden method --&gt;
+<i class="no-highlight">829</i>&nbsp;     */
+<i class="no-highlight">830</i>&nbsp;    @Override
+<i class="no-highlight">831</i>&nbsp;    public OperationStatus delete(final Transaction txn,
+<i class="no-highlight">832</i>&nbsp;                                  final DatabaseEntry key) {
+<b class="nc"><i class="no-highlight">833</i>&nbsp;        final OperationResult result = delete(txn, key, null);</b>
+<b class="nc"><i class="no-highlight">834</i>&nbsp;        return result == null ?</b>
+<i class="no-highlight">835</i>&nbsp;            OperationStatus.NOTFOUND : OperationStatus.SUCCESS;
+<i class="no-highlight">836</i>&nbsp;    }
+<i class="no-highlight">837</i>&nbsp;
+<i class="no-highlight">838</i>&nbsp;    /**
+<i class="no-highlight">839</i>&nbsp;     * Moves the cursor to a record according to the specified {@link Get}
+<i class="no-highlight">840</i>&nbsp;     * type.
+<i class="no-highlight">841</i>&nbsp;     *
+<i class="no-highlight">842</i>&nbsp;     * &lt;p&gt;The difference between this method and the method it overrides in
+<i class="no-highlight">843</i>&nbsp;     * {@link Cursor} is that the key here is defined as the secondary
+<i class="no-highlight">844</i>&nbsp;     * records&#39;s key, and the data is defined as the primary record&#39;s data.&lt;/p&gt;
+<i class="no-highlight">845</i>&nbsp;     */
+<i class="no-highlight">846</i>&nbsp;    @Override
+<i class="no-highlight">847</i>&nbsp;    public OperationResult get(
+<i class="no-highlight">848</i>&nbsp;        final Transaction txn,
+<i class="no-highlight">849</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">850</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">851</i>&nbsp;        final Get getType,
+<i class="no-highlight">852</i>&nbsp;        ReadOptions options) {
+<i class="no-highlight">853</i>&nbsp;
+<b class="nc"><i class="no-highlight">854</i>&nbsp;        return get(txn, key, null, data, getType, options);</b>
+<i class="no-highlight">855</i>&nbsp;    }
+<i class="no-highlight">856</i>&nbsp;
+<i class="no-highlight">857</i>&nbsp;    /**
+<i class="no-highlight">858</i>&nbsp;     * Retrieves a record according to the specified {@link Get} type.
+<i class="no-highlight">859</i>&nbsp;     *
+<i class="no-highlight">860</i>&nbsp;     * &lt;p&gt;If the operation succeeds, the record will be locked according to the
+<i class="no-highlight">861</i>&nbsp;     * {@link ReadOptions#getLockMode() lock mode} specified, the key, primary
+<i class="no-highlight">862</i>&nbsp;     * key and/or data will be returned via the (non-null) DatabaseEntry
+<i class="no-highlight">863</i>&nbsp;     * parameters, and a non-null OperationResult will be returned. If the
+<i class="no-highlight">864</i>&nbsp;     * operation fails because the record requested is not found, null is
+<i class="no-highlight">865</i>&nbsp;     * returned.&lt;/p&gt;
+<i class="no-highlight">866</i>&nbsp;     *
+<i class="no-highlight">867</i>&nbsp;     * &lt;p&gt;The following table lists each allowed operation and whether the key,
+<i class="no-highlight">868</i>&nbsp;     * pKey and data parameters are &lt;a href=&quot;DatabaseEntry.html#params&quot;&gt;input
+<i class="no-highlight">869</i>&nbsp;     * or output parameters&lt;/a&gt;. See the individual {@link Get} operations for
+<i class="no-highlight">870</i>&nbsp;     * more information.&lt;/p&gt;
+<i class="no-highlight">871</i>&nbsp;     *
+<i class="no-highlight">872</i>&nbsp;     * &lt;div&gt;&lt;table border=&quot;1&quot; summary=&quot;&quot;&gt;
+<i class="no-highlight">873</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">874</i>&nbsp;     *     &lt;th&gt;Get operation&lt;/th&gt;
+<i class="no-highlight">875</i>&nbsp;     *     &lt;th&gt;Description&lt;/th&gt;
+<i class="no-highlight">876</i>&nbsp;     *     &lt;th&gt;&#39;key&#39; parameter&lt;/th&gt;
+<i class="no-highlight">877</i>&nbsp;     *     &lt;th&gt;&#39;pKey&#39; parameter&lt;/th&gt;
+<i class="no-highlight">878</i>&nbsp;     *     &lt;th&gt;&#39;data&#39; parameter&lt;/th&gt;
+<i class="no-highlight">879</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">880</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">881</i>&nbsp;     *     &lt;td&gt;{@link Get#SEARCH}&lt;/td&gt;
+<i class="no-highlight">882</i>&nbsp;     *     &lt;td&gt;Searches using an exact match by key.&lt;/td&gt;
+<i class="no-highlight">883</i>&nbsp;     *     &lt;td&gt;&lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;&lt;/td&gt;
+<i class="no-highlight">884</i>&nbsp;     *     &lt;td&gt;&lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;&lt;/td&gt;
+<i class="no-highlight">885</i>&nbsp;     *     &lt;td&gt;&lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;&lt;/td&gt;
+<i class="no-highlight">886</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">887</i>&nbsp;     * &lt;tr&gt;
+<i class="no-highlight">888</i>&nbsp;     *     &lt;td&gt;{@link Get#SEARCH_BOTH}&lt;/td&gt;
+<i class="no-highlight">889</i>&nbsp;     *     &lt;td&gt;Searches using an exact match by key and data.&lt;/td&gt;
+<i class="no-highlight">890</i>&nbsp;     *     &lt;td&gt;&lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;&lt;/td&gt;
+<i class="no-highlight">891</i>&nbsp;     *     &lt;td&gt;&lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;&lt;/td&gt;
+<i class="no-highlight">892</i>&nbsp;     *     &lt;td&gt;&lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;&lt;/td&gt;
+<i class="no-highlight">893</i>&nbsp;     * &lt;/tr&gt;
+<i class="no-highlight">894</i>&nbsp;     * &lt;/table&gt;&lt;/div&gt;
+<i class="no-highlight">895</i>&nbsp;     *
+<i class="no-highlight">896</i>&nbsp;     * @param txn For a transactional database, an explicit transaction may be
+<i class="no-highlight">897</i>&nbsp;     * specified to transaction-protect the operation, or null may be specified
+<i class="no-highlight">898</i>&nbsp;     * to perform the operation without transaction protection.  For a
+<i class="no-highlight">899</i>&nbsp;     * non-transactional database, null must be specified.
+<i class="no-highlight">900</i>&nbsp;     *
+<i class="no-highlight">901</i>&nbsp;     * @param key the secondary key input parameter.
+<i class="no-highlight">902</i>&nbsp;     *
+<i class="no-highlight">903</i>&nbsp;     * @param pKey the primary key input or output parameter, depending on
+<i class="no-highlight">904</i>&nbsp;     * getType.
+<i class="no-highlight">905</i>&nbsp;     *
+<i class="no-highlight">906</i>&nbsp;     * @param data the primary data output parameter.
+<i class="no-highlight">907</i>&nbsp;     *
+<i class="no-highlight">908</i>&nbsp;     * @param getType the Get operation type. May not be null.
+<i class="no-highlight">909</i>&nbsp;     *
+<i class="no-highlight">910</i>&nbsp;     * @param options the ReadOptions, or null to use default options.
+<i class="no-highlight">911</i>&nbsp;     *
+<i class="no-highlight">912</i>&nbsp;     * @return the OperationResult if the record requested is found, else null.
+<i class="no-highlight">913</i>&nbsp;     *
+<i class="no-highlight">914</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">915</i>&nbsp;     * href=&quot;OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">916</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">917</i>&nbsp;     *
+<i class="no-highlight">918</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">919</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">920</i>&nbsp;     *
+<i class="no-highlight">921</i>&nbsp;     * @throws IllegalStateException if the database has been closed.
+<i class="no-highlight">922</i>&nbsp;     *
+<i class="no-highlight">923</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">924</i>&nbsp;     * This includes passing a null getType, a null input key/pKey parameter,
+<i class="no-highlight">925</i>&nbsp;     * an input key/pKey parameter with a null data array, a partial key/pKey
+<i class="no-highlight">926</i>&nbsp;     * input parameter, and specifying a {@link ReadOptions#getLockMode()
+<i class="no-highlight">927</i>&nbsp;     * lock mode} of READ_COMMITTED.
+<i class="no-highlight">928</i>&nbsp;     *
+<i class="no-highlight">929</i>&nbsp;     * @since 7.0
+<i class="no-highlight">930</i>&nbsp;     */
+<i class="no-highlight">931</i>&nbsp;    public OperationResult get(
+<i class="no-highlight">932</i>&nbsp;        final Transaction txn,
+<i class="no-highlight">933</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">934</i>&nbsp;        final DatabaseEntry pKey,
+<i class="no-highlight">935</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">936</i>&nbsp;        final Get getType,
+<i class="no-highlight">937</i>&nbsp;        ReadOptions options) {
+<i class="no-highlight">938</i>&nbsp;
+<i class="no-highlight">939</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">940</i>&nbsp;            checkEnv();</b>
+<b class="nc"><i class="no-highlight">941</i>&nbsp;            checkReadable();</b>
+<i class="no-highlight">942</i>&nbsp;
+<b class="nc"><i class="no-highlight">943</i>&nbsp;            if (options == null) {</b>
+<b class="nc"><i class="no-highlight">944</i>&nbsp;                options = Cursor.DEFAULT_READ_OPTIONS;</b>
+<i class="no-highlight">945</i>&nbsp;            }
+<i class="no-highlight">946</i>&nbsp;
+<b class="nc"><i class="no-highlight">947</i>&nbsp;            LockMode lockMode = options.getLockMode();</b>
+<i class="no-highlight">948</i>&nbsp;
+<b class="nc"><i class="no-highlight">949</i>&nbsp;            trace(</b>
+<b class="nc"><i class="no-highlight">950</i>&nbsp;                Level.FINEST, &quot;SecondaryDatabase.get&quot;, String.valueOf(getType),</b>
+<i class="no-highlight">951</i>&nbsp;                txn, key, null, lockMode);
+<i class="no-highlight">952</i>&nbsp;
+<b class="nc"><i class="no-highlight">953</i>&nbsp;            checkLockModeWithoutTxn(txn, lockMode);</b>
+<i class="no-highlight">954</i>&nbsp;
+<i class="no-highlight">955</i>&nbsp;            final CursorConfig cursorConfig;
+<i class="no-highlight">956</i>&nbsp;
+<b class="nc"><i class="no-highlight">957</i>&nbsp;            if (lockMode == LockMode.READ_COMMITTED) {</b>
+<b class="nc"><i class="no-highlight">958</i>&nbsp;                cursorConfig = READ_COMMITTED_CURSOR_CONFIG;</b>
+<b class="nc"><i class="no-highlight">959</i>&nbsp;                lockMode = null;</b>
+<i class="no-highlight">960</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">961</i>&nbsp;                cursorConfig = DEFAULT_CURSOR_CONFIG;</b>
+<i class="no-highlight">962</i>&nbsp;            }
+<i class="no-highlight">963</i>&nbsp;
+<b class="nc"><i class="no-highlight">964</i>&nbsp;            OperationResult result = null;</b>
+<i class="no-highlight">965</i>&nbsp;
+<b class="nc"><i class="no-highlight">966</i>&nbsp;            final Locker locker = LockerFactory.getReadableLocker(</b>
+<b class="nc"><i class="no-highlight">967</i>&nbsp;                this, txn, cursorConfig.getReadCommitted());</b>
+<i class="no-highlight">968</i>&nbsp;
+<i class="no-highlight">969</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">970</i>&nbsp;                try (final SecondaryCursor cursor =</b>
+<i class="no-highlight">971</i>&nbsp;                         new SecondaryCursor(this, locker, cursorConfig)) {
+<i class="no-highlight">972</i>&nbsp;
+<b class="nc"><i class="no-highlight">973</i>&nbsp;                    result = cursor.getInternal(</b>
+<i class="no-highlight">974</i>&nbsp;                        key, pKey, data, getType, options, lockMode);
+<b class="nc"><i class="no-highlight">975</i>&nbsp;                }</b>
+<i class="no-highlight">976</i>&nbsp;            } finally {
+<b class="nc"><i class="no-highlight">977</i>&nbsp;                locker.operationEnd(result != null);</b>
+<b class="nc"><i class="no-highlight">978</i>&nbsp;            }</b>
+<i class="no-highlight">979</i>&nbsp;
+<b class="nc"><i class="no-highlight">980</i>&nbsp;            return result;</b>
+<i class="no-highlight">981</i>&nbsp;
+<b class="nc"><i class="no-highlight">982</i>&nbsp;        } catch (Error E) {</b>
+<b class="nc"><i class="no-highlight">983</i>&nbsp;            envHandle.invalidate(E);</b>
+<b class="nc"><i class="no-highlight">984</i>&nbsp;            throw E;</b>
+<i class="no-highlight">985</i>&nbsp;        }
+<i class="no-highlight">986</i>&nbsp;    }
+<i class="no-highlight">987</i>&nbsp;
+<i class="no-highlight">988</i>&nbsp;    /**
+<i class="no-highlight">989</i>&nbsp;     * @param key the secondary key used as input.  It must be initialized with
+<i class="no-highlight">990</i>&nbsp;     * a non-null byte array by the caller.
+<i class="no-highlight">991</i>&nbsp;     *
+<i class="no-highlight">992</i>&nbsp;     * @param data the primary data returned as output.  Its byte array does
+<i class="no-highlight">993</i>&nbsp;     * not need to be initialized by the caller.
+<i class="no-highlight">994</i>&nbsp;     *
+<i class="no-highlight">995</i>&nbsp;     * &lt;!-- inherit other javadoc from overridden method --&gt;
+<i class="no-highlight">996</i>&nbsp;     */
+<i class="no-highlight">997</i>&nbsp;    @Override
+<i class="no-highlight">998</i>&nbsp;    public OperationStatus get(final Transaction txn,
+<i class="no-highlight">999</i>&nbsp;                               final DatabaseEntry key,
+<i class="no-highlight">1000</i>&nbsp;                               final DatabaseEntry data,
+<i class="no-highlight">1001</i>&nbsp;                               final LockMode lockMode) {
+<b class="nc"><i class="no-highlight">1002</i>&nbsp;        return get(txn, key, new DatabaseEntry(), data, lockMode);</b>
+<i class="no-highlight">1003</i>&nbsp;    }
+<i class="no-highlight">1004</i>&nbsp;
+<i class="no-highlight">1005</i>&nbsp;    /**
+<i class="no-highlight">1006</i>&nbsp;     * Retrieves the key/data pair with the given key.  If the matching key has
+<i class="no-highlight">1007</i>&nbsp;     * duplicate values, the first data item in the set of duplicates is
+<i class="no-highlight">1008</i>&nbsp;     * returned. Retrieval of duplicates requires the use of {@link Cursor}
+<i class="no-highlight">1009</i>&nbsp;     * operations.
+<i class="no-highlight">1010</i>&nbsp;     *
+<i class="no-highlight">1011</i>&nbsp;     * &lt;p&gt;Calling this method is equivalent to calling {@link
+<i class="no-highlight">1012</i>&nbsp;     * #get(Transaction, DatabaseEntry, DatabaseEntry, DatabaseEntry, Get,
+<i class="no-highlight">1013</i>&nbsp;     * ReadOptions)} with {@link Get#SEARCH}.&lt;/p&gt;
+<i class="no-highlight">1014</i>&nbsp;     *
+<i class="no-highlight">1015</i>&nbsp;     * @param txn For a transactional database, an explicit transaction may be
+<i class="no-highlight">1016</i>&nbsp;     * specified to transaction-protect the operation, or null may be specified
+<i class="no-highlight">1017</i>&nbsp;     * to perform the operation without transaction protection.  For a
+<i class="no-highlight">1018</i>&nbsp;     * non-transactional database, null must be specified.
+<i class="no-highlight">1019</i>&nbsp;     *
+<i class="no-highlight">1020</i>&nbsp;     * @param key the secondary key used as
+<i class="no-highlight">1021</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;.
+<i class="no-highlight">1022</i>&nbsp;     *
+<i class="no-highlight">1023</i>&nbsp;     * @param pKey the primary key returned as
+<i class="no-highlight">1024</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;.
+<i class="no-highlight">1025</i>&nbsp;     *
+<i class="no-highlight">1026</i>&nbsp;     * @param data the primary data returned as
+<i class="no-highlight">1027</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;.
+<i class="no-highlight">1028</i>&nbsp;     *
+<i class="no-highlight">1029</i>&nbsp;     * @param lockMode the locking attributes; if null, default attributes are
+<i class="no-highlight">1030</i>&nbsp;     * used.
+<i class="no-highlight">1031</i>&nbsp;     *
+<i class="no-highlight">1032</i>&nbsp;     * @return {@link OperationStatus#NOTFOUND
+<i class="no-highlight">1033</i>&nbsp;     * OperationStatus.NOTFOUND} if no matching key/data pair is found;
+<i class="no-highlight">1034</i>&nbsp;     * otherwise, {@link OperationStatus#SUCCESS
+<i class="no-highlight">1035</i>&nbsp;     * OperationStatus.SUCCESS}.
+<i class="no-highlight">1036</i>&nbsp;     *
+<i class="no-highlight">1037</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">1038</i>&nbsp;     * href=&quot;OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">1039</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">1040</i>&nbsp;     *
+<i class="no-highlight">1041</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">1042</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">1043</i>&nbsp;     *
+<i class="no-highlight">1044</i>&nbsp;     * @throws IllegalStateException if the database has been closed.
+<i class="no-highlight">1045</i>&nbsp;     *
+<i class="no-highlight">1046</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">1047</i>&nbsp;     */
+<i class="no-highlight">1048</i>&nbsp;    public OperationStatus get(final Transaction txn,
+<i class="no-highlight">1049</i>&nbsp;                               final DatabaseEntry key,
+<i class="no-highlight">1050</i>&nbsp;                               final DatabaseEntry pKey,
+<i class="no-highlight">1051</i>&nbsp;                               final DatabaseEntry data,
+<i class="no-highlight">1052</i>&nbsp;                               LockMode lockMode) {
+<b class="nc"><i class="no-highlight">1053</i>&nbsp;        final OperationResult result = get(</b>
+<i class="no-highlight">1054</i>&nbsp;            txn, key, pKey, data, Get.SEARCH,
+<b class="nc"><i class="no-highlight">1055</i>&nbsp;            DbInternal.getReadOptions(lockMode));</b>
+<i class="no-highlight">1056</i>&nbsp;
+<b class="nc"><i class="no-highlight">1057</i>&nbsp;        return result == null ?</b>
+<i class="no-highlight">1058</i>&nbsp;            OperationStatus.NOTFOUND : OperationStatus.SUCCESS;
+<i class="no-highlight">1059</i>&nbsp;    }
+<i class="no-highlight">1060</i>&nbsp;
+<i class="no-highlight">1061</i>&nbsp;    /**
+<i class="no-highlight">1062</i>&nbsp;     * This operation is not allowed with this method signature. {@link
+<i class="no-highlight">1063</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">1064</i>&nbsp;     * The corresponding method with the &lt;code&gt;pKey&lt;/code&gt; parameter should be
+<i class="no-highlight">1065</i>&nbsp;     * used instead.
+<i class="no-highlight">1066</i>&nbsp;     */
+<i class="no-highlight">1067</i>&nbsp;    @Override
+<i class="no-highlight">1068</i>&nbsp;    public OperationStatus getSearchBoth(final Transaction txn,
+<i class="no-highlight">1069</i>&nbsp;                                         final DatabaseEntry key,
+<i class="no-highlight">1070</i>&nbsp;                                         final DatabaseEntry data,
+<i class="no-highlight">1071</i>&nbsp;                                         final LockMode lockMode) {
+<b class="nc"><i class="no-highlight">1072</i>&nbsp;        throw notAllowedException();</b>
+<i class="no-highlight">1073</i>&nbsp;    }
+<i class="no-highlight">1074</i>&nbsp;
+<i class="no-highlight">1075</i>&nbsp;    /**
+<i class="no-highlight">1076</i>&nbsp;     * Retrieves the key/data pair with the specified secondary and primary
+<i class="no-highlight">1077</i>&nbsp;     * key, that is, both the primary and secondary key items must match.
+<i class="no-highlight">1078</i>&nbsp;     *
+<i class="no-highlight">1079</i>&nbsp;     * &lt;p&gt;Calling this method is equivalent to calling {@link
+<i class="no-highlight">1080</i>&nbsp;     * #get(Transaction, DatabaseEntry, DatabaseEntry, DatabaseEntry, Get,
+<i class="no-highlight">1081</i>&nbsp;     * ReadOptions)} with {@link Get#SEARCH_BOTH}.&lt;/p&gt;
+<i class="no-highlight">1082</i>&nbsp;     *
+<i class="no-highlight">1083</i>&nbsp;     * @param txn For a transactional database, an explicit transaction may be
+<i class="no-highlight">1084</i>&nbsp;     * specified to transaction-protect the operation, or null may be specified
+<i class="no-highlight">1085</i>&nbsp;     * to perform the operation without transaction protection.  For a
+<i class="no-highlight">1086</i>&nbsp;     * non-transactional database, null must be specified.
+<i class="no-highlight">1087</i>&nbsp;     *
+<i class="no-highlight">1088</i>&nbsp;     * @param key the secondary key used as
+<i class="no-highlight">1089</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#inParam&quot;&gt;input&lt;/a&gt;.
+<i class="no-highlight">1090</i>&nbsp;     *
+<i class="no-highlight">1091</i>&nbsp;     * @param pKey the primary key used as
+<i class="no-highlight">1092</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;input&lt;/a&gt;.
+<i class="no-highlight">1093</i>&nbsp;     *
+<i class="no-highlight">1094</i>&nbsp;     * @param data the primary data returned as
+<i class="no-highlight">1095</i>&nbsp;     * &lt;a href=&quot;DatabaseEntry.html#outParam&quot;&gt;output&lt;/a&gt;.
+<i class="no-highlight">1096</i>&nbsp;     *
+<i class="no-highlight">1097</i>&nbsp;     * @param lockMode the locking attributes; if null, default attributes are
+<i class="no-highlight">1098</i>&nbsp;     * used.
+<i class="no-highlight">1099</i>&nbsp;     *
+<i class="no-highlight">1100</i>&nbsp;     * @return {@link OperationStatus#NOTFOUND
+<i class="no-highlight">1101</i>&nbsp;     * OperationStatus.NOTFOUND} if no matching key/data pair is found;
+<i class="no-highlight">1102</i>&nbsp;     * otherwise, {@link OperationStatus#SUCCESS
+<i class="no-highlight">1103</i>&nbsp;     * OperationStatus.SUCCESS}.
+<i class="no-highlight">1104</i>&nbsp;     *
+<i class="no-highlight">1105</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">1106</i>&nbsp;     * href=&quot;OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">1107</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">1108</i>&nbsp;     *
+<i class="no-highlight">1109</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">1110</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">1111</i>&nbsp;     *
+<i class="no-highlight">1112</i>&nbsp;     * @throws IllegalStateException if the database has been closed.
+<i class="no-highlight">1113</i>&nbsp;     *
+<i class="no-highlight">1114</i>&nbsp;     * @throws IllegalArgumentException if an invalid parameter is specified.
+<i class="no-highlight">1115</i>&nbsp;     */
+<i class="no-highlight">1116</i>&nbsp;    public OperationStatus getSearchBoth(final Transaction txn,
+<i class="no-highlight">1117</i>&nbsp;                                         final DatabaseEntry key,
+<i class="no-highlight">1118</i>&nbsp;                                         final DatabaseEntry pKey,
+<i class="no-highlight">1119</i>&nbsp;                                         final DatabaseEntry data,
+<i class="no-highlight">1120</i>&nbsp;                                         LockMode lockMode) {
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;        final OperationResult result = get(</b>
+<i class="no-highlight">1122</i>&nbsp;            txn, key, pKey, data, Get.SEARCH_BOTH,
+<b class="nc"><i class="no-highlight">1123</i>&nbsp;            DbInternal.getReadOptions(lockMode));</b>
+<i class="no-highlight">1124</i>&nbsp;
+<b class="nc"><i class="no-highlight">1125</i>&nbsp;        return result == null ?</b>
+<i class="no-highlight">1126</i>&nbsp;            OperationStatus.NOTFOUND : OperationStatus.SUCCESS;
+<i class="no-highlight">1127</i>&nbsp;    }
+<i class="no-highlight">1128</i>&nbsp;
+<i class="no-highlight">1129</i>&nbsp;    /**
+<i class="no-highlight">1130</i>&nbsp;     * This operation is not allowed on a secondary database. {@link
+<i class="no-highlight">1131</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">1132</i>&nbsp;     * The corresponding method on the primary database should be used instead.
+<i class="no-highlight">1133</i>&nbsp;     */
+<i class="no-highlight">1134</i>&nbsp;    @Override
+<i class="no-highlight">1135</i>&nbsp;    public OperationResult put(
+<i class="no-highlight">1136</i>&nbsp;        final Transaction txn,
+<i class="no-highlight">1137</i>&nbsp;        final DatabaseEntry key,
+<i class="no-highlight">1138</i>&nbsp;        final DatabaseEntry data,
+<i class="no-highlight">1139</i>&nbsp;        final Put putType,
+<i class="no-highlight">1140</i>&nbsp;        final WriteOptions options) {
+<i class="no-highlight">1141</i>&nbsp;
+<b class="nc"><i class="no-highlight">1142</i>&nbsp;        throw notAllowedException();</b>
+<i class="no-highlight">1143</i>&nbsp;    }
+<i class="no-highlight">1144</i>&nbsp;
+<i class="no-highlight">1145</i>&nbsp;    /**
+<i class="no-highlight">1146</i>&nbsp;     * This operation is not allowed on a secondary database. {@link
+<i class="no-highlight">1147</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">1148</i>&nbsp;     * The corresponding method on the primary database should be used instead.
+<i class="no-highlight">1149</i>&nbsp;     */
+<i class="no-highlight">1150</i>&nbsp;    @Override
+<i class="no-highlight">1151</i>&nbsp;    public OperationStatus put(final Transaction txn,
+<i class="no-highlight">1152</i>&nbsp;                               final DatabaseEntry key,
+<i class="no-highlight">1153</i>&nbsp;                               final DatabaseEntry data) {
+<b class="nc"><i class="no-highlight">1154</i>&nbsp;        throw notAllowedException();</b>
+<i class="no-highlight">1155</i>&nbsp;    }
+<i class="no-highlight">1156</i>&nbsp;
+<i class="no-highlight">1157</i>&nbsp;    /**
+<i class="no-highlight">1158</i>&nbsp;     * This operation is not allowed on a secondary database. {@link
+<i class="no-highlight">1159</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">1160</i>&nbsp;     * The corresponding method on the primary database should be used instead.
+<i class="no-highlight">1161</i>&nbsp;     */
+<i class="no-highlight">1162</i>&nbsp;    @Override
+<i class="no-highlight">1163</i>&nbsp;    public OperationStatus putNoOverwrite(final Transaction txn,
+<i class="no-highlight">1164</i>&nbsp;                                          final DatabaseEntry key,
+<i class="no-highlight">1165</i>&nbsp;                                          final DatabaseEntry data) {
+<b class="nc"><i class="no-highlight">1166</i>&nbsp;        throw notAllowedException();</b>
+<i class="no-highlight">1167</i>&nbsp;    }
+<i class="no-highlight">1168</i>&nbsp;
+<i class="no-highlight">1169</i>&nbsp;    /**
+<i class="no-highlight">1170</i>&nbsp;     * This operation is not allowed on a secondary database. {@link
+<i class="no-highlight">1171</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">1172</i>&nbsp;     * The corresponding method on the primary database should be used instead.
+<i class="no-highlight">1173</i>&nbsp;     */
+<i class="no-highlight">1174</i>&nbsp;    @Override
+<i class="no-highlight">1175</i>&nbsp;    public OperationStatus putNoDupData(final Transaction txn,
+<i class="no-highlight">1176</i>&nbsp;                                        final DatabaseEntry key,
+<i class="no-highlight">1177</i>&nbsp;                                        final DatabaseEntry data) {
+<b class="nc"><i class="no-highlight">1178</i>&nbsp;        throw notAllowedException();</b>
+<i class="no-highlight">1179</i>&nbsp;    }
+<i class="no-highlight">1180</i>&nbsp;
+<i class="no-highlight">1181</i>&nbsp;    /**
+<i class="no-highlight">1182</i>&nbsp;     * This operation is not allowed on a secondary database. {@link
+<i class="no-highlight">1183</i>&nbsp;     * UnsupportedOperationException} will always be thrown by this method.
+<i class="no-highlight">1184</i>&nbsp;     * The corresponding method on the primary database should be used instead.
+<i class="no-highlight">1185</i>&nbsp;     */
+<i class="no-highlight">1186</i>&nbsp;    @Override
+<i class="no-highlight">1187</i>&nbsp;    public JoinCursor join(final Cursor[] cursors, final JoinConfig config) {
+<b class="nc"><i class="no-highlight">1188</i>&nbsp;        throw notAllowedException();</b>
+<i class="no-highlight">1189</i>&nbsp;    }
+<i class="no-highlight">1190</i>&nbsp;
+<i class="no-highlight">1191</i>&nbsp;    /**
+<i class="no-highlight">1192</i>&nbsp;     * Updates a single secondary when a put() or delete() is performed on the
+<i class="no-highlight">1193</i>&nbsp;     * primary.
+<i class="no-highlight">1194</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1195</i>&nbsp;     * For an insert, newData will be non-null and oldData will be null.
+<i class="no-highlight">1196</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1197</i>&nbsp;     * For an update, newData will be non-null and oldData will be non-null.
+<i class="no-highlight">1198</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1199</i>&nbsp;     * For a delete, newData will be null and oldData may be null or non-null
+<i class="no-highlight">1200</i>&nbsp;     * depending on whether its need by the key creator/extractor.
+<i class="no-highlight">1201</i>&nbsp;     *
+<i class="no-highlight">1202</i>&nbsp;     * @param locker the internal locker.
+<i class="no-highlight">1203</i>&nbsp;     *
+<i class="no-highlight">1204</i>&nbsp;     * @param cursor secondary cursor to use, or null if this method should
+<i class="no-highlight">1205</i>&nbsp;     * open and close a cursor if one is needed.
+<i class="no-highlight">1206</i>&nbsp;     *
+<i class="no-highlight">1207</i>&nbsp;     * @param priKey the primary key.
+<i class="no-highlight">1208</i>&nbsp;     *
+<i class="no-highlight">1209</i>&nbsp;     * @param oldData the primary data before the change, or null if the record
+<i class="no-highlight">1210</i>&nbsp;     * did not previously exist.
+<i class="no-highlight">1211</i>&nbsp;     *
+<i class="no-highlight">1212</i>&nbsp;     * @param newData the primary data after the change, or null if the record
+<i class="no-highlight">1213</i>&nbsp;     * has been deleted.
+<i class="no-highlight">1214</i>&nbsp;     *
+<i class="no-highlight">1215</i>&nbsp;     * @param cacheMode CacheMode to use for accessing secondary.
+<i class="no-highlight">1216</i>&nbsp;     *
+<i class="no-highlight">1217</i>&nbsp;     * @param expirationTime expiration time of primary record, to be written
+<i class="no-highlight">1218</i>&nbsp;     * to secondary records.
+<i class="no-highlight">1219</i>&nbsp;     *
+<i class="no-highlight">1220</i>&nbsp;     * @param expirationUpdated whether the primary was updated and the
+<i class="no-highlight">1221</i>&nbsp;     * expiration time changed.
+<i class="no-highlight">1222</i>&nbsp;     *
+<i class="no-highlight">1223</i>&nbsp;     * @param oldExpirationTime the expiration time of the previous version of
+<i class="no-highlight">1224</i>&nbsp;     * the primary record. When the primary was updated, this is the expiration
+<i class="no-highlight">1225</i>&nbsp;     * time of the previous version. When the primary was not updated, this is
+<i class="no-highlight">1226</i>&nbsp;     * the expiration time of the current or newly inserted primary record.
+<i class="no-highlight">1227</i>&nbsp;     *
+<i class="no-highlight">1228</i>&nbsp;     * @return the number of secondary records written (inserted, deleted or
+<i class="no-highlight">1229</i>&nbsp;     * updated).
+<i class="no-highlight">1230</i>&nbsp;     */
+<i class="no-highlight">1231</i>&nbsp;    int updateSecondary(final Locker locker,
+<i class="no-highlight">1232</i>&nbsp;                        Cursor cursor,
+<i class="no-highlight">1233</i>&nbsp;                        final DatabaseEntry priKey,
+<i class="no-highlight">1234</i>&nbsp;                        final DatabaseEntry oldData,
+<i class="no-highlight">1235</i>&nbsp;                        final DatabaseEntry newData,
+<i class="no-highlight">1236</i>&nbsp;                        final CacheMode cacheMode,
+<i class="no-highlight">1237</i>&nbsp;                        final long expirationTime,
+<i class="no-highlight">1238</i>&nbsp;                        final boolean expirationUpdated,
+<i class="no-highlight">1239</i>&nbsp;                        final long oldExpirationTime) {
+<i class="no-highlight">1240</i>&nbsp;
+<b class="nc"><i class="no-highlight">1241</i>&nbsp;        final boolean expirationInHours =</b>
+<b class="nc"><i class="no-highlight">1242</i>&nbsp;            TTL.isSystemTimeInHours(expirationTime);</b>
+<i class="no-highlight">1243</i>&nbsp;
+<b class="nc"><i class="no-highlight">1244</i>&nbsp;        final int expiration =</b>
+<b class="nc"><i class="no-highlight">1245</i>&nbsp;            TTL.systemTimeToExpiration(expirationTime, expirationInHours);</b>
+<i class="no-highlight">1246</i>&nbsp;
+<b class="nc"><i class="no-highlight">1247</i>&nbsp;        final SecondaryKeyCreator keyCreator = secondaryConfig.getKeyCreator();</b>
+<i class="no-highlight">1248</i>&nbsp;
+<b class="nc"><i class="no-highlight">1249</i>&nbsp;        final SecondaryMultiKeyCreator multiKeyCreator =</b>
+<b class="nc"><i class="no-highlight">1250</i>&nbsp;            secondaryConfig.getMultiKeyCreator();</b>
+<i class="no-highlight">1251</i>&nbsp;
+<b class="nc"><i class="no-highlight">1252</i>&nbsp;        final boolean localCursor = (cursor == null);</b>
+<i class="no-highlight">1253</i>&nbsp;
+<b class="nc"><i class="no-highlight">1254</i>&nbsp;        if (keyCreator != null) {</b>
+<i class="no-highlight">1255</i>&nbsp;            /* Each primary record may have a single secondary key. */
+<b class="nc"><i class="no-highlight">1256</i>&nbsp;            assert multiKeyCreator == null;</b>
+<i class="no-highlight">1257</i>&nbsp;
+<i class="no-highlight">1258</i>&nbsp;            /* Get old and new secondary keys. */
+<b class="nc"><i class="no-highlight">1259</i>&nbsp;            DatabaseEntry oldSecKey = null;</b>
+<b class="nc"><i class="no-highlight">1260</i>&nbsp;            DatabaseEntry newSecKey = null;</b>
+<i class="no-highlight">1261</i>&nbsp;
+<b class="nc"><i class="no-highlight">1262</i>&nbsp;            if (oldData != null || newData == null) {</b>
+<b class="nc"><i class="no-highlight">1263</i>&nbsp;                oldSecKey = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">1264</i>&nbsp;                if (!keyCreator.createSecondaryKey(this, priKey, oldData,</b>
+<i class="no-highlight">1265</i>&nbsp;                                                   oldSecKey)) {
+<b class="nc"><i class="no-highlight">1266</i>&nbsp;                    oldSecKey = null;</b>
+<i class="no-highlight">1267</i>&nbsp;                }
+<i class="no-highlight">1268</i>&nbsp;            }
+<i class="no-highlight">1269</i>&nbsp;
+<b class="nc"><i class="no-highlight">1270</i>&nbsp;            if (newData != null) {</b>
+<b class="nc"><i class="no-highlight">1271</i>&nbsp;                newSecKey = new DatabaseEntry();</b>
+<b class="nc"><i class="no-highlight">1272</i>&nbsp;                if (!keyCreator.createSecondaryKey(this, priKey, newData,</b>
+<i class="no-highlight">1273</i>&nbsp;                                                   newSecKey)) {
+<b class="nc"><i class="no-highlight">1274</i>&nbsp;                    newSecKey = null;</b>
+<i class="no-highlight">1275</i>&nbsp;                }
+<i class="no-highlight">1276</i>&nbsp;            }
+<i class="no-highlight">1277</i>&nbsp;
+<i class="no-highlight">1278</i>&nbsp;            /* Delete the old key if it is no longer present. */
+<b class="nc"><i class="no-highlight">1279</i>&nbsp;            final boolean doDelete =</b>
+<b class="nc"><i class="no-highlight">1280</i>&nbsp;                oldSecKey != null &amp;&amp; !oldSecKey.equals(newSecKey);</b>
+<i class="no-highlight">1281</i>&nbsp;
+<i class="no-highlight">1282</i>&nbsp;            /* Insert the new key if it was not present before. */
+<b class="nc"><i class="no-highlight">1283</i>&nbsp;            final boolean doInsert =</b>
+<b class="nc"><i class="no-highlight">1284</i>&nbsp;                newSecKey != null &amp;&amp; !newSecKey.equals(oldSecKey);</b>
+<i class="no-highlight">1285</i>&nbsp;
+<i class="no-highlight">1286</i>&nbsp;            /* Update secondary if key did not change but expiration did. */
+<b class="nc"><i class="no-highlight">1287</i>&nbsp;            final boolean doUpdate =</b>
+<i class="no-highlight">1288</i>&nbsp;                expirationUpdated &amp;&amp; newSecKey != null &amp;&amp; !doInsert;
+<i class="no-highlight">1289</i>&nbsp;
+<b class="nc"><i class="no-highlight">1290</i>&nbsp;            if (doDelete || doInsert || doUpdate) {</b>
+<b class="nc"><i class="no-highlight">1291</i>&nbsp;                if (localCursor) {</b>
+<b class="nc"><i class="no-highlight">1292</i>&nbsp;                    cursor = new Cursor(this, locker, null);</b>
+<i class="no-highlight">1293</i>&nbsp;                }
+<i class="no-highlight">1294</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">1295</i>&nbsp;                    if (doDelete) {</b>
+<b class="nc"><i class="no-highlight">1296</i>&nbsp;                        deleteKey(</b>
+<i class="no-highlight">1297</i>&nbsp;                            cursor, priKey, oldSecKey, cacheMode,
+<i class="no-highlight">1298</i>&nbsp;                            oldExpirationTime);
+<i class="no-highlight">1299</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1300</i>&nbsp;                    if (doInsert) {</b>
+<b class="nc"><i class="no-highlight">1301</i>&nbsp;                        insertKey(</b>
+<i class="no-highlight">1302</i>&nbsp;                            locker, cursor, priKey, newSecKey,
+<i class="no-highlight">1303</i>&nbsp;                            cacheMode, expiration, expirationInHours,
+<i class="no-highlight">1304</i>&nbsp;                            oldExpirationTime);
+<i class="no-highlight">1305</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1306</i>&nbsp;                    if (doUpdate) {</b>
+<b class="nc"><i class="no-highlight">1307</i>&nbsp;                        updateExpiration(</b>
+<i class="no-highlight">1308</i>&nbsp;                            cursor, priKey, oldSecKey,
+<i class="no-highlight">1309</i>&nbsp;                            cacheMode, expiration, expirationInHours,
+<i class="no-highlight">1310</i>&nbsp;                            oldExpirationTime);
+<i class="no-highlight">1311</i>&nbsp;                    }
+<i class="no-highlight">1312</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">1313</i>&nbsp;                    if (localCursor) {</b>
+<b class="nc"><i class="no-highlight">1314</i>&nbsp;                        cursor.close();</b>
+<i class="no-highlight">1315</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1316</i>&nbsp;                }</b>
+<i class="no-highlight">1317</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1318</i>&nbsp;            return (doDelete ? 1 : 0) +</b>
+<i class="no-highlight">1319</i>&nbsp;                   (doInsert ? 1 : 0) +
+<i class="no-highlight">1320</i>&nbsp;                   (doUpdate ? 1 : 0);
+<i class="no-highlight">1321</i>&nbsp;        } else {
+<i class="no-highlight">1322</i>&nbsp;            /* Each primary record may have multiple secondary keys. */
+<b class="nc"><i class="no-highlight">1323</i>&nbsp;            if (multiKeyCreator == null) {</b>
+<b class="nc"><i class="no-highlight">1324</i>&nbsp;                throw new IllegalArgumentException(</b>
+<i class="no-highlight">1325</i>&nbsp;                    &quot;SecondaryConfig.getKeyCreator()/getMultiKeyCreator()&quot; +
+<i class="no-highlight">1326</i>&nbsp;                    &quot; may be null only if the primary database is read-only&quot;);
+<i class="no-highlight">1327</i>&nbsp;            }
+<i class="no-highlight">1328</i>&nbsp;
+<i class="no-highlight">1329</i>&nbsp;            /* Get old and new secondary keys. */
+<i class="no-highlight">1330</i>&nbsp;            final Set&lt;DatabaseEntry&gt; oldKeys;
+<i class="no-highlight">1331</i>&nbsp;            final Set&lt;DatabaseEntry&gt; newKeys;
+<i class="no-highlight">1332</i>&nbsp;
+<b class="nc"><i class="no-highlight">1333</i>&nbsp;            if (oldData == null &amp;&amp; newData != null) {</b>
+<b class="nc"><i class="no-highlight">1334</i>&nbsp;                oldKeys = EMPTY_SET;</b>
+<i class="no-highlight">1335</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1336</i>&nbsp;                oldKeys = new HashSet&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">1337</i>&nbsp;                multiKeyCreator.createSecondaryKeys(</b>
+<i class="no-highlight">1338</i>&nbsp;                    this, priKey, oldData,  oldKeys);
+<i class="no-highlight">1339</i>&nbsp;            }
+<i class="no-highlight">1340</i>&nbsp;
+<b class="nc"><i class="no-highlight">1341</i>&nbsp;            if (newData == null) {</b>
+<b class="nc"><i class="no-highlight">1342</i>&nbsp;                newKeys = EMPTY_SET;</b>
+<i class="no-highlight">1343</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1344</i>&nbsp;                newKeys = new HashSet&lt;&gt;();</b>
+<b class="nc"><i class="no-highlight">1345</i>&nbsp;                multiKeyCreator.createSecondaryKeys(</b>
+<i class="no-highlight">1346</i>&nbsp;                    this, priKey, newData,  newKeys);
+<i class="no-highlight">1347</i>&nbsp;            }
+<i class="no-highlight">1348</i>&nbsp;
+<i class="no-highlight">1349</i>&nbsp;            final Set&lt;DatabaseEntry&gt; toDelete;
+<i class="no-highlight">1350</i>&nbsp;            final Set&lt;DatabaseEntry&gt; toInsert;
+<i class="no-highlight">1351</i>&nbsp;            final Set&lt;DatabaseEntry&gt; toUpdate;
+<i class="no-highlight">1352</i>&nbsp;
+<i class="no-highlight">1353</i>&nbsp;            /* Delete old keys that are no longer present. */
+<b class="nc"><i class="no-highlight">1354</i>&nbsp;            if (oldKeys.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">1355</i>&nbsp;                toDelete = EMPTY_SET;</b>
+<i class="no-highlight">1356</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1357</i>&nbsp;                toDelete = new HashSet&lt;&gt;(oldKeys);</b>
+<b class="nc"><i class="no-highlight">1358</i>&nbsp;                toDelete.removeAll(newKeys);</b>
+<i class="no-highlight">1359</i>&nbsp;            }
+<i class="no-highlight">1360</i>&nbsp;
+<i class="no-highlight">1361</i>&nbsp;            /* Insert new keys that were not present before. */
+<b class="nc"><i class="no-highlight">1362</i>&nbsp;            if (newKeys.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">1363</i>&nbsp;                toInsert = EMPTY_SET;</b>
+<i class="no-highlight">1364</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1365</i>&nbsp;                toInsert = new HashSet&lt;&gt;(newKeys);</b>
+<b class="nc"><i class="no-highlight">1366</i>&nbsp;                toInsert.removeAll(oldKeys);</b>
+<i class="no-highlight">1367</i>&nbsp;            }
+<i class="no-highlight">1368</i>&nbsp;
+<i class="no-highlight">1369</i>&nbsp;            /* Update secondary if key did not change but expiration did. */
+<b class="nc"><i class="no-highlight">1370</i>&nbsp;            if (!expirationUpdated || newKeys.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">1371</i>&nbsp;                toUpdate = EMPTY_SET;</b>
+<i class="no-highlight">1372</i>&nbsp;            } else {
+<b class="nc"><i class="no-highlight">1373</i>&nbsp;                toUpdate = new HashSet&lt;&gt;(newKeys);</b>
+<b class="nc"><i class="no-highlight">1374</i>&nbsp;                toUpdate.retainAll(oldKeys);</b>
+<i class="no-highlight">1375</i>&nbsp;            }
+<i class="no-highlight">1376</i>&nbsp;
+<b class="nc"><i class="no-highlight">1377</i>&nbsp;            if (!toDelete.isEmpty() ||</b>
+<b class="nc"><i class="no-highlight">1378</i>&nbsp;                !toInsert.isEmpty() ||</b>
+<b class="nc"><i class="no-highlight">1379</i>&nbsp;                !toUpdate.isEmpty()) {</b>
+<i class="no-highlight">1380</i>&nbsp;
+<b class="nc"><i class="no-highlight">1381</i>&nbsp;                if (localCursor) {</b>
+<b class="nc"><i class="no-highlight">1382</i>&nbsp;                    cursor = new Cursor(this, locker, null);</b>
+<i class="no-highlight">1383</i>&nbsp;                }
+<i class="no-highlight">1384</i>&nbsp;                try {
+<b class="nc"><i class="no-highlight">1385</i>&nbsp;                    if (!toDelete.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">1386</i>&nbsp;                        for (DatabaseEntry secKey : toDelete) {</b>
+<b class="nc"><i class="no-highlight">1387</i>&nbsp;                            deleteKey(</b>
+<i class="no-highlight">1388</i>&nbsp;                                cursor, priKey, secKey, cacheMode,
+<i class="no-highlight">1389</i>&nbsp;                                oldExpirationTime);
+<b class="nc"><i class="no-highlight">1390</i>&nbsp;                        }</b>
+<i class="no-highlight">1391</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1392</i>&nbsp;                    if (!toInsert.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">1393</i>&nbsp;                        for (DatabaseEntry secKey : toInsert) {</b>
+<b class="nc"><i class="no-highlight">1394</i>&nbsp;                            insertKey(</b>
+<i class="no-highlight">1395</i>&nbsp;                                locker, cursor, priKey, secKey,
+<i class="no-highlight">1396</i>&nbsp;                                cacheMode, expiration, expirationInHours,
+<i class="no-highlight">1397</i>&nbsp;                                oldExpirationTime);
+<b class="nc"><i class="no-highlight">1398</i>&nbsp;                        }</b>
+<i class="no-highlight">1399</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1400</i>&nbsp;                    if (!toUpdate.isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">1401</i>&nbsp;                        for (DatabaseEntry secKey : toUpdate) {</b>
+<b class="nc"><i class="no-highlight">1402</i>&nbsp;                            updateExpiration(</b>
+<i class="no-highlight">1403</i>&nbsp;                                cursor, priKey, secKey,
+<i class="no-highlight">1404</i>&nbsp;                                cacheMode, expiration, expirationInHours,
+<i class="no-highlight">1405</i>&nbsp;                                oldExpirationTime);
+<b class="nc"><i class="no-highlight">1406</i>&nbsp;                        }</b>
+<i class="no-highlight">1407</i>&nbsp;                    }
+<i class="no-highlight">1408</i>&nbsp;                } finally {
+<b class="nc"><i class="no-highlight">1409</i>&nbsp;                    if (localCursor) {</b>
+<b class="nc"><i class="no-highlight">1410</i>&nbsp;                        cursor.close();</b>
+<i class="no-highlight">1411</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1412</i>&nbsp;                }</b>
+<i class="no-highlight">1413</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1414</i>&nbsp;            return toDelete.size() + toInsert.size() + toUpdate.size();</b>
+<i class="no-highlight">1415</i>&nbsp;        }
+<i class="no-highlight">1416</i>&nbsp;    }
+<i class="no-highlight">1417</i>&nbsp;
+<i class="no-highlight">1418</i>&nbsp;    /**
+<i class="no-highlight">1419</i>&nbsp;     * Deletes an old secondary key.
+<i class="no-highlight">1420</i>&nbsp;     */
+<i class="no-highlight">1421</i>&nbsp;    private void deleteKey(final Cursor cursor,
+<i class="no-highlight">1422</i>&nbsp;                           final DatabaseEntry priKey,
+<i class="no-highlight">1423</i>&nbsp;                           final DatabaseEntry oldSecKey,
+<i class="no-highlight">1424</i>&nbsp;                           final CacheMode cacheMode,
+<i class="no-highlight">1425</i>&nbsp;                           final long oldExpirationTime) {
+<i class="no-highlight">1426</i>&nbsp;
+<b class="nc"><i class="no-highlight">1427</i>&nbsp;        final OperationResult result = cursor.search(</b>
+<i class="no-highlight">1428</i>&nbsp;            oldSecKey, priKey, LockMode.RMW, cacheMode, SearchMode.BOTH,
+<i class="no-highlight">1429</i>&nbsp;            false);
+<i class="no-highlight">1430</i>&nbsp;
+<b class="nc"><i class="no-highlight">1431</i>&nbsp;        if (result != null) {</b>
+<b class="nc"><i class="no-highlight">1432</i>&nbsp;            cursor.deleteInternal(getDbImpl().getRepContext(), cacheMode);</b>
+<b class="nc"><i class="no-highlight">1433</i>&nbsp;            return;</b>
+<i class="no-highlight">1434</i>&nbsp;        }
+<i class="no-highlight">1435</i>&nbsp;
+<b class="nc"><i class="no-highlight">1436</i>&nbsp;        if (isFullyPopulated &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1437</i>&nbsp;            !getEnv().expiresWithin(</b>
+<b class="nc"><i class="no-highlight">1438</i>&nbsp;                oldExpirationTime, getEnv().getTtlClockTolerance())) {</b>
+<i class="no-highlight">1439</i>&nbsp;
+<b class="nc"><i class="no-highlight">1440</i>&nbsp;            throw new SecondaryIntegrityException(</b>
+<b class="nc"><i class="no-highlight">1441</i>&nbsp;                this, cursor.getCursorImpl().getLocker(),</b>
+<i class="no-highlight">1442</i>&nbsp;                &quot;Secondary is corrupt: the primary record contains a key &quot; +
+<i class="no-highlight">1443</i>&nbsp;                &quot;that is not present in the secondary&quot;,
+<b class="nc"><i class="no-highlight">1444</i>&nbsp;                getDebugName(), oldSecKey, priKey, oldExpirationTime);</b>
+<i class="no-highlight">1445</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1446</i>&nbsp;    }</b>
+<i class="no-highlight">1447</i>&nbsp;
+<i class="no-highlight">1448</i>&nbsp;    /**
+<i class="no-highlight">1449</i>&nbsp;     * Inserts a new secondary key.
+<i class="no-highlight">1450</i>&nbsp;     */
+<i class="no-highlight">1451</i>&nbsp;    private void insertKey(final Locker locker,
+<i class="no-highlight">1452</i>&nbsp;                           final Cursor cursor,
+<i class="no-highlight">1453</i>&nbsp;                           final DatabaseEntry priKey,
+<i class="no-highlight">1454</i>&nbsp;                           final DatabaseEntry newSecKey,
+<i class="no-highlight">1455</i>&nbsp;                           final CacheMode cacheMode,
+<i class="no-highlight">1456</i>&nbsp;                           final int expiration,
+<i class="no-highlight">1457</i>&nbsp;                           final boolean expirationInHours,
+<i class="no-highlight">1458</i>&nbsp;                           final long oldExpirationTime) {
+<i class="no-highlight">1459</i>&nbsp;
+<i class="no-highlight">1460</i>&nbsp;        /* Check for the existence of a foreign key. */
+<b class="nc"><i class="no-highlight">1461</i>&nbsp;        final Database foreignDb =</b>
+<b class="nc"><i class="no-highlight">1462</i>&nbsp;            secondaryConfig.getForeignKeyDatabase();</b>
+<i class="no-highlight">1463</i>&nbsp;
+<b class="nc"><i class="no-highlight">1464</i>&nbsp;        if (foreignDb != null) {</b>
+<i class="no-highlight">1465</i>&nbsp;
+<b class="nc"><i class="no-highlight">1466</i>&nbsp;            try (final Cursor foreignCursor =</b>
+<i class="no-highlight">1467</i>&nbsp;                     new Cursor(foreignDb, locker, null)) {
+<i class="no-highlight">1468</i>&nbsp;
+<b class="nc"><i class="no-highlight">1469</i>&nbsp;                final DatabaseEntry tmpData = new DatabaseEntry();</b>
+<i class="no-highlight">1470</i>&nbsp;
+<b class="nc"><i class="no-highlight">1471</i>&nbsp;                final OperationResult result = foreignCursor.search(</b>
+<i class="no-highlight">1472</i>&nbsp;                    newSecKey, tmpData, LockMode.DEFAULT, cacheMode,
+<i class="no-highlight">1473</i>&nbsp;                    SearchMode.SET, true);
+<i class="no-highlight">1474</i>&nbsp;
+<b class="nc"><i class="no-highlight">1475</i>&nbsp;                if (result == null) {</b>
+<b class="nc"><i class="no-highlight">1476</i>&nbsp;                    throw new ForeignConstraintException(</b>
+<i class="no-highlight">1477</i>&nbsp;                        locker,
+<b class="nc"><i class="no-highlight">1478</i>&nbsp;                        &quot;Secondary &quot; + getDebugName() +</b>
+<i class="no-highlight">1479</i>&nbsp;                        &quot; foreign key not allowed: it is not&quot; +
+<i class="no-highlight">1480</i>&nbsp;                        &quot; present in the foreign database &quot; +
+<b class="nc"><i class="no-highlight">1481</i>&nbsp;                        foreignDb.getDebugName(), getDebugName(),</b>
+<i class="no-highlight">1482</i>&nbsp;                        newSecKey, priKey, oldExpirationTime);
+<i class="no-highlight">1483</i>&nbsp;                }
+<b class="nc"><i class="no-highlight">1484</i>&nbsp;            }</b>
+<i class="no-highlight">1485</i>&nbsp;        }
+<i class="no-highlight">1486</i>&nbsp;
+<b class="nc"><i class="no-highlight">1487</i>&nbsp;        final ExpirationInfo expInfo = new ExpirationInfo(</b>
+<i class="no-highlight">1488</i>&nbsp;            expiration, expirationInHours, false /*updateExpiration*/);
+<i class="no-highlight">1489</i>&nbsp;
+<i class="no-highlight">1490</i>&nbsp;        /* Insert the new key. */
+<b class="nc"><i class="no-highlight">1491</i>&nbsp;        if (configuration.getSortedDuplicates()) {</b>
+<i class="no-highlight">1492</i>&nbsp;
+<b class="nc"><i class="no-highlight">1493</i>&nbsp;            final OperationResult result = cursor.putInternal(</b>
+<i class="no-highlight">1494</i>&nbsp;                newSecKey, priKey, cacheMode, expInfo, PutMode.NO_DUP_DATA);
+<i class="no-highlight">1495</i>&nbsp;
+<b class="nc"><i class="no-highlight">1496</i>&nbsp;            if (result == null &amp;&amp; isFullyPopulated) {</b>
+<b class="nc"><i class="no-highlight">1497</i>&nbsp;                throw new SecondaryIntegrityException(</b>
+<i class="no-highlight">1498</i>&nbsp;                    this, locker, &quot;Secondary/primary record already present&quot;,
+<b class="nc"><i class="no-highlight">1499</i>&nbsp;                    getDebugName(), newSecKey, priKey, oldExpirationTime);</b>
+<i class="no-highlight">1500</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1501</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">1502</i>&nbsp;            final OperationResult result = cursor.putInternal(</b>
+<i class="no-highlight">1503</i>&nbsp;                newSecKey, priKey, cacheMode, expInfo, PutMode.NO_OVERWRITE);
+<i class="no-highlight">1504</i>&nbsp;
+<b class="nc"><i class="no-highlight">1505</i>&nbsp;            if (result == null &amp;&amp; isFullyPopulated) {</b>
+<b class="nc"><i class="no-highlight">1506</i>&nbsp;                throw new UniqueConstraintException(</b>
+<i class="no-highlight">1507</i>&nbsp;                    locker, &quot;Unique secondary key is already present&quot;,
+<b class="nc"><i class="no-highlight">1508</i>&nbsp;                    getDebugName(), newSecKey, priKey, oldExpirationTime);</b>
+<i class="no-highlight">1509</i>&nbsp;            }
+<i class="no-highlight">1510</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1511</i>&nbsp;    }</b>
+<i class="no-highlight">1512</i>&nbsp;
+<i class="no-highlight">1513</i>&nbsp;    /**
+<i class="no-highlight">1514</i>&nbsp;     * Updates a new secondary key, which doesn&#39;t change the key or data but is
+<i class="no-highlight">1515</i>&nbsp;     * needed to update the expiration time.
+<i class="no-highlight">1516</i>&nbsp;     */
+<i class="no-highlight">1517</i>&nbsp;    private void updateExpiration(final Cursor cursor,
+<i class="no-highlight">1518</i>&nbsp;                                  final DatabaseEntry priKey,
+<i class="no-highlight">1519</i>&nbsp;                                  final DatabaseEntry secKey,
+<i class="no-highlight">1520</i>&nbsp;                                  final CacheMode cacheMode,
+<i class="no-highlight">1521</i>&nbsp;                                  final int expiration,
+<i class="no-highlight">1522</i>&nbsp;                                  final boolean expirationInHours,
+<i class="no-highlight">1523</i>&nbsp;                                  final long oldExpirationTime) {
+<i class="no-highlight">1524</i>&nbsp;
+<i class="no-highlight">1525</i>&nbsp;        final PutMode putMode;
+<i class="no-highlight">1526</i>&nbsp;
+<b class="nc"><i class="no-highlight">1527</i>&nbsp;        final ExpirationInfo expInfo = new ExpirationInfo(</b>
+<i class="no-highlight">1528</i>&nbsp;            expiration, expirationInHours, true /*updateExpiration*/);
+<i class="no-highlight">1529</i>&nbsp;
+<b class="nc"><i class="no-highlight">1530</i>&nbsp;        final EnvironmentImpl envImpl = getEnv();</b>
+<i class="no-highlight">1531</i>&nbsp;
+<b class="nc"><i class="no-highlight">1532</i>&nbsp;        if (isFullyPopulated &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1533</i>&nbsp;            !envImpl.expiresWithin(</b>
+<b class="nc"><i class="no-highlight">1534</i>&nbsp;                oldExpirationTime, envImpl.getTtlClockTolerance())) {</b>
+<i class="no-highlight">1535</i>&nbsp;
+<b class="nc"><i class="no-highlight">1536</i>&nbsp;            final OperationResult result = cursor.search(</b>
+<i class="no-highlight">1537</i>&nbsp;                secKey, priKey, LockMode.RMW, cacheMode,
+<b class="nc"><i class="no-highlight">1538</i>&nbsp;                configuration.getSortedDuplicates() ?</b>
+<i class="no-highlight">1539</i>&nbsp;                    SearchMode.BOTH : SearchMode.SET, false);
+<i class="no-highlight">1540</i>&nbsp;
+<b class="nc"><i class="no-highlight">1541</i>&nbsp;            if (result == null) {</b>
+<b class="nc"><i class="no-highlight">1542</i>&nbsp;                throw new SecondaryIntegrityException(</b>
+<b class="nc"><i class="no-highlight">1543</i>&nbsp;                    this, cursor.getCursorImpl().getLocker(),</b>
+<i class="no-highlight">1544</i>&nbsp;                    &quot;Secondary is corrupt: the primary record contains a &quot; +
+<i class="no-highlight">1545</i>&nbsp;                    &quot;key that is not present in the secondary&quot;,
+<b class="nc"><i class="no-highlight">1546</i>&nbsp;                    getDebugName(), secKey, priKey, oldExpirationTime);</b>
+<i class="no-highlight">1547</i>&nbsp;            }
+<i class="no-highlight">1548</i>&nbsp;
+<b class="nc"><i class="no-highlight">1549</i>&nbsp;            putMode = PutMode.CURRENT;</b>
+<b class="nc"><i class="no-highlight">1550</i>&nbsp;        } else {</b>
+<b class="nc"><i class="no-highlight">1551</i>&nbsp;            putMode = PutMode.OVERWRITE;</b>
+<i class="no-highlight">1552</i>&nbsp;        }
+<i class="no-highlight">1553</i>&nbsp;
+<b class="nc"><i class="no-highlight">1554</i>&nbsp;        cursor.putInternal(secKey, priKey, cacheMode, expInfo, putMode);</b>
+<b class="nc"><i class="no-highlight">1555</i>&nbsp;    }</b>
+<i class="no-highlight">1556</i>&nbsp;
+<i class="no-highlight">1557</i>&nbsp;    /**
+<i class="no-highlight">1558</i>&nbsp;     * Called when a record in the foreign database is deleted.
+<i class="no-highlight">1559</i>&nbsp;     *
+<i class="no-highlight">1560</i>&nbsp;     * @param secKey is the primary key of the foreign database, which is the
+<i class="no-highlight">1561</i>&nbsp;     * secondary key (ordinary key) of this secondary database.
+<i class="no-highlight">1562</i>&nbsp;     */
+<i class="no-highlight">1563</i>&nbsp;    void onForeignKeyDelete(final Locker locker,
+<i class="no-highlight">1564</i>&nbsp;                            final DatabaseEntry secKey,
+<i class="no-highlight">1565</i>&nbsp;                            final CacheMode cacheMode) {
+<i class="no-highlight">1566</i>&nbsp;
+<b class="nc"><i class="no-highlight">1567</i>&nbsp;        final ForeignKeyDeleteAction deleteAction =</b>
+<b class="nc"><i class="no-highlight">1568</i>&nbsp;            secondaryConfig.getForeignKeyDeleteAction();</b>
+<i class="no-highlight">1569</i>&nbsp;
+<i class="no-highlight">1570</i>&nbsp;        /* Use RMW if we&#39;re going to be deleting the secondary records. */
+<b class="nc"><i class="no-highlight">1571</i>&nbsp;        final LockMode lockMode =</b>
+<i class="no-highlight">1572</i>&nbsp;            (deleteAction == ForeignKeyDeleteAction.ABORT) ?
+<i class="no-highlight">1573</i>&nbsp;            LockMode.DEFAULT :
+<i class="no-highlight">1574</i>&nbsp;            LockMode.RMW;
+<i class="no-highlight">1575</i>&nbsp;
+<i class="no-highlight">1576</i>&nbsp;        /*
+<i class="no-highlight">1577</i>&nbsp;         * Use the deleted foreign primary key to read the data of this
+<i class="no-highlight">1578</i>&nbsp;         * database, which is the associated primary&#39;s key.
+<i class="no-highlight">1579</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">1580</i>&nbsp;        try (final Cursor cursor = new Cursor(this, locker, null)) {</b>
+<i class="no-highlight">1581</i>&nbsp;
+<b class="nc"><i class="no-highlight">1582</i>&nbsp;            final DatabaseEntry priKey = new DatabaseEntry();</b>
+<i class="no-highlight">1583</i>&nbsp;
+<b class="nc"><i class="no-highlight">1584</i>&nbsp;            OperationResult secResult = cursor.search(</b>
+<i class="no-highlight">1585</i>&nbsp;                secKey, priKey, lockMode, cacheMode, SearchMode.SET, true);
+<i class="no-highlight">1586</i>&nbsp;
+<b class="nc"><i class="no-highlight">1587</i>&nbsp;            while (secResult != null) {</b>
+<i class="no-highlight">1588</i>&nbsp;
+<b class="nc"><i class="no-highlight">1589</i>&nbsp;                if (deleteAction == ForeignKeyDeleteAction.ABORT) {</b>
+<i class="no-highlight">1590</i>&nbsp;
+<i class="no-highlight">1591</i>&nbsp;                    /*
+<i class="no-highlight">1592</i>&nbsp;                     * ABORT - throw an exception to cause the user to abort
+<i class="no-highlight">1593</i>&nbsp;                     * the transaction.
+<i class="no-highlight">1594</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1595</i>&nbsp;                    throw new DeleteConstraintException(</b>
+<i class="no-highlight">1596</i>&nbsp;                        locker, &quot;Secondary refers to a deleted foreign key&quot;,
+<b class="nc"><i class="no-highlight">1597</i>&nbsp;                        getDebugName(), secKey, priKey,</b>
+<b class="nc"><i class="no-highlight">1598</i>&nbsp;                        secResult.getExpirationTime());</b>
+<i class="no-highlight">1599</i>&nbsp;
+<b class="nc"><i class="no-highlight">1600</i>&nbsp;                } else if (deleteAction == ForeignKeyDeleteAction.CASCADE) {</b>
+<i class="no-highlight">1601</i>&nbsp;
+<i class="no-highlight">1602</i>&nbsp;                    /*
+<i class="no-highlight">1603</i>&nbsp;                     * CASCADE - delete the associated primary record.
+<i class="no-highlight">1604</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1605</i>&nbsp;                    final Database primaryDb = getPrimary(priKey);</b>
+<b class="nc"><i class="no-highlight">1606</i>&nbsp;                    if (primaryDb != null) {</b>
+<i class="no-highlight">1607</i>&nbsp;
+<b class="nc"><i class="no-highlight">1608</i>&nbsp;                        final OperationResult priResult =</b>
+<b class="nc"><i class="no-highlight">1609</i>&nbsp;                            primaryDb.deleteInternal(</b>
+<i class="no-highlight">1610</i>&nbsp;                                locker, priKey, cacheMode);
+<i class="no-highlight">1611</i>&nbsp;
+<b class="nc"><i class="no-highlight">1612</i>&nbsp;                        if (priResult == null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1613</i>&nbsp;                            !cursor.cursorImpl.isProbablyExpired()) {</b>
+<i class="no-highlight">1614</i>&nbsp;
+<b class="nc"><i class="no-highlight">1615</i>&nbsp;                            throw secondaryRefersToMissingPrimaryKey(</b>
+<i class="no-highlight">1616</i>&nbsp;                                locker, secKey, priKey,
+<b class="nc"><i class="no-highlight">1617</i>&nbsp;                                secResult.getExpirationTime());</b>
+<i class="no-highlight">1618</i>&nbsp;                        }
+<i class="no-highlight">1619</i>&nbsp;                    }
+<i class="no-highlight">1620</i>&nbsp;
+<b class="nc"><i class="no-highlight">1621</i>&nbsp;                } else if (deleteAction == ForeignKeyDeleteAction.NULLIFY) {</b>
+<i class="no-highlight">1622</i>&nbsp;
+<i class="no-highlight">1623</i>&nbsp;                    /*
+<i class="no-highlight">1624</i>&nbsp;                     * NULLIFY - set the secondary key to null in the
+<i class="no-highlight">1625</i>&nbsp;                     * associated primary record.
+<i class="no-highlight">1626</i>&nbsp;                     */
+<b class="nc"><i class="no-highlight">1627</i>&nbsp;                    final Database primaryDb = getPrimary(priKey);</b>
+<b class="nc"><i class="no-highlight">1628</i>&nbsp;                    if (primaryDb != null) {</b>
+<i class="no-highlight">1629</i>&nbsp;
+<b class="nc"><i class="no-highlight">1630</i>&nbsp;                        try (final Cursor priCursor = new Cursor(</b>
+<i class="no-highlight">1631</i>&nbsp;                            primaryDb, locker, null)) {
+<i class="no-highlight">1632</i>&nbsp;
+<b class="nc"><i class="no-highlight">1633</i>&nbsp;                            final DatabaseEntry data = new DatabaseEntry();</b>
+<i class="no-highlight">1634</i>&nbsp;
+<b class="nc"><i class="no-highlight">1635</i>&nbsp;                            final OperationResult priResult = priCursor.search(</b>
+<i class="no-highlight">1636</i>&nbsp;                                priKey, data, LockMode.RMW, cacheMode,
+<i class="no-highlight">1637</i>&nbsp;                                SearchMode.SET, true);
+<i class="no-highlight">1638</i>&nbsp;
+<b class="nc"><i class="no-highlight">1639</i>&nbsp;                            if (priResult == null) {</b>
+<b class="nc"><i class="no-highlight">1640</i>&nbsp;                                if (!cursor.cursorImpl.isProbablyExpired()) {</b>
+<b class="nc"><i class="no-highlight">1641</i>&nbsp;                                    throw secondaryRefersToMissingPrimaryKey(</b>
+<i class="no-highlight">1642</i>&nbsp;                                        locker, secKey, priKey,
+<b class="nc"><i class="no-highlight">1643</i>&nbsp;                                        secResult.getExpirationTime());</b>
+<i class="no-highlight">1644</i>&nbsp;                                }
+<i class="no-highlight">1645</i>&nbsp;                                continue;
+<i class="no-highlight">1646</i>&nbsp;                            }
+<i class="no-highlight">1647</i>&nbsp;
+<b class="nc"><i class="no-highlight">1648</i>&nbsp;                            final ForeignMultiKeyNullifier multiNullifier =</b>
+<b class="nc"><i class="no-highlight">1649</i>&nbsp;                                secondaryConfig.getForeignMultiKeyNullifier();</b>
+<i class="no-highlight">1650</i>&nbsp;
+<b class="nc"><i class="no-highlight">1651</i>&nbsp;                            if (multiNullifier != null) {</b>
+<i class="no-highlight">1652</i>&nbsp;
+<b class="nc"><i class="no-highlight">1653</i>&nbsp;                                if (multiNullifier.nullifyForeignKey(</b>
+<i class="no-highlight">1654</i>&nbsp;                                    this, priKey, data, secKey)) {
+<i class="no-highlight">1655</i>&nbsp;
+<b class="nc"><i class="no-highlight">1656</i>&nbsp;                                    priCursor.putCurrent(data);</b>
+<i class="no-highlight">1657</i>&nbsp;                                }
+<i class="no-highlight">1658</i>&nbsp;                            } else {
+<b class="nc"><i class="no-highlight">1659</i>&nbsp;                                final ForeignKeyNullifier nullifier =</b>
+<b class="nc"><i class="no-highlight">1660</i>&nbsp;                                    secondaryConfig.getForeignKeyNullifier();</b>
+<i class="no-highlight">1661</i>&nbsp;
+<b class="nc"><i class="no-highlight">1662</i>&nbsp;                                if (nullifier.nullifyForeignKey(this, data)) {</b>
+<b class="nc"><i class="no-highlight">1663</i>&nbsp;                                    priCursor.putCurrent(data);</b>
+<i class="no-highlight">1664</i>&nbsp;                                }
+<i class="no-highlight">1665</i>&nbsp;                            }
+<b class="nc"><i class="no-highlight">1666</i>&nbsp;                        }</b>
+<i class="no-highlight">1667</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1668</i>&nbsp;                } else {</b>
+<i class="no-highlight">1669</i>&nbsp;                    /* Should never occur. */
+<b class="nc"><i class="no-highlight">1670</i>&nbsp;                    throw EnvironmentFailureException.unexpectedState();</b>
+<i class="no-highlight">1671</i>&nbsp;                }
+<i class="no-highlight">1672</i>&nbsp;
+<b class="nc"><i class="no-highlight">1673</i>&nbsp;                secResult = cursor.retrieveNext(</b>
+<i class="no-highlight">1674</i>&nbsp;                    secKey, priKey, LockMode.DEFAULT, cacheMode,
+<i class="no-highlight">1675</i>&nbsp;                    GetMode.NEXT_DUP);
+<i class="no-highlight">1676</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1677</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1678</i>&nbsp;    }</b>
+<i class="no-highlight">1679</i>&nbsp;
+<i class="no-highlight">1680</i>&nbsp;    /**
+<i class="no-highlight">1681</i>&nbsp;     * If either ImmutableSecondaryKey or ExtractFromPrimaryKeyOnly is
+<i class="no-highlight">1682</i>&nbsp;     * configured, an update cannot change a secondary key.
+<i class="no-highlight">1683</i>&nbsp;     * ImmutableSecondaryKey is a guarantee from the user meaning just that,
+<i class="no-highlight">1684</i>&nbsp;     * and ExtractFromPrimaryKeyOnly also implies the secondary key cannot
+<i class="no-highlight">1685</i>&nbsp;     * change because it is derived from the primary key which is immutable
+<i class="no-highlight">1686</i>&nbsp;     * (like any other key).
+<i class="no-highlight">1687</i>&nbsp;     */
+<i class="no-highlight">1688</i>&nbsp;    boolean updateMayChangeSecondary() {
+<b class="nc"><i class="no-highlight">1689</i>&nbsp;        return !secondaryConfig.getImmutableSecondaryKey() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1690</i>&nbsp;               !secondaryConfig.getExtractFromPrimaryKeyOnly();</b>
+<i class="no-highlight">1691</i>&nbsp;    }
+<i class="no-highlight">1692</i>&nbsp;
+<i class="no-highlight">1693</i>&nbsp;    /**
+<i class="no-highlight">1694</i>&nbsp;     * When false is returned, this allows optimizing for the case where a
+<i class="no-highlight">1695</i>&nbsp;     * primary update operation can update secondaries without reading the
+<i class="no-highlight">1696</i>&nbsp;     * primary data.
+<i class="no-highlight">1697</i>&nbsp;     */
+<i class="no-highlight">1698</i>&nbsp;    static boolean needOldDataForUpdate(
+<i class="no-highlight">1699</i>&nbsp;        final Collection&lt;SecondaryDatabase&gt; secondaries) {
+<i class="no-highlight">1700</i>&nbsp;
+<b class="nc"><i class="no-highlight">1701</i>&nbsp;        if (secondaries == null) {</b>
+<b class="nc"><i class="no-highlight">1702</i>&nbsp;            return false;</b>
+<i class="no-highlight">1703</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1704</i>&nbsp;        for (final SecondaryDatabase secDb : secondaries) {</b>
+<b class="nc"><i class="no-highlight">1705</i>&nbsp;            if (secDb.updateMayChangeSecondary()) {</b>
+<b class="nc"><i class="no-highlight">1706</i>&nbsp;                return true;</b>
+<i class="no-highlight">1707</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1708</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1709</i>&nbsp;        return false;</b>
+<i class="no-highlight">1710</i>&nbsp;    }
+<i class="no-highlight">1711</i>&nbsp;
+<i class="no-highlight">1712</i>&nbsp;    /**
+<i class="no-highlight">1713</i>&nbsp;     * When false is returned, this allows optimizing for the case where a
+<i class="no-highlight">1714</i>&nbsp;     * primary delete operation can update secondaries without reading the
+<i class="no-highlight">1715</i>&nbsp;     * primary data.
+<i class="no-highlight">1716</i>&nbsp;     */
+<i class="no-highlight">1717</i>&nbsp;    static boolean needOldDataForDelete(
+<i class="no-highlight">1718</i>&nbsp;        final Collection&lt;SecondaryDatabase&gt; secondaries) {
+<i class="no-highlight">1719</i>&nbsp;
+<b class="nc"><i class="no-highlight">1720</i>&nbsp;        if (secondaries == null) {</b>
+<b class="nc"><i class="no-highlight">1721</i>&nbsp;            return false;</b>
+<i class="no-highlight">1722</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1723</i>&nbsp;        for (final SecondaryDatabase secDb : secondaries) {</b>
+<b class="nc"><i class="no-highlight">1724</i>&nbsp;            if (!secDb.secondaryConfig.getExtractFromPrimaryKeyOnly()) {</b>
+<b class="nc"><i class="no-highlight">1725</i>&nbsp;                return true;</b>
+<i class="no-highlight">1726</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1727</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1728</i>&nbsp;        return false;</b>
+<i class="no-highlight">1729</i>&nbsp;    }
+<i class="no-highlight">1730</i>&nbsp;
+<i class="no-highlight">1731</i>&nbsp;    /* A secondary DB has no secondaries of its own, by definition. */
+<i class="no-highlight">1732</i>&nbsp;    @Override
+<i class="no-highlight">1733</i>&nbsp;    boolean hasSecondaryOrForeignKeyAssociations() {
+<b class="nc"><i class="no-highlight">1734</i>&nbsp;        return false;</b>
+<i class="no-highlight">1735</i>&nbsp;    }
+<i class="no-highlight">1736</i>&nbsp;
+<i class="no-highlight">1737</i>&nbsp;    /**
+<i class="no-highlight">1738</i>&nbsp;     * Utility to call SecondaryAssociation.getPrimary.
+<i class="no-highlight">1739</i>&nbsp;     *
+<i class="no-highlight">1740</i>&nbsp;     * Handles exceptions and does an important debugging check that can&#39;t be
+<i class="no-highlight">1741</i>&nbsp;     * done at database open time: ensures that the same SecondaryAssociation
+<i class="no-highlight">1742</i>&nbsp;     * instance is used for all associated DBs.
+<i class="no-highlight">1743</i>&nbsp;     * &lt;p&gt;
+<i class="no-highlight">1744</i>&nbsp;     * Returns null if getPrimary returns null, so the caller must handle this
+<i class="no-highlight">1745</i>&nbsp;     * possibility.  Null normally means that a secondary read operation can
+<i class="no-highlight">1746</i>&nbsp;     * skip the record.
+<i class="no-highlight">1747</i>&nbsp;     */
+<i class="no-highlight">1748</i>&nbsp;    Database getPrimary(DatabaseEntry priKey) {
+<i class="no-highlight">1749</i>&nbsp;        final Database priDb;
+<i class="no-highlight">1750</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">1751</i>&nbsp;            priDb = secAssoc.getPrimary(priKey);</b>
+<b class="nc"><i class="no-highlight">1752</i>&nbsp;        } catch (RuntimeException e) {</b>
+<b class="nc"><i class="no-highlight">1753</i>&nbsp;            throw EnvironmentFailureException.unexpectedException(</b>
+<i class="no-highlight">1754</i>&nbsp;                &quot;Exception from SecondaryAssociation.getPrimary&quot;, e);
+<b class="nc"><i class="no-highlight">1755</i>&nbsp;        }</b>
+<b class="nc"><i class="no-highlight">1756</i>&nbsp;        if (priDb == null) {</b>
+<b class="nc"><i class="no-highlight">1757</i>&nbsp;            return null;</b>
+<i class="no-highlight">1758</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1759</i>&nbsp;        if (priDb.secAssoc != secAssoc) {</b>
+<b class="nc"><i class="no-highlight">1760</i>&nbsp;            throw new IllegalArgumentException(</b>
+<i class="no-highlight">1761</i>&nbsp;                &quot;Primary and secondary have different SecondaryAssociation &quot; +
+<i class="no-highlight">1762</i>&nbsp;                &quot;instances. Remember to configure the SecondaryAssociation &quot; +
+<i class="no-highlight">1763</i>&nbsp;                &quot;on the primary database.&quot;);
+<i class="no-highlight">1764</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1765</i>&nbsp;        return priDb;</b>
+<i class="no-highlight">1766</i>&nbsp;    }
+<i class="no-highlight">1767</i>&nbsp;
+<i class="no-highlight">1768</i>&nbsp;    private DatabaseImpl checkReadable() {
+<b class="nc"><i class="no-highlight">1769</i>&nbsp;        final DatabaseImpl dbImpl = checkOpen();</b>
+<b class="nc"><i class="no-highlight">1770</i>&nbsp;        if (!isFullyPopulated) {</b>
+<b class="nc"><i class="no-highlight">1771</i>&nbsp;            throw new IllegalStateException(</b>
+<i class="no-highlight">1772</i>&nbsp;                &quot;Incremental population is currently enabled.&quot;);
+<i class="no-highlight">1773</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1774</i>&nbsp;        return dbImpl;</b>
+<i class="no-highlight">1775</i>&nbsp;    }
+<i class="no-highlight">1776</i>&nbsp;
+<i class="no-highlight">1777</i>&nbsp;    static UnsupportedOperationException notAllowedException() {
+<i class="no-highlight">1778</i>&nbsp;
+<b class="nc"><i class="no-highlight">1779</i>&nbsp;        return new UnsupportedOperationException(</b>
+<i class="no-highlight">1780</i>&nbsp;            &quot;Operation not allowed on a secondary&quot;);
+<i class="no-highlight">1781</i>&nbsp;    }
+<i class="no-highlight">1782</i>&nbsp;
+<i class="no-highlight">1783</i>&nbsp;    /**
+<i class="no-highlight">1784</i>&nbsp;     * Send trace messages to the java.util.logger. Don&#39;t rely on the logger
+<i class="no-highlight">1785</i>&nbsp;     * alone to conditionalize whether we send this message, we don&#39;t even want
+<i class="no-highlight">1786</i>&nbsp;     * to construct the message if the level is not enabled.
+<i class="no-highlight">1787</i>&nbsp;     */
+<i class="no-highlight">1788</i>&nbsp;    void trace(final Level level, final String methodName) {
+<b class="nc"><i class="no-highlight">1789</i>&nbsp;        if (logger.isLoggable(level)) {</b>
+<b class="nc"><i class="no-highlight">1790</i>&nbsp;            StringBuilder sb = new StringBuilder();</b>
+<b class="nc"><i class="no-highlight">1791</i>&nbsp;            sb.append(methodName);</b>
+<b class="nc"><i class="no-highlight">1792</i>&nbsp;            sb.append(&quot; name=&quot;).append(getDebugName());</b>
+<b class="nc"><i class="no-highlight">1793</i>&nbsp;            sb.append(&quot; primary=&quot;).append(primaryDatabase.getDebugName());</b>
+<i class="no-highlight">1794</i>&nbsp;
+<b class="nc"><i class="no-highlight">1795</i>&nbsp;            LoggerUtils.logMsg(</b>
+<b class="nc"><i class="no-highlight">1796</i>&nbsp;                logger, getEnv(), level, sb.toString());</b>
+<i class="no-highlight">1797</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1798</i>&nbsp;    }</b>
+<i class="no-highlight">1799</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

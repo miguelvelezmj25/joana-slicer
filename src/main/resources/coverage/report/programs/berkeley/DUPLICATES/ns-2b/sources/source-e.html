@@ -1,0 +1,608 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > INLongRep</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.tree</a>
+</div>
+
+<h1>Coverage Summary for Class: INLongRep (com.sleepycat.je.tree)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">INLongRep</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/1)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">INLongRep$DefaultRep</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (6/12)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    66.7%
+  </span>
+  <span class="absValue">
+    (42/63)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INLongRep$EmptyRep</td>
+<td class="coverageStat">
+  <span class="percent">
+    77.8%
+  </span>
+  <span class="absValue">
+    (7/9)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    87.5%
+  </span>
+  <span class="absValue">
+    (14/16)
+  </span>
+</td>
+  </tr>
+  <tr>
+    <td class="name">INLongRep$SparseRep</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/10)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/54)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>Total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    43.8%
+  </span>
+  <span class="absValue">
+    (14/32)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    42.5%
+  </span>
+  <span class="absValue">
+    (57/134)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;package com.sleepycat.je.tree;
+<i class="no-highlight">14</i>&nbsp;
+<i class="no-highlight">15</i>&nbsp;import java.util.Arrays;
+<i class="no-highlight">16</i>&nbsp;
+<i class="no-highlight">17</i>&nbsp;import com.sleepycat.je.dbi.MemoryBudget;
+<i class="no-highlight">18</i>&nbsp;import com.sleepycat.je.utilint.SizeofMarker;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;/**
+<i class="no-highlight">21</i>&nbsp; * Holds an array of non-negative long values, one for each slot in an IN.
+<i class="no-highlight">22</i>&nbsp; *
+<i class="no-highlight">23</i>&nbsp; * Zero is the default value and is returned when no value has been set.
+<i class="no-highlight">24</i>&nbsp; *
+<i class="no-highlight">25</i>&nbsp; * The EMPTY_REP is used at first, and is mutated as necessary as values are
+<i class="no-highlight">26</i>&nbsp; * set.  A minimum number of bytes per value is used, based on the largest
+<i class="no-highlight">27</i>&nbsp; * value passed to set().
+<i class="no-highlight">28</i>&nbsp; *
+<i class="no-highlight">29</i>&nbsp; * Optionally, a sparse rep is used when a value is set for EMPTY_REP. Up to 4
+<i class="no-highlight">30</i>&nbsp; * values are stored along with their indexes. When the 5th values is set, the
+<i class="no-highlight">31</i>&nbsp; * rep is mutated to the default rep.
+<i class="no-highlight">32</i>&nbsp; *
+<i class="no-highlight">33</i>&nbsp; * This object calls IN.updateMemorySize to track the memory it uses.
+<i class="no-highlight">34</i>&nbsp; * EMPTY_REP uses no memory because it is a singleton.
+<i class="no-highlight">35</i>&nbsp; */
+<b class="fc"><i class="no-highlight">36</i>&nbsp;public abstract class INLongRep {</b>
+<i class="no-highlight">37</i>&nbsp;
+<i class="no-highlight">38</i>&nbsp;    public abstract long get(int idx);
+<i class="no-highlight">39</i>&nbsp;    public abstract INLongRep set(int idx, long val, IN parent);
+<i class="no-highlight">40</i>&nbsp;    public abstract INLongRep compact(IN parent, EmptyRep emptyRep);
+<i class="no-highlight">41</i>&nbsp;    public abstract INLongRep clear(IN parent, EmptyRep emptyRep);
+<i class="no-highlight">42</i>&nbsp;    public abstract boolean isEmpty();
+<i class="no-highlight">43</i>&nbsp;    public abstract INLongRep copy(int from, int to, int n, IN parent);
+<i class="no-highlight">44</i>&nbsp;    public abstract INLongRep resize(int capacity);
+<i class="no-highlight">45</i>&nbsp;    public abstract long getMemorySize();
+<i class="no-highlight">46</i>&nbsp;
+<i class="no-highlight">47</i>&nbsp;    /**
+<i class="no-highlight">48</i>&nbsp;     * Initially empty (all values are zero) but will mutate as needed when
+<i class="no-highlight">49</i>&nbsp;     * non-zero values are passed to set().
+<i class="no-highlight">50</i>&nbsp;     */
+<i class="no-highlight">51</i>&nbsp;    public static class EmptyRep extends INLongRep {
+<i class="no-highlight">52</i>&nbsp;
+<i class="no-highlight">53</i>&nbsp;        final int minLength;
+<i class="no-highlight">54</i>&nbsp;        final boolean allowSparseRep;
+<i class="no-highlight">55</i>&nbsp;
+<b class="fc"><i class="no-highlight">56</i>&nbsp;        public EmptyRep(int minLength, boolean allowSparseRep) {</b>
+<b class="fc"><i class="no-highlight">57</i>&nbsp;            this.minLength = minLength;</b>
+<b class="fc"><i class="no-highlight">58</i>&nbsp;            this.allowSparseRep = allowSparseRep;</b>
+<b class="fc"><i class="no-highlight">59</i>&nbsp;        }</b>
+<i class="no-highlight">60</i>&nbsp;
+<i class="no-highlight">61</i>&nbsp;        @Override
+<i class="no-highlight">62</i>&nbsp;        public INLongRep resize(int capacity) {
+<b class="nc"><i class="no-highlight">63</i>&nbsp;            return this;</b>
+<i class="no-highlight">64</i>&nbsp;        }
+<i class="no-highlight">65</i>&nbsp;
+<i class="no-highlight">66</i>&nbsp;        @Override
+<i class="no-highlight">67</i>&nbsp;        public long get(int idx) {
+<b class="fc"><i class="no-highlight">68</i>&nbsp;            return 0;</b>
+<i class="no-highlight">69</i>&nbsp;        }
+<i class="no-highlight">70</i>&nbsp;
+<i class="no-highlight">71</i>&nbsp;        /**
+<i class="no-highlight">72</i>&nbsp;         * When adding to the cache the EMPTY_REP is mutated into a
+<i class="no-highlight">73</i>&nbsp;         * DefaultRep.
+<i class="no-highlight">74</i>&nbsp;         */
+<i class="no-highlight">75</i>&nbsp;        @Override
+<i class="no-highlight">76</i>&nbsp;        public INLongRep set(int idx, long val, IN parent) {
+<i class="no-highlight">77</i>&nbsp;
+<b class="fc"><i class="no-highlight">78</i>&nbsp;            if (val == 0) {</b>
+<b class="fc"><i class="no-highlight">79</i>&nbsp;                return this;</b>
+<i class="no-highlight">80</i>&nbsp;            }
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;            final INLongRep newCache;
+<i class="no-highlight">83</i>&nbsp;
+<i class="no-highlight">84</i>&nbsp;            if (false /*TODO*/ &amp;&amp; allowSparseRep) {
+<i class="no-highlight">85</i>&nbsp;                newCache = new SparseRep(minLength);
+<i class="no-highlight">86</i>&nbsp;            } else {
+<b class="fc"><i class="no-highlight">87</i>&nbsp;                newCache = new DefaultRep(parent.getMaxEntries(), minLength);</b>
+<i class="no-highlight">88</i>&nbsp;            }
+<i class="no-highlight">89</i>&nbsp;
+<b class="fc"><i class="no-highlight">90</i>&nbsp;            parent.updateMemorySize(getMemorySize(), newCache.getMemorySize());</b>
+<i class="no-highlight">91</i>&nbsp;
+<b class="fc"><i class="no-highlight">92</i>&nbsp;            return newCache.set(idx, val, parent);</b>
+<i class="no-highlight">93</i>&nbsp;        }
+<i class="no-highlight">94</i>&nbsp;
+<i class="no-highlight">95</i>&nbsp;        @Override
+<i class="no-highlight">96</i>&nbsp;        public INLongRep compact(IN parent, EmptyRep emptyRep) {
+<b class="fc"><i class="no-highlight">97</i>&nbsp;            return this;</b>
+<i class="no-highlight">98</i>&nbsp;        }
+<i class="no-highlight">99</i>&nbsp;
+<i class="no-highlight">100</i>&nbsp;        @Override
+<i class="no-highlight">101</i>&nbsp;        public INLongRep clear(IN parent, EmptyRep emptyRep) {
+<b class="nc"><i class="no-highlight">102</i>&nbsp;            return this;</b>
+<i class="no-highlight">103</i>&nbsp;        }
+<i class="no-highlight">104</i>&nbsp;
+<i class="no-highlight">105</i>&nbsp;        @Override
+<i class="no-highlight">106</i>&nbsp;        public boolean isEmpty() {
+<b class="fc"><i class="no-highlight">107</i>&nbsp;            return true;</b>
+<i class="no-highlight">108</i>&nbsp;        }
+<i class="no-highlight">109</i>&nbsp;
+<i class="no-highlight">110</i>&nbsp;        @Override
+<i class="no-highlight">111</i>&nbsp;        public INLongRep copy(int from, int to, int n, IN parent) {
+<b class="fc"><i class="no-highlight">112</i>&nbsp;            return this;</b>
+<i class="no-highlight">113</i>&nbsp;        }
+<i class="no-highlight">114</i>&nbsp;
+<i class="no-highlight">115</i>&nbsp;        /**
+<i class="no-highlight">116</i>&nbsp;         * An EMPTY_REP has no JE cache memory overhead because there is only
+<i class="no-highlight">117</i>&nbsp;         * one global instance.
+<i class="no-highlight">118</i>&nbsp;         */
+<i class="no-highlight">119</i>&nbsp;        @Override
+<i class="no-highlight">120</i>&nbsp;        public long getMemorySize() {
+<b class="fc"><i class="no-highlight">121</i>&nbsp;            return 0;</b>
+<i class="no-highlight">122</i>&nbsp;        }
+<i class="no-highlight">123</i>&nbsp;    }
+<i class="no-highlight">124</i>&nbsp;
+<b class="fc"><i class="no-highlight">125</i>&nbsp;    public static class DefaultRep extends INLongRep {</b>
+<i class="no-highlight">126</i>&nbsp;
+<i class="no-highlight">127</i>&nbsp;        /** Maximum value indexed by number of bytes. */
+<b class="fc"><i class="no-highlight">128</i>&nbsp;        private static long[] MAX_VALUE = {</b>
+<i class="no-highlight">129</i>&nbsp;            0x0L,
+<i class="no-highlight">130</i>&nbsp;            0xFFL,
+<i class="no-highlight">131</i>&nbsp;            0xFFFFL,
+<i class="no-highlight">132</i>&nbsp;            0xFFFFFFL,
+<i class="no-highlight">133</i>&nbsp;            0xFFFFFFFFL,
+<i class="no-highlight">134</i>&nbsp;            0xFFFFFFFFFFL,
+<i class="no-highlight">135</i>&nbsp;            0xFFFFFFFFFFFFL,
+<i class="no-highlight">136</i>&nbsp;            0xFFFFFFFFFFFFFFL,
+<i class="no-highlight">137</i>&nbsp;            0x7FFFFFFFFFFFFFFFL,
+<i class="no-highlight">138</i>&nbsp;        };
+<i class="no-highlight">139</i>&nbsp;
+<i class="no-highlight">140</i>&nbsp;        private final byte[] byteArray;
+<i class="no-highlight">141</i>&nbsp;        final int bytesPerValue;
+<i class="no-highlight">142</i>&nbsp;
+<b class="fc"><i class="no-highlight">143</i>&nbsp;        public DefaultRep(int capacity, int nBytes) {</b>
+<b class="fc"><i class="no-highlight">144</i>&nbsp;            assert capacity &gt;= 1;</b>
+<b class="fc"><i class="no-highlight">145</i>&nbsp;            assert nBytes &gt;= 1;</b>
+<b class="fc"><i class="no-highlight">146</i>&nbsp;            assert nBytes &lt;= 8;</b>
+<i class="no-highlight">147</i>&nbsp;
+<b class="fc"><i class="no-highlight">148</i>&nbsp;            bytesPerValue = nBytes;</b>
+<b class="fc"><i class="no-highlight">149</i>&nbsp;            byteArray = new byte[capacity * bytesPerValue];</b>
+<b class="fc"><i class="no-highlight">150</i>&nbsp;        }</b>
+<i class="no-highlight">151</i>&nbsp;
+<i class="no-highlight">152</i>&nbsp;        /* Only for use by the Sizeof utility. */
+<b class="nc"><i class="no-highlight">153</i>&nbsp;        public DefaultRep(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {</b>
+<b class="nc"><i class="no-highlight">154</i>&nbsp;            bytesPerValue = 0;</b>
+<b class="nc"><i class="no-highlight">155</i>&nbsp;            byteArray = null;</b>
+<b class="nc"><i class="no-highlight">156</i>&nbsp;        }</b>
+<i class="no-highlight">157</i>&nbsp;
+<b class="nc"><i class="no-highlight">158</i>&nbsp;        private DefaultRep(byte[] byteArray, int bytesPerValue) {</b>
+<b class="nc"><i class="no-highlight">159</i>&nbsp;            this.byteArray = byteArray;</b>
+<b class="nc"><i class="no-highlight">160</i>&nbsp;            this.bytesPerValue = bytesPerValue;</b>
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        }</b>
+<i class="no-highlight">162</i>&nbsp;
+<i class="no-highlight">163</i>&nbsp;        @Override
+<i class="no-highlight">164</i>&nbsp;        public DefaultRep resize(int capacity) {
+<b class="nc"><i class="no-highlight">165</i>&nbsp;            return new DefaultRep(</b>
+<b class="nc"><i class="no-highlight">166</i>&nbsp;                Arrays.copyOfRange(byteArray, 0, capacity * bytesPerValue),</b>
+<i class="no-highlight">167</i>&nbsp;                bytesPerValue);
+<i class="no-highlight">168</i>&nbsp;        }
+<i class="no-highlight">169</i>&nbsp;
+<i class="no-highlight">170</i>&nbsp;        @Override
+<i class="no-highlight">171</i>&nbsp;        public long get(int idx) {
+<i class="no-highlight">172</i>&nbsp;
+<b class="fc"><i class="no-highlight">173</i>&nbsp;            int i = idx * bytesPerValue;</b>
+<b class="fc"><i class="no-highlight">174</i>&nbsp;            final int end = i + bytesPerValue;</b>
+<i class="no-highlight">175</i>&nbsp;
+<b class="fc"><i class="no-highlight">176</i>&nbsp;            long val = (byteArray[i] &amp; 0xFF);</b>
+<i class="no-highlight">177</i>&nbsp;
+<b class="fc"><i class="no-highlight">178</i>&nbsp;            for (i += 1; i &lt; end; i += 1) {</b>
+<b class="fc"><i class="no-highlight">179</i>&nbsp;                val &lt;&lt;= 8;</b>
+<b class="fc"><i class="no-highlight">180</i>&nbsp;                val |= (byteArray[i] &amp; 0xFF);</b>
+<i class="no-highlight">181</i>&nbsp;            }
+<i class="no-highlight">182</i>&nbsp;
+<b class="fc"><i class="no-highlight">183</i>&nbsp;            return val;</b>
+<i class="no-highlight">184</i>&nbsp;        }
+<i class="no-highlight">185</i>&nbsp;
+<i class="no-highlight">186</i>&nbsp;        /**
+<i class="no-highlight">187</i>&nbsp;         * Mutates to a DefaultRep with a larger number of bytes if necessary
+<i class="no-highlight">188</i>&nbsp;         * to hold the given value.
+<i class="no-highlight">189</i>&nbsp;         */
+<i class="no-highlight">190</i>&nbsp;        @Override
+<i class="no-highlight">191</i>&nbsp;        public INLongRep set(int idx, long val, IN parent) {
+<i class="no-highlight">192</i>&nbsp;
+<b class="fc"><i class="no-highlight">193</i>&nbsp;            assert idx &gt;= 0;</b>
+<b class="fc"><i class="no-highlight">194</i>&nbsp;            assert idx &lt; byteArray.length / bytesPerValue;</b>
+<b class="fc"><i class="no-highlight">195</i>&nbsp;            assert val &gt;= 0;</b>
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;            /*
+<i class="no-highlight">198</i>&nbsp;             * If the value can&#39;t be represented using bytesPerValue, mutate
+<i class="no-highlight">199</i>&nbsp;             * to a cache with a larger number of bytes.
+<i class="no-highlight">200</i>&nbsp;             */
+<b class="fc"><i class="no-highlight">201</i>&nbsp;            if (val &gt; MAX_VALUE[bytesPerValue]) {</b>
+<i class="no-highlight">202</i>&nbsp;
+<b class="fc"><i class="no-highlight">203</i>&nbsp;                final int capacity = byteArray.length / bytesPerValue;</b>
+<i class="no-highlight">204</i>&nbsp;
+<i class="no-highlight">205</i>&nbsp;                INLongRep newRep;
+<i class="no-highlight">206</i>&nbsp;
+<b class="fc"><i class="no-highlight">207</i>&nbsp;                if (getClass() == SparseRep.class) {</b>
+<b class="nc"><i class="no-highlight">208</i>&nbsp;                    newRep = new SparseRep(bytesPerValue + 1);</b>
+<i class="no-highlight">209</i>&nbsp;                } else {
+<b class="fc"><i class="no-highlight">210</i>&nbsp;                    newRep = new DefaultRep(capacity, bytesPerValue + 1);</b>
+<i class="no-highlight">211</i>&nbsp;                }
+<i class="no-highlight">212</i>&nbsp;
+<b class="fc"><i class="no-highlight">213</i>&nbsp;                parent.updateMemorySize(</b>
+<b class="fc"><i class="no-highlight">214</i>&nbsp;                    getMemorySize(), newRep.getMemorySize());</b>
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;                /*
+<i class="no-highlight">217</i>&nbsp;                 * Set new value in new cache, and copy other values from old
+<i class="no-highlight">218</i>&nbsp;                 * cache.
+<i class="no-highlight">219</i>&nbsp;                 */
+<b class="fc"><i class="no-highlight">220</i>&nbsp;                newRep = newRep.set(idx, val, parent);</b>
+<i class="no-highlight">221</i>&nbsp;
+<b class="fc"><i class="no-highlight">222</i>&nbsp;                for (int i = 0; i &lt; capacity; i += 1) {</b>
+<b class="fc"><i class="no-highlight">223</i>&nbsp;                    if (i != idx) {</b>
+<b class="fc"><i class="no-highlight">224</i>&nbsp;                        newRep = newRep.set(i, get(i), parent);</b>
+<i class="no-highlight">225</i>&nbsp;                    }
+<i class="no-highlight">226</i>&nbsp;                }
+<i class="no-highlight">227</i>&nbsp;
+<b class="fc"><i class="no-highlight">228</i>&nbsp;                return newRep;</b>
+<i class="no-highlight">229</i>&nbsp;            }
+<i class="no-highlight">230</i>&nbsp;
+<i class="no-highlight">231</i>&nbsp;            /* Set value in this cache. */
+<b class="fc"><i class="no-highlight">232</i>&nbsp;            int i = ((idx + 1) * bytesPerValue) - 1;</b>
+<b class="fc"><i class="no-highlight">233</i>&nbsp;            final int end = i - bytesPerValue;</b>
+<i class="no-highlight">234</i>&nbsp;
+<b class="fc"><i class="no-highlight">235</i>&nbsp;            byteArray[i] = (byte) (val &amp; 0xFF);</b>
+<i class="no-highlight">236</i>&nbsp;
+<b class="fc"><i class="no-highlight">237</i>&nbsp;            for (i -= 1; i &gt; end; i -= 1) {</b>
+<b class="fc"><i class="no-highlight">238</i>&nbsp;                val &gt;&gt;= 8;</b>
+<b class="fc"><i class="no-highlight">239</i>&nbsp;                byteArray[i] = (byte) (val &amp; 0xFF);</b>
+<i class="no-highlight">240</i>&nbsp;            }
+<i class="no-highlight">241</i>&nbsp;
+<b class="fc"><i class="no-highlight">242</i>&nbsp;            assert ((val &amp; 0xFFFFFFFFFFFFFF00L) == 0) : val;</b>
+<i class="no-highlight">243</i>&nbsp;
+<b class="fc"><i class="no-highlight">244</i>&nbsp;            return this;</b>
+<i class="no-highlight">245</i>&nbsp;        }
+<i class="no-highlight">246</i>&nbsp;
+<i class="no-highlight">247</i>&nbsp;        @Override
+<i class="no-highlight">248</i>&nbsp;        public INLongRep compact(IN parent, EmptyRep emptyRep) {
+<i class="no-highlight">249</i>&nbsp;
+<b class="nc"><i class="no-highlight">250</i>&nbsp;            if (isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">251</i>&nbsp;                return clear(parent, emptyRep);</b>
+<i class="no-highlight">252</i>&nbsp;            }
+<i class="no-highlight">253</i>&nbsp;
+<b class="nc"><i class="no-highlight">254</i>&nbsp;            return this;</b>
+<i class="no-highlight">255</i>&nbsp;        }
+<i class="no-highlight">256</i>&nbsp;
+<i class="no-highlight">257</i>&nbsp;        @Override
+<i class="no-highlight">258</i>&nbsp;        public INLongRep clear(IN parent, EmptyRep emptyRep) {
+<i class="no-highlight">259</i>&nbsp;
+<b class="nc"><i class="no-highlight">260</i>&nbsp;            parent.updateMemorySize(</b>
+<b class="nc"><i class="no-highlight">261</i>&nbsp;                getMemorySize(), emptyRep.getMemorySize());</b>
+<i class="no-highlight">262</i>&nbsp;
+<b class="nc"><i class="no-highlight">263</i>&nbsp;            return emptyRep;</b>
+<i class="no-highlight">264</i>&nbsp;        }
+<i class="no-highlight">265</i>&nbsp;
+<i class="no-highlight">266</i>&nbsp;        @Override
+<i class="no-highlight">267</i>&nbsp;        public boolean isEmpty() {
+<i class="no-highlight">268</i>&nbsp;
+<b class="nc"><i class="no-highlight">269</i>&nbsp;            for (byte b : byteArray) {</b>
+<b class="nc"><i class="no-highlight">270</i>&nbsp;                if (b != 0) {</b>
+<b class="nc"><i class="no-highlight">271</i>&nbsp;                    return false;</b>
+<i class="no-highlight">272</i>&nbsp;                }
+<i class="no-highlight">273</i>&nbsp;            }
+<i class="no-highlight">274</i>&nbsp;
+<b class="nc"><i class="no-highlight">275</i>&nbsp;            return true;</b>
+<i class="no-highlight">276</i>&nbsp;        }
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;        @Override
+<i class="no-highlight">279</i>&nbsp;        public INLongRep copy(int from, int to, int n, IN parent) {
+<b class="fc"><i class="no-highlight">280</i>&nbsp;            System.arraycopy(byteArray,</b>
+<i class="no-highlight">281</i>&nbsp;                             from * bytesPerValue,
+<i class="no-highlight">282</i>&nbsp;                             byteArray,
+<i class="no-highlight">283</i>&nbsp;                             to * bytesPerValue,
+<i class="no-highlight">284</i>&nbsp;                             n * bytesPerValue);
+<b class="fc"><i class="no-highlight">285</i>&nbsp;            return this;</b>
+<i class="no-highlight">286</i>&nbsp;        }
+<i class="no-highlight">287</i>&nbsp;
+<i class="no-highlight">288</i>&nbsp;        @Override
+<i class="no-highlight">289</i>&nbsp;        public long getMemorySize() {
+<b class="fc"><i class="no-highlight">290</i>&nbsp;            return MemoryBudget.DEFAULT_LONG_REP_OVERHEAD +</b>
+<b class="fc"><i class="no-highlight">291</i>&nbsp;                   MemoryBudget.byteArraySize(byteArray.length);</b>
+<i class="no-highlight">292</i>&nbsp;        }
+<i class="no-highlight">293</i>&nbsp;    }
+<i class="no-highlight">294</i>&nbsp;
+<i class="no-highlight">295</i>&nbsp;    public static class SparseRep extends DefaultRep {
+<i class="no-highlight">296</i>&nbsp;
+<i class="no-highlight">297</i>&nbsp;        private static final int MAX_ENTRIES = 4;
+<i class="no-highlight">298</i>&nbsp;
+<i class="no-highlight">299</i>&nbsp;        private final short[] idxs;
+<i class="no-highlight">300</i>&nbsp;
+<i class="no-highlight">301</i>&nbsp;        public SparseRep(int nBytes) {
+<i class="no-highlight">302</i>&nbsp;
+<b class="nc"><i class="no-highlight">303</i>&nbsp;            super(MAX_ENTRIES, nBytes);</b>
+<i class="no-highlight">304</i>&nbsp;
+<b class="nc"><i class="no-highlight">305</i>&nbsp;            idxs = new short[MAX_ENTRIES];</b>
+<b class="nc"><i class="no-highlight">306</i>&nbsp;            Arrays.fill(idxs, (short) (-1));</b>
+<b class="nc"><i class="no-highlight">307</i>&nbsp;        }</b>
+<i class="no-highlight">308</i>&nbsp;
+<i class="no-highlight">309</i>&nbsp;        /* Only for use by the Sizeof utility. */
+<i class="no-highlight">310</i>&nbsp;        public SparseRep(@SuppressWarnings(&quot;unused&quot;) SizeofMarker marker) {
+<b class="nc"><i class="no-highlight">311</i>&nbsp;            super(marker);</b>
+<b class="nc"><i class="no-highlight">312</i>&nbsp;            idxs = null;</b>
+<b class="nc"><i class="no-highlight">313</i>&nbsp;        }</b>
+<i class="no-highlight">314</i>&nbsp;
+<i class="no-highlight">315</i>&nbsp;        @Override
+<i class="no-highlight">316</i>&nbsp;        public SparseRep resize(int capacity) {
+<b class="nc"><i class="no-highlight">317</i>&nbsp;            return this;</b>
+<i class="no-highlight">318</i>&nbsp;        }
+<i class="no-highlight">319</i>&nbsp;
+<i class="no-highlight">320</i>&nbsp;        @Override
+<i class="no-highlight">321</i>&nbsp;        public long get(int idx) {
+<i class="no-highlight">322</i>&nbsp;
+<b class="nc"><i class="no-highlight">323</i>&nbsp;            for (int i = 0; i &lt; idxs.length; i += 1) {</b>
+<b class="nc"><i class="no-highlight">324</i>&nbsp;                if (idxs[i] == idx) {</b>
+<b class="nc"><i class="no-highlight">325</i>&nbsp;                    return super.get(i);</b>
+<i class="no-highlight">326</i>&nbsp;                }
+<i class="no-highlight">327</i>&nbsp;            }
+<i class="no-highlight">328</i>&nbsp;
+<b class="nc"><i class="no-highlight">329</i>&nbsp;            return 0;</b>
+<i class="no-highlight">330</i>&nbsp;        }
+<i class="no-highlight">331</i>&nbsp;
+<i class="no-highlight">332</i>&nbsp;        @Override
+<i class="no-highlight">333</i>&nbsp;        public INLongRep set(int idx, long val, IN parent) {
+<i class="no-highlight">334</i>&nbsp;
+<b class="nc"><i class="no-highlight">335</i>&nbsp;            int slot = -1;</b>
+<i class="no-highlight">336</i>&nbsp;
+<b class="nc"><i class="no-highlight">337</i>&nbsp;            for (int i = 0; i &lt; idxs.length; i++) {</b>
+<i class="no-highlight">338</i>&nbsp;
+<b class="nc"><i class="no-highlight">339</i>&nbsp;                if (idxs[i] == idx) {</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;                    if (val == 0) {</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;                        idxs[i] = -1;</b>
+<i class="no-highlight">342</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">343</i>&nbsp;                    return super.set(i, val, parent);</b>
+<i class="no-highlight">344</i>&nbsp;                }
+<i class="no-highlight">345</i>&nbsp;
+<b class="nc"><i class="no-highlight">346</i>&nbsp;                if (slot &lt; 0 &amp;&amp; idxs[i] == -1) {</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;                    slot = i;</b>
+<i class="no-highlight">348</i>&nbsp;                }
+<i class="no-highlight">349</i>&nbsp;            }
+<i class="no-highlight">350</i>&nbsp;
+<b class="nc"><i class="no-highlight">351</i>&nbsp;            if (val == 0) {</b>
+<b class="nc"><i class="no-highlight">352</i>&nbsp;                return this;</b>
+<i class="no-highlight">353</i>&nbsp;            }
+<i class="no-highlight">354</i>&nbsp;
+<i class="no-highlight">355</i>&nbsp;            /* Have a free slot, use it. */
+<b class="nc"><i class="no-highlight">356</i>&nbsp;            if (slot &gt;= 0) {</b>
+<b class="nc"><i class="no-highlight">357</i>&nbsp;                idxs[slot] = (short) idx;</b>
+<b class="nc"><i class="no-highlight">358</i>&nbsp;                return super.set(slot, val, parent);</b>
+<i class="no-highlight">359</i>&nbsp;            }
+<i class="no-highlight">360</i>&nbsp;
+<i class="no-highlight">361</i>&nbsp;            /* It&#39;s full, mutate it. */
+<b class="nc"><i class="no-highlight">362</i>&nbsp;            INLongRep newRep =</b>
+<b class="nc"><i class="no-highlight">363</i>&nbsp;                new DefaultRep(parent.getMaxEntries(), bytesPerValue);</b>
+<i class="no-highlight">364</i>&nbsp;
+<b class="nc"><i class="no-highlight">365</i>&nbsp;            parent.updateMemorySize(getMemorySize(), newRep.getMemorySize());</b>
+<i class="no-highlight">366</i>&nbsp;
+<b class="nc"><i class="no-highlight">367</i>&nbsp;            for (int i = 0; i &lt; idxs.length; i++) {</b>
+<b class="nc"><i class="no-highlight">368</i>&nbsp;                if (idxs[i] != -1) {</b>
+<b class="nc"><i class="no-highlight">369</i>&nbsp;                    newRep = newRep.set(idxs[i], super.get(i), parent);</b>
+<i class="no-highlight">370</i>&nbsp;                }
+<i class="no-highlight">371</i>&nbsp;            }
+<i class="no-highlight">372</i>&nbsp;
+<b class="nc"><i class="no-highlight">373</i>&nbsp;            return newRep.set(idx, val, parent);</b>
+<i class="no-highlight">374</i>&nbsp;        }
+<i class="no-highlight">375</i>&nbsp;
+<i class="no-highlight">376</i>&nbsp;        @Override
+<i class="no-highlight">377</i>&nbsp;        public INLongRep compact(IN parent, EmptyRep emptyRep) {
+<i class="no-highlight">378</i>&nbsp;
+<b class="nc"><i class="no-highlight">379</i>&nbsp;            if (isEmpty()) {</b>
+<b class="nc"><i class="no-highlight">380</i>&nbsp;                return clear(parent, emptyRep);</b>
+<i class="no-highlight">381</i>&nbsp;            }
+<i class="no-highlight">382</i>&nbsp;
+<b class="nc"><i class="no-highlight">383</i>&nbsp;            return this;</b>
+<i class="no-highlight">384</i>&nbsp;        }
+<i class="no-highlight">385</i>&nbsp;
+<i class="no-highlight">386</i>&nbsp;        @Override
+<i class="no-highlight">387</i>&nbsp;        public INLongRep clear(IN parent, EmptyRep emptyRep) {
+<i class="no-highlight">388</i>&nbsp;
+<b class="nc"><i class="no-highlight">389</i>&nbsp;            parent.updateMemorySize(</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;                getMemorySize(), emptyRep.getMemorySize());</b>
+<i class="no-highlight">391</i>&nbsp;
+<b class="nc"><i class="no-highlight">392</i>&nbsp;            return emptyRep;</b>
+<i class="no-highlight">393</i>&nbsp;        }
+<i class="no-highlight">394</i>&nbsp;
+<i class="no-highlight">395</i>&nbsp;        @Override
+<i class="no-highlight">396</i>&nbsp;        public boolean isEmpty() {
+<i class="no-highlight">397</i>&nbsp;
+<b class="nc"><i class="no-highlight">398</i>&nbsp;            for (short idx : idxs) {</b>
+<b class="nc"><i class="no-highlight">399</i>&nbsp;                if (idx != -1) {</b>
+<b class="nc"><i class="no-highlight">400</i>&nbsp;                    return false;</b>
+<i class="no-highlight">401</i>&nbsp;                }
+<i class="no-highlight">402</i>&nbsp;            }
+<i class="no-highlight">403</i>&nbsp;
+<b class="nc"><i class="no-highlight">404</i>&nbsp;            return true;</b>
+<i class="no-highlight">405</i>&nbsp;        }
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;        @Override
+<i class="no-highlight">408</i>&nbsp;        public INLongRep copy(int from, int to, int n, IN parent) {
+<i class="no-highlight">409</i>&nbsp;
+<b class="nc"><i class="no-highlight">410</i>&nbsp;            INLongRep target = this;</b>
+<i class="no-highlight">411</i>&nbsp;
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            if ((to == from) || (n == 0)) {</b>
+<i class="no-highlight">413</i>&nbsp;                /* Nothing to do */
+<b class="nc"><i class="no-highlight">414</i>&nbsp;            } else if (to &lt; from) {</b>
+<i class="no-highlight">415</i>&nbsp;                /* Copy ascending */
+<b class="nc"><i class="no-highlight">416</i>&nbsp;                for (int i = 0; i &lt; n; i++) {</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;                    target = target.set(to++, get(from++), parent);</b>
+<i class="no-highlight">418</i>&nbsp;                }
+<i class="no-highlight">419</i>&nbsp;            } else {
+<i class="no-highlight">420</i>&nbsp;                /* to &gt; from. Copy descending */
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                from += n;</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;                to += n;</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;                for (int i = 0; i &lt; n; i++) {</b>
+<b class="nc"><i class="no-highlight">424</i>&nbsp;                    target = target.set(--to, get(--from), parent);</b>
+<i class="no-highlight">425</i>&nbsp;                }
+<i class="no-highlight">426</i>&nbsp;            }
+<i class="no-highlight">427</i>&nbsp;
+<b class="nc"><i class="no-highlight">428</i>&nbsp;            return target;</b>
+<i class="no-highlight">429</i>&nbsp;        }
+<i class="no-highlight">430</i>&nbsp;
+<i class="no-highlight">431</i>&nbsp;        @Override
+<i class="no-highlight">432</i>&nbsp;        public long getMemorySize() {
+<b class="nc"><i class="no-highlight">433</i>&nbsp;            return super.getMemorySize() +</b>
+<i class="no-highlight">434</i>&nbsp;                MemoryBudget.SPARSE_LONG_REP_OVERHEAD -
+<i class="no-highlight">435</i>&nbsp;                MemoryBudget.DEFAULT_KEYVALS_OVERHEAD +
+<b class="nc"><i class="no-highlight">436</i>&nbsp;                MemoryBudget.shortArraySize(idxs.length);</b>
+<i class="no-highlight">437</i>&nbsp;        }
+<i class="no-highlight">438</i>&nbsp;    }
+<i class="no-highlight">439</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

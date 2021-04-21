@@ -1,0 +1,1046 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > EntityStore</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.persist</a>
+</div>
+
+<h1>Coverage Summary for Class: EntityStore (com.sleepycat.persist)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">EntityStore</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/24)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/54)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.persist;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.Closeable;
+<i class="no-highlight">17</i>&nbsp;import java.util.Set;
+<i class="no-highlight">18</i>&nbsp;
+<i class="no-highlight">19</i>&nbsp;import com.sleepycat.je.Database; // for javadoc
+<i class="no-highlight">20</i>&nbsp;import com.sleepycat.je.DatabaseConfig;
+<i class="no-highlight">21</i>&nbsp;import com.sleepycat.je.DatabaseException;
+<i class="no-highlight">22</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">23</i>&nbsp;/* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.je.EnvironmentFailureException ; // for javadoc
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.je.OperationFailureException ; // for javadoc
+<i class="no-highlight">26</i>&nbsp;/* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.je.SecondaryConfig;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.je.Sequence;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.je.SequenceConfig;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.Transaction;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.persist.evolve.EvolveConfig;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.persist.evolve.EvolveStats;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.persist.evolve.IncompatibleClassException;
+<i class="no-highlight">34</i>&nbsp;import com.sleepycat.persist.evolve.Mutations;
+<i class="no-highlight">35</i>&nbsp;import com.sleepycat.persist.impl.Store;
+<i class="no-highlight">36</i>&nbsp;import com.sleepycat.persist.model.DeleteAction;
+<i class="no-highlight">37</i>&nbsp;import com.sleepycat.persist.model.Entity; // for javadoc
+<i class="no-highlight">38</i>&nbsp;import com.sleepycat.persist.model.EntityModel;
+<i class="no-highlight">39</i>&nbsp;import com.sleepycat.persist.model.PrimaryKey;
+<i class="no-highlight">40</i>&nbsp;import com.sleepycat.persist.model.SecondaryKey;
+<i class="no-highlight">41</i>&nbsp;
+<i class="no-highlight">42</i>&nbsp;/**
+<i class="no-highlight">43</i>&nbsp; * A store for managing persistent entity objects.
+<i class="no-highlight">44</i>&nbsp; *
+<i class="no-highlight">45</i>&nbsp; * &lt;p&gt;{@code EntityStore} objects are thread-safe.  Multiple threads may safely
+<i class="no-highlight">46</i>&nbsp; * call the methods of a shared {@code EntityStore} object.&lt;/p&gt;
+<i class="no-highlight">47</i>&nbsp; *
+<i class="no-highlight">48</i>&nbsp; * &lt;p&gt;See the &lt;a href=&quot;package-summary.html#example&quot;&gt;package
+<i class="no-highlight">49</i>&nbsp; * summary example&lt;/a&gt; for an example of using an {@code EntityStore}.&lt;/p&gt;
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * &lt;p&gt;Before creating an &lt;code&gt;EntityStore&lt;/code&gt; you must create an {@link
+<i class="no-highlight">52</i>&nbsp; * Environment} object using the Berkeley DB engine API.  The environment may
+<i class="no-highlight">53</i>&nbsp; * contain any number of entity stores and their associated databases, as well
+<i class="no-highlight">54</i>&nbsp; * as other databases not associated with an entity store.&lt;/p&gt;
+<i class="no-highlight">55</i>&nbsp; *
+<i class="no-highlight">56</i>&nbsp; * &lt;p&gt;An entity store is based on an {@link EntityModel}: a data model which
+<i class="no-highlight">57</i>&nbsp; * defines persistent classes (&lt;em&gt;entity classes&lt;/em&gt;), primary keys,
+<i class="no-highlight">58</i>&nbsp; * secondary keys, and relationships between entities.  A primary index is
+<i class="no-highlight">59</i>&nbsp; * created for each entity class.  An associated secondary index is created for
+<i class="no-highlight">60</i>&nbsp; * each secondary key.  The {@link Entity}, {@link PrimaryKey} and {@link
+<i class="no-highlight">61</i>&nbsp; * SecondaryKey} annotations may be used to define entities and keys.&lt;/p&gt;
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; * &lt;p&gt;To use an &lt;code&gt;EntityStore&lt;/code&gt;, first obtain {@link PrimaryIndex} and
+<i class="no-highlight">64</i>&nbsp; * {@link SecondaryIndex} objects by calling {@link #getPrimaryIndex
+<i class="no-highlight">65</i>&nbsp; * getPrimaryIndex} and {@link #getSecondaryIndex getSecondaryIndex}.  Then use
+<i class="no-highlight">66</i>&nbsp; * these indices to store and access entity records by key.&lt;/p&gt;
+<i class="no-highlight">67</i>&nbsp; *
+<i class="no-highlight">68</i>&nbsp; * &lt;p&gt;Although not normally needed, you can also use the entity store along
+<i class="no-highlight">69</i>&nbsp; * with the {@link com.sleepycat.je Base API}.  Methods in the {@link
+<i class="no-highlight">70</i>&nbsp; * PrimaryIndex} and {@link SecondaryIndex} classes may be used to obtain
+<i class="no-highlight">71</i>&nbsp; * databases and bindings.  The databases may be used directly for accessing
+<i class="no-highlight">72</i>&nbsp; * entity records.  The bindings should be called explicitly to translate
+<i class="no-highlight">73</i>&nbsp; * between {@link com.sleepycat.je.DatabaseEntry} objects and entity model
+<i class="no-highlight">74</i>&nbsp; * objects.&lt;/p&gt;
+<i class="no-highlight">75</i>&nbsp; *
+<i class="no-highlight">76</i>&nbsp; * &lt;p&gt;Each primary and secondary index is associated internally with a {@link
+<i class="no-highlight">77</i>&nbsp; * Database}.  With any of the above mentioned use cases, methods are provided
+<i class="no-highlight">78</i>&nbsp; * that may be used for database performance tuning.  The {@link
+<i class="no-highlight">79</i>&nbsp; * #setPrimaryConfig setPrimaryConfig} and {@link #setSecondaryConfig
+<i class="no-highlight">80</i>&nbsp; * setSecondaryConfig} methods may be called anytime before a database is
+<i class="no-highlight">81</i>&nbsp; * opened via {@link #getPrimaryIndex getPrimaryIndex} or {@link
+<i class="no-highlight">82</i>&nbsp; * #getSecondaryIndex getSecondaryIndex}.  The {@link #setSequenceConfig
+<i class="no-highlight">83</i>&nbsp; * setSequenceConfig} method may be called anytime before {@link #getSequence
+<i class="no-highlight">84</i>&nbsp; * getSequence} is called or {@link #getPrimaryIndex getPrimaryIndex} is called
+<i class="no-highlight">85</i>&nbsp; * for a primary index associated with that sequence.&lt;/p&gt;
+<i class="no-highlight">86</i>&nbsp; *
+<i class="no-highlight">87</i>&nbsp; * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">88</i>&nbsp; * &lt;h3&gt;Database Names&lt;/h3&gt;
+<i class="no-highlight">89</i>&nbsp; *
+<i class="no-highlight">90</i>&nbsp; * &lt;p&gt;The database names of primary and secondary indices are designed to be
+<i class="no-highlight">91</i>&nbsp; * unique within the environment and identifiable for debugging and use with
+<i class="no-highlight">92</i>&nbsp; * tools such as {@link com.sleepycat.je.util.DbDump} and {@link
+<i class="no-highlight">93</i>&nbsp; * com.sleepycat.je.util.DbLoad}.&lt;/p&gt;
+<i class="no-highlight">94</i>&nbsp; *
+<i class="no-highlight">95</i>&nbsp; * &lt;p&gt;The syntax of a primary index database name is:&lt;/p&gt;
+<i class="no-highlight">96</i>&nbsp; * &lt;pre&gt;   persist#STORE_NAME#ENTITY_CLASS&lt;/pre&gt;
+<i class="no-highlight">97</i>&nbsp; * &lt;p&gt;Where STORE_NAME is the name parameter passed to {@link #EntityStore
+<i class="no-highlight">98</i>&nbsp; * EntityStore} and ENTITY_CLASS is name of the class passed to {@link
+<i class="no-highlight">99</i>&nbsp; * #getPrimaryIndex getPrimaryIndex}.&lt;/p&gt;
+<i class="no-highlight">100</i>&nbsp; *
+<i class="no-highlight">101</i>&nbsp; * &lt;p&gt;The syntax of a secondary index database name is:&lt;/p&gt;
+<i class="no-highlight">102</i>&nbsp; * &lt;pre&gt;   persist#STORE_NAME#ENTITY_CLASS#KEY_NAME&lt;/pre&gt;
+<i class="no-highlight">103</i>&nbsp; * &lt;p&gt;Where KEY_NAME is the secondary key name passed to {@link
+<i class="no-highlight">104</i>&nbsp; * #getSecondaryIndex getSecondaryIndex}.&lt;/p&gt;
+<i class="no-highlight">105</i>&nbsp; *
+<i class="no-highlight">106</i>&nbsp; * &lt;p&gt;Although you should never have to construct these names manually,
+<i class="no-highlight">107</i>&nbsp; * understanding their syntax is useful for several reasons:&lt;/p&gt;
+<i class="no-highlight">108</i>&nbsp; * &lt;ul&gt;
+<i class="no-highlight">109</i>&nbsp; * &lt;li&gt;Exception messages sometimes contain the database name, from which you
+<i class="no-highlight">110</i>&nbsp; * can identify the entity class and secondary key.&lt;/li&gt;
+<i class="no-highlight">111</i>&nbsp; * &lt;li&gt;If you create other databases in the same environment that are not
+<i class="no-highlight">112</i>&nbsp; * part of an &lt;code&gt;EntityStore&lt;/code&gt;, to avoid naming conflicts the other
+<i class="no-highlight">113</i>&nbsp; * database names should not begin with &lt;code&gt;&quot;persist#&quot;&lt;/code&gt;.&lt;/li&gt;
+<i class="no-highlight">114</i>&nbsp; * &lt;li&gt;If you are using {@link com.sleepycat.je.util.DbDump} or {@link
+<i class="no-highlight">115</i>&nbsp; * com.sleepycat.je.util.DbLoad} to perform a backup or copy databases between
+<i class="no-highlight">116</i>&nbsp; * environments, knowing the database names can be useful.  Normally you will
+<i class="no-highlight">117</i>&nbsp; * dump or load all database names starting with
+<i class="no-highlight">118</i>&nbsp; * &lt;code&gt;&quot;persist#STORE_NAME#&quot;&lt;/code&gt;.&lt;/li&gt;
+<i class="no-highlight">119</i>&nbsp; * &lt;/ul&gt;
+<i class="no-highlight">120</i>&nbsp; *
+<i class="no-highlight">121</i>&nbsp; * &lt;p&gt;If you are copying all databases in a store as mentioned in the last
+<i class="no-highlight">122</i>&nbsp; * point above, there is one further consideration.  There are two internal
+<i class="no-highlight">123</i>&nbsp; * databases that must be kept with the other databases in the store in order
+<i class="no-highlight">124</i>&nbsp; * for the store to be used.  These contain the data formats and sequences for
+<i class="no-highlight">125</i>&nbsp; * the store:&lt;/p&gt;
+<i class="no-highlight">126</i>&nbsp; * &lt;pre&gt;   persist#STORE_NAME#com.sleepycat.persist.formats&lt;/pre&gt;
+<i class="no-highlight">127</i>&nbsp; * &lt;pre&gt;   persist#STORE_NAME#com.sleepycat.persist.sequences&lt;/pre&gt;
+<i class="no-highlight">128</i>&nbsp; * &lt;p&gt;These databases must normally be included with copies of other databases
+<i class="no-highlight">129</i>&nbsp; * in the store.  They should not be modified by the application.&lt;/p&gt;
+<i class="no-highlight">130</i>&nbsp; *
+<i class="no-highlight">131</i>&nbsp; * &lt;p&gt;For example, the following code snippet removes all databases for a given
+<i class="no-highlight">132</i>&nbsp; * store in a single transaction.&lt;/p&gt;
+<i class="no-highlight">133</i>&nbsp; * &lt;pre class=&quot;code&quot;&gt;
+<i class="no-highlight">134</i>&nbsp; *  Environment env = ...
+<i class="no-highlight">135</i>&nbsp; *  EntityStore store = ...
+<i class="no-highlight">136</i>&nbsp; *  Transaction txn = env.beginTransaction(null, null);
+<i class="no-highlight">137</i>&nbsp; *  String prefix = &quot;persist#&quot; + store.getStoreName() + &quot;#&quot;;
+<i class="no-highlight">138</i>&nbsp; *  for (String dbName : env.getDatabaseNames()) {
+<i class="no-highlight">139</i>&nbsp; *      if (dbName.startsWith(prefix)) {
+<i class="no-highlight">140</i>&nbsp; *          env.removeDatabase(txn, dbName);
+<i class="no-highlight">141</i>&nbsp; *      }
+<i class="no-highlight">142</i>&nbsp; *  }
+<i class="no-highlight">143</i>&nbsp; *  txn.commit();&lt;/pre&gt;
+<i class="no-highlight">144</i>&nbsp; *
+<i class="no-highlight">145</i>&nbsp; * &lt;!-- end JE only --&gt;
+<i class="no-highlight">146</i>&nbsp; *
+<i class="no-highlight">147</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">148</i>&nbsp; */
+<i class="no-highlight">149</i>&nbsp;public class EntityStore
+<i class="no-highlight">150</i>&nbsp;    /* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">151</i>&nbsp;    implements Closeable
+<i class="no-highlight">152</i>&nbsp;    /* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">153</i>&nbsp;    {
+<i class="no-highlight">154</i>&nbsp;
+<i class="no-highlight">155</i>&nbsp;    private Store store;
+<i class="no-highlight">156</i>&nbsp;
+<i class="no-highlight">157</i>&nbsp;    /**
+<i class="no-highlight">158</i>&nbsp;     * Opens an entity store in a given environment.
+<i class="no-highlight">159</i>&nbsp;     *
+<i class="no-highlight">160</i>&nbsp;     * @param env an open Berkeley DB Environment.
+<i class="no-highlight">161</i>&nbsp;     *
+<i class="no-highlight">162</i>&nbsp;     * @param storeName the name of the entity store within the given
+<i class="no-highlight">163</i>&nbsp;     * environment.  An empty string is allowed.  Named stores may be used to
+<i class="no-highlight">164</i>&nbsp;     * distinguish multiple sets of persistent entities for the same entity
+<i class="no-highlight">165</i>&nbsp;     * classes in a single environment.  Underlying database names are prefixed
+<i class="no-highlight">166</i>&nbsp;     * with the store name.
+<i class="no-highlight">167</i>&nbsp;     *
+<i class="no-highlight">168</i>&nbsp;     * @param config the entity store configuration, or null to use default
+<i class="no-highlight">169</i>&nbsp;     * configuration properties.
+<i class="no-highlight">170</i>&nbsp;     *
+<i class="no-highlight">171</i>&nbsp;     * @throws StoreExistsException when the {@link
+<i class="no-highlight">172</i>&nbsp;     * StoreConfig#setExclusiveCreate ExclusiveCreate} configuration parameter
+<i class="no-highlight">173</i>&nbsp;     * is true and the store&#39;s internal catalog database already exists.
+<i class="no-highlight">174</i>&nbsp;     *
+<i class="no-highlight">175</i>&nbsp;     * @throws StoreNotFoundException when when the {@link
+<i class="no-highlight">176</i>&nbsp;     * StoreConfig#setAllowCreate AllowCreate} configuration parameter is false
+<i class="no-highlight">177</i>&nbsp;     * and the store&#39;s internal catalog database does not exist.
+<i class="no-highlight">178</i>&nbsp;     *
+<i class="no-highlight">179</i>&nbsp;     * @throws IncompatibleClassException if an incompatible class change has
+<i class="no-highlight">180</i>&nbsp;     * been made and mutations are not configured for handling the change.  See
+<i class="no-highlight">181</i>&nbsp;     * {@link com.sleepycat.persist.evolve Class Evolution} for more
+<i class="no-highlight">182</i>&nbsp;     * information.
+<i class="no-highlight">183</i>&nbsp;     *
+<i class="no-highlight">184</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">185</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">186</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">187</i>&nbsp;     * Failures&lt;/a&gt; occurs. If the store does not exist and the {@link
+<i class="no-highlight">188</i>&nbsp;     * StoreConfig#setAllowCreate AllowCreate} parameter is true, then one of
+<i class="no-highlight">189</i>&nbsp;     * the &lt;a href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">190</i>&nbsp;     * Operation Failures&lt;/a&gt; may also occur.
+<i class="no-highlight">191</i>&nbsp;     *
+<i class="no-highlight">192</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">193</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">194</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">195</i>&nbsp;     *
+<i class="no-highlight">196</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">197</i>&nbsp;     */
+<i class="no-highlight">198</i>&nbsp;    public EntityStore(Environment env, String storeName, StoreConfig config)
+<i class="no-highlight">199</i>&nbsp;        throws StoreExistsException,
+<i class="no-highlight">200</i>&nbsp;               StoreNotFoundException,
+<i class="no-highlight">201</i>&nbsp;               IncompatibleClassException,
+<b class="nc"><i class="no-highlight">202</i>&nbsp;               DatabaseException {</b>
+<i class="no-highlight">203</i>&nbsp;
+<b class="nc"><i class="no-highlight">204</i>&nbsp;        store = new Store(env, storeName, config, false /*rawAccess*/);</b>
+<i class="no-highlight">205</i>&nbsp;    }
+<i class="no-highlight">206</i>&nbsp;
+<i class="no-highlight">207</i>&nbsp;    /**
+<i class="no-highlight">208</i>&nbsp;     * Returns the environment associated with this store.
+<i class="no-highlight">209</i>&nbsp;     *
+<i class="no-highlight">210</i>&nbsp;     * @return the environment.
+<i class="no-highlight">211</i>&nbsp;     */
+<i class="no-highlight">212</i>&nbsp;    public Environment getEnvironment() {
+<b class="nc"><i class="no-highlight">213</i>&nbsp;        return store.getEnvironment();</b>
+<i class="no-highlight">214</i>&nbsp;    }
+<i class="no-highlight">215</i>&nbsp;
+<i class="no-highlight">216</i>&nbsp;    /**
+<i class="no-highlight">217</i>&nbsp;     * Returns a copy of the entity store configuration.
+<i class="no-highlight">218</i>&nbsp;     *
+<i class="no-highlight">219</i>&nbsp;     * @return the config.
+<i class="no-highlight">220</i>&nbsp;     */
+<i class="no-highlight">221</i>&nbsp;    public StoreConfig getConfig() {
+<b class="nc"><i class="no-highlight">222</i>&nbsp;        return store.getConfig();</b>
+<i class="no-highlight">223</i>&nbsp;    }
+<i class="no-highlight">224</i>&nbsp;
+<i class="no-highlight">225</i>&nbsp;    /**
+<i class="no-highlight">226</i>&nbsp;     * Returns the name of this store.
+<i class="no-highlight">227</i>&nbsp;     *
+<i class="no-highlight">228</i>&nbsp;     * @return the name.
+<i class="no-highlight">229</i>&nbsp;     */
+<i class="no-highlight">230</i>&nbsp;    public String getStoreName() {
+<b class="nc"><i class="no-highlight">231</i>&nbsp;        return store.getStoreName();</b>
+<i class="no-highlight">232</i>&nbsp;    }
+<i class="no-highlight">233</i>&nbsp;
+<i class="no-highlight">234</i>&nbsp;    /* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">235</i>&nbsp;    /**
+<i class="no-highlight">236</i>&nbsp;     * Returns the names of all entity stores in the given environment.
+<i class="no-highlight">237</i>&nbsp;     *
+<i class="no-highlight">238</i>&nbsp;     * @return the store names.  An empty set is returned if no stores are
+<i class="no-highlight">239</i>&nbsp;     * present.
+<i class="no-highlight">240</i>&nbsp;     *
+<i class="no-highlight">241</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">242</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">243</i>&nbsp;     * Failures&lt;/a&gt; occurs.
+<i class="no-highlight">244</i>&nbsp;     *
+<i class="no-highlight">245</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">246</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">247</i>&nbsp;     *
+<i class="no-highlight">248</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">249</i>&nbsp;     */
+<i class="no-highlight">250</i>&nbsp;    public static Set&lt;String&gt; getStoreNames(Environment env)
+<i class="no-highlight">251</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">252</i>&nbsp;
+<b class="nc"><i class="no-highlight">253</i>&nbsp;        return Store.getStoreNames(env);</b>
+<i class="no-highlight">254</i>&nbsp;    }
+<i class="no-highlight">255</i>&nbsp;    /* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">256</i>&nbsp;    
+<i class="no-highlight">257</i>&nbsp;    /* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">258</i>&nbsp;    /**
+<i class="no-highlight">259</i>&nbsp;     * @hidden
+<i class="no-highlight">260</i>&nbsp;     * For internal use only.
+<i class="no-highlight">261</i>&nbsp;     */
+<i class="no-highlight">262</i>&nbsp;    public boolean isReplicaUpgradeMode() {
+<b class="nc"><i class="no-highlight">263</i>&nbsp;        return store.isReplicaUpgradeMode();</b>
+<i class="no-highlight">264</i>&nbsp;    }
+<i class="no-highlight">265</i>&nbsp;    /* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">266</i>&nbsp;
+<i class="no-highlight">267</i>&nbsp;    /**
+<i class="no-highlight">268</i>&nbsp;     * Returns the current entity model for this store.  The current model is
+<i class="no-highlight">269</i>&nbsp;     * derived from the configured entity model and the live entity class
+<i class="no-highlight">270</i>&nbsp;     * definitions.
+<i class="no-highlight">271</i>&nbsp;     *
+<i class="no-highlight">272</i>&nbsp;     * @return the model.
+<i class="no-highlight">273</i>&nbsp;     */
+<i class="no-highlight">274</i>&nbsp;    public EntityModel getModel() {
+<b class="nc"><i class="no-highlight">275</i>&nbsp;        return store.getModel();</b>
+<i class="no-highlight">276</i>&nbsp;    }
+<i class="no-highlight">277</i>&nbsp;
+<i class="no-highlight">278</i>&nbsp;    /**
+<i class="no-highlight">279</i>&nbsp;     * Returns the set of mutations that were configured when the store was
+<i class="no-highlight">280</i>&nbsp;     * opened, or if none were configured, the set of mutations that were
+<i class="no-highlight">281</i>&nbsp;     * configured and stored previously.
+<i class="no-highlight">282</i>&nbsp;     *
+<i class="no-highlight">283</i>&nbsp;     * @return the mutations.
+<i class="no-highlight">284</i>&nbsp;     */
+<i class="no-highlight">285</i>&nbsp;    public Mutations getMutations() {
+<b class="nc"><i class="no-highlight">286</i>&nbsp;        return store.getMutations();</b>
+<i class="no-highlight">287</i>&nbsp;    }
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    /**
+<i class="no-highlight">290</i>&nbsp;     * Returns the primary index for a given entity class, opening it if
+<i class="no-highlight">291</i>&nbsp;     * necessary.
+<i class="no-highlight">292</i>&nbsp;     *
+<i class="no-highlight">293</i>&nbsp;     * &lt;p&gt;If they are not already open, the primary and secondary databases for
+<i class="no-highlight">294</i>&nbsp;     * the entity class are created/opened together in a single internal
+<i class="no-highlight">295</i>&nbsp;     * transaction.  When the secondary indices are opened, that can cascade to
+<i class="no-highlight">296</i>&nbsp;     * open other related primary indices.&lt;/p&gt;
+<i class="no-highlight">297</i>&nbsp;     *
+<i class="no-highlight">298</i>&nbsp;     * @param primaryKeyClass the class of the entity&#39;s primary key field, or
+<i class="no-highlight">299</i>&nbsp;     * the corresponding primitive wrapper class if the primary key field type
+<i class="no-highlight">300</i>&nbsp;     * is a primitive.
+<i class="no-highlight">301</i>&nbsp;     *
+<i class="no-highlight">302</i>&nbsp;     * @param entityClass the entity class for which to open the primary index.
+<i class="no-highlight">303</i>&nbsp;     *
+<i class="no-highlight">304</i>&nbsp;     * @param &lt;PK&gt; the primary key class.
+<i class="no-highlight">305</i>&nbsp;     *
+<i class="no-highlight">306</i>&nbsp;     * @param &lt;E&gt; the entity class.
+<i class="no-highlight">307</i>&nbsp;     *
+<i class="no-highlight">308</i>&nbsp;     * @return the primary index.
+<i class="no-highlight">309</i>&nbsp;     *
+<i class="no-highlight">310</i>&nbsp;     * @throws IllegalArgumentException if the entity class or classes
+<i class="no-highlight">311</i>&nbsp;     * referenced by it are not persistent, or the primary key class does not
+<i class="no-highlight">312</i>&nbsp;     * match the entity&#39;s primary key field, or if metadata for the entity or
+<i class="no-highlight">313</i>&nbsp;     * primary key is invalid.
+<i class="no-highlight">314</i>&nbsp;     *
+<i class="no-highlight">315</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">316</i>&nbsp;     * @throws IndexNotAvailableException in a replicated environment if this
+<i class="no-highlight">317</i>&nbsp;     * Replica&#39;s persistent classes have been upgraded to define a new index,
+<i class="no-highlight">318</i>&nbsp;     * but the Master has not yet been upgraded.
+<i class="no-highlight">319</i>&nbsp;     *
+<i class="no-highlight">320</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">321</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">322</i>&nbsp;     * Failures&lt;/a&gt; occurs. If the index does not exist and the {@link
+<i class="no-highlight">323</i>&nbsp;     * StoreConfig#setReadOnly ReadOnly} parameter is false, then one of the &lt;a
+<i class="no-highlight">324</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">325</i>&nbsp;     * Operation Failures&lt;/a&gt; may also occur.
+<i class="no-highlight">326</i>&nbsp;     *
+<i class="no-highlight">327</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">328</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">329</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">330</i>&nbsp;     *
+<i class="no-highlight">331</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">332</i>&nbsp;     */
+<i class="no-highlight">333</i>&nbsp;    public &lt;PK, E&gt; PrimaryIndex&lt;PK, E&gt;
+<i class="no-highlight">334</i>&nbsp;        getPrimaryIndex(Class&lt;PK&gt; primaryKeyClass, Class&lt;E&gt; entityClass)
+<i class="no-highlight">335</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">336</i>&nbsp;
+<i class="no-highlight">337</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">338</i>&nbsp;            return store.getPrimaryIndex</b>
+<b class="nc"><i class="no-highlight">339</i>&nbsp;                (primaryKeyClass, primaryKeyClass.getName(),</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;                 entityClass, entityClass.getName());</b>
+<b class="nc"><i class="no-highlight">341</i>&nbsp;        } catch (IndexNotAvailableException e) {</b>
+<b class="nc"><i class="no-highlight">342</i>&nbsp;            if (!store.attemptRefresh()) {</b>
+<b class="nc"><i class="no-highlight">343</i>&nbsp;                throw e;</b>
+<i class="no-highlight">344</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">345</i>&nbsp;            return store.getPrimaryIndex</b>
+<b class="nc"><i class="no-highlight">346</i>&nbsp;                (primaryKeyClass, primaryKeyClass.getName(),</b>
+<b class="nc"><i class="no-highlight">347</i>&nbsp;                 entityClass, entityClass.getName());</b>
+<i class="no-highlight">348</i>&nbsp;        }
+<i class="no-highlight">349</i>&nbsp;    }
+<i class="no-highlight">350</i>&nbsp;
+<i class="no-highlight">351</i>&nbsp;    /**
+<i class="no-highlight">352</i>&nbsp;     * Returns a secondary index for a given primary index and secondary key,
+<i class="no-highlight">353</i>&nbsp;     * opening it if necessary.
+<i class="no-highlight">354</i>&nbsp;     *
+<i class="no-highlight">355</i>&nbsp;     * &lt;p&gt;&lt;em&gt;NOTE:&lt;/em&gt; If the secondary key field is declared in a subclass
+<i class="no-highlight">356</i>&nbsp;     * of the entity class, use {@link #getSubclassIndex} instead.&lt;/p&gt;
+<i class="no-highlight">357</i>&nbsp;     *
+<i class="no-highlight">358</i>&nbsp;     * &lt;p&gt;If a {@link SecondaryKey#relatedEntity} is used and the primary index
+<i class="no-highlight">359</i>&nbsp;     * for the related entity is not already open, it will be opened by this
+<i class="no-highlight">360</i>&nbsp;     * method.  That will, in turn, open its secondary indices, which can
+<i class="no-highlight">361</i>&nbsp;     * cascade to open other primary indices.&lt;/p&gt;
+<i class="no-highlight">362</i>&nbsp;     *
+<i class="no-highlight">363</i>&nbsp;     * @param primaryIndex the primary index associated with the returned
+<i class="no-highlight">364</i>&nbsp;     * secondary index.  The entity class of the primary index, or one of its
+<i class="no-highlight">365</i>&nbsp;     * superclasses, must contain a secondary key with the given secondary key
+<i class="no-highlight">366</i>&nbsp;     * class and key name.
+<i class="no-highlight">367</i>&nbsp;     *
+<i class="no-highlight">368</i>&nbsp;     * @param keyClass the class of the secondary key field, or the
+<i class="no-highlight">369</i>&nbsp;     * corresponding primitive wrapper class if the secondary key field type is
+<i class="no-highlight">370</i>&nbsp;     * a primitive.
+<i class="no-highlight">371</i>&nbsp;     *
+<i class="no-highlight">372</i>&nbsp;     * @param keyName the name of the secondary key field, or the {@link
+<i class="no-highlight">373</i>&nbsp;     * SecondaryKey#name} if this name annotation property was specified.
+<i class="no-highlight">374</i>&nbsp;     *
+<i class="no-highlight">375</i>&nbsp;     * @param &lt;SK&gt; the secondary key class.
+<i class="no-highlight">376</i>&nbsp;     *
+<i class="no-highlight">377</i>&nbsp;     * @param &lt;PK&gt; the primary key class.
+<i class="no-highlight">378</i>&nbsp;     *
+<i class="no-highlight">379</i>&nbsp;     * @param &lt;E&gt; the entity class.
+<i class="no-highlight">380</i>&nbsp;     *
+<i class="no-highlight">381</i>&nbsp;     * @return the secondary index.
+<i class="no-highlight">382</i>&nbsp;     *
+<i class="no-highlight">383</i>&nbsp;     * @throws IllegalArgumentException if the entity class or one of its
+<i class="no-highlight">384</i>&nbsp;     * superclasses does not contain a key field of the given key class and key
+<i class="no-highlight">385</i>&nbsp;     * name, or if the metadata for the secondary key is invalid.
+<i class="no-highlight">386</i>&nbsp;     *
+<i class="no-highlight">387</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">388</i>&nbsp;     * @throws IndexNotAvailableException in a replicated environment if this
+<i class="no-highlight">389</i>&nbsp;     * Replica&#39;s persistent classes have been upgraded to define a new index,
+<i class="no-highlight">390</i>&nbsp;     * but the Master has not yet been upgraded.
+<i class="no-highlight">391</i>&nbsp;     *
+<i class="no-highlight">392</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">393</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">394</i>&nbsp;     * Failures&lt;/a&gt; occurs. If the index does not exist and the {@link
+<i class="no-highlight">395</i>&nbsp;     * StoreConfig#setReadOnly ReadOnly} parameter is false, then one of the &lt;a
+<i class="no-highlight">396</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">397</i>&nbsp;     * Operation Failures&lt;/a&gt; may also occur.
+<i class="no-highlight">398</i>&nbsp;     *
+<i class="no-highlight">399</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">400</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">401</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">402</i>&nbsp;     *
+<i class="no-highlight">403</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">404</i>&nbsp;     */
+<i class="no-highlight">405</i>&nbsp;    public &lt;SK, PK, E&gt; SecondaryIndex&lt;SK, PK, E&gt;
+<i class="no-highlight">406</i>&nbsp;        getSecondaryIndex(PrimaryIndex&lt;PK, E&gt; primaryIndex,
+<i class="no-highlight">407</i>&nbsp;                          Class&lt;SK&gt; keyClass,
+<i class="no-highlight">408</i>&nbsp;                          String keyName)
+<i class="no-highlight">409</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">410</i>&nbsp;
+<i class="no-highlight">411</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            return store.getSecondaryIndex</b>
+<b class="nc"><i class="no-highlight">413</i>&nbsp;                (primaryIndex, primaryIndex.getEntityClass(),</b>
+<b class="nc"><i class="no-highlight">414</i>&nbsp;                 primaryIndex.getEntityClass().getName(),</b>
+<b class="nc"><i class="no-highlight">415</i>&nbsp;                 keyClass, keyClass.getName(), keyName);</b>
+<b class="nc"><i class="no-highlight">416</i>&nbsp;        } catch (IndexNotAvailableException e) {</b>
+<b class="nc"><i class="no-highlight">417</i>&nbsp;            if (!store.attemptRefresh()) {</b>
+<b class="nc"><i class="no-highlight">418</i>&nbsp;                throw e;</b>
+<i class="no-highlight">419</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">420</i>&nbsp;            return store.getSecondaryIndex</b>
+<b class="nc"><i class="no-highlight">421</i>&nbsp;                (primaryIndex, primaryIndex.getEntityClass(),</b>
+<b class="nc"><i class="no-highlight">422</i>&nbsp;                 primaryIndex.getEntityClass().getName(),</b>
+<b class="nc"><i class="no-highlight">423</i>&nbsp;                 keyClass, keyClass.getName(), keyName);</b>
+<i class="no-highlight">424</i>&nbsp;        }
+<i class="no-highlight">425</i>&nbsp;    }
+<i class="no-highlight">426</i>&nbsp;
+<i class="no-highlight">427</i>&nbsp;    /**
+<i class="no-highlight">428</i>&nbsp;     * Returns a secondary index for a secondary key in an entity subclass,
+<i class="no-highlight">429</i>&nbsp;     * opening it if necessary.
+<i class="no-highlight">430</i>&nbsp;     *
+<i class="no-highlight">431</i>&nbsp;     * &lt;p&gt;If a {@link SecondaryKey#relatedEntity} is used and the primary index
+<i class="no-highlight">432</i>&nbsp;     * for the related entity is not already open, it will be opened by this
+<i class="no-highlight">433</i>&nbsp;     * method.  That will, in turn, open its secondary indices, which can
+<i class="no-highlight">434</i>&nbsp;     * cascade to open other primary indices.&lt;/p&gt;
+<i class="no-highlight">435</i>&nbsp;     *
+<i class="no-highlight">436</i>&nbsp;     * @param primaryIndex the primary index associated with the returned
+<i class="no-highlight">437</i>&nbsp;     * secondary index.  The entity class of the primary index, or one of its
+<i class="no-highlight">438</i>&nbsp;     * superclasses, must contain a secondary key with the given secondary key
+<i class="no-highlight">439</i>&nbsp;     * class and key name.
+<i class="no-highlight">440</i>&nbsp;     *
+<i class="no-highlight">441</i>&nbsp;     * @param entitySubclass a subclass of the entity class for the primary
+<i class="no-highlight">442</i>&nbsp;     * index.  The entity subclass must contain a secondary key with the given
+<i class="no-highlight">443</i>&nbsp;     * secondary key class and key name.
+<i class="no-highlight">444</i>&nbsp;     *
+<i class="no-highlight">445</i>&nbsp;     * @param keyClass the class of the secondary key field, or the
+<i class="no-highlight">446</i>&nbsp;     * corresponding primitive wrapper class if the secondary key field type is
+<i class="no-highlight">447</i>&nbsp;     * a primitive.
+<i class="no-highlight">448</i>&nbsp;     *
+<i class="no-highlight">449</i>&nbsp;     * @param keyName the name of the secondary key field, or the {@link
+<i class="no-highlight">450</i>&nbsp;     * SecondaryKey#name} if this name annotation property was specified.
+<i class="no-highlight">451</i>&nbsp;     *
+<i class="no-highlight">452</i>&nbsp;     * @param &lt;SK&gt; the secondary key class.
+<i class="no-highlight">453</i>&nbsp;     *
+<i class="no-highlight">454</i>&nbsp;     * @param &lt;PK&gt; the primary key class.
+<i class="no-highlight">455</i>&nbsp;     *
+<i class="no-highlight">456</i>&nbsp;     * @param &lt;E1&gt; the entity class.
+<i class="no-highlight">457</i>&nbsp;     *
+<i class="no-highlight">458</i>&nbsp;     * @param &lt;E2&gt; the entity sub-class.
+<i class="no-highlight">459</i>&nbsp;     *
+<i class="no-highlight">460</i>&nbsp;     * @return the secondary index.
+<i class="no-highlight">461</i>&nbsp;     *
+<i class="no-highlight">462</i>&nbsp;     * @throws IllegalArgumentException if the given entity subclass does not
+<i class="no-highlight">463</i>&nbsp;     * contain a key field of the given key class and key name, or if the
+<i class="no-highlight">464</i>&nbsp;     * metadata for the secondary key is invalid.
+<i class="no-highlight">465</i>&nbsp;     *
+<i class="no-highlight">466</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">467</i>&nbsp;     * @throws IndexNotAvailableException in a replicated environment if this
+<i class="no-highlight">468</i>&nbsp;     * Replica&#39;s persistent classes have been upgraded to define a new index,
+<i class="no-highlight">469</i>&nbsp;     * but the Master has not yet been upgraded.
+<i class="no-highlight">470</i>&nbsp;     *
+<i class="no-highlight">471</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">472</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#readFailures&quot;&gt;Read Operation
+<i class="no-highlight">473</i>&nbsp;     * Failures&lt;/a&gt; occurs. If the index does not exist and the {@link
+<i class="no-highlight">474</i>&nbsp;     * StoreConfig#setReadOnly ReadOnly} parameter is false, then one of the &lt;a
+<i class="no-highlight">475</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">476</i>&nbsp;     * Operation Failures&lt;/a&gt; may also occur.
+<i class="no-highlight">477</i>&nbsp;     *
+<i class="no-highlight">478</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">479</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">480</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">481</i>&nbsp;     *
+<i class="no-highlight">482</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">483</i>&nbsp;     */
+<i class="no-highlight">484</i>&nbsp;    public &lt;SK, PK, E1, E2 extends E1&gt; SecondaryIndex&lt;SK, PK, E2&gt;
+<i class="no-highlight">485</i>&nbsp;        getSubclassIndex(PrimaryIndex&lt;PK, E1&gt; primaryIndex,
+<i class="no-highlight">486</i>&nbsp;                         Class&lt;E2&gt; entitySubclass,
+<i class="no-highlight">487</i>&nbsp;                         Class&lt;SK&gt; keyClass,
+<i class="no-highlight">488</i>&nbsp;                         String keyName)
+<i class="no-highlight">489</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">490</i>&nbsp;
+<i class="no-highlight">491</i>&nbsp;        /* Make subclass metadata available before getting the index. */
+<b class="nc"><i class="no-highlight">492</i>&nbsp;        getModel().getClassMetadata(entitySubclass.getName());</b>
+<i class="no-highlight">493</i>&nbsp;
+<i class="no-highlight">494</i>&nbsp;        try {
+<b class="nc"><i class="no-highlight">495</i>&nbsp;            return store.getSecondaryIndex</b>
+<b class="nc"><i class="no-highlight">496</i>&nbsp;                (primaryIndex, entitySubclass,</b>
+<b class="nc"><i class="no-highlight">497</i>&nbsp;                 primaryIndex.getEntityClass().getName(),</b>
+<b class="nc"><i class="no-highlight">498</i>&nbsp;                 keyClass, keyClass.getName(), keyName);</b>
+<b class="nc"><i class="no-highlight">499</i>&nbsp;        } catch (IndexNotAvailableException e) {</b>
+<b class="nc"><i class="no-highlight">500</i>&nbsp;            if (!store.attemptRefresh()) {</b>
+<b class="nc"><i class="no-highlight">501</i>&nbsp;                throw e;</b>
+<i class="no-highlight">502</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">503</i>&nbsp;            return store.getSecondaryIndex</b>
+<b class="nc"><i class="no-highlight">504</i>&nbsp;                (primaryIndex, entitySubclass,</b>
+<b class="nc"><i class="no-highlight">505</i>&nbsp;                 primaryIndex.getEntityClass().getName(),</b>
+<b class="nc"><i class="no-highlight">506</i>&nbsp;                 keyClass, keyClass.getName(), keyName);</b>
+<i class="no-highlight">507</i>&nbsp;        }
+<i class="no-highlight">508</i>&nbsp;    }
+<i class="no-highlight">509</i>&nbsp;
+<i class="no-highlight">510</i>&nbsp;    /**
+<i class="no-highlight">511</i>&nbsp;     * Performs conversion of unevolved objects in order to reduce lazy
+<i class="no-highlight">512</i>&nbsp;     * conversion overhead.  Evolution may be performed concurrently with
+<i class="no-highlight">513</i>&nbsp;     * normal access to the store.
+<i class="no-highlight">514</i>&nbsp;     *
+<i class="no-highlight">515</i>&nbsp;     * &lt;p&gt;Conversion is performed one entity class at a time.  An entity class
+<i class="no-highlight">516</i>&nbsp;     * is converted only if it has {@link Mutations} associated with it via
+<i class="no-highlight">517</i>&nbsp;     * {@link StoreConfig#setMutations StoreConfig.setMutations}.&lt;/p&gt;
+<i class="no-highlight">518</i>&nbsp;     *
+<i class="no-highlight">519</i>&nbsp;     * &lt;p&gt;Conversion of an entity class is performed by reading each entity,
+<i class="no-highlight">520</i>&nbsp;     * converting it if necessary, and updating it if conversion was performed.
+<i class="no-highlight">521</i>&nbsp;     * When all instances of an entity class are converted, references to the
+<i class="no-highlight">522</i>&nbsp;     * appropriate {@link Mutations} are deleted.  Therefore, if this method is
+<i class="no-highlight">523</i>&nbsp;     * called twice successfully without changing class definitions, the second
+<i class="no-highlight">524</i>&nbsp;     * call will do nothing.&lt;/p&gt;
+<i class="no-highlight">525</i>&nbsp;     *
+<i class="no-highlight">526</i>&nbsp;     * @param config the EvolveConfig.
+<i class="no-highlight">527</i>&nbsp;     *
+<i class="no-highlight">528</i>&nbsp;     * @return the EvolveStats.
+<i class="no-highlight">529</i>&nbsp;     *
+<i class="no-highlight">530</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">531</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">532</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">533</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">534</i>&nbsp;     *
+<i class="no-highlight">535</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">536</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">537</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">538</i>&nbsp;     *
+<i class="no-highlight">539</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">540</i>&nbsp;     *
+<i class="no-highlight">541</i>&nbsp;     * @see com.sleepycat.persist.evolve Class Evolution
+<i class="no-highlight">542</i>&nbsp;     */
+<i class="no-highlight">543</i>&nbsp;    public EvolveStats evolve(EvolveConfig config)
+<i class="no-highlight">544</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">545</i>&nbsp;
+<b class="nc"><i class="no-highlight">546</i>&nbsp;        return store.evolve(config);</b>
+<i class="no-highlight">547</i>&nbsp;    }
+<i class="no-highlight">548</i>&nbsp;
+<i class="no-highlight">549</i>&nbsp;    /**
+<i class="no-highlight">550</i>&nbsp;     * Deletes all instances of this entity class and its (non-entity)
+<i class="no-highlight">551</i>&nbsp;     * subclasses.
+<i class="no-highlight">552</i>&nbsp;     *
+<i class="no-highlight">553</i>&nbsp;     * &lt;p&gt;The primary database for the given entity class will be truncated and
+<i class="no-highlight">554</i>&nbsp;     * all secondary databases will be removed.  The primary and secondary
+<i class="no-highlight">555</i>&nbsp;     * databases associated with the entity class must not be open except by
+<i class="no-highlight">556</i>&nbsp;     * this store, since database truncation/removal is only possible when the
+<i class="no-highlight">557</i>&nbsp;     * database is not open.&lt;/p&gt;
+<i class="no-highlight">558</i>&nbsp;     *
+<i class="no-highlight">559</i>&nbsp;     * &lt;p&gt;The primary and secondary databases for the entity class will be
+<i class="no-highlight">560</i>&nbsp;     * closed by this operation and the existing {@link PrimaryIndex} and
+<i class="no-highlight">561</i>&nbsp;     * {@link SecondaryIndex} objects will be invalidated.  To access the
+<i class="no-highlight">562</i>&nbsp;     * indexes, the user must call {@link #getPrimaryIndex} and {@link
+<i class="no-highlight">563</i>&nbsp;     * #getSecondaryIndex} after this operation is complete.&lt;/p&gt;
+<i class="no-highlight">564</i>&nbsp;     *
+<i class="no-highlight">565</i>&nbsp;     * &lt;p&gt;Auto-commit is used implicitly if the store is transactional.&lt;/p&gt;
+<i class="no-highlight">566</i>&nbsp;     *
+<i class="no-highlight">567</i>&nbsp;     * @param entityClass the entity class whose instances are to be deleted.
+<i class="no-highlight">568</i>&nbsp;     *
+<i class="no-highlight">569</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">570</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">571</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">572</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">573</i>&nbsp;     *
+<i class="no-highlight">574</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">575</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">576</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">577</i>&nbsp;     *
+<i class="no-highlight">578</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">579</i>&nbsp;     */
+<i class="no-highlight">580</i>&nbsp;    public void truncateClass(Class entityClass)
+<i class="no-highlight">581</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">582</i>&nbsp;
+<b class="nc"><i class="no-highlight">583</i>&nbsp;        store.truncateClass(null, entityClass);</b>
+<i class="no-highlight">584</i>&nbsp;    }
+<i class="no-highlight">585</i>&nbsp;
+<i class="no-highlight">586</i>&nbsp;    /**
+<i class="no-highlight">587</i>&nbsp;     * Deletes all instances of this entity class and its (non-entity)
+<i class="no-highlight">588</i>&nbsp;     * subclasses.
+<i class="no-highlight">589</i>&nbsp;     *
+<i class="no-highlight">590</i>&nbsp;     * &lt;p&gt;The primary database for the given entity class will be truncated and
+<i class="no-highlight">591</i>&nbsp;     * all secondary databases will be removed.  The primary and secondary
+<i class="no-highlight">592</i>&nbsp;     * databases associated with the entity class must not be open except by
+<i class="no-highlight">593</i>&nbsp;     * this store, since database truncation/removal is only possible when the
+<i class="no-highlight">594</i>&nbsp;     * database is not open.&lt;/p&gt;
+<i class="no-highlight">595</i>&nbsp;     *
+<i class="no-highlight">596</i>&nbsp;     * &lt;p&gt;The primary and secondary databases for the entity class will be
+<i class="no-highlight">597</i>&nbsp;     * closed by this operation and the existing {@link PrimaryIndex} and
+<i class="no-highlight">598</i>&nbsp;     * {@link SecondaryIndex} objects will be invalidated.  To access the
+<i class="no-highlight">599</i>&nbsp;     * indexes, the user must call {@link #getPrimaryIndex} and {@link
+<i class="no-highlight">600</i>&nbsp;     * #getSecondaryIndex} after this operation is complete.&lt;/p&gt;
+<i class="no-highlight">601</i>&nbsp;     *
+<i class="no-highlight">602</i>&nbsp;     * @param txn the transaction used to protect this operation, null to use
+<i class="no-highlight">603</i>&nbsp;     * auto-commit, or null if the store is non-transactional.
+<i class="no-highlight">604</i>&nbsp;     *
+<i class="no-highlight">605</i>&nbsp;     * @param entityClass the entity class whose instances are to be deleted.
+<i class="no-highlight">606</i>&nbsp;     *
+<i class="no-highlight">607</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">608</i>&nbsp;     * @throws OperationFailureException if one of the &lt;a
+<i class="no-highlight">609</i>&nbsp;     * href=&quot;../je/OperationFailureException.html#writeFailures&quot;&gt;Write
+<i class="no-highlight">610</i>&nbsp;     * Operation Failures&lt;/a&gt; occurs.
+<i class="no-highlight">611</i>&nbsp;     *
+<i class="no-highlight">612</i>&nbsp;     * @throws EnvironmentFailureException if an unexpected, internal or
+<i class="no-highlight">613</i>&nbsp;     * environment-wide failure occurs.
+<i class="no-highlight">614</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">615</i>&nbsp;     *
+<i class="no-highlight">616</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">617</i>&nbsp;     */
+<i class="no-highlight">618</i>&nbsp;    public void truncateClass(Transaction txn, Class entityClass)
+<i class="no-highlight">619</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">620</i>&nbsp;
+<b class="nc"><i class="no-highlight">621</i>&nbsp;        store.truncateClass(txn, entityClass);</b>
+<i class="no-highlight">622</i>&nbsp;    }
+<i class="no-highlight">623</i>&nbsp;
+<i class="no-highlight">624</i>&nbsp;    /* &lt;!-- begin JE only --&gt; */
+<i class="no-highlight">625</i>&nbsp;    /**
+<i class="no-highlight">626</i>&nbsp;     * Flushes each modified index to disk that was opened in deferred-write
+<i class="no-highlight">627</i>&nbsp;     * mode.
+<i class="no-highlight">628</i>&nbsp;     *
+<i class="no-highlight">629</i>&nbsp;     * &lt;p&gt;All indexes are opened in deferred-write mode if true was passed to
+<i class="no-highlight">630</i>&nbsp;     * {@link StoreConfig#setDeferredWrite} for the store.&lt;/p&gt;
+<i class="no-highlight">631</i>&nbsp;     *
+<i class="no-highlight">632</i>&nbsp;     * &lt;p&gt;Alternatively, individual databases may be configured for deferred
+<i class="no-highlight">633</i>&nbsp;     * write using {@link DatabaseConfig#setDeferredWrite} along with {@link
+<i class="no-highlight">634</i>&nbsp;     * #getPrimaryConfig} and {@link #setPrimaryConfig}.  Caution should be
+<i class="no-highlight">635</i>&nbsp;     * used when configuring only some databases for deferred-write, since
+<i class="no-highlight">636</i>&nbsp;     * durability will be different for these databases than for other
+<i class="no-highlight">637</i>&nbsp;     * databases in the same store.&lt;/p&gt;
+<i class="no-highlight">638</i>&nbsp;     *
+<i class="no-highlight">639</i>&nbsp;     * &lt;p&gt;This method is equivalent to calling {@link Database#sync} for each 
+<i class="no-highlight">640</i>&nbsp;     * deferred-write index Database that is open for this store.  
+<i class="no-highlight">641</i>&nbsp;     *
+<i class="no-highlight">642</i>&nbsp;     * &lt;p&gt;Instead of calling this method, {@link Environment#sync} may be used.
+<i class="no-highlight">643</i>&nbsp;     * The difference is that this method will only flush the databases for
+<i class="no-highlight">644</i>&nbsp;     * this store, while {@link Environment#sync} will sync all deferred-write
+<i class="no-highlight">645</i>&nbsp;     * databases currently open for the environment and will also perform a
+<i class="no-highlight">646</i>&nbsp;     * full checkpoint.  This method is therefore less expensive than a full
+<i class="no-highlight">647</i>&nbsp;     * sync of the environment.&lt;/p&gt;
+<i class="no-highlight">648</i>&nbsp;     *
+<i class="no-highlight">649</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">650</i>&nbsp;     */
+<i class="no-highlight">651</i>&nbsp;    public void sync()
+<i class="no-highlight">652</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">653</i>&nbsp;
+<b class="nc"><i class="no-highlight">654</i>&nbsp;        store.sync();</b>
+<i class="no-highlight">655</i>&nbsp;    }
+<i class="no-highlight">656</i>&nbsp;    /* &lt;!-- end JE only --&gt; */
+<i class="no-highlight">657</i>&nbsp;
+<i class="no-highlight">658</i>&nbsp;    /**
+<i class="no-highlight">659</i>&nbsp;     * Closes the primary and secondary databases for the given entity class
+<i class="no-highlight">660</i>&nbsp;     * that were opened via this store.  The caller must ensure that the
+<i class="no-highlight">661</i>&nbsp;     * primary and secondary indices for the entity class are no longer in
+<i class="no-highlight">662</i>&nbsp;     * use.
+<i class="no-highlight">663</i>&nbsp;     *
+<i class="no-highlight">664</i>&nbsp;     * &lt;p&gt;The primary and secondary databases for the entity class will be
+<i class="no-highlight">665</i>&nbsp;     * closed by this operation and the existing {@link PrimaryIndex} and
+<i class="no-highlight">666</i>&nbsp;     * {@link SecondaryIndex} objects will be invalidated.  To access the
+<i class="no-highlight">667</i>&nbsp;     * indexes, the user must call {@link #getPrimaryIndex} and {@link
+<i class="no-highlight">668</i>&nbsp;     * #getSecondaryIndex} after this operation is complete.&lt;/p&gt;
+<i class="no-highlight">669</i>&nbsp;     *
+<i class="no-highlight">670</i>&nbsp;     * @param entityClass the entity class whose databases are to be closed.
+<i class="no-highlight">671</i>&nbsp;     *
+<i class="no-highlight">672</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">673</i>&nbsp;     */
+<i class="no-highlight">674</i>&nbsp;    public void closeClass(Class entityClass)
+<i class="no-highlight">675</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">676</i>&nbsp;
+<b class="nc"><i class="no-highlight">677</i>&nbsp;        store.closeClass(entityClass);</b>
+<i class="no-highlight">678</i>&nbsp;    }
+<i class="no-highlight">679</i>&nbsp;
+<i class="no-highlight">680</i>&nbsp;    /**
+<i class="no-highlight">681</i>&nbsp;     * Closes all databases and sequences that were opened via this store.  The
+<i class="no-highlight">682</i>&nbsp;     * caller must ensure that no databases opened via this store are in use.
+<i class="no-highlight">683</i>&nbsp;     *
+<i class="no-highlight">684</i>&nbsp;     * &lt;!-- begin JE only --&gt;
+<i class="no-highlight">685</i>&nbsp;     * &lt;p&gt;WARNING: To prevent memory leaks, the application must call this
+<i class="no-highlight">686</i>&nbsp;     * method even when the Environment has become invalid.  While this is not
+<i class="no-highlight">687</i>&nbsp;     * necessary for Database objects, it is necessary for EntityStore objects
+<i class="no-highlight">688</i>&nbsp;     * to prevent the accumulation of memory in the global DPL metadata cache.
+<i class="no-highlight">689</i>&nbsp;     * &lt;!-- end JE only --&gt;
+<i class="no-highlight">690</i>&nbsp;     *
+<i class="no-highlight">691</i>&nbsp;     * &lt;p&gt;WARNING: To guard against memory leaks, the application should
+<i class="no-highlight">692</i>&nbsp;     * discard all references to the closed handle.  While BDB makes an effort
+<i class="no-highlight">693</i>&nbsp;     * to discard references from closed objects to the allocated memory for an
+<i class="no-highlight">694</i>&nbsp;     * environment, this behavior is not guaranteed.  The safe course of action
+<i class="no-highlight">695</i>&nbsp;     * for an application is to discard all references to closed BDB
+<i class="no-highlight">696</i>&nbsp;     * objects.&lt;/p&gt;
+<i class="no-highlight">697</i>&nbsp;     *
+<i class="no-highlight">698</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">699</i>&nbsp;     */
+<i class="no-highlight">700</i>&nbsp;    public void close()
+<i class="no-highlight">701</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">702</i>&nbsp;
+<b class="nc"><i class="no-highlight">703</i>&nbsp;        store.close();</b>
+<i class="no-highlight">704</i>&nbsp;    }
+<i class="no-highlight">705</i>&nbsp;
+<i class="no-highlight">706</i>&nbsp;    /**
+<i class="no-highlight">707</i>&nbsp;     * Returns a named sequence for using Berkeley DB engine API directly,
+<i class="no-highlight">708</i>&nbsp;     * opening it if necessary.
+<i class="no-highlight">709</i>&nbsp;     *
+<i class="no-highlight">710</i>&nbsp;     * @param name the sequence name, which is normally defined using the
+<i class="no-highlight">711</i>&nbsp;     * {@link PrimaryKey#sequence} annotation property.
+<i class="no-highlight">712</i>&nbsp;     *
+<i class="no-highlight">713</i>&nbsp;     * @return the open sequence for the given sequence name.
+<i class="no-highlight">714</i>&nbsp;     *
+<i class="no-highlight">715</i>&nbsp;     * @throws DatabaseException the base class for all BDB exceptions.
+<i class="no-highlight">716</i>&nbsp;     */
+<i class="no-highlight">717</i>&nbsp;    public Sequence getSequence(String name)
+<i class="no-highlight">718</i>&nbsp;        throws DatabaseException {
+<i class="no-highlight">719</i>&nbsp;
+<b class="nc"><i class="no-highlight">720</i>&nbsp;        return store.getSequence(name);</b>
+<i class="no-highlight">721</i>&nbsp;    }
+<i class="no-highlight">722</i>&nbsp;
+<i class="no-highlight">723</i>&nbsp;    /**
+<i class="no-highlight">724</i>&nbsp;     * Returns the default Berkeley DB engine API configuration for a named key
+<i class="no-highlight">725</i>&nbsp;     * sequence.
+<i class="no-highlight">726</i>&nbsp;     *
+<i class="no-highlight">727</i>&nbsp;     * &lt;p&gt;The returned configuration is as follows.  All other properties have
+<i class="no-highlight">728</i>&nbsp;     * default values.&lt;/p&gt;
+<i class="no-highlight">729</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">730</i>&nbsp;     * &lt;li&gt;The {@link SequenceConfig#setInitialValue InitialValue} is one.&lt;/li&gt;
+<i class="no-highlight">731</i>&nbsp;     * &lt;li&gt;The {@link SequenceConfig#setRange Range} minimum is one.&lt;/li&gt;
+<i class="no-highlight">732</i>&nbsp;     * &lt;li&gt;The {@link SequenceConfig#setCacheSize CacheSize} is 100.&lt;/li&gt;
+<i class="no-highlight">733</i>&nbsp;     * &lt;li&gt;{@link SequenceConfig#setAutoCommitNoSync AutoCommitNoSync} is
+<i class="no-highlight">734</i>&nbsp;     * true.&lt;/li&gt;
+<i class="no-highlight">735</i>&nbsp;     * &lt;li&gt;{@link SequenceConfig#setAllowCreate AllowCreate} is set to the
+<i class="no-highlight">736</i>&nbsp;     * inverse of the store {@link StoreConfig#setReadOnly ReadOnly}.
+<i class="no-highlight">737</i>&nbsp;     * setting.&lt;/li&gt;
+<i class="no-highlight">738</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">739</i>&nbsp;     *
+<i class="no-highlight">740</i>&nbsp;     * @param name the sequence name, which is normally defined using the
+<i class="no-highlight">741</i>&nbsp;     * {@link PrimaryKey#sequence} annotation property.
+<i class="no-highlight">742</i>&nbsp;     *
+<i class="no-highlight">743</i>&nbsp;     * @return the default configuration for the given sequence name.
+<i class="no-highlight">744</i>&nbsp;     */
+<i class="no-highlight">745</i>&nbsp;    public SequenceConfig getSequenceConfig(String name) {
+<b class="nc"><i class="no-highlight">746</i>&nbsp;        return store.getSequenceConfig(name);</b>
+<i class="no-highlight">747</i>&nbsp;    }
+<i class="no-highlight">748</i>&nbsp;
+<i class="no-highlight">749</i>&nbsp;    /**
+<i class="no-highlight">750</i>&nbsp;     * Configures a named key sequence using the Berkeley DB engine API.
+<i class="no-highlight">751</i>&nbsp;     *
+<i class="no-highlight">752</i>&nbsp;     * &lt;p&gt;To be compatible with the entity model and the Direct Persistence
+<i class="no-highlight">753</i>&nbsp;     * Layer, the configuration should be retrieved using {@link
+<i class="no-highlight">754</i>&nbsp;     * #getSequenceConfig getSequenceConfig}, modified, and then passed to this
+<i class="no-highlight">755</i>&nbsp;     * method.  The following configuration properties may not be changed:&lt;/p&gt;
+<i class="no-highlight">756</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">757</i>&nbsp;     * &lt;li&gt;{@link SequenceConfig#setExclusiveCreate ExclusiveCreate}&lt;/li&gt;
+<i class="no-highlight">758</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">759</i>&nbsp;     * &lt;p&gt;In addition, {@link SequenceConfig#setAllowCreate AllowCreate} must be
+<i class="no-highlight">760</i>&nbsp;     * the inverse of {@code ReadOnly}&lt;/p&gt;
+<i class="no-highlight">761</i>&nbsp;     *
+<i class="no-highlight">762</i>&nbsp;     * &lt;p&gt;If the range is changed to include the value zero, see {@link
+<i class="no-highlight">763</i>&nbsp;     * PrimaryKey} for restrictions.&lt;/p&gt;
+<i class="no-highlight">764</i>&nbsp;     *
+<i class="no-highlight">765</i>&nbsp;     * @param name the sequence name, which is normally defined using the
+<i class="no-highlight">766</i>&nbsp;     * {@link PrimaryKey#sequence} annotation property.
+<i class="no-highlight">767</i>&nbsp;     *
+<i class="no-highlight">768</i>&nbsp;     * @param config the configuration to use for the given sequence name.
+<i class="no-highlight">769</i>&nbsp;     *
+<i class="no-highlight">770</i>&nbsp;     * @throws IllegalArgumentException if the configuration is incompatible
+<i class="no-highlight">771</i>&nbsp;     * with the entity model or the Direct Persistence Layer.
+<i class="no-highlight">772</i>&nbsp;     *
+<i class="no-highlight">773</i>&nbsp;     * @throws IllegalStateException if the sequence has already been opened.
+<i class="no-highlight">774</i>&nbsp;     */
+<i class="no-highlight">775</i>&nbsp;    public void setSequenceConfig(String name, SequenceConfig config) {
+<b class="nc"><i class="no-highlight">776</i>&nbsp;        store.setSequenceConfig(name, config);</b>
+<i class="no-highlight">777</i>&nbsp;    }
+<i class="no-highlight">778</i>&nbsp;
+<i class="no-highlight">779</i>&nbsp;    /**
+<i class="no-highlight">780</i>&nbsp;     * Returns the default primary database Berkeley DB engine API
+<i class="no-highlight">781</i>&nbsp;     * configuration for an entity class.
+<i class="no-highlight">782</i>&nbsp;     *
+<i class="no-highlight">783</i>&nbsp;     * &lt;p&gt;The returned configuration is as follows.  All other properties have
+<i class="no-highlight">784</i>&nbsp;     * default values.&lt;/p&gt;
+<i class="no-highlight">785</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">786</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setTransactional Transactional} is set to
+<i class="no-highlight">787</i>&nbsp;     * match {@link StoreConfig#setTransactional StoreConfig}.&lt;/li&gt;
+<i class="no-highlight">788</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setAllowCreate AllowCreate} is set to the
+<i class="no-highlight">789</i>&nbsp;     * inverse of the store {@link StoreConfig#setReadOnly ReadOnly}.
+<i class="no-highlight">790</i>&nbsp;     * setting.&lt;/li&gt;
+<i class="no-highlight">791</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setReadOnly ReadOnly} is set to match
+<i class="no-highlight">792</i>&nbsp;     * {@link StoreConfig#setReadOnly StoreConfig}.&lt;/li&gt;
+<i class="no-highlight">793</i>&nbsp;     * &lt;!-- begin JE only --&gt; *
+<i class="no-highlight">794</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setDeferredWrite DeferredWrite} is set to
+<i class="no-highlight">795</i>&nbsp;     * match {@link StoreConfig#setDeferredWrite StoreConfig}.&lt;/li&gt;
+<i class="no-highlight">796</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setTemporary Temporary} is set to
+<i class="no-highlight">797</i>&nbsp;     * match {@link StoreConfig#setTemporary StoreConfig}.&lt;/li&gt;
+<i class="no-highlight">798</i>&nbsp;     * &lt;!-- end JE only --&gt; *
+<i class="no-highlight">799</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setBtreeComparator BtreeComparator} is set to
+<i class="no-highlight">800</i>&nbsp;     * an internal class if a key comparator is used.&lt;/li&gt;
+<i class="no-highlight">801</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">802</i>&nbsp;     *
+<i class="no-highlight">803</i>&nbsp;     * @param entityClass the entity class identifying the primary database.
+<i class="no-highlight">804</i>&nbsp;     *
+<i class="no-highlight">805</i>&nbsp;     * @return the default configuration for the given entity class.
+<i class="no-highlight">806</i>&nbsp;     */
+<i class="no-highlight">807</i>&nbsp;    public DatabaseConfig getPrimaryConfig(Class entityClass) {
+<b class="nc"><i class="no-highlight">808</i>&nbsp;        return store.getPrimaryConfig(entityClass);</b>
+<i class="no-highlight">809</i>&nbsp;    }
+<i class="no-highlight">810</i>&nbsp;
+<i class="no-highlight">811</i>&nbsp;    /**
+<i class="no-highlight">812</i>&nbsp;     * Configures the primary database for an entity class using the Berkeley
+<i class="no-highlight">813</i>&nbsp;     * DB engine API.
+<i class="no-highlight">814</i>&nbsp;     *
+<i class="no-highlight">815</i>&nbsp;     * &lt;p&gt;To be compatible with the entity model and the Direct Persistence
+<i class="no-highlight">816</i>&nbsp;     * Layer, the configuration should be retrieved using {@link
+<i class="no-highlight">817</i>&nbsp;     * #getPrimaryConfig getPrimaryConfig}, modified, and then passed to this
+<i class="no-highlight">818</i>&nbsp;     * method.  The following configuration properties may not be changed:&lt;/p&gt;
+<i class="no-highlight">819</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">820</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setExclusiveCreate ExclusiveCreate}&lt;/li&gt;
+<i class="no-highlight">821</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setSortedDuplicates SortedDuplicates}&lt;/li&gt;
+<i class="no-highlight">822</i>&nbsp;     * &lt;!-- begin JE only --&gt; *
+<i class="no-highlight">823</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setTemporary Temporary}&lt;/li&gt;
+<i class="no-highlight">824</i>&nbsp;     * &lt;!-- end JE only --&gt; *
+<i class="no-highlight">825</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setBtreeComparator BtreeComparator}&lt;/li&gt;
+<i class="no-highlight">826</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">827</i>&nbsp;     * &lt;p&gt;In addition, {@link DatabaseConfig#setAllowCreate AllowCreate} must be
+<i class="no-highlight">828</i>&nbsp;     * the inverse of {@code ReadOnly}&lt;/p&gt;
+<i class="no-highlight">829</i>&nbsp;     *
+<i class="no-highlight">830</i>&nbsp;     * @param entityClass the entity class identifying the primary database.
+<i class="no-highlight">831</i>&nbsp;     *
+<i class="no-highlight">832</i>&nbsp;     * @param config the configuration to use for the given entity class.
+<i class="no-highlight">833</i>&nbsp;     *
+<i class="no-highlight">834</i>&nbsp;     * @throws IllegalArgumentException if the configuration is incompatible
+<i class="no-highlight">835</i>&nbsp;     * with the entity model or the Direct Persistence Layer.
+<i class="no-highlight">836</i>&nbsp;     *
+<i class="no-highlight">837</i>&nbsp;     * @throws IllegalStateException if the database has already been opened.
+<i class="no-highlight">838</i>&nbsp;     */
+<i class="no-highlight">839</i>&nbsp;    public void setPrimaryConfig(Class entityClass, DatabaseConfig config) {
+<b class="nc"><i class="no-highlight">840</i>&nbsp;        store.setPrimaryConfig(entityClass, config);</b>
+<i class="no-highlight">841</i>&nbsp;    }
+<i class="no-highlight">842</i>&nbsp;
+<i class="no-highlight">843</i>&nbsp;    /**
+<i class="no-highlight">844</i>&nbsp;     * Returns the default secondary database Berkeley DB engine API
+<i class="no-highlight">845</i>&nbsp;     * configuration for an entity class and key name.
+<i class="no-highlight">846</i>&nbsp;     *
+<i class="no-highlight">847</i>&nbsp;     * &lt;p&gt;The returned configuration is as follows.  All other properties have
+<i class="no-highlight">848</i>&nbsp;     * default values.&lt;/p&gt;
+<i class="no-highlight">849</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">850</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setTransactional Transactional} is set to
+<i class="no-highlight">851</i>&nbsp;     * match the primary database.&lt;/li&gt;
+<i class="no-highlight">852</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setAllowCreate AllowCreate} is set to the
+<i class="no-highlight">853</i>&nbsp;     * inverse of the primary database {@link DatabaseConfig#setReadOnly
+<i class="no-highlight">854</i>&nbsp;     * ReadOnly} setting.&lt;/li&gt;
+<i class="no-highlight">855</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setReadOnly ReadOnly} is set to match
+<i class="no-highlight">856</i>&nbsp;     * the primary database.&lt;/li&gt;
+<i class="no-highlight">857</i>&nbsp;     * &lt;!-- begin JE only --&gt; *
+<i class="no-highlight">858</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setDeferredWrite DeferredWrite} is set to
+<i class="no-highlight">859</i>&nbsp;     * match the primary database.&lt;/li&gt;
+<i class="no-highlight">860</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setTemporary Temporary} is set to
+<i class="no-highlight">861</i>&nbsp;     * match {@link StoreConfig#setTemporary StoreConfig}.&lt;/li&gt;
+<i class="no-highlight">862</i>&nbsp;     * &lt;!-- end JE only --&gt; *
+<i class="no-highlight">863</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setBtreeComparator BtreeComparator} is set to
+<i class="no-highlight">864</i>&nbsp;     * an internal class if a key comparator is used.&lt;/li&gt;
+<i class="no-highlight">865</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setSortedDuplicates SortedDuplicates} is set
+<i class="no-highlight">866</i>&nbsp;     * according to {@link SecondaryKey#relate}.&lt;/li&gt;
+<i class="no-highlight">867</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setAllowPopulate AllowPopulate} is set to
+<i class="no-highlight">868</i>&nbsp;     * true when a secondary key is added to an existing primary index.&lt;/li&gt;
+<i class="no-highlight">869</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setKeyCreator KeyCreator} or {@link
+<i class="no-highlight">870</i>&nbsp;     * SecondaryConfig#setMultiKeyCreator MultiKeyCreator} is set to an
+<i class="no-highlight">871</i>&nbsp;     * internal instance.&lt;/li&gt;
+<i class="no-highlight">872</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setForeignMultiKeyNullifier
+<i class="no-highlight">873</i>&nbsp;     * ForeignMultiKeyNullifier} is set to an internal instance if {@link
+<i class="no-highlight">874</i>&nbsp;     * SecondaryKey#onRelatedEntityDelete} is {@link DeleteAction#NULLIFY}.&lt;/li&gt;
+<i class="no-highlight">875</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">876</i>&nbsp;     *
+<i class="no-highlight">877</i>&nbsp;     * @param entityClass the entity class containing the given secondary key
+<i class="no-highlight">878</i>&nbsp;     * name.
+<i class="no-highlight">879</i>&nbsp;     *
+<i class="no-highlight">880</i>&nbsp;     * @param keyName the name of the secondary key field, or the {@link
+<i class="no-highlight">881</i>&nbsp;     * SecondaryKey#name} if this name annotation property was specified.
+<i class="no-highlight">882</i>&nbsp;     *
+<i class="no-highlight">883</i>&nbsp;     * @return the default configuration for the given secondary key.
+<i class="no-highlight">884</i>&nbsp;     */
+<i class="no-highlight">885</i>&nbsp;    public SecondaryConfig getSecondaryConfig(Class entityClass,
+<i class="no-highlight">886</i>&nbsp;                                              String keyName) {
+<b class="nc"><i class="no-highlight">887</i>&nbsp;        return store.getSecondaryConfig(entityClass, keyName);</b>
+<i class="no-highlight">888</i>&nbsp;    }
+<i class="no-highlight">889</i>&nbsp;
+<i class="no-highlight">890</i>&nbsp;    /**
+<i class="no-highlight">891</i>&nbsp;     * Configures a secondary database for an entity class and key name using
+<i class="no-highlight">892</i>&nbsp;     * the Berkeley DB engine API.
+<i class="no-highlight">893</i>&nbsp;     *
+<i class="no-highlight">894</i>&nbsp;     * &lt;p&gt;To be compatible with the entity model and the Direct Persistence
+<i class="no-highlight">895</i>&nbsp;     * Layer, the configuration should be retrieved using {@link
+<i class="no-highlight">896</i>&nbsp;     * #getSecondaryConfig getSecondaryConfig}, modified, and then passed to
+<i class="no-highlight">897</i>&nbsp;     * this method.  The following configuration properties may not be
+<i class="no-highlight">898</i>&nbsp;     * changed:&lt;/p&gt;
+<i class="no-highlight">899</i>&nbsp;     * &lt;ul&gt;
+<i class="no-highlight">900</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setExclusiveCreate ExclusiveCreate}&lt;/li&gt;
+<i class="no-highlight">901</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setSortedDuplicates SortedDuplicates}&lt;/li&gt;
+<i class="no-highlight">902</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setBtreeComparator BtreeComparator}&lt;/li&gt;
+<i class="no-highlight">903</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setDuplicateComparator
+<i class="no-highlight">904</i>&nbsp;     * DuplicateComparator}&lt;/li&gt;
+<i class="no-highlight">905</i>&nbsp;     * &lt;!-- begin JE only --&gt; *
+<i class="no-highlight">906</i>&nbsp;     * &lt;li&gt;{@link DatabaseConfig#setTemporary Temporary}&lt;/li&gt;
+<i class="no-highlight">907</i>&nbsp;     * &lt;!-- end JE only --&gt; *
+<i class="no-highlight">908</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setAllowPopulate AllowPopulate}&lt;/li&gt;
+<i class="no-highlight">909</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setKeyCreator KeyCreator}&lt;/li&gt;
+<i class="no-highlight">910</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setMultiKeyCreator MultiKeyCreator}&lt;/li&gt;
+<i class="no-highlight">911</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setForeignKeyNullifier
+<i class="no-highlight">912</i>&nbsp;     * ForeignKeyNullifier}&lt;/li&gt;
+<i class="no-highlight">913</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setForeignMultiKeyNullifier
+<i class="no-highlight">914</i>&nbsp;     * ForeignMultiKeyNullifier}&lt;/li&gt;
+<i class="no-highlight">915</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setForeignKeyDeleteAction
+<i class="no-highlight">916</i>&nbsp;     * ForeignKeyDeleteAction}&lt;/li&gt;
+<i class="no-highlight">917</i>&nbsp;     * &lt;li&gt;{@link SecondaryConfig#setForeignKeyDatabase
+<i class="no-highlight">918</i>&nbsp;     * ForeignKeyDatabase}&lt;/li&gt;
+<i class="no-highlight">919</i>&nbsp;     * &lt;/ul&gt;
+<i class="no-highlight">920</i>&nbsp;     * &lt;p&gt;In addition, {@link DatabaseConfig#setAllowCreate AllowCreate} must be
+<i class="no-highlight">921</i>&nbsp;     * the inverse of {@code ReadOnly}&lt;/p&gt;
+<i class="no-highlight">922</i>&nbsp;     *
+<i class="no-highlight">923</i>&nbsp;     * @param entityClass the entity class containing the given secondary key
+<i class="no-highlight">924</i>&nbsp;     * name.
+<i class="no-highlight">925</i>&nbsp;     *
+<i class="no-highlight">926</i>&nbsp;     * @param keyName the name of the secondary key field, or the {@link
+<i class="no-highlight">927</i>&nbsp;     * SecondaryKey#name} if this name annotation property was specified.
+<i class="no-highlight">928</i>&nbsp;     *
+<i class="no-highlight">929</i>&nbsp;     * @param config the configuration to use for the given secondary key.
+<i class="no-highlight">930</i>&nbsp;     *
+<i class="no-highlight">931</i>&nbsp;     * @throws IllegalArgumentException if the configuration is incompatible
+<i class="no-highlight">932</i>&nbsp;     * with the entity model or the Direct Persistence Layer.
+<i class="no-highlight">933</i>&nbsp;     *
+<i class="no-highlight">934</i>&nbsp;     * @throws IllegalStateException if the database has already been opened.
+<i class="no-highlight">935</i>&nbsp;     */
+<i class="no-highlight">936</i>&nbsp;    public void setSecondaryConfig(Class entityClass,
+<i class="no-highlight">937</i>&nbsp;                                   String keyName,
+<i class="no-highlight">938</i>&nbsp;                                   SecondaryConfig config) {
+<b class="nc"><i class="no-highlight">939</i>&nbsp;        store.setSecondaryConfig(entityClass, keyName, config);</b>
+<i class="no-highlight">940</i>&nbsp;    }
+<i class="no-highlight">941</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

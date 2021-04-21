@@ -1,0 +1,341 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > JEMBean</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.je.jmx</a>
+</div>
+
+<h1>Coverage Summary for Class: JEMBean (com.sleepycat.je.jmx)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">JEMBean</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/11)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/42)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.je.jmx;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.lang.management.ManagementFactory;
+<i class="no-highlight">17</i>&nbsp;import java.lang.reflect.Constructor;
+<i class="no-highlight">18</i>&nbsp;import java.util.ArrayList;
+<i class="no-highlight">19</i>&nbsp;
+<i class="no-highlight">20</i>&nbsp;import javax.management.DynamicMBean;
+<i class="no-highlight">21</i>&nbsp;import javax.management.MBeanAttributeInfo;
+<i class="no-highlight">22</i>&nbsp;import javax.management.MBeanConstructorInfo;
+<i class="no-highlight">23</i>&nbsp;import javax.management.MBeanInfo;
+<i class="no-highlight">24</i>&nbsp;import javax.management.MBeanNotificationInfo;
+<i class="no-highlight">25</i>&nbsp;import javax.management.MBeanOperationInfo;
+<i class="no-highlight">26</i>&nbsp;import javax.management.MBeanParameterInfo;
+<i class="no-highlight">27</i>&nbsp;import javax.management.MBeanServer;
+<i class="no-highlight">28</i>&nbsp;import javax.management.ObjectName;
+<i class="no-highlight">29</i>&nbsp;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.je.Environment;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.je.StatsConfig;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.je.dbi.EnvironmentImpl.MBeanRegistrar;
+<i class="no-highlight">33</i>&nbsp;
+<i class="no-highlight">34</i>&nbsp;/*
+<i class="no-highlight">35</i>&nbsp; * Base class for all JE concrete MBeans. 
+<i class="no-highlight">36</i>&nbsp; *
+<i class="no-highlight">37</i>&nbsp; * It implements the MBeanRegistrar interface and defines the common part of
+<i class="no-highlight">38</i>&nbsp; * those concrete MBeans.
+<i class="no-highlight">39</i>&nbsp; *
+<i class="no-highlight">40</i>&nbsp; * It defines the abstract methods which must be implemented in concrete
+<i class="no-highlight">41</i>&nbsp; * MBeans.
+<i class="no-highlight">42</i>&nbsp; *
+<i class="no-highlight">43</i>&nbsp; * Subclasses of JEMBean must avoid passing JE exceptions across the network to
+<i class="no-highlight">44</i>&nbsp; * the client side, since the client side will not have the proper JE exception
+<i class="no-highlight">45</i>&nbsp; * class. For example, a method which does this:
+<i class="no-highlight">46</i>&nbsp; *  
+<i class="no-highlight">47</i>&nbsp; *  catch (DatabaseException databaseEx) {
+<i class="no-highlight">48</i>&nbsp; *     new MBeanException(databaseEx);
+<i class="no-highlight">49</i>&nbsp; *  }
+<i class="no-highlight">50</i>&nbsp; *
+<i class="no-highlight">51</i>&nbsp; * will result in a ClassNotFoundException on the client side when it receives
+<i class="no-highlight">52</i>&nbsp; * the MBeanException, since it does not have DatabaseException.
+<i class="no-highlight">53</i>&nbsp; */
+<i class="no-highlight">54</i>&nbsp;public abstract class JEMBean implements MBeanRegistrar {
+<i class="no-highlight">55</i>&nbsp;
+<i class="no-highlight">56</i>&nbsp;    /*
+<i class="no-highlight">57</i>&nbsp;     * Parameters for getting JE database, environment stats, etc.
+<i class="no-highlight">58</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">59</i>&nbsp;    public static final MBeanParameterInfo[] statParams = {</b>
+<i class="no-highlight">60</i>&nbsp;        new MBeanParameterInfo(&quot;clear&quot;, &quot;java.lang.Boolean&quot;,
+<i class="no-highlight">61</i>&nbsp;                               &quot;If true, reset statistics after reading.&quot;),
+<i class="no-highlight">62</i>&nbsp;        new MBeanParameterInfo(&quot;fast&quot;, &quot;java.lang.Boolean&quot;,
+<i class="no-highlight">63</i>&nbsp;                               &quot;If true, only return statistics which do &quot; +
+<i class="no-highlight">64</i>&nbsp;                               &quot;not require expensive computation.&quot;)
+<i class="no-highlight">65</i>&nbsp;    };
+<i class="no-highlight">66</i>&nbsp;
+<i class="no-highlight">67</i>&nbsp;    /* Concrete MBean&#39;s visible interface. */
+<i class="no-highlight">68</i>&nbsp;    private MBeanInfo mbeanInfo;
+<i class="no-highlight">69</i>&nbsp;
+<i class="no-highlight">70</i>&nbsp;    /* Fields used to register this concrete MBean. */
+<i class="no-highlight">71</i>&nbsp;    protected MBeanServer server;
+<i class="no-highlight">72</i>&nbsp;    protected ObjectName jeName;
+<i class="no-highlight">73</i>&nbsp;    
+<i class="no-highlight">74</i>&nbsp;    /* Name for this class. */
+<i class="no-highlight">75</i>&nbsp;    protected String className;
+<i class="no-highlight">76</i>&nbsp;
+<i class="no-highlight">77</i>&nbsp;    protected String DESCRIPTION;
+<i class="no-highlight">78</i>&nbsp;    
+<i class="no-highlight">79</i>&nbsp;    /* Class type for the MBean. */
+<i class="no-highlight">80</i>&nbsp;    protected Class&lt;?&gt; currentClass;
+<i class="no-highlight">81</i>&nbsp;
+<i class="no-highlight">82</i>&nbsp;    /* Environment used in this MBean. */
+<i class="no-highlight">83</i>&nbsp;    protected Environment env;
+<i class="no-highlight">84</i>&nbsp;
+<b class="nc"><i class="no-highlight">85</i>&nbsp;    protected ArrayList&lt;MBeanOperationInfo&gt; operationList = </b>
+<i class="no-highlight">86</i>&nbsp;        new ArrayList&lt;MBeanOperationInfo&gt;();
+<i class="no-highlight">87</i>&nbsp;
+<b class="nc"><i class="no-highlight">88</i>&nbsp;    protected JEMBean(Environment env) {</b>
+<b class="nc"><i class="no-highlight">89</i>&nbsp;        this.env = env;</b>
+<b class="nc"><i class="no-highlight">90</i>&nbsp;        initClassFields();</b>
+<b class="nc"><i class="no-highlight">91</i>&nbsp;        resetMBeanInfo();</b>
+<i class="no-highlight">92</i>&nbsp;    }
+<i class="no-highlight">93</i>&nbsp;
+<b class="nc"><i class="no-highlight">94</i>&nbsp;    public JEMBean() {</b>
+<b class="nc"><i class="no-highlight">95</i>&nbsp;        initClassFields();</b>
+<i class="no-highlight">96</i>&nbsp;    }
+<i class="no-highlight">97</i>&nbsp;
+<i class="no-highlight">98</i>&nbsp;    /* Initiate the class fields used in this MBean. */
+<i class="no-highlight">99</i>&nbsp;    protected abstract void initClassFields();
+<i class="no-highlight">100</i>&nbsp;    
+<i class="no-highlight">101</i>&nbsp;    /**
+<i class="no-highlight">102</i>&nbsp;     * Create the available management interface for this environment.  The
+<i class="no-highlight">103</i>&nbsp;     * attributes and operations available vary according to environment
+<i class="no-highlight">104</i>&nbsp;     * configuration.
+<i class="no-highlight">105</i>&nbsp;     */
+<i class="no-highlight">106</i>&nbsp;    protected void resetMBeanInfo() {
+<i class="no-highlight">107</i>&nbsp;        /* Generate the MBean description. */
+<b class="nc"><i class="no-highlight">108</i>&nbsp;        mbeanInfo = new MBeanInfo(currentClass.getName(),</b>
+<i class="no-highlight">109</i>&nbsp;                                  DESCRIPTION,
+<b class="nc"><i class="no-highlight">110</i>&nbsp;                                  getAttributeList(),</b>
+<b class="nc"><i class="no-highlight">111</i>&nbsp;                                  getConstructors(),</b>
+<b class="nc"><i class="no-highlight">112</i>&nbsp;                                  getOperationList(),</b>
+<b class="nc"><i class="no-highlight">113</i>&nbsp;                                  getNotificationInfo());</b>
+<i class="no-highlight">114</i>&nbsp;    }
+<i class="no-highlight">115</i>&nbsp;
+<i class="no-highlight">116</i>&nbsp;    /**
+<i class="no-highlight">117</i>&nbsp;     * Get attribute metadata for this MBean.
+<i class="no-highlight">118</i>&nbsp;     *
+<i class="no-highlight">119</i>&nbsp;     * @return array of MBeanAttributeInfo objects describing the available
+<i class="no-highlight">120</i>&nbsp;     * attributes.
+<i class="no-highlight">121</i>&nbsp;     */
+<i class="no-highlight">122</i>&nbsp;    protected abstract MBeanAttributeInfo[] getAttributeList();
+<i class="no-highlight">123</i>&nbsp;
+<i class="no-highlight">124</i>&nbsp;    /**
+<i class="no-highlight">125</i>&nbsp;     * Add MBean operations into the list.
+<i class="no-highlight">126</i>&nbsp;     */
+<i class="no-highlight">127</i>&nbsp;    protected abstract void addOperations();
+<i class="no-highlight">128</i>&nbsp;
+<i class="no-highlight">129</i>&nbsp;    /**
+<i class="no-highlight">130</i>&nbsp;     * Get constructor metadata for this MBean.
+<i class="no-highlight">131</i>&nbsp;     *
+<i class="no-highlight">132</i>&nbsp;     * Since the process of getting constructors is the same for each concrete
+<i class="no-highlight">133</i>&nbsp;     * MBean, define it here to reduce coding work.
+<i class="no-highlight">134</i>&nbsp;     *
+<i class="no-highlight">135</i>&nbsp;     * @return array of MBeanConstructorInfo objects describing the constructor
+<i class="no-highlight">136</i>&nbsp;     * attributes.
+<i class="no-highlight">137</i>&nbsp;     */
+<i class="no-highlight">138</i>&nbsp;    @SuppressWarnings(&quot;unchecked&quot;)
+<i class="no-highlight">139</i>&nbsp;    protected MBeanConstructorInfo[] getConstructors() {
+<i class="no-highlight">140</i>&nbsp;
+<b class="nc"><i class="no-highlight">141</i>&nbsp;        Constructor[] constructors = currentClass.getConstructors();</b>
+<b class="nc"><i class="no-highlight">142</i>&nbsp;        MBeanConstructorInfo[] constructorInfo =</b>
+<i class="no-highlight">143</i>&nbsp;            new MBeanConstructorInfo[constructors.length];
+<b class="nc"><i class="no-highlight">144</i>&nbsp;        for (int i = 0; i &lt; constructors.length; i++) {</b>
+<b class="nc"><i class="no-highlight">145</i>&nbsp;            constructorInfo[i] =</b>
+<b class="nc"><i class="no-highlight">146</i>&nbsp;                new MBeanConstructorInfo(currentClass.getName(),</b>
+<i class="no-highlight">147</i>&nbsp;                                         constructors[i]);
+<i class="no-highlight">148</i>&nbsp;        }
+<i class="no-highlight">149</i>&nbsp;
+<b class="nc"><i class="no-highlight">150</i>&nbsp;        return constructorInfo;</b>
+<i class="no-highlight">151</i>&nbsp;    }
+<i class="no-highlight">152</i>&nbsp;
+<i class="no-highlight">153</i>&nbsp;    /**
+<i class="no-highlight">154</i>&nbsp;     * Get operation metadata for this MBean.
+<i class="no-highlight">155</i>&nbsp;     *
+<i class="no-highlight">156</i>&nbsp;     * @return array of MBeanOperationInfo describing available operations.
+<i class="no-highlight">157</i>&nbsp;     */
+<i class="no-highlight">158</i>&nbsp;    private MBeanOperationInfo[] getOperationList() {
+<b class="nc"><i class="no-highlight">159</i>&nbsp;        addOperations();</b>
+<i class="no-highlight">160</i>&nbsp;
+<b class="nc"><i class="no-highlight">161</i>&nbsp;        return operationList.toArray</b>
+<b class="nc"><i class="no-highlight">162</i>&nbsp;            (new MBeanOperationInfo[operationList.size()]);</b>
+<i class="no-highlight">163</i>&nbsp;    }
+<i class="no-highlight">164</i>&nbsp;
+<i class="no-highlight">165</i>&nbsp;    /**
+<i class="no-highlight">166</i>&nbsp;     * Get notification metadata for this MBean.
+<i class="no-highlight">167</i>&nbsp;     *
+<i class="no-highlight">168</i>&nbsp;     * @return array of MBeanNotificationInfo describing notifications.
+<i class="no-highlight">169</i>&nbsp;     */
+<i class="no-highlight">170</i>&nbsp;    protected MBeanNotificationInfo[] getNotificationInfo() {
+<b class="nc"><i class="no-highlight">171</i>&nbsp;        return null;</b>
+<i class="no-highlight">172</i>&nbsp;    }
+<i class="no-highlight">173</i>&nbsp;
+<i class="no-highlight">174</i>&nbsp;    /**
+<i class="no-highlight">175</i>&nbsp;     * For EnvironmentImpl.MBeanRegistrar interface.
+<i class="no-highlight">176</i>&nbsp;     *
+<i class="no-highlight">177</i>&nbsp;     * Register this MBean with the MBeanServer.
+<i class="no-highlight">178</i>&nbsp;     */
+<i class="no-highlight">179</i>&nbsp;    public void doRegister(Environment env)
+<i class="no-highlight">180</i>&nbsp;        throws Exception {
+<i class="no-highlight">181</i>&nbsp;
+<b class="nc"><i class="no-highlight">182</i>&nbsp;        server = ManagementFactory.getPlatformMBeanServer();</b>
+<i class="no-highlight">183</i>&nbsp;
+<b class="nc"><i class="no-highlight">184</i>&nbsp;        StringBuilder sb = new StringBuilder(&quot;com.sleepycat.je.jmx:name=&quot;);</b>
+<b class="nc"><i class="no-highlight">185</i>&nbsp;        sb.append(className).append(&quot;(&quot;);</b>
+<b class="nc"><i class="no-highlight">186</i>&nbsp;        String noColonPathname = </b>
+<b class="nc"><i class="no-highlight">187</i>&nbsp;            env.getHome().getPath().replaceAll(&quot;:&quot;, &quot;&lt;colon&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">188</i>&nbsp;        sb.append(noColonPathname).append(&quot;)&quot;);</b>
+<b class="nc"><i class="no-highlight">189</i>&nbsp;        jeName = new ObjectName(sb.toString());</b>
+<b class="nc"><i class="no-highlight">190</i>&nbsp;        doRegisterMBean(env);</b>
+<i class="no-highlight">191</i>&nbsp;    }
+<i class="no-highlight">192</i>&nbsp;
+<i class="no-highlight">193</i>&nbsp;    /* Register the MBean with the server. */
+<i class="no-highlight">194</i>&nbsp;    protected abstract void doRegisterMBean(Environment env)
+<i class="no-highlight">195</i>&nbsp;        throws Exception;
+<i class="no-highlight">196</i>&nbsp;
+<i class="no-highlight">197</i>&nbsp;    /**
+<i class="no-highlight">198</i>&nbsp;     * For EnvironmentImpl.MBeanRegistrar interface.
+<i class="no-highlight">199</i>&nbsp;     *
+<i class="no-highlight">200</i>&nbsp;     * Remove this MBean from the MBeanServer.
+<i class="no-highlight">201</i>&nbsp;     */
+<i class="no-highlight">202</i>&nbsp;    public void doUnregister()
+<i class="no-highlight">203</i>&nbsp;        throws Exception {
+<i class="no-highlight">204</i>&nbsp;
+<b class="nc"><i class="no-highlight">205</i>&nbsp;        if (server != null) {</b>
+<b class="nc"><i class="no-highlight">206</i>&nbsp;            server.unregisterMBean(jeName);</b>
+<i class="no-highlight">207</i>&nbsp;        }
+<i class="no-highlight">208</i>&nbsp;    }
+<i class="no-highlight">209</i>&nbsp;
+<i class="no-highlight">210</i>&nbsp;    /**
+<i class="no-highlight">211</i>&nbsp;     * @see DynamicMBean#getMBeanInfo
+<i class="no-highlight">212</i>&nbsp;     *
+<i class="no-highlight">213</i>&nbsp;     * Implement the getMBeanInfo method of DynamicMBean.
+<i class="no-highlight">214</i>&nbsp;     */
+<i class="no-highlight">215</i>&nbsp;    public MBeanInfo getMBeanInfo() {
+<b class="nc"><i class="no-highlight">216</i>&nbsp;        return mbeanInfo;</b>
+<i class="no-highlight">217</i>&nbsp;    }
+<i class="no-highlight">218</i>&nbsp;
+<i class="no-highlight">219</i>&nbsp;    /**
+<i class="no-highlight">220</i>&nbsp;     * Helper for creating a StatsConfig object to use as an operation
+<i class="no-highlight">221</i>&nbsp;     * parameter.
+<i class="no-highlight">222</i>&nbsp;     */
+<i class="no-highlight">223</i>&nbsp;    protected StatsConfig getStatsConfig(Object[] params) {
+<b class="nc"><i class="no-highlight">224</i>&nbsp;        StatsConfig statsConfig = new StatsConfig();</b>
+<b class="nc"><i class="no-highlight">225</i>&nbsp;        if ((params != null) &amp;&amp; (params.length &gt; 0) &amp;&amp; (params[0] != null)) {</b>
+<b class="nc"><i class="no-highlight">226</i>&nbsp;            Boolean clear = (Boolean) params[0];</b>
+<b class="nc"><i class="no-highlight">227</i>&nbsp;            statsConfig.setClear(clear.booleanValue());</b>
+<i class="no-highlight">228</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">229</i>&nbsp;        if ((params != null) &amp;&amp; (params.length &gt; 1) &amp;&amp; (params[1] != null)) {</b>
+<b class="nc"><i class="no-highlight">230</i>&nbsp;            Boolean fast = (Boolean) params[1];</b>
+<b class="nc"><i class="no-highlight">231</i>&nbsp;            statsConfig.setFast(fast.booleanValue());</b>
+<i class="no-highlight">232</i>&nbsp;        }
+<i class="no-highlight">233</i>&nbsp;
+<b class="nc"><i class="no-highlight">234</i>&nbsp;        return statsConfig;</b>
+<i class="no-highlight">235</i>&nbsp;    }
+<i class="no-highlight">236</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>

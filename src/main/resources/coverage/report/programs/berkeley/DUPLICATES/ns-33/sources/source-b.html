@@ -1,0 +1,1277 @@
+
+
+
+<!DOCTYPE html>
+<html id="htmlId">
+<head>
+  <title>Coverage Report > Format</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+    @import "../../.css/highlight-idea.css";
+  </style>
+  <script type="text/javascript" src="../../.js/highlight.pack.js"></script>
+</head>
+
+<body>
+<div class="content">
+<div class="breadCrumbs">
+Current scope:     <a href="../../index.html">all classes</a>
+    <span class="separator">|</span>
+    <a href="../index.html">com.sleepycat.persist.impl</a>
+</div>
+
+<h1>Coverage Summary for Class: Format (com.sleepycat.persist.impl)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">Format</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/67)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/261)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<pre>
+<div class="sourceCode" id="sourceCode"><i class="no-highlight">1</i>&nbsp;/*-
+<i class="no-highlight">2</i>&nbsp; * Copyright (C) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
+<i class="no-highlight">3</i>&nbsp; *
+<i class="no-highlight">4</i>&nbsp; * This file was distributed by Oracle as part of a version of Oracle Berkeley
+<i class="no-highlight">5</i>&nbsp; * DB Java Edition made available at:
+<i class="no-highlight">6</i>&nbsp; *
+<i class="no-highlight">7</i>&nbsp; * http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/downloads/index.html
+<i class="no-highlight">8</i>&nbsp; *
+<i class="no-highlight">9</i>&nbsp; * Please see the LICENSE file included in the top-level directory of the
+<i class="no-highlight">10</i>&nbsp; * appropriate version of Oracle Berkeley DB Java Edition for a copy of the
+<i class="no-highlight">11</i>&nbsp; * license and additional information.
+<i class="no-highlight">12</i>&nbsp; */
+<i class="no-highlight">13</i>&nbsp;
+<i class="no-highlight">14</i>&nbsp;package com.sleepycat.persist.impl;
+<i class="no-highlight">15</i>&nbsp;
+<i class="no-highlight">16</i>&nbsp;import java.io.Serializable;
+<i class="no-highlight">17</i>&nbsp;import java.util.HashSet;
+<i class="no-highlight">18</i>&nbsp;import java.util.IdentityHashMap;
+<i class="no-highlight">19</i>&nbsp;import java.util.List;
+<i class="no-highlight">20</i>&nbsp;import java.util.Map;
+<i class="no-highlight">21</i>&nbsp;import java.util.Set;
+<i class="no-highlight">22</i>&nbsp;
+<i class="no-highlight">23</i>&nbsp;import com.sleepycat.compat.DbCompat;
+<i class="no-highlight">24</i>&nbsp;import com.sleepycat.persist.evolve.Converter;
+<i class="no-highlight">25</i>&nbsp;import com.sleepycat.persist.model.ClassMetadata;
+<i class="no-highlight">26</i>&nbsp;import com.sleepycat.persist.model.EntityMetadata;
+<i class="no-highlight">27</i>&nbsp;import com.sleepycat.persist.model.EntityModel;
+<i class="no-highlight">28</i>&nbsp;import com.sleepycat.persist.model.FieldMetadata;
+<i class="no-highlight">29</i>&nbsp;import com.sleepycat.persist.model.PrimaryKeyMetadata;
+<i class="no-highlight">30</i>&nbsp;import com.sleepycat.persist.model.SecondaryKeyMetadata;
+<i class="no-highlight">31</i>&nbsp;import com.sleepycat.persist.raw.RawField;
+<i class="no-highlight">32</i>&nbsp;import com.sleepycat.persist.raw.RawObject;
+<i class="no-highlight">33</i>&nbsp;import com.sleepycat.persist.raw.RawType;
+<i class="no-highlight">34</i>&nbsp;
+<i class="no-highlight">35</i>&nbsp;/**
+<i class="no-highlight">36</i>&nbsp; * The base class for all object formats.  Formats are used to define the
+<i class="no-highlight">37</i>&nbsp; * stored layout for all persistent classes, including simple types.
+<i class="no-highlight">38</i>&nbsp; *
+<i class="no-highlight">39</i>&nbsp; * The design documentation below describes the storage format for entities and
+<i class="no-highlight">40</i>&nbsp; * its relationship to information stored per format in the catalog.
+<i class="no-highlight">41</i>&nbsp; *
+<i class="no-highlight">42</i>&nbsp; * Requirements
+<i class="no-highlight">43</i>&nbsp; * ------------
+<i class="no-highlight">44</i>&nbsp; * + Provides EntityBinding for objects and EntryBinding for keys.
+<i class="no-highlight">45</i>&nbsp; * + Provides SecondaryKeyCreator, SecondaryMultiKeyCreator and
+<i class="no-highlight">46</i>&nbsp; *   SecondaryMultiKeyNullifier (SecondaryKeyNullifier is redundant).
+<i class="no-highlight">47</i>&nbsp; * + Works with reflection and bytecode enhancement.
+<i class="no-highlight">48</i>&nbsp; * + For reflection only, works with any entity model not just annotations.
+<i class="no-highlight">49</i>&nbsp; * + Bindings are usable independently of the persist API.
+<i class="no-highlight">50</i>&nbsp; * + Performance is almost equivalent to hand coded tuple bindings.
+<i class="no-highlight">51</i>&nbsp; * + Small performance penalty for compatible class changes (new fields,
+<i class="no-highlight">52</i>&nbsp; *   widening).
+<i class="no-highlight">53</i>&nbsp; * + Secondary key create/nullify do not have to deserialize the entire record;
+<i class="no-highlight">54</i>&nbsp; *   in other words, store secondary keys at the start of the data.
+<i class="no-highlight">55</i>&nbsp; *
+<i class="no-highlight">56</i>&nbsp; * Class Format
+<i class="no-highlight">57</i>&nbsp; * ------------
+<i class="no-highlight">58</i>&nbsp; * Every distinct class format is given a unique format ID.  Class IDs are not
+<i class="no-highlight">59</i>&nbsp; * equivalent to class version numbers (as in the version property of @Entity
+<i class="no-highlight">60</i>&nbsp; * and @Persistent) because the format can change when the version number does
+<i class="no-highlight">61</i>&nbsp; * not.  Changes that cause a unique format ID to be assigned are:
+<i class="no-highlight">62</i>&nbsp; *
+<i class="no-highlight">63</i>&nbsp; * + Add field.
+<i class="no-highlight">64</i>&nbsp; * + Widen field type.
+<i class="no-highlight">65</i>&nbsp; * + Change primitive type to primitive wrapper class.
+<i class="no-highlight">66</i>&nbsp; * + Add or drop secondary key.
+<i class="no-highlight">67</i>&nbsp; * + Any incompatible class change.
+<i class="no-highlight">68</i>&nbsp; *
+<i class="no-highlight">69</i>&nbsp; * The last item, incompatible class changes, also correspond to a class
+<i class="no-highlight">70</i>&nbsp; * version change.
+<i class="no-highlight">71</i>&nbsp; *
+<i class="no-highlight">72</i>&nbsp; * For each distinct class format the following information is conceptually
+<i class="no-highlight">73</i>&nbsp; * stored in the catalog, keyed by format ID.
+<i class="no-highlight">74</i>&nbsp; *
+<i class="no-highlight">75</i>&nbsp; * - Class name
+<i class="no-highlight">76</i>&nbsp; * - Class version number
+<i class="no-highlight">77</i>&nbsp; * - Superclass format
+<i class="no-highlight">78</i>&nbsp; * - Kind: simple, enum, complex, array
+<i class="no-highlight">79</i>&nbsp; * - For kind == simple:
+<i class="no-highlight">80</i>&nbsp; *     - Primitive class
+<i class="no-highlight">81</i>&nbsp; * - For kind == enum:
+<i class="no-highlight">82</i>&nbsp; *     - Array of constant names, sorted by name.
+<i class="no-highlight">83</i>&nbsp; * - For kind == complex:
+<i class="no-highlight">84</i>&nbsp; *     - Primary key fieldInfo, or null if no primary key is declared
+<i class="no-highlight">85</i>&nbsp; *     - Array of secondary key fieldInfo, sorted by field name
+<i class="no-highlight">86</i>&nbsp; *     - Array of other fieldInfo, sorted by field name
+<i class="no-highlight">87</i>&nbsp; * - For kind == array:
+<i class="no-highlight">88</i>&nbsp; *     - Component class format
+<i class="no-highlight">89</i>&nbsp; *     - Number of array dimensions
+<i class="no-highlight">90</i>&nbsp; * - Other metadata for RawType
+<i class="no-highlight">91</i>&nbsp; *
+<i class="no-highlight">92</i>&nbsp; * Where fieldInfo is:
+<i class="no-highlight">93</i>&nbsp; *     - Field name
+<i class="no-highlight">94</i>&nbsp; *     - Field class
+<i class="no-highlight">95</i>&nbsp; *     - Other metadata for RawField
+<i class="no-highlight">96</i>&nbsp; *
+<i class="no-highlight">97</i>&nbsp; * Data Layout
+<i class="no-highlight">98</i>&nbsp; * -----------
+<i class="no-highlight">99</i>&nbsp; * For each entity instance the data layout is as follows:
+<i class="no-highlight">100</i>&nbsp; *
+<i class="no-highlight">101</i>&nbsp; *   instanceData: formatId keyFields... nonKeyFields...
+<i class="no-highlight">102</i>&nbsp; *   keyFields:    fieldValue...
+<i class="no-highlight">103</i>&nbsp; *   nonKeyFields: fieldValue...
+<i class="no-highlight">104</i>&nbsp; *
+<i class="no-highlight">105</i>&nbsp; * The formatId is the (positive non-zero) ID of a class format, defined above.
+<i class="no-highlight">106</i>&nbsp; * This is ID of the most derived class of the instance.  It is stored as a
+<i class="no-highlight">107</i>&nbsp; * packed integer.
+<i class="no-highlight">108</i>&nbsp; *
+<i class="no-highlight">109</i>&nbsp; * Following the format ID, zero or more sets of secondary key field values
+<i class="no-highlight">110</i>&nbsp; * appear, followed by zero or more sets of other class field values.
+<i class="no-highlight">111</i>&nbsp; *
+<i class="no-highlight">112</i>&nbsp; * The keyFields are the sets of secondary key fields for each class in order
+<i class="no-highlight">113</i>&nbsp; * of the highest superclass first.  Within a class, fields are ordered by
+<i class="no-highlight">114</i>&nbsp; * field name.
+<i class="no-highlight">115</i>&nbsp; *
+<i class="no-highlight">116</i>&nbsp; * The nonKeyFields are the sets of other non-key fields for each class in
+<i class="no-highlight">117</i>&nbsp; * order of the highest superclass first.  Within a class, fields are ordered
+<i class="no-highlight">118</i>&nbsp; * by field name.
+<i class="no-highlight">119</i>&nbsp; *
+<i class="no-highlight">120</i>&nbsp; * A field value is:
+<i class="no-highlight">121</i>&nbsp; *
+<i class="no-highlight">122</i>&nbsp; *   fieldValue:   primitiveValue
+<i class="no-highlight">123</i>&nbsp; *               | nullId
+<i class="no-highlight">124</i>&nbsp; *               | instanceRef
+<i class="no-highlight">125</i>&nbsp; *               | instanceData
+<i class="no-highlight">126</i>&nbsp; *               | simpleValue
+<i class="no-highlight">127</i>&nbsp; *               | enumValue
+<i class="no-highlight">128</i>&nbsp; *               | arrayValue
+<i class="no-highlight">129</i>&nbsp; *
+<i class="no-highlight">130</i>&nbsp; * For a primitive type, a primitive value is used as defined for tuple
+<i class="no-highlight">131</i>&nbsp; * bindings.  For float and double, sorted float and sorted double tuple values
+<i class="no-highlight">132</i>&nbsp; * are used.
+<i class="no-highlight">133</i>&nbsp; *
+<i class="no-highlight">134</i>&nbsp; * For a non-primitive type with a null value, a nullId is used that has a zero
+<i class="no-highlight">135</i>&nbsp; * (illegal formatId) value.  This includes String and other simple reference
+<i class="no-highlight">136</i>&nbsp; * types.  The formatId is stored as a packed integer, meaning that it is
+<i class="no-highlight">137</i>&nbsp; * stored as a single zero byte.
+<i class="no-highlight">138</i>&nbsp; *
+<i class="no-highlight">139</i>&nbsp; * For a non-primitive type, an instanceRef is used for a non-null instance
+<i class="no-highlight">140</i>&nbsp; * that appears earlier in the data byte array.  An instanceRef is the negation
+<i class="no-highlight">141</i>&nbsp; * of the byte offset of the instanceData that appears earlier.  It is stored
+<i class="no-highlight">142</i>&nbsp; * as a packed integer.
+<i class="no-highlight">143</i>&nbsp; *
+<i class="no-highlight">144</i>&nbsp; * The remaining rules apply only to reference types with non-null values that
+<i class="no-highlight">145</i>&nbsp; * do not appear earlier in the data array.
+<i class="no-highlight">146</i>&nbsp; *
+<i class="no-highlight">147</i>&nbsp; * For an array type, an array formatId is used that identifies the component
+<i class="no-highlight">148</i>&nbsp; * type and the number of array dimensions.  This is followed by an array
+<i class="no-highlight">149</i>&nbsp; * length (stored as a packed integer) and zero or more fieldValue elements.
+<i class="no-highlight">150</i>&nbsp; * For an array with N+1 dimensions where N is greater than zero, the leftmost
+<i class="no-highlight">151</i>&nbsp; * dimension is enumerated such that each fieldValue element is itself an array
+<i class="no-highlight">152</i>&nbsp; * of N dimensions or null.
+<i class="no-highlight">153</i>&nbsp; *
+<i class="no-highlight">154</i>&nbsp; *   arrayValue:  formatId length fieldValue...
+<i class="no-highlight">155</i>&nbsp; *
+<i class="no-highlight">156</i>&nbsp; * For an enum type, an enumValue is used, consisting of a formatId that
+<i class="no-highlight">157</i>&nbsp; * identifies the enum class and an enumIndex (stored as a packed integer) that
+<i class="no-highlight">158</i>&nbsp; * identifies the constant name in the enum constant array of the enum class
+<i class="no-highlight">159</i>&nbsp; * format:
+<i class="no-highlight">160</i>&nbsp; *
+<i class="no-highlight">161</i>&nbsp; *   enumValue:   formatId enumIndex
+<i class="no-highlight">162</i>&nbsp; *
+<i class="no-highlight">163</i>&nbsp; * For a simple type, a simpleValue is used.  This consists of the formatId
+<i class="no-highlight">164</i>&nbsp; * that identifies the class followed by the simple type value.  For a
+<i class="no-highlight">165</i>&nbsp; * primitive wrapper type the simple type value is the corresponding primitive,
+<i class="no-highlight">166</i>&nbsp; * for a Date it is the milliseconds as a long primitive, and for BigInteger or
+<i class="no-highlight">167</i>&nbsp; * BigDecimal it is a byte array as defined for tuple bindings of these types.
+<i class="no-highlight">168</i>&nbsp; *
+<i class="no-highlight">169</i>&nbsp; *   simpleValue: formatId value
+<i class="no-highlight">170</i>&nbsp; *
+<i class="no-highlight">171</i>&nbsp; * For all other complex types, an instanceData is used, which is defined
+<i class="no-highlight">172</i>&nbsp; * above.
+<i class="no-highlight">173</i>&nbsp; *
+<i class="no-highlight">174</i>&nbsp; * Secondary Keys
+<i class="no-highlight">175</i>&nbsp; * --------------
+<i class="no-highlight">176</i>&nbsp; * For secondary key support we must account for writing and nullifying
+<i class="no-highlight">177</i>&nbsp; * specific keys.  Rather than instantiating the entity and then performing
+<i class="no-highlight">178</i>&nbsp; * the secondary key operation, we strive to perform the secondary key
+<i class="no-highlight">179</i>&nbsp; * operation directly on the byte format.
+<i class="no-highlight">180</i>&nbsp; *
+<i class="no-highlight">181</i>&nbsp; * To create a secondary key we skip over other fields and then copy the bytes
+<i class="no-highlight">182</i>&nbsp; * of the embedded key.  This approach is very efficient because a) the entity
+<i class="no-highlight">183</i>&nbsp; * is not instantiated, and b) the secondary keys are stored at the beginning
+<i class="no-highlight">184</i>&nbsp; * of the byte format and can be quickly read.
+<i class="no-highlight">185</i>&nbsp; *
+<i class="no-highlight">186</i>&nbsp; * To nullify we currently instantiate the raw entity, set the key field to null
+<i class="no-highlight">187</i>&nbsp; * (or remove it from the array/collection), and convert the raw entity back to
+<i class="no-highlight">188</i>&nbsp; * bytes.  Although the performance of this approach is not ideal because it
+<i class="no-highlight">189</i>&nbsp; * requires serialization, it avoids the complexity of modifying the packed
+<i class="no-highlight">190</i>&nbsp; * serialized format directly, adjusting references to key objects, etc.  Plus,
+<i class="no-highlight">191</i>&nbsp; * when we nullify a key we are going to write the record, so the serialization
+<i class="no-highlight">192</i>&nbsp; * overhead may not be significant.  For the record, I tried implementing
+<i class="no-highlight">193</i>&nbsp; * nullification of the bytes directly and found it was much too complex.
+<i class="no-highlight">194</i>&nbsp; *
+<i class="no-highlight">195</i>&nbsp; * Lifecycle
+<i class="no-highlight">196</i>&nbsp; * ---------
+<i class="no-highlight">197</i>&nbsp; * Format are managed by a Catalog class.  Simple formats are managed by
+<i class="no-highlight">198</i>&nbsp; * SimpleCatalog, and are copied from the SimpleCatalog by PersistCatalog.
+<i class="no-highlight">199</i>&nbsp; * Other formats are managed by PersistCatalog.  The lifecycle of a format
+<i class="no-highlight">200</i>&nbsp; * instance is:
+<i class="no-highlight">201</i>&nbsp; *
+<i class="no-highlight">202</i>&nbsp; * - Constructed by the catalog when a format is requested for a Class
+<i class="no-highlight">203</i>&nbsp; *   that currently has no associated format.
+<i class="no-highlight">204</i>&nbsp; *
+<i class="no-highlight">205</i>&nbsp; * - The catalog calls setId() and adds the format to its format list
+<i class="no-highlight">206</i>&nbsp; *   (indexed by format id) and map (keyed by class name).
+<i class="no-highlight">207</i>&nbsp; *
+<i class="no-highlight">208</i>&nbsp; * - The catalog calls collectRelatedFormats(), where a format can create
+<i class="no-highlight">209</i>&nbsp; *   additional formats that it needs, or that should also be persistent.
+<i class="no-highlight">210</i>&nbsp; *
+<i class="no-highlight">211</i>&nbsp; * - The catalog calls initializeIfNeeded(), which calls the initialize()
+<i class="no-highlight">212</i>&nbsp; *   method of the format class.
+<i class="no-highlight">213</i>&nbsp; *
+<i class="no-highlight">214</i>&nbsp; * - initialize() should initialize any transient fields in the format.
+<i class="no-highlight">215</i>&nbsp; *   initialize() can assume that all related formats are available in the
+<i class="no-highlight">216</i>&nbsp; *   catalog.  It may call initializeIfNeeded() for those related formats, if
+<i class="no-highlight">217</i>&nbsp; *   it needs to interact with an initialized related format; this does not
+<i class="no-highlight">218</i>&nbsp; *   cause a cycle, because initializeIfNeeded() does nothing for an already
+<i class="no-highlight">219</i>&nbsp; *   initialized format.
+<i class="no-highlight">220</i>&nbsp; *
+<i class="no-highlight">221</i>&nbsp; * - The catalog creates a group of related formats at one time, and then
+<i class="no-highlight">222</i>&nbsp; *   writes its entire list of formats to the catalog DB as a single record.
+<i class="no-highlight">223</i>&nbsp; *   This grouping reduces the number of writes.
+<i class="no-highlight">224</i>&nbsp; *
+<i class="no-highlight">225</i>&nbsp; * - When a catalog is opened and the list of existing formats is read.  After
+<i class="no-highlight">226</i>&nbsp; *   a format is deserialized, its initializeIfNeeded() method is called.
+<i class="no-highlight">227</i>&nbsp; *   setId() and collectRelatedFormats() are not called, since the ID and
+<i class="no-highlight">228</i>&nbsp; *   related formats are stored in serialized fields.
+<i class="no-highlight">229</i>&nbsp; *
+<i class="no-highlight">230</i>&nbsp; * - There are two modes for opening an existing catalog: raw mode and normal
+<i class="no-highlight">231</i>&nbsp; *   mode.  In raw mode, the old format is used regardless of whether it
+<i class="no-highlight">232</i>&nbsp; *   matches the current class definition; in fact the class is not accessed
+<i class="no-highlight">233</i>&nbsp; *   and does not need to be present.
+<i class="no-highlight">234</i>&nbsp; *
+<i class="no-highlight">235</i>&nbsp; * - In normal mode, for each existing format that is initialized, a new format
+<i class="no-highlight">236</i>&nbsp; *   is also created based on the current class and metadata definition.  If
+<i class="no-highlight">237</i>&nbsp; *   the two formats are equal, the new format is discarded.  If they are
+<i class="no-highlight">238</i>&nbsp; *   unequal, the new format becomes the current format and the old format&#39;s
+<i class="no-highlight">239</i>&nbsp; *   evolve() method is called.  evolve() is responsible for adjusting the
+<i class="no-highlight">240</i>&nbsp; *   old format for class evolution.  Any number of non-current formats may
+<i class="no-highlight">241</i>&nbsp; *   exist for a given class, and are setup to evolve the single current format
+<i class="no-highlight">242</i>&nbsp; *   for the class.
+<i class="no-highlight">243</i>&nbsp; *
+<i class="no-highlight">244</i>&nbsp; * @author Mark Hayes
+<i class="no-highlight">245</i>&nbsp; */
+<b class="nc"><i class="no-highlight">246</i>&nbsp;public abstract class Format implements Reader, RawType, Serializable {</b>
+<i class="no-highlight">247</i>&nbsp;
+<i class="no-highlight">248</i>&nbsp;    private static final long serialVersionUID = 545633644568489850L;
+<i class="no-highlight">249</i>&nbsp;
+<i class="no-highlight">250</i>&nbsp;    /** Null reference. */
+<i class="no-highlight">251</i>&nbsp;    static final int ID_NULL     = 0;
+<i class="no-highlight">252</i>&nbsp;    /** Object */
+<i class="no-highlight">253</i>&nbsp;    static final int ID_OBJECT   = 1;
+<i class="no-highlight">254</i>&nbsp;    /** Boolean */
+<i class="no-highlight">255</i>&nbsp;    static final int ID_BOOL     = 2;
+<i class="no-highlight">256</i>&nbsp;    static final int ID_BOOL_W   = 3;
+<i class="no-highlight">257</i>&nbsp;    /** Byte */
+<i class="no-highlight">258</i>&nbsp;    static final int ID_BYTE     = 4;
+<i class="no-highlight">259</i>&nbsp;    static final int ID_BYTE_W   = 5;
+<i class="no-highlight">260</i>&nbsp;    /** Short */
+<i class="no-highlight">261</i>&nbsp;    static final int ID_SHORT    = 6;
+<i class="no-highlight">262</i>&nbsp;    static final int ID_SHORT_W  = 7;
+<i class="no-highlight">263</i>&nbsp;    /** Integer */
+<i class="no-highlight">264</i>&nbsp;    static final int ID_INT      = 8;
+<i class="no-highlight">265</i>&nbsp;    static final int ID_INT_W    = 9;
+<i class="no-highlight">266</i>&nbsp;    /** Long */
+<i class="no-highlight">267</i>&nbsp;    static final int ID_LONG     = 10;
+<i class="no-highlight">268</i>&nbsp;    static final int ID_LONG_W   = 11;
+<i class="no-highlight">269</i>&nbsp;    /** Float */
+<i class="no-highlight">270</i>&nbsp;    static final int ID_FLOAT    = 12;
+<i class="no-highlight">271</i>&nbsp;    static final int ID_FLOAT_W  = 13;
+<i class="no-highlight">272</i>&nbsp;    /** Double */
+<i class="no-highlight">273</i>&nbsp;    static final int ID_DOUBLE   = 14;
+<i class="no-highlight">274</i>&nbsp;    static final int ID_DOUBLE_W = 15;
+<i class="no-highlight">275</i>&nbsp;    /** Character */
+<i class="no-highlight">276</i>&nbsp;    static final int ID_CHAR     = 16;
+<i class="no-highlight">277</i>&nbsp;    static final int ID_CHAR_W   = 17;
+<i class="no-highlight">278</i>&nbsp;    /** String */
+<i class="no-highlight">279</i>&nbsp;    static final int ID_STRING   = 18;
+<i class="no-highlight">280</i>&nbsp;    /** BigInteger */
+<i class="no-highlight">281</i>&nbsp;    static final int ID_BIGINT   = 19;
+<i class="no-highlight">282</i>&nbsp;    /** BigDecimal */
+<i class="no-highlight">283</i>&nbsp;    static final int ID_BIGDEC   = 20;
+<i class="no-highlight">284</i>&nbsp;    /** Date */
+<i class="no-highlight">285</i>&nbsp;    static final int ID_DATE     = 21;
+<i class="no-highlight">286</i>&nbsp;    /** Number */
+<i class="no-highlight">287</i>&nbsp;    static final int ID_NUMBER   = 22;
+<i class="no-highlight">288</i>&nbsp;
+<i class="no-highlight">289</i>&nbsp;    /** First simple type. */
+<i class="no-highlight">290</i>&nbsp;    static final int ID_SIMPLE_MIN  = 2;
+<i class="no-highlight">291</i>&nbsp;    /** Last simple type. */
+<i class="no-highlight">292</i>&nbsp;    static final int ID_SIMPLE_MAX  = 21;
+<i class="no-highlight">293</i>&nbsp;    /** Last predefined ID, after which dynamic IDs are assigned. */
+<i class="no-highlight">294</i>&nbsp;    static final int ID_PREDEFINED  = 30;
+<i class="no-highlight">295</i>&nbsp;
+<i class="no-highlight">296</i>&nbsp;    static boolean isPredefined(Format format) {
+<b class="nc"><i class="no-highlight">297</i>&nbsp;        return format.getId() &lt;= ID_PREDEFINED;</b>
+<i class="no-highlight">298</i>&nbsp;    }
+<i class="no-highlight">299</i>&nbsp;
+<i class="no-highlight">300</i>&nbsp;    private int id;
+<i class="no-highlight">301</i>&nbsp;    private String className;
+<i class="no-highlight">302</i>&nbsp;    private Reader reader;
+<i class="no-highlight">303</i>&nbsp;    private Format superFormat;
+<i class="no-highlight">304</i>&nbsp;    private Format latestFormat;
+<i class="no-highlight">305</i>&nbsp;    private Format previousFormat;
+<i class="no-highlight">306</i>&nbsp;    private Set&lt;String&gt; supertypes;
+<i class="no-highlight">307</i>&nbsp;    private boolean deleted;
+<i class="no-highlight">308</i>&nbsp;    private boolean unused;
+<i class="no-highlight">309</i>&nbsp;    private transient Catalog catalog;
+<i class="no-highlight">310</i>&nbsp;    private transient Class type;
+<i class="no-highlight">311</i>&nbsp;    private transient Format proxiedFormat;
+<i class="no-highlight">312</i>&nbsp;    private transient boolean initialized;
+<i class="no-highlight">313</i>&nbsp;
+<i class="no-highlight">314</i>&nbsp;    /**
+<i class="no-highlight">315</i>&nbsp;     * Creates a new format for a given class.
+<i class="no-highlight">316</i>&nbsp;     */
+<i class="no-highlight">317</i>&nbsp;    Format(final Catalog catalog, final Class type) {
+<b class="nc"><i class="no-highlight">318</i>&nbsp;        this(catalog, type.getName());</b>
+<b class="nc"><i class="no-highlight">319</i>&nbsp;        this.type = type;</b>
+<b class="nc"><i class="no-highlight">320</i>&nbsp;        addSupertypes();</b>
+<i class="no-highlight">321</i>&nbsp;    }
+<i class="no-highlight">322</i>&nbsp;
+<i class="no-highlight">323</i>&nbsp;    /**
+<i class="no-highlight">324</i>&nbsp;     * Creates a format for class evolution when no class may be present.
+<i class="no-highlight">325</i>&nbsp;     */
+<b class="nc"><i class="no-highlight">326</i>&nbsp;    Format(final Catalog catalog, final String className) {</b>
+<b class="nc"><i class="no-highlight">327</i>&nbsp;        assert catalog != null;</b>
+<b class="nc"><i class="no-highlight">328</i>&nbsp;        assert className != null;</b>
+<b class="nc"><i class="no-highlight">329</i>&nbsp;        this.catalog = catalog;</b>
+<b class="nc"><i class="no-highlight">330</i>&nbsp;        this.className = className;</b>
+<b class="nc"><i class="no-highlight">331</i>&nbsp;        latestFormat = this;</b>
+<b class="nc"><i class="no-highlight">332</i>&nbsp;        supertypes = new HashSet&lt;String&gt;();</b>
+<i class="no-highlight">333</i>&nbsp;    }
+<i class="no-highlight">334</i>&nbsp;
+<i class="no-highlight">335</i>&nbsp;    /**
+<i class="no-highlight">336</i>&nbsp;     * Special handling for JE 3.0.12 beta formats.
+<i class="no-highlight">337</i>&nbsp;     */
+<i class="no-highlight">338</i>&nbsp;    void migrateFromBeta(Map&lt;String, Format&gt; formatMap) {
+<b class="nc"><i class="no-highlight">339</i>&nbsp;        if (latestFormat == null) {</b>
+<b class="nc"><i class="no-highlight">340</i>&nbsp;            latestFormat = this;</b>
+<i class="no-highlight">341</i>&nbsp;        }
+<i class="no-highlight">342</i>&nbsp;    }
+<i class="no-highlight">343</i>&nbsp;
+<i class="no-highlight">344</i>&nbsp;    /**
+<i class="no-highlight">345</i>&nbsp;     * Initialize transient catalog field after deserialization.  This must
+<i class="no-highlight">346</i>&nbsp;     * occur before any other usage.
+<i class="no-highlight">347</i>&nbsp;     */
+<i class="no-highlight">348</i>&nbsp;    void initCatalog(final Catalog catalog) {
+<b class="nc"><i class="no-highlight">349</i>&nbsp;        assert catalog != null;</b>
+<b class="nc"><i class="no-highlight">350</i>&nbsp;        this.catalog = catalog;</b>
+<i class="no-highlight">351</i>&nbsp;    }
+<i class="no-highlight">352</i>&nbsp;
+<i class="no-highlight">353</i>&nbsp;    final boolean isNew() {
+<b class="nc"><i class="no-highlight">354</i>&nbsp;        return id == 0;</b>
+<i class="no-highlight">355</i>&nbsp;    }
+<i class="no-highlight">356</i>&nbsp;
+<i class="no-highlight">357</i>&nbsp;    final Catalog getCatalog() {
+<b class="nc"><i class="no-highlight">358</i>&nbsp;        return catalog;</b>
+<i class="no-highlight">359</i>&nbsp;    }
+<i class="no-highlight">360</i>&nbsp;
+<i class="no-highlight">361</i>&nbsp;    /**
+<i class="no-highlight">362</i>&nbsp;     * Returns the format ID.
+<i class="no-highlight">363</i>&nbsp;     */
+<i class="no-highlight">364</i>&nbsp;    public final int getId() {
+<b class="nc"><i class="no-highlight">365</i>&nbsp;        return id;</b>
+<i class="no-highlight">366</i>&nbsp;    }
+<i class="no-highlight">367</i>&nbsp;
+<i class="no-highlight">368</i>&nbsp;    /**
+<i class="no-highlight">369</i>&nbsp;     * Called by the Catalog to set the format ID when a new format is added to
+<i class="no-highlight">370</i>&nbsp;     * the format list, before calling initializeIfNeeded().
+<i class="no-highlight">371</i>&nbsp;     */
+<i class="no-highlight">372</i>&nbsp;    final void setId(int id) {
+<b class="nc"><i class="no-highlight">373</i>&nbsp;        this.id = id;</b>
+<i class="no-highlight">374</i>&nbsp;    }
+<i class="no-highlight">375</i>&nbsp;
+<i class="no-highlight">376</i>&nbsp;    /**
+<i class="no-highlight">377</i>&nbsp;     * Returns the class that this format represents.  This method will return
+<i class="no-highlight">378</i>&nbsp;     * null in rawAccess mode, or for an unevolved format.
+<i class="no-highlight">379</i>&nbsp;     */
+<i class="no-highlight">380</i>&nbsp;    final Class getType() {
+<b class="nc"><i class="no-highlight">381</i>&nbsp;        return type;</b>
+<i class="no-highlight">382</i>&nbsp;    }
+<i class="no-highlight">383</i>&nbsp;
+<i class="no-highlight">384</i>&nbsp;    /**
+<i class="no-highlight">385</i>&nbsp;     * Called to get the type when it is known to exist for an uninitialized
+<i class="no-highlight">386</i>&nbsp;     * format.
+<i class="no-highlight">387</i>&nbsp;     */
+<i class="no-highlight">388</i>&nbsp;    final Class getExistingType() {
+<b class="nc"><i class="no-highlight">389</i>&nbsp;        assert catalog != null;</b>
+<b class="nc"><i class="no-highlight">390</i>&nbsp;        if (type == null) {</b>
+<i class="no-highlight">391</i>&nbsp;            try {
+<b class="nc"><i class="no-highlight">392</i>&nbsp;                type = catalog.resolveClass(className);</b>
+<b class="nc"><i class="no-highlight">393</i>&nbsp;            } catch (ClassNotFoundException e) {</b>
+<b class="nc"><i class="no-highlight">394</i>&nbsp;                throw DbCompat.unexpectedException(e);</b>
+<b class="nc"><i class="no-highlight">395</i>&nbsp;            }</b>
+<i class="no-highlight">396</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">397</i>&nbsp;        return type;</b>
+<i class="no-highlight">398</i>&nbsp;    }
+<i class="no-highlight">399</i>&nbsp;
+<i class="no-highlight">400</i>&nbsp;    /**
+<i class="no-highlight">401</i>&nbsp;     * Returns the object for reading objects of the latest format.  For the
+<i class="no-highlight">402</i>&nbsp;     * latest version format, &#39;this&#39; is returned.  For prior version formats, a
+<i class="no-highlight">403</i>&nbsp;     * reader that converts this version to the latest version is returned.
+<i class="no-highlight">404</i>&nbsp;     */
+<i class="no-highlight">405</i>&nbsp;    final Reader getReader() {
+<i class="no-highlight">406</i>&nbsp;
+<i class="no-highlight">407</i>&nbsp;        /*
+<i class="no-highlight">408</i>&nbsp;         * For unit testing, record whether any un-evolved formats are
+<i class="no-highlight">409</i>&nbsp;         * encountered.
+<i class="no-highlight">410</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">411</i>&nbsp;        if (this != reader) {</b>
+<b class="nc"><i class="no-highlight">412</i>&nbsp;            PersistCatalog.unevolvedFormatsEncountered = true;</b>
+<i class="no-highlight">413</i>&nbsp;        }
+<i class="no-highlight">414</i>&nbsp;
+<b class="nc"><i class="no-highlight">415</i>&nbsp;        return reader;</b>
+<i class="no-highlight">416</i>&nbsp;    }
+<i class="no-highlight">417</i>&nbsp;
+<i class="no-highlight">418</i>&nbsp;    /**
+<i class="no-highlight">419</i>&nbsp;     * Changes the reader during format evolution.
+<i class="no-highlight">420</i>&nbsp;     */
+<i class="no-highlight">421</i>&nbsp;    final void setReader(Reader reader) {
+<b class="nc"><i class="no-highlight">422</i>&nbsp;        this.reader = reader;</b>
+<i class="no-highlight">423</i>&nbsp;    }
+<i class="no-highlight">424</i>&nbsp;
+<i class="no-highlight">425</i>&nbsp;    /**
+<i class="no-highlight">426</i>&nbsp;     * Returns the format of the superclass.
+<i class="no-highlight">427</i>&nbsp;     */
+<i class="no-highlight">428</i>&nbsp;    final Format getSuperFormat() {
+<b class="nc"><i class="no-highlight">429</i>&nbsp;        return superFormat;</b>
+<i class="no-highlight">430</i>&nbsp;    }
+<i class="no-highlight">431</i>&nbsp;
+<i class="no-highlight">432</i>&nbsp;    /**
+<i class="no-highlight">433</i>&nbsp;     * Called to set the format of the superclass during initialize().
+<i class="no-highlight">434</i>&nbsp;     */
+<i class="no-highlight">435</i>&nbsp;    final void setSuperFormat(Format superFormat) {
+<b class="nc"><i class="no-highlight">436</i>&nbsp;        this.superFormat = superFormat;</b>
+<i class="no-highlight">437</i>&nbsp;    }
+<i class="no-highlight">438</i>&nbsp;
+<i class="no-highlight">439</i>&nbsp;    /**
+<i class="no-highlight">440</i>&nbsp;     * Returns the format that is proxied by this format.  If non-null is
+<i class="no-highlight">441</i>&nbsp;     * returned, then this format is a PersistentProxy.
+<i class="no-highlight">442</i>&nbsp;     */
+<i class="no-highlight">443</i>&nbsp;    final Format getProxiedFormat() {
+<b class="nc"><i class="no-highlight">444</i>&nbsp;        return proxiedFormat;</b>
+<i class="no-highlight">445</i>&nbsp;    }
+<i class="no-highlight">446</i>&nbsp;
+<i class="no-highlight">447</i>&nbsp;    /**
+<i class="no-highlight">448</i>&nbsp;     * Called by ProxiedFormat to set the proxied format.
+<i class="no-highlight">449</i>&nbsp;     */
+<i class="no-highlight">450</i>&nbsp;    final void setProxiedFormat(Format proxiedFormat) {
+<b class="nc"><i class="no-highlight">451</i>&nbsp;        this.proxiedFormat = proxiedFormat;</b>
+<i class="no-highlight">452</i>&nbsp;    }
+<i class="no-highlight">453</i>&nbsp;
+<i class="no-highlight">454</i>&nbsp;    /**
+<i class="no-highlight">455</i>&nbsp;     * If this is the latest/evolved format, returns this; otherwise, returns
+<i class="no-highlight">456</i>&nbsp;     * the current version of this format.  Note that this WILL return a
+<i class="no-highlight">457</i>&nbsp;     * format for a deleted class if the latest format happens to be deleted.
+<i class="no-highlight">458</i>&nbsp;     */
+<i class="no-highlight">459</i>&nbsp;    final Format getLatestVersion() {
+<b class="nc"><i class="no-highlight">460</i>&nbsp;        return latestFormat;</b>
+<i class="no-highlight">461</i>&nbsp;    }
+<i class="no-highlight">462</i>&nbsp;
+<i class="no-highlight">463</i>&nbsp;    /**
+<i class="no-highlight">464</i>&nbsp;     * Returns the previous version of this format in the linked list of
+<i class="no-highlight">465</i>&nbsp;     * versions, or null if this is the only version.
+<i class="no-highlight">466</i>&nbsp;     */
+<i class="no-highlight">467</i>&nbsp;    public final Format getPreviousVersion() {
+<b class="nc"><i class="no-highlight">468</i>&nbsp;        return previousFormat;</b>
+<i class="no-highlight">469</i>&nbsp;    }
+<i class="no-highlight">470</i>&nbsp;
+<i class="no-highlight">471</i>&nbsp;    /**
+<i class="no-highlight">472</i>&nbsp;     * Called by Evolver to set the latest format when this old format is
+<i class="no-highlight">473</i>&nbsp;     * evolved.
+<i class="no-highlight">474</i>&nbsp;     */
+<i class="no-highlight">475</i>&nbsp;    final void setLatestVersion(Format newFormat) {
+<i class="no-highlight">476</i>&nbsp;
+<i class="no-highlight">477</i>&nbsp;        /*
+<i class="no-highlight">478</i>&nbsp;         * If this old format is the former latest version, link it to the new
+<i class="no-highlight">479</i>&nbsp;         * latest version.  This creates a singly linked list of versions
+<i class="no-highlight">480</i>&nbsp;         * starting with the latest.
+<i class="no-highlight">481</i>&nbsp;         */
+<b class="nc"><i class="no-highlight">482</i>&nbsp;        if (latestFormat == this) {</b>
+<b class="nc"><i class="no-highlight">483</i>&nbsp;            newFormat.previousFormat = this;</b>
+<i class="no-highlight">484</i>&nbsp;        }
+<i class="no-highlight">485</i>&nbsp;
+<b class="nc"><i class="no-highlight">486</i>&nbsp;        latestFormat = newFormat;</b>
+<i class="no-highlight">487</i>&nbsp;    }
+<i class="no-highlight">488</i>&nbsp;
+<i class="no-highlight">489</i>&nbsp;    /**
+<i class="no-highlight">490</i>&nbsp;     * Returns whether the class for this format was deleted.
+<i class="no-highlight">491</i>&nbsp;     */
+<i class="no-highlight">492</i>&nbsp;    public final boolean isDeleted() {
+<b class="nc"><i class="no-highlight">493</i>&nbsp;        return deleted;</b>
+<i class="no-highlight">494</i>&nbsp;    }
+<i class="no-highlight">495</i>&nbsp;
+<i class="no-highlight">496</i>&nbsp;    /**
+<i class="no-highlight">497</i>&nbsp;     * Called by the Evolver when applying a Deleter mutation.
+<i class="no-highlight">498</i>&nbsp;     */
+<i class="no-highlight">499</i>&nbsp;    final void setDeleted(boolean deleted) {
+<b class="nc"><i class="no-highlight">500</i>&nbsp;        this.deleted = deleted;</b>
+<i class="no-highlight">501</i>&nbsp;    }
+<i class="no-highlight">502</i>&nbsp;
+<i class="no-highlight">503</i>&nbsp;    /**
+<i class="no-highlight">504</i>&nbsp;     * Called by the Evolver for a format that is never referenced.
+<i class="no-highlight">505</i>&nbsp;     */
+<i class="no-highlight">506</i>&nbsp;    final void setUnused(boolean unused) {
+<b class="nc"><i class="no-highlight">507</i>&nbsp;        this.unused = unused;</b>
+<i class="no-highlight">508</i>&nbsp;    }
+<i class="no-highlight">509</i>&nbsp;
+<i class="no-highlight">510</i>&nbsp;    /**
+<i class="no-highlight">511</i>&nbsp;     * Called by the Evolver with true when an entity format or any of its
+<i class="no-highlight">512</i>&nbsp;     * nested format were changed.  Called by Store.evolve when an entity has
+<i class="no-highlight">513</i>&nbsp;     * been fully converted.  Overridden by ComplexFormat.
+<i class="no-highlight">514</i>&nbsp;     */
+<i class="no-highlight">515</i>&nbsp;    void setEvolveNeeded(boolean needed) {
+<b class="nc"><i class="no-highlight">516</i>&nbsp;        throw DbCompat.unexpectedState();</b>
+<i class="no-highlight">517</i>&nbsp;    }
+<i class="no-highlight">518</i>&nbsp;
+<i class="no-highlight">519</i>&nbsp;    /**
+<i class="no-highlight">520</i>&nbsp;     * Overridden by ComplexFormat.
+<i class="no-highlight">521</i>&nbsp;     */
+<i class="no-highlight">522</i>&nbsp;    boolean getEvolveNeeded() {
+<b class="nc"><i class="no-highlight">523</i>&nbsp;        throw DbCompat.unexpectedState();</b>
+<i class="no-highlight">524</i>&nbsp;    }
+<i class="no-highlight">525</i>&nbsp;
+<i class="no-highlight">526</i>&nbsp;    /**
+<i class="no-highlight">527</i>&nbsp;     * For an entity format, returns whether the entity was written using the
+<i class="no-highlight">528</i>&nbsp;     * new String format.  For a non-entity format, this method should not be
+<i class="no-highlight">529</i>&nbsp;     * called.
+<i class="no-highlight">530</i>&nbsp;     *
+<i class="no-highlight">531</i>&nbsp;     * Overridden by ComplexFormat.
+<i class="no-highlight">532</i>&nbsp;     */
+<i class="no-highlight">533</i>&nbsp;    boolean getNewStringFormat() {
+<b class="nc"><i class="no-highlight">534</i>&nbsp;        throw DbCompat.unexpectedState();</b>
+<i class="no-highlight">535</i>&nbsp;    }
+<i class="no-highlight">536</i>&nbsp;
+<i class="no-highlight">537</i>&nbsp;    final boolean isInitialized() {
+<b class="nc"><i class="no-highlight">538</i>&nbsp;        return initialized;</b>
+<i class="no-highlight">539</i>&nbsp;    }
+<i class="no-highlight">540</i>&nbsp;
+<i class="no-highlight">541</i>&nbsp;    /**
+<i class="no-highlight">542</i>&nbsp;     * Called by the Catalog to initialize a format, and may also be called
+<i class="no-highlight">543</i>&nbsp;     * during initialize() for a related format to ensure that the related
+<i class="no-highlight">544</i>&nbsp;     * format is initialized.  This latter case is allowed to support
+<i class="no-highlight">545</i>&nbsp;     * bidirectional dependencies.  This method will do nothing if the format
+<i class="no-highlight">546</i>&nbsp;     * is already intialized.
+<i class="no-highlight">547</i>&nbsp;     */
+<i class="no-highlight">548</i>&nbsp;    final void initializeIfNeeded(Catalog catalog, EntityModel model) {
+<b class="nc"><i class="no-highlight">549</i>&nbsp;        assert catalog != null;</b>
+<i class="no-highlight">550</i>&nbsp;
+<b class="nc"><i class="no-highlight">551</i>&nbsp;        if (!initialized) {</b>
+<b class="nc"><i class="no-highlight">552</i>&nbsp;            initialized = true;</b>
+<b class="nc"><i class="no-highlight">553</i>&nbsp;            this.catalog = catalog;</b>
+<i class="no-highlight">554</i>&nbsp;
+<i class="no-highlight">555</i>&nbsp;            /* Initialize objects serialized by an older Format class. */
+<b class="nc"><i class="no-highlight">556</i>&nbsp;            if (latestFormat == null) {</b>
+<b class="nc"><i class="no-highlight">557</i>&nbsp;                latestFormat = this;</b>
+<i class="no-highlight">558</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">559</i>&nbsp;            if (reader == null) {</b>
+<b class="nc"><i class="no-highlight">560</i>&nbsp;                reader = this;</b>
+<i class="no-highlight">561</i>&nbsp;            }
+<i class="no-highlight">562</i>&nbsp;
+<i class="no-highlight">563</i>&nbsp;            /*
+<i class="no-highlight">564</i>&nbsp;             * The class is only guaranteed to be available in live (not raw)
+<i class="no-highlight">565</i>&nbsp;             * mode, for the current version of the format.
+<i class="no-highlight">566</i>&nbsp;             */
+<b class="nc"><i class="no-highlight">567</i>&nbsp;            if (type == null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">568</i>&nbsp;                isCurrentVersion() &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">569</i>&nbsp;                (isSimple() || !catalog.isRawAccess())) {</b>
+<b class="nc"><i class="no-highlight">570</i>&nbsp;                getExistingType();</b>
+<i class="no-highlight">571</i>&nbsp;            }
+<i class="no-highlight">572</i>&nbsp;
+<i class="no-highlight">573</i>&nbsp;            /* Perform subclass-specific initialization. */
+<b class="nc"><i class="no-highlight">574</i>&nbsp;            initialize(catalog, model,</b>
+<b class="nc"><i class="no-highlight">575</i>&nbsp;                       catalog.getInitVersion(this, false /*forReader*/));</b>
+<b class="nc"><i class="no-highlight">576</i>&nbsp;            reader.initializeReader</b>
+<b class="nc"><i class="no-highlight">577</i>&nbsp;                (catalog, model,</b>
+<b class="nc"><i class="no-highlight">578</i>&nbsp;                 catalog.getInitVersion(this, true /*forReader*/),</b>
+<i class="no-highlight">579</i>&nbsp;                 this);
+<i class="no-highlight">580</i>&nbsp;        }
+<i class="no-highlight">581</i>&nbsp;    }
+<i class="no-highlight">582</i>&nbsp;
+<i class="no-highlight">583</i>&nbsp;    /**
+<i class="no-highlight">584</i>&nbsp;     * Called to initialize a separate Reader implementation.  This method is
+<i class="no-highlight">585</i>&nbsp;     * called when no separate Reader exists, and does nothing.
+<i class="no-highlight">586</i>&nbsp;     */
+<i class="no-highlight">587</i>&nbsp;    public void initializeReader(Catalog catalog,
+<i class="no-highlight">588</i>&nbsp;                                 EntityModel model,
+<i class="no-highlight">589</i>&nbsp;                                 int initVersion,
+<i class="no-highlight">590</i>&nbsp;                                 Format oldFormat) {
+<i class="no-highlight">591</i>&nbsp;    }
+<i class="no-highlight">592</i>&nbsp;
+<i class="no-highlight">593</i>&nbsp;    /**
+<i class="no-highlight">594</i>&nbsp;     * Adds all interfaces and superclasses to the supertypes set.
+<i class="no-highlight">595</i>&nbsp;     */
+<i class="no-highlight">596</i>&nbsp;    private void addSupertypes() {
+<b class="nc"><i class="no-highlight">597</i>&nbsp;        addInterfaces(type);</b>
+<b class="nc"><i class="no-highlight">598</i>&nbsp;        Class stype = type.getSuperclass();</b>
+<b class="nc"><i class="no-highlight">599</i>&nbsp;        while (stype != null &amp;&amp; stype != Object.class) {</b>
+<b class="nc"><i class="no-highlight">600</i>&nbsp;            supertypes.add(stype.getName());</b>
+<b class="nc"><i class="no-highlight">601</i>&nbsp;            addInterfaces(stype);</b>
+<b class="nc"><i class="no-highlight">602</i>&nbsp;            stype = stype.getSuperclass();</b>
+<i class="no-highlight">603</i>&nbsp;        }
+<i class="no-highlight">604</i>&nbsp;    }
+<i class="no-highlight">605</i>&nbsp;
+<i class="no-highlight">606</i>&nbsp;    /**
+<i class="no-highlight">607</i>&nbsp;     * Recursively adds interfaces to the supertypes set.
+<i class="no-highlight">608</i>&nbsp;     */
+<i class="no-highlight">609</i>&nbsp;    private void addInterfaces(Class cls) {
+<b class="nc"><i class="no-highlight">610</i>&nbsp;        Class[] interfaces = cls.getInterfaces();</b>
+<b class="nc"><i class="no-highlight">611</i>&nbsp;        for (Class iface : interfaces) {</b>
+<b class="nc"><i class="no-highlight">612</i>&nbsp;            if (iface != Enhanced.class) {</b>
+<b class="nc"><i class="no-highlight">613</i>&nbsp;                supertypes.add(iface.getName());</b>
+<b class="nc"><i class="no-highlight">614</i>&nbsp;                addInterfaces(iface);</b>
+<i class="no-highlight">615</i>&nbsp;            }
+<i class="no-highlight">616</i>&nbsp;        }
+<i class="no-highlight">617</i>&nbsp;    }
+<i class="no-highlight">618</i>&nbsp;
+<i class="no-highlight">619</i>&nbsp;    /**
+<i class="no-highlight">620</i>&nbsp;     * Certain formats (ProxiedFormat for example) prohibit nested fields that
+<i class="no-highlight">621</i>&nbsp;     * reference the parent object. [#15815]
+<i class="no-highlight">622</i>&nbsp;     */
+<i class="no-highlight">623</i>&nbsp;    boolean areNestedRefsProhibited() {
+<b class="nc"><i class="no-highlight">624</i>&nbsp;        return false;</b>
+<i class="no-highlight">625</i>&nbsp;    }
+<i class="no-highlight">626</i>&nbsp;
+<i class="no-highlight">627</i>&nbsp;    /* -- Start of RawType interface methods. -- */
+<i class="no-highlight">628</i>&nbsp;
+<i class="no-highlight">629</i>&nbsp;    public String getClassName() {
+<b class="nc"><i class="no-highlight">630</i>&nbsp;        return className;</b>
+<i class="no-highlight">631</i>&nbsp;    }
+<i class="no-highlight">632</i>&nbsp;
+<i class="no-highlight">633</i>&nbsp;    public int getVersion() {
+<b class="nc"><i class="no-highlight">634</i>&nbsp;        ClassMetadata meta = getClassMetadata();</b>
+<b class="nc"><i class="no-highlight">635</i>&nbsp;        if (meta != null) {</b>
+<b class="nc"><i class="no-highlight">636</i>&nbsp;            return meta.getVersion();</b>
+<i class="no-highlight">637</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">638</i>&nbsp;            return 0;</b>
+<i class="no-highlight">639</i>&nbsp;        }
+<i class="no-highlight">640</i>&nbsp;    }
+<i class="no-highlight">641</i>&nbsp;
+<i class="no-highlight">642</i>&nbsp;    public Format getSuperType() {
+<b class="nc"><i class="no-highlight">643</i>&nbsp;        return superFormat;</b>
+<i class="no-highlight">644</i>&nbsp;    }
+<i class="no-highlight">645</i>&nbsp;
+<i class="no-highlight">646</i>&nbsp;    /* -- RawType methods that are overridden as needed in subclasses. -- */
+<i class="no-highlight">647</i>&nbsp;
+<i class="no-highlight">648</i>&nbsp;    public boolean isSimple() {
+<b class="nc"><i class="no-highlight">649</i>&nbsp;        return false;</b>
+<i class="no-highlight">650</i>&nbsp;    }
+<i class="no-highlight">651</i>&nbsp;
+<i class="no-highlight">652</i>&nbsp;    public boolean isPrimitive() {
+<b class="nc"><i class="no-highlight">653</i>&nbsp;        return false;</b>
+<i class="no-highlight">654</i>&nbsp;    }
+<i class="no-highlight">655</i>&nbsp;
+<i class="no-highlight">656</i>&nbsp;    public boolean isEnum() {
+<b class="nc"><i class="no-highlight">657</i>&nbsp;        return false;</b>
+<i class="no-highlight">658</i>&nbsp;    }
+<i class="no-highlight">659</i>&nbsp;
+<i class="no-highlight">660</i>&nbsp;    public List&lt;String&gt; getEnumConstants() {
+<b class="nc"><i class="no-highlight">661</i>&nbsp;        return null;</b>
+<i class="no-highlight">662</i>&nbsp;    }
+<i class="no-highlight">663</i>&nbsp;
+<i class="no-highlight">664</i>&nbsp;    public boolean isArray() {
+<b class="nc"><i class="no-highlight">665</i>&nbsp;        return false;</b>
+<i class="no-highlight">666</i>&nbsp;    }
+<i class="no-highlight">667</i>&nbsp;
+<i class="no-highlight">668</i>&nbsp;    public int getDimensions() {
+<b class="nc"><i class="no-highlight">669</i>&nbsp;        return 0;</b>
+<i class="no-highlight">670</i>&nbsp;    }
+<i class="no-highlight">671</i>&nbsp;
+<i class="no-highlight">672</i>&nbsp;    public Format getComponentType() {
+<b class="nc"><i class="no-highlight">673</i>&nbsp;        return null;</b>
+<i class="no-highlight">674</i>&nbsp;    }
+<i class="no-highlight">675</i>&nbsp;
+<i class="no-highlight">676</i>&nbsp;    public Map&lt;String, RawField&gt; getFields() {
+<b class="nc"><i class="no-highlight">677</i>&nbsp;        return null;</b>
+<i class="no-highlight">678</i>&nbsp;    }
+<i class="no-highlight">679</i>&nbsp;
+<i class="no-highlight">680</i>&nbsp;    public ClassMetadata getClassMetadata() {
+<b class="nc"><i class="no-highlight">681</i>&nbsp;        return null;</b>
+<i class="no-highlight">682</i>&nbsp;    }
+<i class="no-highlight">683</i>&nbsp;
+<i class="no-highlight">684</i>&nbsp;    public EntityMetadata getEntityMetadata() {
+<b class="nc"><i class="no-highlight">685</i>&nbsp;        return null;</b>
+<i class="no-highlight">686</i>&nbsp;    }
+<i class="no-highlight">687</i>&nbsp;
+<i class="no-highlight">688</i>&nbsp;    /* -- End of RawType methods. -- */
+<i class="no-highlight">689</i>&nbsp;
+<i class="no-highlight">690</i>&nbsp;    /* -- Methods that may optionally be overridden by subclasses. -- */
+<i class="no-highlight">691</i>&nbsp;
+<i class="no-highlight">692</i>&nbsp;    /**
+<i class="no-highlight">693</i>&nbsp;     * Called by EntityOutput in rawAccess mode to determine whether an object
+<i class="no-highlight">694</i>&nbsp;     * type is allowed to be assigned to a given field type.
+<i class="no-highlight">695</i>&nbsp;     */
+<i class="no-highlight">696</i>&nbsp;    boolean isAssignableTo(Format format) {
+<b class="nc"><i class="no-highlight">697</i>&nbsp;        if (proxiedFormat != null) {</b>
+<b class="nc"><i class="no-highlight">698</i>&nbsp;            return proxiedFormat.isAssignableTo(format);</b>
+<i class="no-highlight">699</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">700</i>&nbsp;            return format == this ||</b>
+<i class="no-highlight">701</i>&nbsp;                   format.id == ID_OBJECT ||
+<b class="nc"><i class="no-highlight">702</i>&nbsp;                   supertypes.contains(format.className);</b>
+<i class="no-highlight">703</i>&nbsp;        }
+<i class="no-highlight">704</i>&nbsp;    }
+<i class="no-highlight">705</i>&nbsp;
+<i class="no-highlight">706</i>&nbsp;    /**
+<i class="no-highlight">707</i>&nbsp;     * For primitive types only, returns their associated wrapper type.
+<i class="no-highlight">708</i>&nbsp;     */
+<i class="no-highlight">709</i>&nbsp;    Format getWrapperFormat() {
+<b class="nc"><i class="no-highlight">710</i>&nbsp;        return null;</b>
+<i class="no-highlight">711</i>&nbsp;    }
+<i class="no-highlight">712</i>&nbsp;
+<i class="no-highlight">713</i>&nbsp;    /**
+<i class="no-highlight">714</i>&nbsp;     * Returns whether this format class is an entity class.
+<i class="no-highlight">715</i>&nbsp;     */
+<i class="no-highlight">716</i>&nbsp;    boolean isEntity() {
+<b class="nc"><i class="no-highlight">717</i>&nbsp;        return false;</b>
+<i class="no-highlight">718</i>&nbsp;    }
+<i class="no-highlight">719</i>&nbsp;
+<i class="no-highlight">720</i>&nbsp;    /**
+<i class="no-highlight">721</i>&nbsp;     * Returns whether this class is present in the EntityModel.  Returns false
+<i class="no-highlight">722</i>&nbsp;     * for a simple type, array type, or enum type.
+<i class="no-highlight">723</i>&nbsp;     */
+<i class="no-highlight">724</i>&nbsp;    boolean isModelClass() {
+<b class="nc"><i class="no-highlight">725</i>&nbsp;        return false;</b>
+<i class="no-highlight">726</i>&nbsp;    }
+<i class="no-highlight">727</i>&nbsp;
+<i class="no-highlight">728</i>&nbsp;    /**
+<i class="no-highlight">729</i>&nbsp;     * For an entity class or subclass, returns the base entity class; returns
+<i class="no-highlight">730</i>&nbsp;     * null in other cases.
+<i class="no-highlight">731</i>&nbsp;     */
+<i class="no-highlight">732</i>&nbsp;    ComplexFormat getEntityFormat() {
+<b class="nc"><i class="no-highlight">733</i>&nbsp;        return null;</b>
+<i class="no-highlight">734</i>&nbsp;    }
+<i class="no-highlight">735</i>&nbsp;
+<i class="no-highlight">736</i>&nbsp;    /**
+<i class="no-highlight">737</i>&nbsp;     * Called for an existing format that may not equal the current format for
+<i class="no-highlight">738</i>&nbsp;     * the same class.
+<i class="no-highlight">739</i>&nbsp;     *
+<i class="no-highlight">740</i>&nbsp;     * &lt;p&gt;If this method returns true, then it must have determined one of two
+<i class="no-highlight">741</i>&nbsp;     * things:
+<i class="no-highlight">742</i>&nbsp;     *  - that the old and new formats are equal, and it must have called
+<i class="no-highlight">743</i>&nbsp;     *  Evolver.useOldFormat; or
+<i class="no-highlight">744</i>&nbsp;     *  - that the old format can be evolved to the new format, and it must
+<i class="no-highlight">745</i>&nbsp;     *  have called Evolver.useEvolvedFormat.&lt;/p&gt;
+<i class="no-highlight">746</i>&nbsp;     *
+<i class="no-highlight">747</i>&nbsp;     * &lt;p&gt;If this method returns false, then it must have determined that the
+<i class="no-highlight">748</i>&nbsp;     * old format could not be evolved to the new format, and it must have
+<i class="no-highlight">749</i>&nbsp;     * called Evolver.addInvalidMutation, addMissingMutation or
+<i class="no-highlight">750</i>&nbsp;     * addEvolveError.&lt;/p&gt;
+<i class="no-highlight">751</i>&nbsp;     */
+<i class="no-highlight">752</i>&nbsp;    abstract boolean evolve(Format newFormat, Evolver evolver);
+<i class="no-highlight">753</i>&nbsp;
+<i class="no-highlight">754</i>&nbsp;    /**
+<i class="no-highlight">755</i>&nbsp;     * Called when a Converter handles evolution of a class, but we may still
+<i class="no-highlight">756</i>&nbsp;     * need to evolve the metadata.
+<i class="no-highlight">757</i>&nbsp;     */
+<i class="no-highlight">758</i>&nbsp;    boolean evolveMetadata(Format newFormat,
+<i class="no-highlight">759</i>&nbsp;                           Converter converter,
+<i class="no-highlight">760</i>&nbsp;                           Evolver evolver) {
+<b class="nc"><i class="no-highlight">761</i>&nbsp;        return true;</b>
+<i class="no-highlight">762</i>&nbsp;    }
+<i class="no-highlight">763</i>&nbsp;
+<i class="no-highlight">764</i>&nbsp;    /**
+<i class="no-highlight">765</i>&nbsp;     * Returns whether this format is the current format for its class.  If
+<i class="no-highlight">766</i>&nbsp;     * false is returned, this format is setup to evolve to the current format.
+<i class="no-highlight">767</i>&nbsp;     */
+<i class="no-highlight">768</i>&nbsp;    final boolean isCurrentVersion() {
+<b class="nc"><i class="no-highlight">769</i>&nbsp;        return latestFormat == this &amp;&amp; !deleted;</b>
+<i class="no-highlight">770</i>&nbsp;    }
+<i class="no-highlight">771</i>&nbsp;
+<i class="no-highlight">772</i>&nbsp;    /**
+<i class="no-highlight">773</i>&nbsp;     * Returns whether this format has the same class as the given format,
+<i class="no-highlight">774</i>&nbsp;     * irrespective of version changes and renaming.
+<i class="no-highlight">775</i>&nbsp;     */
+<i class="no-highlight">776</i>&nbsp;    final boolean isSameClass(Format other) {
+<b class="nc"><i class="no-highlight">777</i>&nbsp;        return latestFormat == other.latestFormat;</b>
+<i class="no-highlight">778</i>&nbsp;    }
+<i class="no-highlight">779</i>&nbsp;
+<i class="no-highlight">780</i>&nbsp;    /* -- Abstract methods that must be implemented by subclasses. -- */
+<i class="no-highlight">781</i>&nbsp;
+<i class="no-highlight">782</i>&nbsp;    /**
+<i class="no-highlight">783</i>&nbsp;     * Initializes an uninitialized format, initializing its related formats
+<i class="no-highlight">784</i>&nbsp;     * (superclass formats and array component formats) first.
+<i class="no-highlight">785</i>&nbsp;     */
+<i class="no-highlight">786</i>&nbsp;    abstract void initialize(Catalog catalog,
+<i class="no-highlight">787</i>&nbsp;                             EntityModel model,
+<i class="no-highlight">788</i>&nbsp;                             int initVersion);
+<i class="no-highlight">789</i>&nbsp;
+<i class="no-highlight">790</i>&nbsp;    /**
+<i class="no-highlight">791</i>&nbsp;     * Calls catalog.createFormat for formats that this format depends on, or
+<i class="no-highlight">792</i>&nbsp;     * that should also be persistent.
+<i class="no-highlight">793</i>&nbsp;     */
+<i class="no-highlight">794</i>&nbsp;    abstract void collectRelatedFormats(Catalog catalog,
+<i class="no-highlight">795</i>&nbsp;                                        Map&lt;String, Format&gt; newFormats);
+<i class="no-highlight">796</i>&nbsp;
+<i class="no-highlight">797</i>&nbsp;    /*
+<i class="no-highlight">798</i>&nbsp;     * The remaining methods are used to read objects from data bytes via
+<i class="no-highlight">799</i>&nbsp;     * EntityInput, and to write objects as data bytes via EntityOutput.
+<i class="no-highlight">800</i>&nbsp;     * Ultimately these methods call methods in the Accessor interface to
+<i class="no-highlight">801</i>&nbsp;     * get/set fields in the object.  Most methods have a rawAccess parameter
+<i class="no-highlight">802</i>&nbsp;     * that determines whether the object is a raw object or a real persistent
+<i class="no-highlight">803</i>&nbsp;     * object.
+<i class="no-highlight">804</i>&nbsp;     *
+<i class="no-highlight">805</i>&nbsp;     * The first group of methods are abstract and must be implemented by
+<i class="no-highlight">806</i>&nbsp;     * format classes.  The second group have default implementations that
+<i class="no-highlight">807</i>&nbsp;     * throw UnsupportedOperationException and may optionally be overridden.
+<i class="no-highlight">808</i>&nbsp;     */
+<i class="no-highlight">809</i>&nbsp;
+<i class="no-highlight">810</i>&nbsp;    /**
+<i class="no-highlight">811</i>&nbsp;     * Creates an array of the format&#39;s class of the given length, as if
+<i class="no-highlight">812</i>&nbsp;     * Array.newInstance(getType(), len) were called.  Formats implement this
+<i class="no-highlight">813</i>&nbsp;     * method for specific classes, or call the accessor, to avoid the
+<i class="no-highlight">814</i>&nbsp;     * reflection overhead of Array.newInstance.
+<i class="no-highlight">815</i>&nbsp;     */
+<i class="no-highlight">816</i>&nbsp;    abstract Object newArray(int len);
+<i class="no-highlight">817</i>&nbsp;
+<i class="no-highlight">818</i>&nbsp;    /**
+<i class="no-highlight">819</i>&nbsp;     * Creates a new instance of the target class using its default
+<i class="no-highlight">820</i>&nbsp;     * constructor.  Normally this creates an empty object, and readObject() is
+<i class="no-highlight">821</i>&nbsp;     * called next to fill in the contents.  This is done in two steps to allow
+<i class="no-highlight">822</i>&nbsp;     * the instance to be registered by EntityInput before reading the
+<i class="no-highlight">823</i>&nbsp;     * contents.  This allows the fields in an object or a nested object to
+<i class="no-highlight">824</i>&nbsp;     * refer to the parent object in a graph.
+<i class="no-highlight">825</i>&nbsp;     *
+<i class="no-highlight">826</i>&nbsp;     * Alternatively, this method may read all or the first portion of the
+<i class="no-highlight">827</i>&nbsp;     * data, rather than that being done by readObject().  This is required for
+<i class="no-highlight">828</i>&nbsp;     * simple types and enums, where the object cannot be created without
+<i class="no-highlight">829</i>&nbsp;     * reading the data.  In these cases, there is no possibility that the
+<i class="no-highlight">830</i>&nbsp;     * parent object will be referenced by the child object in the graph.  It
+<i class="no-highlight">831</i>&nbsp;     * should not be done in other cases, or the graph references may not be
+<i class="no-highlight">832</i>&nbsp;     * maintained faithfully.
+<i class="no-highlight">833</i>&nbsp;     *
+<i class="no-highlight">834</i>&nbsp;     * Is public only in order to implement the Reader interface.  Note that
+<i class="no-highlight">835</i>&nbsp;     * this method should only be called directly in raw conversion mode or
+<i class="no-highlight">836</i>&nbsp;     * during conversion of an old format.  Normally it should be called via
+<i class="no-highlight">837</i>&nbsp;     * the getReader method and the Reader interface.
+<i class="no-highlight">838</i>&nbsp;     */
+<i class="no-highlight">839</i>&nbsp;    public abstract Object newInstance(EntityInput input, boolean rawAccess)
+<i class="no-highlight">840</i>&nbsp;        throws RefreshException;
+<i class="no-highlight">841</i>&nbsp;
+<i class="no-highlight">842</i>&nbsp;    /**
+<i class="no-highlight">843</i>&nbsp;     * Called after newInstance() to read the rest of the data bytes and fill
+<i class="no-highlight">844</i>&nbsp;     * in the object contents.  If the object was read completely by
+<i class="no-highlight">845</i>&nbsp;     * newInstance(), this method does nothing.
+<i class="no-highlight">846</i>&nbsp;     *
+<i class="no-highlight">847</i>&nbsp;     * Is public only in order to implement the Reader interface.  Note that
+<i class="no-highlight">848</i>&nbsp;     * this method should only be called directly in raw conversion mode or
+<i class="no-highlight">849</i>&nbsp;     * during conversion of an old format.  Normally it should be called via
+<i class="no-highlight">850</i>&nbsp;     * the getReader method and the Reader interface.
+<i class="no-highlight">851</i>&nbsp;     */
+<i class="no-highlight">852</i>&nbsp;    public abstract Object readObject(Object o,
+<i class="no-highlight">853</i>&nbsp;                                      EntityInput input,
+<i class="no-highlight">854</i>&nbsp;                                      boolean rawAccess)
+<i class="no-highlight">855</i>&nbsp;        throws RefreshException;
+<i class="no-highlight">856</i>&nbsp;
+<i class="no-highlight">857</i>&nbsp;    /**
+<i class="no-highlight">858</i>&nbsp;     * Writes a given instance of the target class to the output data bytes.
+<i class="no-highlight">859</i>&nbsp;     * This is the complement of the newInstance()/readObject() pair.
+<i class="no-highlight">860</i>&nbsp;     */
+<i class="no-highlight">861</i>&nbsp;    abstract void writeObject(Object o, EntityOutput output, boolean rawAccess)
+<i class="no-highlight">862</i>&nbsp;        throws RefreshException;
+<i class="no-highlight">863</i>&nbsp;
+<i class="no-highlight">864</i>&nbsp;    /**
+<i class="no-highlight">865</i>&nbsp;     * Skips over the object&#39;s contents, as if readObject() were called, but
+<i class="no-highlight">866</i>&nbsp;     * without returning an object.  Used for extracting secondary key bytes
+<i class="no-highlight">867</i>&nbsp;     * without having to instantiate the object.  For reference types, the
+<i class="no-highlight">868</i>&nbsp;     * format ID is read just before calling this method, so this method is
+<i class="no-highlight">869</i>&nbsp;     * responsible for skipping everything following the format ID.
+<i class="no-highlight">870</i>&nbsp;     */
+<i class="no-highlight">871</i>&nbsp;    abstract void skipContents(RecordInput input)
+<i class="no-highlight">872</i>&nbsp;        throws RefreshException;
+<i class="no-highlight">873</i>&nbsp;
+<i class="no-highlight">874</i>&nbsp;    /* -- More methods that may optionally be overridden by subclasses. -- */
+<i class="no-highlight">875</i>&nbsp;
+<i class="no-highlight">876</i>&nbsp;    /**
+<i class="no-highlight">877</i>&nbsp;     * When extracting a secondary key, called to skip over all fields up to
+<i class="no-highlight">878</i>&nbsp;     * the given secondary key field.  Returns the format of the key field
+<i class="no-highlight">879</i>&nbsp;     * found, or null if the field is not present (nullified) in the object.
+<i class="no-highlight">880</i>&nbsp;     */
+<i class="no-highlight">881</i>&nbsp;    Format skipToSecKey(RecordInput input, String keyName)
+<i class="no-highlight">882</i>&nbsp;        throws RefreshException {
+<i class="no-highlight">883</i>&nbsp;
+<b class="nc"><i class="no-highlight">884</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">885</i>&nbsp;    }
+<i class="no-highlight">886</i>&nbsp;
+<i class="no-highlight">887</i>&nbsp;    /**
+<i class="no-highlight">888</i>&nbsp;     * Called after skipToSecKey() to copy the data bytes of a singular
+<i class="no-highlight">889</i>&nbsp;     * (XXX_TO_ONE) key field.
+<i class="no-highlight">890</i>&nbsp;     */
+<i class="no-highlight">891</i>&nbsp;    void copySecKey(RecordInput input, RecordOutput output) {
+<b class="nc"><i class="no-highlight">892</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">893</i>&nbsp;    }
+<i class="no-highlight">894</i>&nbsp;
+<i class="no-highlight">895</i>&nbsp;    /**
+<i class="no-highlight">896</i>&nbsp;     * Called after skipToSecKey() to copy the data bytes of an array or
+<i class="no-highlight">897</i>&nbsp;     * collection (XXX_TO_MANY) key field.
+<i class="no-highlight">898</i>&nbsp;     */
+<i class="no-highlight">899</i>&nbsp;    void copySecMultiKey(RecordInput input, Format keyFormat, Set results)
+<i class="no-highlight">900</i>&nbsp;        throws RefreshException {
+<i class="no-highlight">901</i>&nbsp;
+<b class="nc"><i class="no-highlight">902</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">903</i>&nbsp;    }
+<i class="no-highlight">904</i>&nbsp;
+<i class="no-highlight">905</i>&nbsp;    /**
+<i class="no-highlight">906</i>&nbsp;     * Nullifies the given key field in the given RawObject --  rawAccess mode
+<i class="no-highlight">907</i>&nbsp;     * is implied.
+<i class="no-highlight">908</i>&nbsp;     */
+<i class="no-highlight">909</i>&nbsp;    boolean nullifySecKey(Catalog catalog,
+<i class="no-highlight">910</i>&nbsp;                          Object entity,
+<i class="no-highlight">911</i>&nbsp;                          String keyName,
+<i class="no-highlight">912</i>&nbsp;                          Object keyElement) {
+<b class="nc"><i class="no-highlight">913</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">914</i>&nbsp;    }
+<i class="no-highlight">915</i>&nbsp;
+<i class="no-highlight">916</i>&nbsp;    /**
+<i class="no-highlight">917</i>&nbsp;     * Returns whether the entity&#39;s primary key field is null or zero, as
+<i class="no-highlight">918</i>&nbsp;     * defined for primary keys that are assigned from a sequence.
+<i class="no-highlight">919</i>&nbsp;     */
+<i class="no-highlight">920</i>&nbsp;    boolean isPriKeyNullOrZero(Object o, boolean rawAccess) {
+<b class="nc"><i class="no-highlight">921</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">922</i>&nbsp;    }
+<i class="no-highlight">923</i>&nbsp;
+<i class="no-highlight">924</i>&nbsp;    /**
+<i class="no-highlight">925</i>&nbsp;     * Gets the primary key field from the given object and writes it to the
+<i class="no-highlight">926</i>&nbsp;     * given output data bytes.  This is a separate operation because the
+<i class="no-highlight">927</i>&nbsp;     * primary key data bytes are stored separately from the rest of the
+<i class="no-highlight">928</i>&nbsp;     * record.
+<i class="no-highlight">929</i>&nbsp;     */
+<i class="no-highlight">930</i>&nbsp;    void writePriKey(Object o, EntityOutput output, boolean rawAccess)
+<i class="no-highlight">931</i>&nbsp;        throws RefreshException {
+<i class="no-highlight">932</i>&nbsp;
+<b class="nc"><i class="no-highlight">933</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">934</i>&nbsp;    }
+<i class="no-highlight">935</i>&nbsp;
+<i class="no-highlight">936</i>&nbsp;    /**
+<i class="no-highlight">937</i>&nbsp;     * Reads the primary key from the given input bytes and sets the primary
+<i class="no-highlight">938</i>&nbsp;     * key field in the given object.  This is complement of writePriKey().
+<i class="no-highlight">939</i>&nbsp;     *
+<i class="no-highlight">940</i>&nbsp;     * Is public only in order to implement the Reader interface.  Note that
+<i class="no-highlight">941</i>&nbsp;     * this method should only be called directly in raw conversion mode or
+<i class="no-highlight">942</i>&nbsp;     * during conversion of an old format.  Normally it should be called via
+<i class="no-highlight">943</i>&nbsp;     * the getReader method and the Reader interface.
+<i class="no-highlight">944</i>&nbsp;     */
+<i class="no-highlight">945</i>&nbsp;    public void readPriKey(Object o, EntityInput input, boolean rawAccess)
+<i class="no-highlight">946</i>&nbsp;        throws RefreshException {
+<i class="no-highlight">947</i>&nbsp;
+<b class="nc"><i class="no-highlight">948</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">949</i>&nbsp;    }
+<i class="no-highlight">950</i>&nbsp;
+<i class="no-highlight">951</i>&nbsp;    /**
+<i class="no-highlight">952</i>&nbsp;     * For an entity class or subclass, returns the old key name for the given
+<i class="no-highlight">953</i>&nbsp;     * key name that has been renamed, or returns the given key name if it has
+<i class="no-highlight">954</i>&nbsp;     * not been renamed.
+<i class="no-highlight">955</i>&nbsp;     */
+<i class="no-highlight">956</i>&nbsp;    public String getOldKeyName(final String keyName) {
+<b class="nc"><i class="no-highlight">957</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">958</i>&nbsp;    }
+<i class="no-highlight">959</i>&nbsp;
+<i class="no-highlight">960</i>&nbsp;    /**
+<i class="no-highlight">961</i>&nbsp;     * Validates and returns the simple integer key format for a sequence key
+<i class="no-highlight">962</i>&nbsp;     * associated with this format.
+<i class="no-highlight">963</i>&nbsp;     *
+<i class="no-highlight">964</i>&nbsp;     * For a composite key type, the format of the one and only field is
+<i class="no-highlight">965</i>&nbsp;     * returned.  For a simple integer type, this format is returned.
+<i class="no-highlight">966</i>&nbsp;     * Otherwise (the default implementation), an IllegalArgumentException is
+<i class="no-highlight">967</i>&nbsp;     * thrown.
+<i class="no-highlight">968</i>&nbsp;     */
+<i class="no-highlight">969</i>&nbsp;    Format getSequenceKeyFormat() {
+<b class="nc"><i class="no-highlight">970</i>&nbsp;        throw new IllegalArgumentException</b>
+<b class="nc"><i class="no-highlight">971</i>&nbsp;            (&quot;Type not allowed for sequence: &quot; + getClassName());</b>
+<i class="no-highlight">972</i>&nbsp;    }
+<i class="no-highlight">973</i>&nbsp;
+<i class="no-highlight">974</i>&nbsp;    /**
+<i class="no-highlight">975</i>&nbsp;     * Converts a RawObject to a current class object and adds the converted
+<i class="no-highlight">976</i>&nbsp;     * pair to the converted map.
+<i class="no-highlight">977</i>&nbsp;     */
+<i class="no-highlight">978</i>&nbsp;    Object convertRawObject(Catalog catalog,
+<i class="no-highlight">979</i>&nbsp;                            boolean rawAccess,
+<i class="no-highlight">980</i>&nbsp;                            RawObject rawObject,
+<i class="no-highlight">981</i>&nbsp;                            IdentityHashMap converted)
+<i class="no-highlight">982</i>&nbsp;        throws RefreshException {
+<i class="no-highlight">983</i>&nbsp;
+<b class="nc"><i class="no-highlight">984</i>&nbsp;        throw DbCompat.unexpectedState(toString());</b>
+<i class="no-highlight">985</i>&nbsp;    }
+<i class="no-highlight">986</i>&nbsp;    
+<i class="no-highlight">987</i>&nbsp;    /**
+<i class="no-highlight">988</i>&nbsp;     * Currently, only FBigDec will return true. It is a workaround for reading
+<i class="no-highlight">989</i>&nbsp;     * the BigDecimal data stored by BigDecimal proxy before je4.1.
+<i class="no-highlight">990</i>&nbsp;     */
+<i class="no-highlight">991</i>&nbsp;    public boolean allowEvolveFromProxy() {
+<b class="nc"><i class="no-highlight">992</i>&nbsp;        return false;</b>
+<i class="no-highlight">993</i>&nbsp;    }
+<i class="no-highlight">994</i>&nbsp;    
+<i class="no-highlight">995</i>&nbsp;    public Accessor getAccessor(boolean rawAccess) {
+<b class="nc"><i class="no-highlight">996</i>&nbsp;        return null;</b>
+<i class="no-highlight">997</i>&nbsp;    }
+<i class="no-highlight">998</i>&nbsp;
+<i class="no-highlight">999</i>&nbsp;    @Override
+<i class="no-highlight">1000</i>&nbsp;    public String toString() {
+<b class="nc"><i class="no-highlight">1001</i>&nbsp;        final String INDENT = &quot;  &quot;;</b>
+<b class="nc"><i class="no-highlight">1002</i>&nbsp;        final String INDENT2 = INDENT + &quot;  &quot;;</b>
+<b class="nc"><i class="no-highlight">1003</i>&nbsp;        StringBuilder buf = new StringBuilder(500);</b>
+<b class="nc"><i class="no-highlight">1004</i>&nbsp;        if (isSimple()) {</b>
+<b class="nc"><i class="no-highlight">1005</i>&nbsp;            addTypeHeader(buf, &quot;SimpleType&quot;);</b>
+<b class="nc"><i class="no-highlight">1006</i>&nbsp;            buf.append(&quot; primitive=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1007</i>&nbsp;            buf.append(isPrimitive());</b>
+<b class="nc"><i class="no-highlight">1008</i>&nbsp;            buf.append(&quot;\&quot;/&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1009</i>&nbsp;        } else if (isEnum()) {</b>
+<b class="nc"><i class="no-highlight">1010</i>&nbsp;            addTypeHeader(buf, &quot;EnumType&quot;);</b>
+<b class="nc"><i class="no-highlight">1011</i>&nbsp;            buf.append(&quot;&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1012</i>&nbsp;            for (String constant : getEnumConstants()) {</b>
+<b class="nc"><i class="no-highlight">1013</i>&nbsp;                buf.append(INDENT);</b>
+<b class="nc"><i class="no-highlight">1014</i>&nbsp;                buf.append(&quot;&lt;Constant&gt;&quot;);</b>
+<b class="nc"><i class="no-highlight">1015</i>&nbsp;                buf.append(constant);</b>
+<b class="nc"><i class="no-highlight">1016</i>&nbsp;                buf.append(&quot;&lt;/Constant&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1017</i>&nbsp;            }</b>
+<b class="nc"><i class="no-highlight">1018</i>&nbsp;            buf.append(&quot;&lt;/EnumType&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1019</i>&nbsp;        } else if (isArray()) {</b>
+<b class="nc"><i class="no-highlight">1020</i>&nbsp;            addTypeHeader(buf, &quot;ArrayType&quot;);</b>
+<b class="nc"><i class="no-highlight">1021</i>&nbsp;            buf.append(&quot; componentId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1022</i>&nbsp;            buf.append(getComponentType().getVersion());</b>
+<b class="nc"><i class="no-highlight">1023</i>&nbsp;            buf.append(&quot;\&quot; componentClass=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1024</i>&nbsp;            buf.append(getComponentType().getClassName());</b>
+<b class="nc"><i class="no-highlight">1025</i>&nbsp;            buf.append(&quot;\&quot; dimensions=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1026</i>&nbsp;            buf.append(getDimensions());</b>
+<b class="nc"><i class="no-highlight">1027</i>&nbsp;            buf.append(&quot;\&quot;/&gt;\n&quot;);</b>
+<i class="no-highlight">1028</i>&nbsp;        } else {
+<b class="nc"><i class="no-highlight">1029</i>&nbsp;            addTypeHeader(buf, &quot;ComplexType&quot;);</b>
+<b class="nc"><i class="no-highlight">1030</i>&nbsp;            Format superType = getSuperType();</b>
+<b class="nc"><i class="no-highlight">1031</i>&nbsp;            if (superType != null) {</b>
+<b class="nc"><i class="no-highlight">1032</i>&nbsp;                buf.append(&quot; superTypeId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1033</i>&nbsp;                buf.append(superType.getId());</b>
+<b class="nc"><i class="no-highlight">1034</i>&nbsp;                buf.append(&quot;\&quot; superTypeClass=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1035</i>&nbsp;                buf.append(superType.getClassName());</b>
+<b class="nc"><i class="no-highlight">1036</i>&nbsp;                buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1037</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1038</i>&nbsp;            Format proxiedFormat = getProxiedFormat();</b>
+<b class="nc"><i class="no-highlight">1039</i>&nbsp;            if (proxiedFormat != null) {</b>
+<b class="nc"><i class="no-highlight">1040</i>&nbsp;                buf.append(&quot; proxiedTypeId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1041</i>&nbsp;                buf.append(proxiedFormat.getId());</b>
+<b class="nc"><i class="no-highlight">1042</i>&nbsp;                buf.append(&quot;\&quot; proxiedTypeClass=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1043</i>&nbsp;                buf.append(proxiedFormat.getClassName());</b>
+<b class="nc"><i class="no-highlight">1044</i>&nbsp;                buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1045</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1046</i>&nbsp;            PrimaryKeyMetadata priMeta = null;</b>
+<b class="nc"><i class="no-highlight">1047</i>&nbsp;            Map&lt;String, SecondaryKeyMetadata&gt; secondaryKeys = null;</b>
+<b class="nc"><i class="no-highlight">1048</i>&nbsp;            List&lt;FieldMetadata&gt; compositeKeyFields = null;</b>
+<b class="nc"><i class="no-highlight">1049</i>&nbsp;            ClassMetadata clsMeta = getClassMetadata();</b>
+<b class="nc"><i class="no-highlight">1050</i>&nbsp;            if (clsMeta != null) {</b>
+<b class="nc"><i class="no-highlight">1051</i>&nbsp;                compositeKeyFields = clsMeta.getCompositeKeyFields();</b>
+<b class="nc"><i class="no-highlight">1052</i>&nbsp;                priMeta = clsMeta.getPrimaryKey();</b>
+<b class="nc"><i class="no-highlight">1053</i>&nbsp;                secondaryKeys = clsMeta.getSecondaryKeys();</b>
+<i class="no-highlight">1054</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1055</i>&nbsp;            buf.append(&quot; kind=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1056</i>&nbsp;            buf.append(isEntity() ? &quot;entity&quot; :</b>
+<i class="no-highlight">1057</i>&nbsp;                       ((compositeKeyFields != null) ? &quot;compositeKey&quot; :
+<i class="no-highlight">1058</i>&nbsp;                        &quot;persistent&quot;));
+<b class="nc"><i class="no-highlight">1059</i>&nbsp;            buf.append(&quot;\&quot;&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1060</i>&nbsp;            Map&lt;String, RawField&gt; fields = getFields();</b>
+<b class="nc"><i class="no-highlight">1061</i>&nbsp;            if (fields != null) {</b>
+<b class="nc"><i class="no-highlight">1062</i>&nbsp;                for (RawField field : fields.values()) {</b>
+<b class="nc"><i class="no-highlight">1063</i>&nbsp;                    String name = field.getName();</b>
+<b class="nc"><i class="no-highlight">1064</i>&nbsp;                    RawType type = field.getType();</b>
+<b class="nc"><i class="no-highlight">1065</i>&nbsp;                    buf.append(INDENT);</b>
+<b class="nc"><i class="no-highlight">1066</i>&nbsp;                    buf.append(&quot;&lt;Field&quot;);</b>
+<b class="nc"><i class="no-highlight">1067</i>&nbsp;                    buf.append(&quot; name=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1068</i>&nbsp;                    buf.append(name);</b>
+<b class="nc"><i class="no-highlight">1069</i>&nbsp;                    buf.append(&quot;\&quot; typeId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1070</i>&nbsp;                    buf.append(type.getId());</b>
+<b class="nc"><i class="no-highlight">1071</i>&nbsp;                    buf.append(&quot;\&quot; typeClass=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1072</i>&nbsp;                    buf.append(type.getClassName());</b>
+<b class="nc"><i class="no-highlight">1073</i>&nbsp;                    buf.append(&#39;&quot;&#39;);</b>
+<b class="nc"><i class="no-highlight">1074</i>&nbsp;                    if (priMeta != null &amp;&amp;</b>
+<b class="nc"><i class="no-highlight">1075</i>&nbsp;                        priMeta.getName().equals(name)) {</b>
+<b class="nc"><i class="no-highlight">1076</i>&nbsp;                        buf.append(&quot; primaryKey=\&quot;true\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1077</i>&nbsp;                        if (priMeta.getSequenceName() != null) {</b>
+<b class="nc"><i class="no-highlight">1078</i>&nbsp;                            buf.append(&quot; sequence=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1079</i>&nbsp;                            buf.append(priMeta.getSequenceName());</b>
+<b class="nc"><i class="no-highlight">1080</i>&nbsp;                            buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1081</i>&nbsp;                        }
+<i class="no-highlight">1082</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1083</i>&nbsp;                    if (secondaryKeys != null) {</b>
+<b class="nc"><i class="no-highlight">1084</i>&nbsp;                        SecondaryKeyMetadata secMeta =</b>
+<i class="no-highlight">1085</i>&nbsp;                            ComplexFormat.getSecondaryKeyMetadataByFieldName
+<b class="nc"><i class="no-highlight">1086</i>&nbsp;                                (secondaryKeys, name);</b>
+<b class="nc"><i class="no-highlight">1087</i>&nbsp;                        if (secMeta != null) {</b>
+<b class="nc"><i class="no-highlight">1088</i>&nbsp;                            buf.append(&quot; secondaryKey=\&quot;true\&quot; keyName=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1089</i>&nbsp;                            buf.append(secMeta.getKeyName());</b>
+<b class="nc"><i class="no-highlight">1090</i>&nbsp;                            buf.append(&quot;\&quot; relate=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1091</i>&nbsp;                            buf.append(secMeta.getRelationship());</b>
+<b class="nc"><i class="no-highlight">1092</i>&nbsp;                            buf.append(&#39;&quot;&#39;);</b>
+<b class="nc"><i class="no-highlight">1093</i>&nbsp;                            String related = secMeta.getRelatedEntity();</b>
+<b class="nc"><i class="no-highlight">1094</i>&nbsp;                            if (related != null) {</b>
+<b class="nc"><i class="no-highlight">1095</i>&nbsp;                                buf.append(&quot;\&quot; relatedEntity=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1096</i>&nbsp;                                buf.append(related);</b>
+<b class="nc"><i class="no-highlight">1097</i>&nbsp;                                buf.append(&quot;\&quot; onRelatedEntityDelete=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1098</i>&nbsp;                                buf.append(secMeta.getDeleteAction());</b>
+<b class="nc"><i class="no-highlight">1099</i>&nbsp;                                buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1100</i>&nbsp;                            }
+<i class="no-highlight">1101</i>&nbsp;                        }
+<i class="no-highlight">1102</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1103</i>&nbsp;                    if (compositeKeyFields != null) {</b>
+<b class="nc"><i class="no-highlight">1104</i>&nbsp;                        int nFields = compositeKeyFields.size();</b>
+<b class="nc"><i class="no-highlight">1105</i>&nbsp;                        for (int i = 0; i &lt; nFields; i += 1) {</b>
+<b class="nc"><i class="no-highlight">1106</i>&nbsp;                            FieldMetadata fldMeta = compositeKeyFields.get(i);</b>
+<b class="nc"><i class="no-highlight">1107</i>&nbsp;                            if (fldMeta.getName().equals(name)) {</b>
+<b class="nc"><i class="no-highlight">1108</i>&nbsp;                                buf.append(&quot; compositeKeyField=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1109</i>&nbsp;                                buf.append(i + 1);</b>
+<b class="nc"><i class="no-highlight">1110</i>&nbsp;                                buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1111</i>&nbsp;                            }
+<i class="no-highlight">1112</i>&nbsp;                        }
+<i class="no-highlight">1113</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1114</i>&nbsp;                    buf.append(&quot;/&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1115</i>&nbsp;                }</b>
+<b class="nc"><i class="no-highlight">1116</i>&nbsp;                EntityMetadata entMeta = getEntityMetadata();</b>
+<b class="nc"><i class="no-highlight">1117</i>&nbsp;                if (entMeta != null) {</b>
+<b class="nc"><i class="no-highlight">1118</i>&nbsp;                    buf.append(INDENT);</b>
+<b class="nc"><i class="no-highlight">1119</i>&nbsp;                    buf.append(&quot;&lt;EntityKeys&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1120</i>&nbsp;                    priMeta = entMeta.getPrimaryKey();</b>
+<b class="nc"><i class="no-highlight">1121</i>&nbsp;                    if (priMeta != null) {</b>
+<b class="nc"><i class="no-highlight">1122</i>&nbsp;                        buf.append(INDENT2);</b>
+<b class="nc"><i class="no-highlight">1123</i>&nbsp;                        buf.append(&quot;&lt;Primary class=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1124</i>&nbsp;                        buf.append(priMeta.getDeclaringClassName());</b>
+<b class="nc"><i class="no-highlight">1125</i>&nbsp;                        buf.append(&quot;\&quot; field=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1126</i>&nbsp;                        buf.append(priMeta.getName());</b>
+<b class="nc"><i class="no-highlight">1127</i>&nbsp;                        buf.append(&quot;\&quot;/&gt;\n&quot;);</b>
+<i class="no-highlight">1128</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1129</i>&nbsp;                    secondaryKeys = entMeta.getSecondaryKeys();</b>
+<b class="nc"><i class="no-highlight">1130</i>&nbsp;                    if (secondaryKeys != null) {</b>
+<i class="no-highlight">1131</i>&nbsp;                        for (SecondaryKeyMetadata secMeta :
+<b class="nc"><i class="no-highlight">1132</i>&nbsp;                             secondaryKeys.values()) {</b>
+<b class="nc"><i class="no-highlight">1133</i>&nbsp;                            buf.append(INDENT2);</b>
+<b class="nc"><i class="no-highlight">1134</i>&nbsp;                            buf.append(&quot;&lt;Secondary class=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1135</i>&nbsp;                            buf.append(secMeta.getDeclaringClassName());</b>
+<b class="nc"><i class="no-highlight">1136</i>&nbsp;                            buf.append(&quot;\&quot; field=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1137</i>&nbsp;                            buf.append(secMeta.getName());</b>
+<b class="nc"><i class="no-highlight">1138</i>&nbsp;                            buf.append(&quot;\&quot;/&gt;\n&quot;);</b>
+<b class="nc"><i class="no-highlight">1139</i>&nbsp;                        }</b>
+<i class="no-highlight">1140</i>&nbsp;                    }
+<b class="nc"><i class="no-highlight">1141</i>&nbsp;                    buf.append(&quot;&lt;/EntityKeys&gt;\n&quot;);</b>
+<i class="no-highlight">1142</i>&nbsp;                }
+<i class="no-highlight">1143</i>&nbsp;            }
+<b class="nc"><i class="no-highlight">1144</i>&nbsp;            buf.append(&quot;&lt;/ComplexType&gt;\n&quot;);</b>
+<i class="no-highlight">1145</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1146</i>&nbsp;        return buf.toString();</b>
+<i class="no-highlight">1147</i>&nbsp;    }
+<i class="no-highlight">1148</i>&nbsp;
+<i class="no-highlight">1149</i>&nbsp;    private void addTypeHeader(StringBuilder buf, String elemName) {
+<b class="nc"><i class="no-highlight">1150</i>&nbsp;        buf.append(&#39;&lt;&#39;);</b>
+<b class="nc"><i class="no-highlight">1151</i>&nbsp;        buf.append(elemName);</b>
+<b class="nc"><i class="no-highlight">1152</i>&nbsp;        buf.append(&quot; id=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1153</i>&nbsp;        buf.append(getId());</b>
+<b class="nc"><i class="no-highlight">1154</i>&nbsp;        buf.append(&quot;\&quot; class=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1155</i>&nbsp;        buf.append(getClassName());</b>
+<b class="nc"><i class="no-highlight">1156</i>&nbsp;        buf.append(&quot;\&quot; version=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1157</i>&nbsp;        buf.append(getVersion());</b>
+<b class="nc"><i class="no-highlight">1158</i>&nbsp;        buf.append(&#39;&quot;&#39;);</b>
+<b class="nc"><i class="no-highlight">1159</i>&nbsp;        Format currVersion = getLatestVersion();</b>
+<b class="nc"><i class="no-highlight">1160</i>&nbsp;        if (currVersion != null) {</b>
+<b class="nc"><i class="no-highlight">1161</i>&nbsp;            buf.append(&quot; currentVersionId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1162</i>&nbsp;            buf.append(currVersion.getId());</b>
+<b class="nc"><i class="no-highlight">1163</i>&nbsp;            buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1164</i>&nbsp;        }
+<b class="nc"><i class="no-highlight">1165</i>&nbsp;        Format prevVersion = getPreviousVersion();</b>
+<b class="nc"><i class="no-highlight">1166</i>&nbsp;        if (prevVersion != null) {</b>
+<b class="nc"><i class="no-highlight">1167</i>&nbsp;            buf.append(&quot; previousVersionId=\&quot;&quot;);</b>
+<b class="nc"><i class="no-highlight">1168</i>&nbsp;            buf.append(prevVersion.getId());</b>
+<b class="nc"><i class="no-highlight">1169</i>&nbsp;            buf.append(&#39;&quot;&#39;);</b>
+<i class="no-highlight">1170</i>&nbsp;        }
+<i class="no-highlight">1171</i>&nbsp;    }
+<i class="no-highlight">1172</i>&nbsp;}
+</div>
+</pre>
+</div>
+
+<script type="text/javascript">
+(function() {
+    var msie = false, msie9 = false;
+    /*@cc_on
+      msie = true;
+      @if (@_jscript_version >= 9)
+        msie9 = true;
+      @end
+    @*/
+
+    if (!msie || msie && msie9) {
+        var codeBlock = document.getElementById('sourceCode');
+
+        if (codeBlock) {
+            hljs.highlightBlock(codeBlock);
+        }
+    }
+})();
+</script>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2021-04-19 13:44</div>
+</div>
+</body>
+</html>
