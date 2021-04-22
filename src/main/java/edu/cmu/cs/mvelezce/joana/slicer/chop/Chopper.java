@@ -181,8 +181,9 @@ public class Chopper {
       Lines lines = new Lines(chopData.getStartLineNumber(), chopData.getEndLineNumber());
       filesToLines.get(chopData.getFileName()).add(lines);
       switch (chopData.getFileName()) {
-        case "com/sleepycat/je/Cursor.java":
-          filesToLines.get(chopData.getFileName()).add(new Lines(1845, 1845));
+        case "com/sleepycat/je/Database.java":
+          filesToLines.get(chopData.getFileName()).add(new Lines(1335, 1335));
+          break;
         case "at/favre/tools/dconvert/converters/APlatformConverter.java":
           filesToLines.get(chopData.getFileName()).add(new Lines(66, 66));
           filesToLines.get(chopData.getFileName()).add(new Lines(67, 67));
