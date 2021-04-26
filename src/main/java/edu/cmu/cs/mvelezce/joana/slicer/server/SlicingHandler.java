@@ -169,9 +169,12 @@ public class SlicingHandler implements HttpHandler {
   }
 
   private String rename(String methodName) {
-    return methodName.replaceAll(
-        "com.mortennobel.imagescaling.DimensionConstrain.1",
-        "com.mortennobel.imagescaling.DimensionConstrain");
+    methodName =
+        methodName.replaceAll(
+            "com.mortennobel.imagescaling.DimensionConstrain.1",
+            "com.mortennobel.imagescaling.DimensionConstrain");
+    methodName = methodName.replaceAll("Database.putNoDupData", "Database.putNoDupData");
+    return methodName;
   }
 
   private Set<Integer> getSourceSDGNodeIds(
