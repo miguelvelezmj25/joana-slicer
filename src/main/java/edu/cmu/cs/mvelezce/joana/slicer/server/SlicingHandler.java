@@ -173,7 +173,7 @@ public class SlicingHandler implements HttpHandler {
         methodName.replaceAll(
             "com.mortennobel.imagescaling.DimensionConstrain.1",
             "com.mortennobel.imagescaling.DimensionConstrain");
-    methodName = methodName.replaceAll("Database.putNoDupData", "Database.putNoDupData");
+    methodName = methodName.replaceAll("Database.putNoDupData", "Database.putDupData");
     return methodName;
   }
 
