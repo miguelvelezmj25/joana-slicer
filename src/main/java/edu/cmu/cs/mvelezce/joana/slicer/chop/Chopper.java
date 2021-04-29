@@ -178,7 +178,28 @@ public class Chopper {
       filesToLines.put(chopData.getFileName(), new TreeSet<>(LINES_COMPARATOR));
     }
     for (ChopData chopData : chopDataSet) {
-      Lines lines = new Lines(chopData.getStartLineNumber(), chopData.getEndLineNumber());
+      Lines lines;
+      if ((chopData.getFileName()).equals("com/sleepycat/analysis/MeasureDiskOrderedScan.java")) {
+        if (chopData.getStartLineNumber() == 0) {
+          continue;
+        }
+
+        if (chopData.getStartLineNumber() == 71) {
+          lines = new Lines(85, 85);
+        } else if (chopData.getStartLineNumber() == 83) {
+          lines = new Lines(108, 108);
+        } else if (chopData.getStartLineNumber() == 89) {
+          lines = new Lines(115, 115);
+        } else if (chopData.getStartLineNumber() == 180) {
+          lines = new Lines(206, 206);
+        } else if (chopData.getStartLineNumber() == 187) {
+          lines = new Lines(213, 213);
+        } else {
+          lines = new Lines(chopData.getStartLineNumber() + 33, chopData.getEndLineNumber() + 33);
+        }
+      } else {
+        lines = new Lines(chopData.getStartLineNumber(), chopData.getEndLineNumber());
+      }
       filesToLines.get(chopData.getFileName()).add(lines);
       switch (chopData.getFileName()) {
         case "com/sleepycat/je/Database.java":

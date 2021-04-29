@@ -79,7 +79,13 @@ public class SlicingHandler implements HttpHandler {
     String sourceClass = json.getString("sourceClass");
     Set<Integer> sourceLines = new HashSet<>();
     for (Object line : json.getJSONArray("sourceLines").toList()) {
-      sourceLines.add((int) line);
+      if ((int) line == 85) {
+        sourceLines.add(71);
+      } else if ((int) line == 108) {
+        sourceLines.add(83);
+      } else {
+        sourceLines.add((int) line);
+      }
     }
     String targetClass = json.getString("targetClass");
     int targetLine = json.getInt("targetLines");
